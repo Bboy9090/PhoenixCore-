@@ -6,11 +6,24 @@ Command-line interface for BootForge operations
 import click
 import logging
 import sys
+import time
 from pathlib import Path
 from typing import List, Optional
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Import colorama for cross-platform colored output
+try:
+    from colorama import init, Fore, Back, Style
+    init()  # Initialize colorama
+    HAS_COLOR = True
+except ImportError:
+    # Fallback when colorama not available
+    class MockColor:
+        def __getattr__(self, name):
+            return ""
+    Fore = Back = Style = MockColor()
+    HAS_COLOR = False
+
+# Path already set by main.py entrypoint
 
 from src.core.config import Config
 from src.core.logger import setup_logging
@@ -35,9 +48,14 @@ def cli(ctx, verbose, config):
     ctx.obj['disk_manager'] = DiskManager()
     ctx.obj['plugin_manager'] = PluginManager(ctx.obj['config'])
     
-    click.echo("BootForge CLI v1.0.0")
+    # Professional banner
+    click.echo(f"{Fore.CYAN}┌─────────────────────────────────────────┐{Style.RESET_ALL}")
+    click.echo(f"{Fore.CYAN}│{Style.RESET_ALL} {Fore.BLUE}{Style.BRIGHT}BootForge CLI v1.0.0{Style.RESET_ALL}                 {Fore.CYAN}│{Style.RESET_ALL}")
+    click.echo(f"{Fore.CYAN}│{Style.RESET_ALL} Professional OS Deployment Tool      {Fore.CYAN}│{Style.RESET_ALL}")
+    click.echo(f"{Fore.CYAN}└─────────────────────────────────────────┘{Style.RESET_ALL}")
+    
     if verbose:
-        click.echo("Verbose mode enabled")
+        click.echo(f"{Fore.YELLOW}🔍 Verbose mode enabled{Style.RESET_ALL}")
 
 
 @cli.command()
@@ -46,24 +64,37 @@ def list_devices(ctx):
     """List available USB devices"""
     disk_manager = ctx.obj['disk_manager']
     
-    click.echo("Scanning for USB devices...")
+    click.echo(f"{Fore.BLUE}🔍 Scanning for USB devices...{Style.RESET_ALL}")
+    
+    # Add a small animation for better UX
+    for i in range(3):
+        click.echo(f"   {'.' * (i + 1)}", nl=False)
+        time.sleep(0.3)
+        click.echo("\r   ", nl=False)
+    click.echo("\r")
+    
     devices = disk_manager.get_removable_drives()
     
     if not devices:
-        click.echo("No USB devices found.")
+        click.echo(f"{Fore.YELLOW}⚠️  No USB devices found.{Style.RESET_ALL}")
+        click.echo(f"{Fore.CYAN}💡 Make sure USB devices are connected and properly mounted.{Style.RESET_ALL}")
         return
     
-    click.echo(f"Found {len(devices)} USB device(s):")
-    click.echo()
+    click.echo(f"{Fore.GREEN}✅ Found {len(devices)} USB device(s):{Style.RESET_ALL}")
+    click.echo(f"{Fore.CYAN}{'─' * 60}{Style.RESET_ALL}")
     
     for i, device in enumerate(devices, 1):
         size_gb = device.size_bytes / (1024**3)
-        click.echo(f"{i}. {device.name}")
-        click.echo(f"   Path: {device.path}")
-        click.echo(f"   Size: {size_gb:.1f} GB")
-        click.echo(f"   Filesystem: {device.filesystem}")
-        click.echo(f"   Vendor: {device.vendor} {device.model}")
-        click.echo(f"   Health: {device.health_status}")
+        
+        # Color-code health status
+        health_color = Fore.GREEN if device.health_status == "Good" else Fore.YELLOW
+        
+        click.echo(f"{Style.BRIGHT}{i}. {device.name}{Style.RESET_ALL}")
+        click.echo(f"   📁 Path: {Fore.WHITE}{device.path}{Style.RESET_ALL}")
+        click.echo(f"   💾 Size: {Fore.WHITE}{size_gb:.1f} GB{Style.RESET_ALL}")
+        click.echo(f"   🗂️  Filesystem: {Fore.WHITE}{device.filesystem}{Style.RESET_ALL}")
+        click.echo(f"   🏭 Vendor: {Fore.WHITE}{device.vendor} {device.model}{Style.RESET_ALL}")
+        click.echo(f"   ❤️  Health: {health_color}{device.health_status}{Style.RESET_ALL}")
         click.echo()
 
 
@@ -72,8 +103,9 @@ def list_devices(ctx):
 @click.option('--device', '-d', required=True, help='Target device path')
 @click.option('--verify/--no-verify', default=True, help='Verify written data')
 @click.option('--force', is_flag=True, help='Force operation without confirmation')
+@click.option('--dry-run', is_flag=True, help='Show what would be done without actually doing it')
 @click.pass_context
-def write_image(ctx, image, device, verify, force):
+def write_image(ctx, image, device, verify, force, dry_run):
     """Write OS image to USB device"""
     disk_manager = ctx.obj['disk_manager']
     
@@ -101,26 +133,58 @@ def write_image(ctx, image, device, verify, force):
         click.echo(f"Error: {device} is not a removable USB device", err=True)
         sys.exit(1)
     
-    # Show operation details
+    # Show detailed operation summary
     size_mb = image_path.stat().st_size / (1024 * 1024)
     device_size_gb = target_device.size_bytes / (1024**3)
     
-    click.echo("Operation Details:")
-    click.echo(f"  Image: {image_path.name} ({size_mb:.1f} MB)")
-    click.echo(f"  Target: {target_device.name} ({device_size_gb:.1f} GB)")
-    click.echo(f"  Device: {device}")
-    click.echo(f"  Verify: {'Yes' if verify else 'No'}")
+    click.echo(f"{Fore.CYAN}{'═' * 60}{Style.RESET_ALL}")
+    click.echo(f"{Fore.YELLOW}{Style.BRIGHT}📋 OPERATION SUMMARY{Style.RESET_ALL}")
+    click.echo(f"{Fore.CYAN}{'═' * 60}{Style.RESET_ALL}")
+    click.echo(f"  📁 Image File: {Fore.WHITE}{image_path.name}{Style.RESET_ALL} ({size_mb:.1f} MB)")
+    click.echo(f"  🗂️  Full Path: {Fore.WHITE}{image_path}{Style.RESET_ALL}")
+    click.echo(f"  🎯 Target Device: {Fore.WHITE}{target_device.name}{Style.RESET_ALL} ({device_size_gb:.1f} GB)")
+    click.echo(f"  🏭 Device Model: {Fore.WHITE}{target_device.vendor} {target_device.model}{Style.RESET_ALL}")
+    click.echo(f"  📍 Device Path: {Fore.WHITE}{device}{Style.RESET_ALL}")
+    click.echo(f"  ✅ Verification: {Fore.WHITE}{'Enabled' if verify else 'Disabled'}{Style.RESET_ALL}")
+    if dry_run:
+        click.echo(f"  🔍 Mode: {Fore.BLUE}DRY RUN (no actual changes){Style.RESET_ALL}")
+    click.echo(f"{Fore.CYAN}{'═' * 60}{Style.RESET_ALL}")
     click.echo()
     
-    # Warning
-    click.echo("⚠️  WARNING: This will PERMANENTLY ERASE all data on the target device!")
-    click.echo()
-    
-    # Confirmation
+    # Multi-step safety confirmation
     if not force:
-        if not click.confirm("Are you sure you want to continue?"):
-            click.echo("Operation cancelled.")
+        # First warning
+        click.echo(f"{Fore.RED}{Style.BRIGHT}⚠️  CRITICAL WARNING ⚠️{Style.RESET_ALL}")
+        click.echo(f"{Fore.RED}This operation will PERMANENTLY and IRREVERSIBLY ERASE ALL DATA{Style.RESET_ALL}")
+        click.echo(f"{Fore.RED}on the target device: {target_device.name} ({device}){Style.RESET_ALL}")
+        click.echo()
+        
+        # First confirmation
+        if not click.confirm(f"{Fore.YELLOW}Do you understand that all data will be lost?{Style.RESET_ALL}"):
+            click.echo(f"{Fore.GREEN}✅ Operation cancelled for safety.{Style.RESET_ALL}")
             sys.exit(0)
+        
+        click.echo()
+        # Second confirmation - require typing device path
+        click.echo(f"{Fore.RED}{Style.BRIGHT}🔒 FINAL SAFETY CHECK{Style.RESET_ALL}")
+        click.echo(f"To proceed, type the {Style.BRIGHT}exact device path{Style.RESET_ALL}: {Fore.WHITE}{device}{Style.RESET_ALL}")
+        
+        confirmation_input = click.prompt(f"{Fore.YELLOW}Enter device path to confirm{Style.RESET_ALL}", type=str)
+        
+        if confirmation_input != device:
+            click.echo(f"{Fore.RED}❌ Device path mismatch. Operation cancelled for safety.{Style.RESET_ALL}")
+            click.echo(f"   Expected: {device}")
+            click.echo(f"   Entered: {confirmation_input}")
+            sys.exit(0)
+        
+        click.echo(f"{Fore.GREEN}✅ Device path confirmed.{Style.RESET_ALL}")
+        click.echo()
+    
+    if dry_run:
+        click.echo(f"{Fore.BLUE}🔍 DRY RUN: Would write {image_path.name} to {device}{Style.RESET_ALL}")
+        click.echo(f"{Fore.BLUE}🔍 DRY RUN: Would verify data: {'Yes' if verify else 'No'}{Style.RESET_ALL}")
+        click.echo(f"{Fore.GREEN}✅ Dry run completed. No actual changes made.{Style.RESET_ALL}")
+        sys.exit(0)
     
     # Start write operation
     click.echo("Starting write operation...")
@@ -272,8 +336,9 @@ def list_plugins(ctx):
               type=click.Choice(['fat32', 'ntfs', 'ext4']),
               help='Filesystem type')
 @click.option('--force', is_flag=True, help='Force operation without confirmation')
+@click.option('--dry-run', is_flag=True, help='Show what would be done without actually doing it')
 @click.pass_context
-def format_device(ctx, device, filesystem, force):
+def format_device(ctx, device, filesystem, force, dry_run):
     """Format USB device"""
     disk_manager = ctx.obj['disk_manager']
     
@@ -301,31 +366,78 @@ def format_device(ctx, device, filesystem, force):
         click.echo(f"Error: Device not found: {device}", err=True)
         sys.exit(1)
     
-    # Warning
-    click.echo(f"⚠️  WARNING: This will ERASE all data on {device}!")
-    click.echo(f"Filesystem: {filesystem.upper()}")
+    # Get device info for summary
+    devices = disk_manager.get_removable_drives()
+    target_device = None
+    for dev in devices:
+        if dev.path == device:
+            target_device = dev
+            break
+    
+    device_size_gb = target_device.size_bytes / (1024**3) if target_device else 0
+    
+    # Show detailed operation summary
+    click.echo(f"{Fore.CYAN}{'═' * 60}{Style.RESET_ALL}")
+    click.echo(f"{Fore.YELLOW}{Style.BRIGHT}📋 FORMAT OPERATION SUMMARY{Style.RESET_ALL}")
+    click.echo(f"{Fore.CYAN}{'═' * 60}{Style.RESET_ALL}")
+    click.echo(f"  🎯 Target Device: {Fore.WHITE}{target_device.name if target_device else 'Unknown'}{Style.RESET_ALL} ({device_size_gb:.1f} GB)")
+    if target_device:
+        click.echo(f"  🏭 Device Model: {Fore.WHITE}{target_device.vendor} {target_device.model}{Style.RESET_ALL}")
+    click.echo(f"  📍 Device Path: {Fore.WHITE}{device}{Style.RESET_ALL}")
+    click.echo(f"  💾 New Filesystem: {Fore.WHITE}{filesystem.upper()}{Style.RESET_ALL}")
+    if dry_run:
+        click.echo(f"  🔍 Mode: {Fore.BLUE}DRY RUN (no actual changes){Style.RESET_ALL}")
+    click.echo(f"{Fore.CYAN}{'═' * 60}{Style.RESET_ALL}")
     click.echo()
     
-    # Confirmation
+    # Multi-step safety confirmation
     if not force:
-        if not click.confirm("Are you sure you want to continue?"):
-            click.echo("Operation cancelled.")
+        # First warning
+        click.echo(f"{Fore.RED}{Style.BRIGHT}⚠️  CRITICAL WARNING ⚠️{Style.RESET_ALL}")
+        click.echo(f"{Fore.RED}This operation will PERMANENTLY and IRREVERSIBLY ERASE ALL DATA{Style.RESET_ALL}")
+        click.echo(f"{Fore.RED}on device: {device}{Style.RESET_ALL}")
+        click.echo()
+        
+        # First confirmation
+        if not click.confirm(f"{Fore.YELLOW}Do you understand that all data will be lost?{Style.RESET_ALL}"):
+            click.echo(f"{Fore.GREEN}✅ Operation cancelled for safety.{Style.RESET_ALL}")
             sys.exit(0)
+        
+        click.echo()
+        # Second confirmation - require typing "ERASE"
+        click.echo(f"{Fore.RED}{Style.BRIGHT}🔒 FINAL SAFETY CHECK{Style.RESET_ALL}")
+        click.echo(f"To proceed with formatting, type: {Style.BRIGHT}ERASE{Style.RESET_ALL}")
+        
+        confirmation_input = click.prompt(f"{Fore.YELLOW}Type ERASE to confirm{Style.RESET_ALL}", type=str)
+        
+        if confirmation_input != "ERASE":
+            click.echo(f"{Fore.RED}❌ Confirmation failed. Operation cancelled for safety.{Style.RESET_ALL}")
+            click.echo(f"   Expected: ERASE")
+            click.echo(f"   Entered: {confirmation_input}")
+            sys.exit(0)
+        
+        click.echo(f"{Fore.GREEN}✅ Format confirmation received.{Style.RESET_ALL}")
+        click.echo()
+    
+    if dry_run:
+        click.echo(f"{Fore.BLUE}🔍 DRY RUN: Would format {device} as {filesystem.upper()}{Style.RESET_ALL}")
+        click.echo(f"{Fore.GREEN}✅ Dry run completed. No actual changes made.{Style.RESET_ALL}")
+        sys.exit(0)
     
     # Format device
-    click.echo(f"Formatting {device} as {filesystem.upper()}...")
+    click.echo(f"{Fore.BLUE}🔄 Formatting {device} as {filesystem.upper()}...{Style.RESET_ALL}")
     
     try:
         success = disk_manager.format_device(device, filesystem)
         
         if success:
-            click.echo("✅ Format completed successfully!")
+            click.echo(f"{Fore.GREEN}✅ Format completed successfully!{Style.RESET_ALL}")
         else:
-            click.echo("❌ Format failed!", err=True)
+            click.echo(f"{Fore.RED}❌ Format failed!{Style.RESET_ALL}", err=True)
             sys.exit(1)
             
     except Exception as e:
-        click.echo(f"❌ Format failed: {e}", err=True)
+        click.echo(f"{Fore.RED}❌ Format failed: {e}{Style.RESET_ALL}", err=True)
         sys.exit(1)
 
 
