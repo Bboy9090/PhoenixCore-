@@ -13,4 +13,9 @@ dependencies = [
     "pyqt6>=6.9.1",
     "pyyaml>=6.0.2",
     "requests>=2.32.5",
+    # Distributed architecture dependencies
+    "grpcio>=1.66.0",
+    "grpcio-tools>=1.66.0",
+    "protobuf>=5.28.0",
+    "zeroconf>=0.132.0",
 ]
