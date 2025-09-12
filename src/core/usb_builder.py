@@ -339,12 +339,14 @@ class USBBuilder(QThread):
                 self.operation_completed.emit(False, error_msg)
                 return False
             
+            # CRITICAL: Block DANGEROUS devices immediately - no exceptions!
             if device_risk.overall_risk == ValidationResult.DANGEROUS:
                 error_msg = (
-                    f"⚠️ DANGEROUS DEVICE DETECTED ⚠️\n"
+                    f"🚫 DANGEROUS DEVICE - OPERATION BLOCKED 🚫\n"
                     f"Device: {self.target_device} ({device_risk.size_gb:.1f}GB)\n"
                     f"Risk Factors: {', '.join(device_risk.risk_factors)}\n"
-                    f"This operation could destroy important data."
+                    f"This device poses too high a risk for automated operations.\n"
+                    f"Use extreme caution and manual verification if you must proceed."
                 )
                 self._log_message("ERROR", error_msg)
                 self.operation_completed.emit(False, error_msg)
@@ -472,6 +474,16 @@ class USBBuilder(QThread):
                 self._log_message("ERROR", f"Failed to create partition table: {result.stderr}")
                 return False
             
+            # Add rollback operation for partition table creation
+            self._partition_table_created = True
+            self._add_rollback_operation(
+                lambda: subprocess.run(
+                    ['sudo', 'wipefs', '-a', self.target_device], 
+                    capture_output=True, check=False
+                )
+            )
+            self._log_message("INFO", "Added rollback operation for partition table")
+            
             # Create partitions
             current_start = 1  # Start at 1MB
             
@@ -588,6 +600,15 @@ class USBBuilder(QThread):
                 if result.returncode != 0:
                     self._log_message("ERROR", f"Format failed: {result.stderr}")
                     return False
+                
+                # Add rollback operation for this formatted partition
+                self._add_rollback_operation(
+                    lambda dev=device: subprocess.run(
+                        ['sudo', 'wipefs', '-a', dev], 
+                        capture_output=True, check=False
+                    )
+                )
+                self._log_message("DEBUG", f"Added rollback operation for formatted partition {device}")
             
             elif system == "Darwin":  # macOS
                 # Use diskutil for macOS formatting
@@ -634,6 +655,10 @@ class USBBuilder(QThread):
                     partition_device = f"{self.target_device}p{i}"
                 
                 # Create mount point
+                if not self.temp_dir:
+                    self.temp_dir = Path(tempfile.mkdtemp(prefix="bootforge_build_"))
+                    self._add_rollback_operation(lambda: shutil.rmtree(str(self.temp_dir), ignore_errors=True))
+                
                 mount_point = self.temp_dir / f"partition_{i}"
                 mount_point.mkdir(exist_ok=True)
                 

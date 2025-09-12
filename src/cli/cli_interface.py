@@ -161,6 +161,14 @@ def write_image(ctx, image, device, verify, force, dry_run):
     image_path = Path(image)
     size_mb = image_path.stat().st_size / (1024 * 1024)
     
+    # Get device info for detailed display
+    devices = disk_manager.get_removable_drives()
+    target_device = None
+    for dev in devices:
+        if dev.path == device:
+            target_device = dev
+            break
+    
     # Show detailed operation summary  
     device_size_gb = device_risk.size_gb
     
@@ -169,7 +177,7 @@ def write_image(ctx, image, device, verify, force, dry_run):
     click.echo(f"{Fore.CYAN}{'═' * 60}{Style.RESET_ALL}")
     click.echo(f"  📁 Image File: {Fore.WHITE}{image_path.name}{Style.RESET_ALL} ({size_mb:.1f} MB)")
     click.echo(f"  🗂️  Full Path: {Fore.WHITE}{image_path}{Style.RESET_ALL}")
-    click.echo(f"  🎯 Target Device: {Fore.WHITE}{device}{Style.RESET_ALL} ({device_size_gb:.1f} GB)")
+    click.echo(f"  🎯 Target Device: {Fore.WHITE}{target_device.name if target_device else 'Unknown'}{Style.RESET_ALL} ({device_size_gb:.1f} GB)")
     click.echo(f"  🛡️ Device Safety: {Fore.WHITE}{device_risk.overall_risk.value.upper()}{Style.RESET_ALL}")
     click.echo(f"  📱 Removable: {Fore.WHITE}{'Yes' if device_risk.is_removable else 'No'}{Style.RESET_ALL}")
     click.echo(f"  📍 Device Path: {Fore.WHITE}{device}{Style.RESET_ALL}")
@@ -184,7 +192,7 @@ def write_image(ctx, image, device, verify, force, dry_run):
         # First warning
         click.echo(f"{Fore.RED}{Style.BRIGHT}⚠️  CRITICAL WARNING ⚠️{Style.RESET_ALL}")
         click.echo(f"{Fore.RED}This operation will PERMANENTLY and IRREVERSIBLY ERASE ALL DATA{Style.RESET_ALL}")
-        click.echo(f"{Fore.RED}on the target device: {target_device.name} ({device}){Style.RESET_ALL}")
+        click.echo(f"{Fore.RED}on the target device: {target_device.name if target_device else 'Unknown'} ({device}){Style.RESET_ALL}")
         click.echo()
         
         # First confirmation

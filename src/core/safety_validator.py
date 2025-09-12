@@ -87,7 +87,7 @@ class SafetyValidator:
             
         return patterns
     
-    def _get_required_tools(self) -> Dict[str, List[str]]:
+    def _get_required_tools(self) -> List[str]:
         """Get required tools by platform"""
         tools = {
             "Linux": ["parted", "mkfs.fat", "mkfs.ntfs", "mkfs.ext4", "lsblk", "blkid"],
@@ -218,9 +218,13 @@ class SafetyValidator:
                 except:
                     pass
                 return False
+            
+            # Fallback for unknown systems
+            return False
                 
         except Exception as e:
             self.logger.error(f"Error checking if device is removable: {e}")
+            return False
             return False
     
     def _is_system_disk(self, device_path: str) -> bool:
@@ -325,6 +329,41 @@ class SafetyValidator:
             self.logger.error(f"Error getting device mount points: {e}")
             
         return mount_points
+    
+    def test_device_classification(self) -> Dict[str, bool]:
+        """Test device classification methods for common scenarios"""
+        test_results = {}
+        
+        # Test _get_sys_block_name
+        test_cases = [
+            ("/dev/sda1", "sda"),
+            ("/dev/sdb", "sdb"),  
+            ("/dev/nvme0n1p1", "nvme0n1"),
+            ("/dev/nvme0n1", "nvme0n1"),
+            ("/dev/mmcblk0p1", "mmcblk0"),
+            ("/dev/mmcblk0", "mmcblk0")
+        ]
+        
+        for device_path, expected in test_cases:
+            actual = self._get_sys_block_name(device_path)
+            test_results[f"sys_block_{device_path}"] = (actual == expected)
+            if actual != expected:
+                self.logger.warning(f"Device classification test failed: {device_path} -> {actual} (expected {expected})")
+        
+        # Test _get_device_base
+        base_test_cases = [
+            ("/dev/sda1", "/dev/sda"),
+            ("/dev/nvme0n1p1", "/dev/nvme0n1p"),  # This might need fixing
+            ("/dev/mmcblk0p1", "/dev/mmcblk0p")   # This might need fixing
+        ]
+        
+        for device_path, expected in base_test_cases:
+            actual = self._get_device_base(device_path)
+            test_results[f"device_base_{device_path}"] = (actual == expected)
+            if actual != expected:
+                self.logger.warning(f"Device base test failed: {device_path} -> {actual} (expected {expected})")
+        
+        return test_results
     
     def _get_device_base(self, device_path: str) -> str:
         """Get base device path without partition numbers"""

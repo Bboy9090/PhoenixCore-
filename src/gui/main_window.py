@@ -135,9 +135,11 @@ class BootForgeMainWindow(QMainWindow):
     def _create_menu_bar(self):
         """Create application menu bar"""
         menubar = self.menuBar()
+        assert menubar is not None  # menuBar() should never return None for QMainWindow
         
         # File menu
         file_menu = menubar.addMenu("&File")
+        assert file_menu is not None
         
         new_action = QAction("&New Project", self)
         new_action.setShortcut("Ctrl+N")
@@ -153,6 +155,7 @@ class BootForgeMainWindow(QMainWindow):
         
         # Tools menu
         tools_menu = menubar.addMenu("&Tools")
+        assert tools_menu is not None
         
         refresh_devices = QAction("&Refresh Devices", self)
         refresh_devices.setShortcut("F5")
@@ -171,6 +174,7 @@ class BootForgeMainWindow(QMainWindow):
         
         # Help menu
         help_menu = menubar.addMenu("&Help")
+        assert help_menu is not None
         
         about = QAction("&About BootForge", self)
         about.triggered.connect(self._show_about)
@@ -221,6 +225,7 @@ class BootForgeMainWindow(QMainWindow):
     def _create_status_bar(self):
         """Create application status bar"""
         status_bar = self.statusBar()
+        assert status_bar is not None  # statusBar() should never return None for QMainWindow
         
         # Main status label
         self.status_label = QLabel("Ready")
@@ -493,8 +498,10 @@ class BootForgeMainWindow(QMainWindow):
         self.logger.info("Documentation requested")
         # This would open documentation
     
-    def closeEvent(self, event):
+    def closeEvent(self, a0):
         """Handle application close"""
+        event = a0  # Rename parameter to match parent class signature
+        assert event is not None  # closeEvent should never receive None
         self.logger.info("Application closing")
         
         # Stop system monitoring

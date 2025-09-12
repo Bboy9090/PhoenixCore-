@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QProgressBar, QTextEdit, QFileDialog,
     QMessageBox, QTabWidget, QTreeWidget, QTreeWidgetItem,
     QLineEdit, QCheckBox, QSplitter, QFrame, QScrollArea,
-    QTableWidget, QTableWidgetItem, QHeaderView
+    QTableWidget, QTableWidgetItem, QHeaderView, QInputDialog
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 from PyQt6.QtGui import QFont, QPixmap, QIcon, QColor, QPalette
@@ -63,7 +63,9 @@ class RecipeSelectionWidget(QWidget):
         self.partition_table = QTableWidget()
         self.partition_table.setColumnCount(4)
         self.partition_table.setHorizontalHeaderLabels(["Name", "Size (MB)", "Filesystem", "Bootable"])
-        self.partition_table.horizontalHeader().setStretchLastSection(True)
+        header = self.partition_table.horizontalHeader()
+        if header:
+            header.setStretchLastSection(True)
         self.partition_table.setMaximumHeight(150)
         details_layout.addWidget(self.partition_table)
         
@@ -272,11 +274,12 @@ class FileSelectionWidget(QWidget):
         self.file_table.setHorizontalHeaderLabels(["File", "Required", "Path", "Browse"])
         
         header = self.file_table.horizontalHeader()
-        header.setStretchLastSection(False)
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        if header:
+            header.setStretchLastSection(False)
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         
         layout.addWidget(self.file_table)
         
@@ -791,14 +794,18 @@ class USBRecipeManagerWidget(QWidget):
     def _start_build(self):
         """Start USB build process with comprehensive safety validation"""
         try:
-            # Validate selections
-            if not all([self.selected_recipe, self.selected_device, self.selected_profile]):
+            # Validate selections with proper type checking
+            if not self.selected_recipe or not self.selected_device or not self.selected_profile:
                 QMessageBox.warning(self, "Missing Selection", "Please complete all selections before building.")
                 return
             
             self.progress_widget.add_log_message("INFO", "Starting comprehensive safety validation...")
             
             # CRITICAL: Comprehensive Device Safety Validation (matching CLI)
+            # Type-safe device validation
+            if self.selected_device is None:
+                QMessageBox.warning(self, "Device Selection Required", "Please select a device before building.")
+                return
             device_risk = self.safety_validator.validate_device_safety(self.selected_device)
             
             if device_risk.overall_risk == ValidationResult.BLOCKED:
@@ -852,16 +859,17 @@ class USBRecipeManagerWidget(QWidget):
                     f"Device: {self.selected_device} ({device_risk.size_gb:.1f}GB)\n\n"
                     f"Risk Factors:\n" + "\n".join([f"• {factor}" for factor in device_risk.risk_factors]) + 
                     f"\n\nThis operation will PERMANENTLY ERASE all data.\n\n"
-                    f"To confirm, type the device name: {os.path.basename(self.selected_device)}"
+                    f"To confirm, type the device name: {os.path.basename(self.selected_device) if self.selected_device else 'unknown'}"
                 )
                 
                 text, ok = QInputDialog.getText(self, "⚠️ Confirm Risky Operation", warning_msg)
-                if not ok or text != os.path.basename(self.selected_device):
+                device_name = os.path.basename(self.selected_device) if self.selected_device else 'unknown'
+                if not ok or text != device_name:
                     self.progress_widget.add_log_message("INFO", "Operation cancelled - failed device name confirmation")
                     return
             
             # Final comprehensive confirmation dialog
-            device_basename = os.path.basename(self.selected_device)
+            device_basename = os.path.basename(self.selected_device) if self.selected_device else 'unknown'
             final_confirmation = (
                 f"🚨 FINAL WARNING - POINT OF NO RETURN 🚨\n\n"
                 f"This will PERMANENTLY ERASE ALL DATA on:\n"
@@ -873,7 +881,6 @@ class USBRecipeManagerWidget(QWidget):
                 f"To proceed, type EXACTLY: {device_basename}"
             )
             
-            from PyQt6.QtWidgets import QInputDialog
             text, ok = QInputDialog.getText(self, "🚨 Final Confirmation Required", final_confirmation)
             if not ok or text != device_basename:
                 self.progress_widget.add_log_message("INFO", "Operation cancelled - failed final confirmation")
@@ -881,7 +888,12 @@ class USBRecipeManagerWidget(QWidget):
             
             self.progress_widget.add_log_message("INFO", f"User confirmed operation on {self.selected_device}")
             
-            # Setup progress monitoring
+            # Setup progress monitoring with type-safe parameters
+            # At this point we've already validated these are not None
+            assert self.selected_recipe is not None
+            assert self.selected_device is not None
+            assert self.selected_profile is not None
+            
             builder = self.usb_builder.create_deployment_usb(
                 self.selected_recipe,
                 self.selected_device,
