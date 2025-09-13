@@ -52,7 +52,3 @@ run = ["python3", "main.py"]
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 45769
-externalPort = 3001
