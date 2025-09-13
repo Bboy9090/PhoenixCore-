@@ -20,6 +20,8 @@ from PyQt6.QtCore import Qt, pyqtSignal, QThread, QDateTime
 from PyQt6.QtGui import QFont, QPixmap, QPalette
 
 from src.core.disk_manager import DiskManager, DiskInfo, WriteProgress
+from src.gui.stepper_header import StepperHeader, create_stepper_header
+from src.gui.stepper_wizard import WizardController, WizardStep
 
 
 class WizardPage(QWidget):
@@ -569,16 +571,34 @@ class BootForgeWizard(QWidget):
         self.pages: List[WizardPage] = []
         self.stacked_widget: Optional[QStackedWidget] = None
         
+        # Stepper header integration
+        self.wizard_controller: Optional[WizardController] = None
+        self.stepper_header: Optional[StepperHeader] = None
+        
         # Operation thread
         self.operation_thread = None
         
         self._setup_ui()
         self._setup_pages()
+        self._setup_stepper_integration()
     
     def _setup_ui(self):
-        """Setup wizard UI"""
+        """Setup wizard UI with beautiful stepper header"""
         layout = QVBoxLayout(self)
-        layout.setSpacing(10)
+        layout.setSpacing(15)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Create stepper header
+        self.stepper_header = create_stepper_header()
+        self.stepper_header.step_clicked.connect(self._on_stepper_navigation)
+        layout.addWidget(self.stepper_header)
+        
+        # Add separator line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setStyleSheet("QFrame { color: #555555; }")
+        layout.addWidget(separator)
         
         # Pages stack
         self.stacked_widget = QStackedWidget()
@@ -590,14 +610,51 @@ class BootForgeWizard(QWidget):
         
         self.back_button = QPushButton("< Back")
         self.back_button.clicked.connect(self._go_back)
+        self.back_button.setStyleSheet("""
+            QPushButton {
+                padding: 8px 16px;
+                border: 1px solid #666666;
+                border-radius: 4px;
+                background-color: #4a4a4a;
+                color: #ffffff;
+            }
+            QPushButton:hover {
+                background-color: #555555;
+            }
+        """)
         nav_layout.addWidget(self.back_button)
         
         self.next_button = QPushButton("Next >")
         self.next_button.clicked.connect(self._go_next)
+        self.next_button.setStyleSheet("""
+            QPushButton {
+                padding: 8px 16px;
+                border: 1px solid #0078d4;
+                border-radius: 4px;
+                background-color: #0078d4;
+                color: #ffffff;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #106ebe;
+            }
+        """)
         nav_layout.addWidget(self.next_button)
         
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.clicked.connect(self._cancel_operation)
+        self.cancel_button.setStyleSheet("""
+            QPushButton {
+                padding: 8px 16px;
+                border: 1px solid #666666;
+                border-radius: 4px;
+                background-color: #4a4a4a;
+                color: #ffffff;
+            }
+            QPushButton:hover {
+                background-color: #555555;
+            }
+        """)
         nav_layout.addWidget(self.cancel_button)
         
         layout.addLayout(nav_layout)
@@ -651,6 +708,11 @@ class BootForgeWizard(QWidget):
             self.current_page_index -= 1
             if self.stacked_widget is not None:
                 self.stacked_widget.setCurrentIndex(self.current_page_index)
+            
+            # Update stepper header
+            if self.stepper_header:
+                self.stepper_header.set_current_step(self.current_page_index)
+            
             self._update_navigation()
     
     def _go_next(self):
@@ -676,9 +738,18 @@ class BootForgeWizard(QWidget):
         
         # Move to next page
         if self.current_page_index < len(self.pages) - 1:
+            # Mark current step as complete before moving
+            if self.stepper_header and self.current_page_index < len(self.pages) - 1:
+                self.stepper_header.mark_step_complete(self.current_page_index)
+            
             self.current_page_index += 1
             if self.stacked_widget is not None:
                 self.stacked_widget.setCurrentIndex(self.current_page_index)
+            
+            # Update stepper header
+            if self.stepper_header:
+                self.stepper_header.set_current_step(self.current_page_index)
+            
             self._update_navigation()
     
     def _cancel_operation(self):
@@ -751,6 +822,11 @@ class BootForgeWizard(QWidget):
         self.wizard_data = {}
         if self.stacked_widget is not None:
             self.stacked_widget.setCurrentIndex(0)
+        
+        # Reset stepper header to beginning
+        if self.stepper_header:
+            self.stepper_header.reset_to_beginning()
+        
         self._update_navigation()
         
         # Reset pages
@@ -761,3 +837,63 @@ class BootForgeWizard(QWidget):
     def update_device_list(self, devices: List[DiskInfo]):
         """Update device list"""
         self.device_page.update_device_list(devices)
+    
+    def _setup_stepper_integration(self):
+        """Setup integration between stepper header and wizard navigation"""
+        try:
+            # For now, use basic stepper functionality without full WizardController
+            # This allows the stepper to work with the existing wizard pages
+            if self.stepper_header:
+                # Set initial state
+                self.stepper_header.set_current_step(0)
+                self.logger.info("Stepper header integration initialized")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to setup stepper integration: {e}")
+    
+    def _on_stepper_navigation(self, step_index: int):
+        """Handle navigation from stepper header clicks"""
+        try:
+            # Only allow navigation to completed or current steps
+            if step_index <= self.current_page_index:
+                self._navigate_to_step(step_index)
+                self.logger.info(f"Navigated to step {step_index} via stepper")
+            else:
+                self.logger.debug(f"Step {step_index} not accessible - current page: {self.current_page_index}")
+        except Exception as e:
+            self.logger.error(f"Error in stepper navigation: {e}")
+    
+    def _navigate_to_step(self, step_index: int):
+        """Navigate to a specific step by index"""
+        if 0 <= step_index < len(self.pages) and self.stacked_widget:
+            # Update current page
+            old_index = self.current_page_index
+            self.current_page_index = step_index
+            
+            # Switch to the page
+            self.stacked_widget.setCurrentIndex(step_index)
+            
+            # Update stepper header
+            if self.stepper_header:
+                self.stepper_header.set_current_step(step_index)
+            
+            # Update navigation buttons
+            self._update_navigation()
+            
+            self.logger.debug(f"Navigated from step {old_index} to {step_index}")
+    
+    def _update_stepper_state(self):
+        """Update stepper header to reflect current wizard state"""
+        if not self.stepper_header:
+            return
+            
+        try:
+            # Mark completed steps
+            for i in range(self.current_page_index):
+                self.stepper_header.mark_step_complete(i)
+            
+            # Set current step
+            self.stepper_header.set_current_step(self.current_page_index)
+            
+        except Exception as e:
+            self.logger.error(f"Error updating stepper state: {e}")
