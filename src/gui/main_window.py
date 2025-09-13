@@ -7,6 +7,7 @@ import logging
 import sys
 from pathlib import Path
 from typing import Optional, List
+from datetime import datetime
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QStackedWidget, QMenuBar, QStatusBar, QProgressBar,
@@ -23,6 +24,7 @@ from src.gui.wizard_widget import BootForgeWizard
 from src.gui.status_widget import StatusWidget
 from src.gui.log_viewer import LogViewer
 from src.gui.usb_recipe_manager import USBRecipeManagerWidget
+from src.gui.stepper_wizard_widget import BootForgeStepperWizard
 
 
 class BootForgeMainWindow(QMainWindow):
@@ -39,6 +41,7 @@ class BootForgeMainWindow(QMainWindow):
         
         # GUI components
         self.wizard = None
+        self.stepper_wizard = None
         self.status_widget = None
         self.log_viewer = None
         
@@ -94,22 +97,20 @@ class BootForgeMainWindow(QMainWindow):
         self._apply_theme()
     
     def _create_left_panel(self) -> QWidget:
-        """Create the left panel with wizard and main operations"""
+        """Create the left panel with stepper wizard interface"""
         panel = QWidget()
         layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         
-        # Create tab widget for different interfaces
-        interface_tabs = QTabWidget()
+        # Create main stepper wizard interface
+        self.stepper_wizard = BootForgeStepperWizard(self.disk_manager)
+        layout.addWidget(self.stepper_wizard)
         
-        # USB Builder tab (new enhanced interface with OS Image Manager)
-        self.usb_recipe_manager = USBRecipeManagerWidget(self.disk_manager, self.config)
-        interface_tabs.addTab(self.usb_recipe_manager, "USB Builder")
-        
-        # Original wizard tab (for compatibility)
+        # Keep old wizard and USB recipe manager for potential future access
+        # (they're just not displayed in the main interface now)
         self.wizard = BootForgeWizard(self.disk_manager)
-        interface_tabs.addTab(self.wizard, "Classic Wizard")
-        
-        layout.addWidget(interface_tabs)
+        self.usb_recipe_manager = USBRecipeManagerWidget(self.disk_manager, self.config)
         
         return panel
     
@@ -367,7 +368,14 @@ class BootForgeMainWindow(QMainWindow):
         self.system_monitor.usb_devices_updated.connect(self._update_usb_devices)
         self.system_monitor.thermal_warning.connect(self._handle_thermal_warning)
         
-        # Wizard connections
+        # Stepper wizard connections
+        if self.stepper_wizard:
+            self.stepper_wizard.wizard_completed.connect(self._handle_wizard_completed)
+            self.stepper_wizard.step_changed.connect(self._handle_step_changed)
+            self.stepper_wizard.status_updated.connect(self._handle_stepper_status_updated)
+            self.stepper_wizard.progress_updated.connect(self._handle_stepper_progress_updated)
+        
+        # Classic wizard connections (kept for compatibility)
         if self.wizard:
             self.wizard.operation_started.connect(self._handle_operation_started)
             self.wizard.operation_completed.connect(self._handle_operation_completed)
@@ -447,6 +455,35 @@ class BootForgeMainWindow(QMainWindow):
             status_text += f" ({progress.speed_mbps:.1f} MB/s)"
         
         self.status_label.setText(status_text)
+    
+    def _handle_wizard_completed(self):
+        """Handle stepper wizard completion"""
+        self.status_label.setText("Wizard completed successfully")
+        self.progress_bar.setVisible(False)
+        self.logger.info("Stepper wizard completed")
+    
+    def _handle_step_changed(self, step_index: int, step_name: str):
+        """Handle step change in stepper wizard"""
+        self.status_label.setText(f"Step {step_index + 1}: {step_name}")
+        self.logger.info(f"Stepper wizard step changed to: {step_name}")
+        
+        # Update log viewer with step change if needed
+        if self.log_viewer:
+            self.log_viewer.add_log_entry("INFO", datetime.now().strftime("%H:%M:%S"), f"Step changed to: {step_name}")
+    
+    def _handle_stepper_status_updated(self, status: str):
+        """Handle status updates from stepper wizard"""
+        self.status_label.setText(status)
+        
+        # Log the status update
+        if self.log_viewer:
+            self.log_viewer.add_log_entry("INFO", datetime.now().strftime("%H:%M:%S"), status)
+    
+    def _handle_stepper_progress_updated(self, progress: int):
+        """Handle progress updates from stepper wizard"""
+        if 0 <= progress <= 100:
+            self.progress_bar.setVisible(progress > 0 and progress < 100)
+            self.progress_bar.setValue(progress)
     
     def _new_project(self):
         """Start new project"""
