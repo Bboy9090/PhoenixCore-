@@ -7,7 +7,7 @@ import json
 import os
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, asdict
 
 
@@ -21,7 +21,7 @@ class AppConfig:
     max_concurrent_writes: int = 2
     thermal_threshold: float = 85.0
     auto_update_check: bool = True
-    plugin_directories: list = None
+    plugin_directories: Optional[List[str]] = None
     
     def __post_init__(self):
         if self.plugin_directories is None:
@@ -118,8 +118,10 @@ class Config:
         """Get log directory path"""
         return self.app_dir / "logs"
     
-    def get_plugin_dirs(self) -> list:
+    def get_plugin_dirs(self) -> List[Path]:
         """Get plugin directory paths"""
+        if self._config.plugin_directories is None:
+            return []
         return [Path(d) for d in self._config.plugin_directories]
     
     def to_dict(self) -> Dict[str, Any]:

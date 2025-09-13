@@ -4,7 +4,10 @@ Step-by-step wizard interface for OS deployment operations
 """
 
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget,
@@ -563,8 +566,8 @@ class BootForgeWizard(QWidget):
         self.current_page_index = 0
         
         # Pages
-        self.pages = []
-        self.stacked_widget = None
+        self.pages: List[WizardPage] = []
+        self.stacked_widget: Optional[QStackedWidget] = None
         
         # Operation thread
         self.operation_thread = None
@@ -618,7 +621,8 @@ class BootForgeWizard(QWidget):
         ]
         
         for page in self.pages:
-            self.stacked_widget.addWidget(page)
+            if self.stacked_widget is not None:
+                self.stacked_widget.addWidget(page)
         
         self._update_navigation()
     
@@ -645,7 +649,8 @@ class BootForgeWizard(QWidget):
         """Go to previous page"""
         if self.current_page_index > 0:
             self.current_page_index -= 1
-            self.stacked_widget.setCurrentIndex(self.current_page_index)
+            if self.stacked_widget is not None:
+                self.stacked_widget.setCurrentIndex(self.current_page_index)
             self._update_navigation()
     
     def _go_next(self):
@@ -672,7 +677,8 @@ class BootForgeWizard(QWidget):
         # Move to next page
         if self.current_page_index < len(self.pages) - 1:
             self.current_page_index += 1
-            self.stacked_widget.setCurrentIndex(self.current_page_index)
+            if self.stacked_widget is not None:
+                self.stacked_widget.setCurrentIndex(self.current_page_index)
             self._update_navigation()
     
     def _cancel_operation(self):
@@ -687,7 +693,8 @@ class BootForgeWizard(QWidget):
         """Start disk writing operation"""
         # Move to progress page
         self.current_page_index = len(self.pages) - 1
-        self.stacked_widget.setCurrentIndex(self.current_page_index)
+        if self.stacked_widget is not None:
+            self.stacked_widget.setCurrentIndex(self.current_page_index)
         self._update_navigation()
         
         # Disable navigation during operation
@@ -742,13 +749,14 @@ class BootForgeWizard(QWidget):
         """Reset wizard to initial state"""
         self.current_page_index = 0
         self.wizard_data = {}
-        self.stacked_widget.setCurrentIndex(0)
+        if self.stacked_widget is not None:
+            self.stacked_widget.setCurrentIndex(0)
         self._update_navigation()
         
         # Reset pages
         for page in self.pages:
-            if hasattr(page, 'reset'):
-                page.reset()
+            if hasattr(page, 'reset') and callable(getattr(page, 'reset', None)):
+                getattr(page, 'reset')()
     
     def update_device_list(self, devices: List[DiskInfo]):
         """Update device list"""
