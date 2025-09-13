@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["c-ares", "cargo", "freetype", "grpc", "lcms2", "libiconv", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "libyaml", "openjpeg", "openssl", "pkg-config", "rustc", "tcl", "tk", "zlib", "mesa", "libGL", "xorg.libX11", "xorg.libXext", "xorg.libXrender", "libxkbcommon", "wayland", "xorg.libxcb", "fontconfig", "dbus", "glib", "xorg.libXcursor", "xcb-util-cursor", "qt6.qtbase", "xorg.xcbutilcursor", "xorg.xcbutilwm", "xorg.xcbutilimage", "xorg.xcbutilkeysyms", "xorg.xcbutilrenderutil"]
+packages = ["c-ares", "cargo", "dbus", "fontconfig", "freetype", "glib", "grpc", "lcms2", "libGL", "libiconv", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "libxkbcommon", "libyaml", "mesa", "openjpeg", "openssl", "pkg-config", "qt6.qtbase", "rustc", "tcl", "tk", "wayland", "xcb-util-cursor", "xorg.libX11", "xorg.libXcursor", "xorg.libXext", "xorg.libXrender", "xorg.libxcb", "xorg.xcbutilcursor", "xorg.xcbutilimage", "xorg.xcbutilkeysyms", "xorg.xcbutilrenderutil", "xorg.xcbutilwm", "zlib"]
 
 [workflows]
 runButton = "Project"
@@ -18,6 +18,10 @@ author = "agent"
 task = "workflow.run"
 args = "BootForge GUI"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "BootForge Web"
+
 [[workflows.workflow]]
 name = "BootForge GUI"
 author = "agent"
@@ -29,6 +33,22 @@ args = "python main.py --gui"
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "BootForge Web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 web_server.py"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [deployment]
 deploymentTarget = "autoscale"
-run = ["python3", "main.py", "--help"]
+run = ["python3", "web_server.py"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
