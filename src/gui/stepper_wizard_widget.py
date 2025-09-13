@@ -4091,63 +4091,816 @@ Source Files: {len(self.source_files)} files ready"""
 
 
 class SummaryStepView(StepView):
-    """Summary step view"""
+    """Professional Summary step view - the triumphant finale of BootForge deployment"""
+    
+    # Signals for parent wizard
+    restart_wizard_requested = pyqtSignal()
+    export_report_requested = pyqtSignal()
     
     def __init__(self):
         super().__init__(
-            "Summary",
-            "Deployment completed successfully. Your bootable USB drive is ready."
+            "🎉 Deployment Complete",
+            "Your bootable USB drive creation process has finished."
         )
+        
+        # State variables
+        self.wizard_state: Optional['WizardState'] = None
+        self.build_success = False
+        self.target_device_path = ""
+        
+        # UI components (will be created in _setup_content)
+        self.main_status_widget = None
+        self.statistics_widget = None
+        self.usb_info_widget = None
+        self.actions_widget = None
+        self.recommendations_widget = None
+        
         self._setup_content()
     
     def _setup_content(self):
-        """Setup summary content"""
-        # Success message
-        success_group = QGroupBox("Deployment Results")
-        success_layout = QVBoxLayout(success_group)
+        """Setup comprehensive summary content"""
+        # Main container with scroll area for longer summaries
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+        """)
         
-        success_text = """✅ Bootable USB drive created successfully!
-
-Operation Details:
-• Source: macOS Ventura 13.0 (4.2 GB)
-• Target: SanDisk 32GB USB Drive
-• Duration: 18 minutes 34 seconds
-• Verification: Passed ✓
-
-Your USB drive is now ready to boot on compatible systems."""
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setSpacing(20)
         
-        success_label = QLabel(success_text)
-        success_label.setWordWrap(True)
-        success_label.setStyleSheet("color: #cccccc; font-size: 14px; padding: 10px;")
-        success_layout.addWidget(success_label)
+        # 1. Main Status Section (Success/Failure)
+        self.main_status_widget = self._create_main_status_widget()
+        scroll_layout.addWidget(self.main_status_widget)
         
-        self.content_layout.addWidget(success_group)
+        # 2. Build Statistics Section
+        self.statistics_widget = self._create_statistics_widget()
+        scroll_layout.addWidget(self.statistics_widget)
         
-        # Action buttons
-        action_group = QGroupBox("Next Steps")
-        action_layout = QVBoxLayout(action_group)
+        # 3. USB Device Information Section
+        self.usb_info_widget = self._create_usb_info_widget()
+        scroll_layout.addWidget(self.usb_info_widget)
         
-        eject_button = QPushButton("Safely Eject USB Drive")
-        eject_button.clicked.connect(self._eject_drive)
-        action_layout.addWidget(eject_button)
+        # 4. Smart Actions Section
+        self.actions_widget = self._create_actions_widget()
+        scroll_layout.addWidget(self.actions_widget)
         
-        new_button = QPushButton("Create Another USB Drive")
-        new_button.clicked.connect(self._start_new)
-        action_layout.addWidget(new_button)
+        # 5. Intelligent Recommendations Section
+        self.recommendations_widget = self._create_recommendations_widget()
+        scroll_layout.addWidget(self.recommendations_widget)
         
-        self.content_layout.addWidget(action_group)
+        # Add spacer to push content up
+        scroll_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         
-        # Hide navigation buttons since we're at the end
+        scroll_area.setWidget(scroll_content)
+        self.content_layout.addWidget(scroll_area)
+        
+        # Customize navigation for final step
         self.previous_button.setVisible(False)
-        self.next_button.setText("Finish")
+        self.next_button.setText("🏁 Finish")
+        self.next_button.setStyleSheet("""
+            QPushButton {
+                background-color: #10b981;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 14px;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #059669;
+            }
+            QPushButton:pressed {
+                background-color: #047857;
+            }
+        """)
+    
+    def _create_main_status_widget(self) -> QGroupBox:
+        """Create main status display (success/failure with large icon)"""
+        status_group = QGroupBox()
+        status_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 16px;
+                border: 2px solid #374151;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+                background-color: rgba(55, 65, 81, 0.1);
+            }
+        """)
+        
+        layout = QVBoxLayout(status_group)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(15)
+        
+        # Status icon and text (will be updated based on build result)
+        self.status_icon_label = QLabel("⏳")
+        self.status_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_icon_label.setStyleSheet("font-size: 48px;")
+        layout.addWidget(self.status_icon_label)
+        
+        self.status_title_label = QLabel("Processing...")
+        self.status_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_font = QFont()
+        title_font.setPointSize(20)
+        title_font.setBold(True)
+        self.status_title_label.setFont(title_font)
+        layout.addWidget(self.status_title_label)
+        
+        self.status_subtitle_label = QLabel("Please wait while we finalize your deployment.")
+        self.status_subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_subtitle_label.setWordWrap(True)
+        self.status_subtitle_label.setStyleSheet("color: #9ca3af; font-size: 14px;")
+        layout.addWidget(self.status_subtitle_label)
+        
+        return status_group
+    
+    def _create_statistics_widget(self) -> QGroupBox:
+        """Create build statistics display"""
+        stats_group = QGroupBox("📊 Build Statistics")
+        stats_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 14px;
+                border: 2px solid #374151;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+        """)
+        
+        stats_layout = QGridLayout(stats_group)
+        stats_layout.setSpacing(10)
+        
+        # Create statistics labels (will be populated with real data)
+        self.stats_labels = {}
+        
+        stats_info = [
+            ("duration", "⏱️ Duration:", "Calculating..."),
+            ("data_written", "💾 Data Written:", "Calculating..."),
+            ("average_speed", "🚀 Average Speed:", "Calculating..."),
+            ("verification", "✅ Verification:", "Pending...")
+        ]
+        
+        for i, (key, label_text, default_value) in enumerate(stats_info):
+            label = QLabel(label_text)
+            label.setStyleSheet("color: #e5e7eb; font-weight: bold;")
+            value = QLabel(default_value)
+            value.setStyleSheet("color: #f3f4f6;")
+            
+            stats_layout.addWidget(label, i, 0)
+            stats_layout.addWidget(value, i, 1)
+            
+            self.stats_labels[key] = value
+        
+        return stats_group
+    
+    def _create_usb_info_widget(self) -> QGroupBox:
+        """Create USB device information display"""
+        usb_group = QGroupBox("💽 USB Drive Information")
+        usb_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 14px;
+                border: 2px solid #374151;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+        """)
+        
+        usb_layout = QVBoxLayout(usb_group)
+        
+        # USB device details (will be populated with real data)
+        self.usb_details_label = QLabel("No USB device information available yet.")
+        self.usb_details_label.setWordWrap(True)
+        self.usb_details_label.setStyleSheet("color: #e5e7eb; padding: 10px;")
+        usb_layout.addWidget(self.usb_details_label)
+        
+        # Deployment recipe information
+        self.recipe_details_label = QLabel("Deployment recipe information will appear here.")
+        self.recipe_details_label.setWordWrap(True)
+        self.recipe_details_label.setStyleSheet("color: #d1d5db; padding: 10px; font-style: italic;")
+        usb_layout.addWidget(self.recipe_details_label)
+        
+        return usb_group
+    
+    def _create_actions_widget(self) -> QGroupBox:
+        """Create smart post-build actions"""
+        actions_group = QGroupBox("🎯 Available Actions")
+        actions_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 14px;
+                border: 2px solid #374151;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+        """)
+        
+        actions_layout = QGridLayout(actions_group)
+        actions_layout.setSpacing(10)
+        
+        # Action buttons with proper styling
+        button_style = """
+            QPushButton {
+                background-color: #4b5563;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 15px;
+                font-size: 12px;
+                font-weight: bold;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #6b7280;
+            }
+            QPushButton:pressed {
+                background-color: #374151;
+            }
+            QPushButton:disabled {
+                background-color: #1f2937;
+                color: #6b7280;
+            }
+        """
+        
+        # Eject USB Drive button
+        self.eject_button = QPushButton("🔓 Safely Eject USB Drive")
+        self.eject_button.setStyleSheet(button_style)
+        self.eject_button.clicked.connect(self._eject_drive)
+        actions_layout.addWidget(self.eject_button, 0, 0)
+        
+        # Export Build Report button
+        self.export_button = QPushButton("📄 Export Build Report")
+        self.export_button.setStyleSheet(button_style)
+        self.export_button.clicked.connect(self._export_report)
+        actions_layout.addWidget(self.export_button, 0, 1)
+        
+        # Create Another USB button
+        self.restart_button = QPushButton("🔄 Create Another USB")
+        self.restart_button.setStyleSheet(button_style)
+        self.restart_button.clicked.connect(self._restart_wizard)
+        actions_layout.addWidget(self.restart_button, 1, 0)
+        
+        # View Detailed Logs button
+        self.logs_button = QPushButton("📋 View Detailed Logs")
+        self.logs_button.setStyleSheet(button_style)
+        self.logs_button.clicked.connect(self._view_logs)
+        actions_layout.addWidget(self.logs_button, 1, 1)
+        
+        return actions_group
+    
+    def _create_recommendations_widget(self) -> QGroupBox:
+        """Create intelligent recommendations based on deployment type"""
+        rec_group = QGroupBox("💡 Next Steps & Recommendations")
+        rec_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 14px;
+                border: 2px solid #374151;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+        """)
+        
+        rec_layout = QVBoxLayout(rec_group)
+        
+        self.recommendations_label = QLabel("Intelligent recommendations will appear here based on your deployment type.")
+        self.recommendations_label.setWordWrap(True)
+        self.recommendations_label.setStyleSheet("color: #e5e7eb; padding: 10px; line-height: 1.4;")
+        rec_layout.addWidget(self.recommendations_label)
+        
+        return rec_group
     
     def _eject_drive(self):
-        """Safely eject the drive"""
-        QMessageBox.information(self, "Success", "USB drive ejected safely.")
+        """Safely eject the USB drive using system commands"""
+        if not self.target_device_path:
+            QMessageBox.warning(self, "No Device", "No USB device found to eject.")
+            return
+        
+        try:
+            # Use DiskManager for safe ejection
+            from src.core.disk_manager import DiskManager
+            disk_manager = DiskManager()
+            
+            success = disk_manager.eject_device(self.target_device_path)
+            
+            if success:
+                QMessageBox.information(
+                    self, 
+                    "✅ Ejection Successful", 
+                    f"USB drive has been safely ejected.\n\nYou can now remove the device safely."
+                )
+                # Disable eject button after successful ejection
+                self.eject_button.setEnabled(False)
+                self.eject_button.setText("✅ USB Drive Ejected")
+            else:
+                QMessageBox.warning(
+                    self, 
+                    "Ejection Failed", 
+                    f"Could not safely eject the USB drive.\n\nPlease try manually ejecting the device from your system."
+                )
+                
+        except Exception as e:
+            self.logger.error(f"Error ejecting USB drive: {e}")
+            QMessageBox.critical(
+                self, 
+                "Ejection Error", 
+                f"An error occurred while ejecting the USB drive:\n\n{str(e)}"
+            )
     
-    def _start_new(self):
-        """Start a new deployment"""
-        self.request_previous_step.emit()  # This will need custom handling
+    def _export_report(self):
+        """Export comprehensive build report"""
+        try:
+            # Generate build report data
+            report_data = self._generate_build_report()
+            
+            # Ask user where to save the report
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Export Build Report",
+                f"BootForge_Build_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                "Text Files (*.txt);;JSON Files (*.json);;All Files (*)"
+            )
+            
+            if file_path:
+                # Determine format based on extension
+                if file_path.endswith('.json'):
+                    import json
+                    with open(file_path, 'w') as f:
+                        json.dump(report_data, f, indent=2, default=str)
+                else:
+                    # Plain text format
+                    with open(file_path, 'w') as f:
+                        f.write(self._format_text_report(report_data))
+                
+                QMessageBox.information(
+                    self,
+                    "✅ Report Exported",
+                    f"Build report has been saved to:\n\n{file_path}"
+                )
+                
+                # Emit signal for parent handling
+                self.export_report_requested.emit()
+                
+        except Exception as e:
+            self.logger.error(f"Error exporting build report: {e}")
+            QMessageBox.critical(
+                self,
+                "Export Error",
+                f"Failed to export build report:\n\n{str(e)}"
+            )
+    
+    def _restart_wizard(self):
+        """Restart the wizard to create another USB drive"""
+        reply = QMessageBox.question(
+            self,
+            "Create Another USB Drive",
+            "Would you like to start over and create another bootable USB drive?\n\n"
+            "This will reset the wizard to the beginning.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.restart_wizard_requested.emit()
+    
+    def _view_logs(self):
+        """Display detailed build logs in a dialog"""
+        if not self.wizard_state or not self.wizard_state.build_result.build_log:
+            QMessageBox.information(
+                self,
+                "No Logs Available",
+                "No detailed build logs are currently available."
+            )
+            return
+        
+        # Create log viewer dialog
+        log_dialog = QDialog(self)
+        log_dialog.setWindowTitle("BootForge Build Logs")
+        log_dialog.setModal(True)
+        log_dialog.resize(800, 600)
+        
+        layout = QVBoxLayout(log_dialog)
+        
+        # Log text area
+        log_text = QTextEdit()
+        log_text.setReadOnly(True)
+        log_text.setFont(QFont("Courier", 10))
+        log_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #1f2937;
+                color: #f3f4f6;
+                border: 1px solid #374151;
+                border-radius: 4px;
+            }
+        """)
+        
+        # Format and display logs
+        log_content = "\\n".join(self.wizard_state.build_result.build_log)
+        log_text.setPlainText(log_content)
+        layout.addWidget(log_text)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        copy_button = QPushButton("📋 Copy to Clipboard")
+        copy_button.clicked.connect(lambda: self._copy_logs_to_clipboard(log_content))
+        button_layout.addWidget(copy_button)
+        
+        button_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
+        
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(log_dialog.accept)
+        button_layout.addWidget(close_button)
+        
+        layout.addLayout(button_layout)
+        
+        log_dialog.exec()
+    
+    def _copy_logs_to_clipboard(self, log_content: str):
+        """Copy logs to system clipboard"""
+        try:
+            from PyQt6.QtGui import QClipboard
+            from PyQt6.QtWidgets import QApplication
+            
+            clipboard = QApplication.clipboard()
+            clipboard.setText(log_content)
+            
+            QMessageBox.information(self, "✅ Copied", "Logs copied to clipboard successfully.")
+        except Exception as e:
+            self.logger.error(f"Error copying to clipboard: {e}")
+    
+    def _generate_build_report(self) -> Dict[str, Any]:
+        """Generate comprehensive build report data"""
+        if not self.wizard_state:
+            return {"error": "No wizard state available"}
+        
+        ws = self.wizard_state
+        br = ws.build_result
+        
+        report = {
+            "build_summary": {
+                "session_id": ws.wizard_session_id,
+                "completed_at": datetime.now().isoformat(),
+                "success": br.build_successful,
+                "duration_seconds": br.build_duration_seconds,
+                "verification_passed": br.verification_passed
+            },
+            "hardware_info": {
+                "detected_system": ws.detected_hardware.system_name if ws.detected_hardware else "Unknown",
+                "cpu": ws.detected_hardware.cpu_name if ws.detected_hardware else "Unknown",
+                "ram_gb": ws.detected_hardware.total_ram_gb if ws.detected_hardware else 0
+            },
+            "deployment_config": {
+                "os_image": ws.os_image.image_name or "Unknown",
+                "recipe": ws.recipe_config.selected_recipe.name if ws.recipe_config.selected_recipe else "Unknown",
+                "target_device": ws.target_device.name if ws.target_device else "Unknown"
+            },
+            "build_statistics": {
+                "bytes_written": br.build_progress.bytes_written if br.build_progress else 0,
+                "average_speed_mbps": br.build_progress.speed_mbps if br.build_progress else 0,
+                "errors": br.error_messages,
+                "warnings": br.warning_messages
+            },
+            "logs": br.build_log
+        }
+        
+        return report
+    
+    def _format_text_report(self, report_data: Dict[str, Any]) -> str:
+        """Format report data as readable text"""
+        lines = []
+        lines.append("=" * 60)
+        lines.append("BootForge Build Report")
+        lines.append("=" * 60)
+        lines.append("")
+        
+        # Build Summary
+        if "build_summary" in report_data:
+            bs = report_data["build_summary"]
+            lines.append("BUILD SUMMARY:")
+            lines.append(f"  Session ID: {bs.get('session_id', 'Unknown')}")
+            lines.append(f"  Completed: {bs.get('completed_at', 'Unknown')}")
+            lines.append(f"  Success: {'✅ Yes' if bs.get('success') else '❌ No'}")
+            if bs.get('duration_seconds'):
+                duration = bs['duration_seconds']
+                lines.append(f"  Duration: {int(duration // 60)}m {int(duration % 60)}s")
+            lines.append(f"  Verification: {'✅ Passed' if bs.get('verification_passed') else '❌ Failed'}")
+            lines.append("")
+        
+        # Hardware Info
+        if "hardware_info" in report_data:
+            hi = report_data["hardware_info"]
+            lines.append("HARDWARE INFORMATION:")
+            lines.append(f"  System: {hi.get('detected_system', 'Unknown')}")
+            lines.append(f"  CPU: {hi.get('cpu', 'Unknown')}")
+            lines.append(f"  RAM: {hi.get('ram_gb', 0):.1f} GB")
+            lines.append("")
+        
+        # Deployment Config
+        if "deployment_config" in report_data:
+            dc = report_data["deployment_config"]
+            lines.append("DEPLOYMENT CONFIGURATION:")
+            lines.append(f"  OS Image: {dc.get('os_image', 'Unknown')}")
+            lines.append(f"  Recipe: {dc.get('recipe', 'Unknown')}")
+            lines.append(f"  Target Device: {dc.get('target_device', 'Unknown')}")
+            lines.append("")
+        
+        # Build Statistics
+        if "build_statistics" in report_data:
+            bs = report_data["build_statistics"]
+            lines.append("BUILD STATISTICS:")
+            if bs.get('bytes_written'):
+                mb_written = bs['bytes_written'] / (1024 * 1024)
+                lines.append(f"  Data Written: {mb_written:.1f} MB")
+            if bs.get('average_speed_mbps'):
+                lines.append(f"  Average Speed: {bs['average_speed_mbps']:.1f} MB/s")
+            
+            if bs.get('errors'):
+                lines.append(f"  Errors: {len(bs['errors'])}")
+                for error in bs['errors']:
+                    lines.append(f"    - {error}")
+            
+            if bs.get('warnings'):
+                lines.append(f"  Warnings: {len(bs['warnings'])}")
+                for warning in bs['warnings']:
+                    lines.append(f"    - {warning}")
+            lines.append("")
+        
+        # Logs (truncated for readability)
+        if "logs" in report_data and report_data["logs"]:
+            lines.append("BUILD LOGS (Last 50 lines):")
+            logs = report_data["logs"]
+            for log_line in logs[-50:]:
+                lines.append(f"  {log_line}")
+        
+        return "\\n".join(lines)
+    
+    def _update_status_display(self):
+        """Update the main status display based on build results"""
+        if not self.wizard_state or not self.wizard_state.build_result:
+            return
+        
+        br = self.wizard_state.build_result
+        
+        if br.build_successful and br.verification_passed:
+            # Success state
+            self.status_icon_label.setText("🎉")
+            self.status_icon_label.setStyleSheet("font-size: 48px; color: #10b981;")
+            self.status_title_label.setText("USB Drive Successfully Created!")
+            self.status_title_label.setStyleSheet("color: #10b981; font-weight: bold;")
+            self.status_subtitle_label.setText(
+                "Congratulations! Your bootable USB drive is ready to use. "
+                "You can now safely eject it and use it on your target system."
+            )
+        elif br.build_completed and not br.build_successful:
+            # Failure state
+            self.status_icon_label.setText("❌")
+            self.status_icon_label.setStyleSheet("font-size: 48px; color: #ef4444;")
+            self.status_title_label.setText("Build Failed")
+            self.status_title_label.setStyleSheet("color: #ef4444; font-weight: bold;")
+            error_msg = br.error_messages[0] if br.error_messages else "Unknown error occurred"
+            self.status_subtitle_label.setText(f"Build failed: {error_msg}")
+        else:
+            # In progress or unknown state
+            self.status_icon_label.setText("⏳")
+            self.status_icon_label.setStyleSheet("font-size: 48px; color: #f59e0b;")
+            self.status_title_label.setText("Build In Progress")
+            self.status_title_label.setStyleSheet("color: #f59e0b; font-weight: bold;")
+            self.status_subtitle_label.setText("Please wait while the build completes...")
+    
+    def _update_statistics_display(self):
+        """Update build statistics display"""
+        if not self.wizard_state or not self.wizard_state.build_result:
+            return
+        
+        br = self.wizard_state.build_result
+        
+        # Duration
+        if br.build_duration_seconds:
+            duration = br.build_duration_seconds
+            duration_text = f"{int(duration // 60)}m {int(duration % 60)}s"
+        else:
+            duration_text = "Unknown"
+        self.stats_labels["duration"].setText(duration_text)
+        
+        # Data written
+        if br.build_progress and br.build_progress.bytes_written:
+            mb_written = br.build_progress.bytes_written / (1024 * 1024)
+            data_text = f"{mb_written:.1f} MB"
+        else:
+            data_text = "Unknown"
+        self.stats_labels["data_written"].setText(data_text)
+        
+        # Average speed
+        if br.build_progress and br.build_progress.speed_mbps:
+            speed_text = f"{br.build_progress.speed_mbps:.1f} MB/s"
+        else:
+            speed_text = "Unknown"
+        self.stats_labels["average_speed"].setText(speed_text)
+        
+        # Verification
+        if br.verification_passed:
+            verification_text = "✅ Passed"
+            self.stats_labels["verification"].setStyleSheet("color: #10b981; font-weight: bold;")
+        elif br.build_completed:
+            verification_text = "❌ Failed"
+            self.stats_labels["verification"].setStyleSheet("color: #ef4444; font-weight: bold;")
+        else:
+            verification_text = "⏳ Pending"
+            self.stats_labels["verification"].setStyleSheet("color: #f59e0b;")
+        self.stats_labels["verification"].setText(verification_text)
+    
+    def _update_usb_info_display(self):
+        """Update USB device and recipe information"""
+        if not self.wizard_state:
+            return
+        
+        ws = self.wizard_state
+        
+        # USB device information
+        if ws.target_device:
+            device = ws.target_device
+            usb_info = f"""📱 Device: {device.name}
+💾 Capacity: {device.size_bytes / (1024**3):.1f} GB
+📂 Filesystem: {device.filesystem}
+🏷️ Model: {device.model}
+🔧 Vendor: {device.vendor}"""
+            
+            if device.serial:
+                usb_info += f"\\n🆔 Serial: {device.serial}"
+                
+            self.usb_details_label.setText(usb_info)
+            self.target_device_path = device.path
+        else:
+            self.usb_details_label.setText("No USB device information available.")
+        
+        # Recipe information
+        if ws.recipe_config and ws.recipe_config.selected_recipe:
+            recipe = ws.recipe_config.selected_recipe
+            recipe_info = f"""🍽️ Recipe: {recipe.name}
+📋 Description: {recipe.description}
+🏗️ Type: {recipe.deployment_type.value}
+⚙️ Partition Scheme: {recipe.partition_scheme.value}
+📂 Partitions: {len(recipe.partitions)} configured"""
+            
+            self.recipe_details_label.setText(recipe_info)
+        else:
+            self.recipe_details_label.setText("No deployment recipe information available.")
+    
+    def _update_recommendations_display(self):
+        """Update intelligent recommendations based on deployment type and results"""
+        if not self.wizard_state:
+            return
+        
+        ws = self.wizard_state
+        recommendations = []
+        
+        # Success recommendations
+        if ws.build_result.build_successful:
+            if ws.recipe_config and ws.recipe_config.selected_recipe:
+                recipe_type = ws.recipe_config.selected_recipe.deployment_type
+                
+                if recipe_type.value == "macos_oclp":
+                    recommendations.extend([
+                        "🍎 **macOS Boot Instructions:**",
+                        "  • Insert USB drive into target Mac",
+                        "  • Hold the Option (⌥) key while powering on",
+                        "  • Select 'EFI Boot' or 'Install macOS' from boot menu",
+                        "  • Follow OpenCore Legacy Patcher setup wizard",
+                        "",
+                        "⚠️ **Important Notes:**",
+                        "  • Ensure target Mac model is supported by OCLP",
+                        "  • Backup important data before installation",
+                        "  • Check OCLP documentation for post-install steps"
+                    ])
+                elif recipe_type.value == "windows_unattended":
+                    recommendations.extend([
+                        "🪟 **Windows Boot Instructions:**",
+                        "  • Insert USB drive into target PC",
+                        "  • Enter BIOS/UEFI and set USB as first boot device",
+                        "  • Save and restart - installation will begin automatically",
+                        "  • Monitor progress and provide inputs when prompted",
+                        "",
+                        "💡 **Tips:**",
+                        "  • Ensure Secure Boot is disabled if using legacy mode",
+                        "  • Have Windows license key ready",
+                        "  • Connect to internet for driver updates"
+                    ])
+                elif recipe_type.value == "linux_automated":
+                    recommendations.extend([
+                        "🐧 **Linux Boot Instructions:**",
+                        "  • Insert USB drive into target computer",
+                        "  • Boot from USB (F12/F8/Del for boot menu)",
+                        "  • Select automated installation option",
+                        "  • Installation will proceed with preconfigured settings",
+                        "",
+                        "🔧 **Post-Installation:**",
+                        "  • Update package repositories",
+                        "  • Install additional software as needed",
+                        "  • Configure user accounts and permissions"
+                    ])
+                else:
+                    recommendations.extend([
+                        "🚀 **Custom Payload Instructions:**",
+                        "  • Boot target system from USB drive",
+                        "  • Follow payload-specific instructions",
+                        "  • Check documentation for usage details",
+                        "",
+                        "📖 **Resources:**",
+                        "  • Refer to payload documentation",
+                        "  • Check BootForge wiki for troubleshooting",
+                        "  • Contact support if issues arise"
+                    ])
+        else:
+            # Failure recommendations
+            recommendations.extend([
+                "🔧 **Troubleshooting Steps:**",
+                "  • Check build logs for specific error details",
+                "  • Verify source files are not corrupted",
+                "  • Ensure USB drive has sufficient free space",
+                "  • Try using a different USB drive",
+                "",
+                "📞 **Getting Help:**",
+                "  • Export build report for detailed analysis",
+                "  • Check BootForge documentation",
+                "  • Visit our support forum or contact support"
+            ])
+        
+        # Hardware-specific recommendations
+        if ws.detected_hardware:
+            hw = ws.detected_hardware
+            if "MacBook" in (hw.system_name or ""):
+                recommendations.extend([
+                    "",
+                    "💻 **MacBook-Specific Notes:**",
+                    "  • Some MacBooks require specific key combinations",
+                    "  • Check for firmware updates before installation",
+                    "  • Consider battery charge level during installation"
+                ])
+            elif "Dell" in (hw.system_manufacturer or ""):
+                recommendations.extend([
+                    "",
+                    "🖥️ **Dell System Notes:**",
+                    "  • Access boot menu with F12 key",
+                    "  • Disable Secure Boot in BIOS if needed",
+                    "  • Check Dell support for BIOS updates"
+                ])
+        
+        if recommendations:
+            self.recommendations_label.setText("\\n".join(recommendations))
+        else:
+            self.recommendations_label.setText("No specific recommendations available at this time.")
+    
+    def load_step_data(self, data: Dict[str, Any]):
+        """Load step data from wizard state"""
+        if "wizard_state" in data:
+            self.wizard_state = data["wizard_state"]
+            self._update_all_displays()
+    
+    def get_step_data(self) -> Dict[str, Any]:
+        """Get step data for wizard state"""
+        return {
+            "summary_completed": True,
+            "wizard_state": self.wizard_state
+        }
+    
+    def on_step_entered(self):
+        """Called when summary step becomes active"""
+        self.logger.info("Summary step entered - finalizing deployment results")
+        
+        # Update all displays with current wizard state
+        self._update_all_displays()
+        
+        # Auto-mark step as completed
+        QTimer.singleShot(1000, self.step_completed.emit)
+    
+    def _update_all_displays(self):
+        """Update all display sections with current data"""
+        self._update_status_display()
+        self._update_statistics_display()
+        self._update_usb_info_display()
+        self._update_recommendations_display()
+    
+    def validate_step(self) -> bool:
+        """Validate that summary step is ready"""
+        return True  # Summary step is always valid to proceed
+    
+    def set_wizard_state(self, wizard_state):
+        """Set the wizard state for this summary"""
+        self.wizard_state = wizard_state
+        self._update_all_displays()
 
 
 class BootForgeStepperWizard(QWidget):
