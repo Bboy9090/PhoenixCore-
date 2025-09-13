@@ -101,8 +101,8 @@ class BootForgeMainWindow(QMainWindow):
         # Create tab widget for different interfaces
         interface_tabs = QTabWidget()
         
-        # USB Builder tab (new enhanced interface)
-        self.usb_recipe_manager = USBRecipeManagerWidget(self.disk_manager)
+        # USB Builder tab (new enhanced interface with OS Image Manager)
+        self.usb_recipe_manager = USBRecipeManagerWidget(self.disk_manager, self.config)
         interface_tabs.addTab(self.usb_recipe_manager, "USB Builder")
         
         # Original wizard tab (for compatibility)

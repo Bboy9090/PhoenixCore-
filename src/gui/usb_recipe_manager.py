@@ -24,6 +24,10 @@ from src.core.usb_builder import (
 )
 from src.core.disk_manager import DiskInfo
 from src.core.safety_validator import SafetyValidator, SafetyLevel, ValidationResult
+from src.core.config import Config
+from src.core.hardware_detector import HardwareDetector, DetectedHardware, DetectionConfidence
+from src.core.hardware_matcher import HardwareMatcher, ProfileMatch
+from src.gui.os_image_widget import OSImageSelectionWidget
 
 
 class RecipeSelectionWidget(QWidget):
@@ -133,16 +137,49 @@ class RecipeSelectionWidget(QWidget):
             self.required_files_list.addItem(file_name)
 
 
+class HardwareDetectionThread(QThread):
+    """Thread for hardware detection to avoid blocking GUI"""
+    
+    detection_completed = pyqtSignal(object)  # DetectedHardware
+    detection_failed = pyqtSignal(str)  # error message
+    
+    def __init__(self):
+        super().__init__()
+        self.detector = HardwareDetector()
+    
+    def run(self):
+        """Run hardware detection in background"""
+        try:
+            detected_hardware = self.detector.detect_hardware()
+            if detected_hardware:
+                self.detection_completed.emit(detected_hardware)
+            else:
+                self.detection_failed.emit("Hardware detection failed - no data collected")
+        except Exception as e:
+            self.detection_failed.emit(f"Hardware detection error: {str(e)}")
+
+
 class HardwareProfileWidget(QWidget):
-    """Widget for selecting hardware profiles"""
+    """Widget for selecting hardware profiles with auto-detection capabilities"""
     
     profile_selected = pyqtSignal(str)  # profile name
+    detection_completed = pyqtSignal(object)  # DetectedHardware
     
     def __init__(self):
         super().__init__()
         self.profiles: List[HardwareProfile] = []
         self.selected_profile: Optional[HardwareProfile] = None
+        self.detected_hardware: Optional[DetectedHardware] = None
+        self.profile_matches: List[ProfileMatch] = []
+        
+        # Hardware detection components
+        self.hardware_matcher = HardwareMatcher()
+        self.detection_thread = HardwareDetectionThread()
+        self.detection_thread.detection_completed.connect(self._on_detection_completed)
+        self.detection_thread.detection_failed.connect(self._on_detection_failed)
+        
         self._setup_ui()
+        self._setup_detection_connections()
     
     def _setup_ui(self):
         """Setup hardware profile selection UI"""
@@ -157,9 +194,15 @@ class HardwareProfileWidget(QWidget):
         
         title_layout.addStretch()
         
-        self.auto_detect_btn = QPushButton("Auto-Detect")
-        self.auto_detect_btn.setToolTip("Detect current system hardware profile")
+        self.auto_detect_btn = QPushButton("🔍 Auto-Detect Hardware")
+        self.auto_detect_btn.setToolTip("Automatically detect current system hardware profile")
+        self.auto_detect_btn.setMinimumWidth(160)
         title_layout.addWidget(self.auto_detect_btn)
+        
+        # Detection status indicator
+        self.detection_status = QLabel("")
+        self.detection_status.setStyleSheet("color: #6C757D; font-size: 10px;")
+        title_layout.addWidget(self.detection_status)
         
         layout.addLayout(title_layout)
         
@@ -168,8 +211,26 @@ class HardwareProfileWidget(QWidget):
         self.profile_list.itemSelectionChanged.connect(self._on_profile_selected)
         layout.addWidget(self.profile_list)
         
+        # Detection results section
+        detection_group = QGroupBox("🎯 Detection Results")
+        detection_layout = QVBoxLayout(detection_group)
+        
+        self.detection_results = QLabel("Click 'Auto-Detect Hardware' to scan your system")
+        self.detection_results.setWordWrap(True)
+        self.detection_results.setStyleSheet("padding: 10px; color: #6C757D;")
+        detection_layout.addWidget(self.detection_results)
+        
+        # Detected hardware summary (initially hidden)
+        self.hardware_summary = QLabel()
+        self.hardware_summary.setWordWrap(True)
+        self.hardware_summary.setStyleSheet("padding: 10px; background: #2D3748; color: #E2E8F0; border-radius: 4px;")
+        self.hardware_summary.setVisible(False)
+        detection_layout.addWidget(self.hardware_summary)
+        
+        layout.addWidget(detection_group)
+        
         # Profile details
-        details_group = QGroupBox("Hardware Details")
+        details_group = QGroupBox("📋 Selected Profile Details")
         details_layout = QGridLayout(details_group)
         
         # Hardware info labels
@@ -193,19 +254,35 @@ class HardwareProfileWidget(QWidget):
         self.cpu_label = QLabel("-")
         details_layout.addWidget(self.cpu_label, 4, 1)
         
+        # Match confidence (initially hidden)
+        details_layout.addWidget(QLabel("Match Confidence:"), 5, 0)
+        self.confidence_label = QLabel("-")
+        self.confidence_label.setVisible(False)
+        details_layout.addWidget(self.confidence_label, 5, 1)
+        
         layout.addWidget(details_group)
     
     def load_profiles(self, profiles: List[HardwareProfile]):
         """Load available hardware profiles"""
         self.profiles = profiles
+        self._update_profile_list()
+    
+    def _update_profile_list(self):
+        """Update the profile list display with detection indicators"""
         self.profile_list.clear()
         
         # Group profiles by platform
         platform_groups = {}
-        for profile in profiles:
+        for profile in self.profiles:
             if profile.platform not in platform_groups:
                 platform_groups[profile.platform] = []
             platform_groups[profile.platform].append(profile)
+        
+        # Sort profiles by match score if we have detection results
+        if self.profile_matches:
+            matched_profiles = {match.profile.name: match for match in self.profile_matches}
+        else:
+            matched_profiles = {}
         
         for platform, platform_profiles in platform_groups.items():
             # Add platform header
@@ -214,18 +291,62 @@ class HardwareProfileWidget(QWidget):
             header_item.setBackground(QColor("#3C3C3C"))
             self.profile_list.addItem(header_item)
             
-            # Add profiles
-            for profile in platform_profiles:
-                item = QListWidgetItem(f"  {profile.name}")
+            # Sort profiles by match score for this platform
+            platform_profiles_sorted = sorted(
+                platform_profiles, 
+                key=lambda p: matched_profiles[p.name].match_score if p.name in matched_profiles else 0, 
+                reverse=True
+            )
+            
+            # Add profiles with match indicators
+            for profile in platform_profiles_sorted:
+                # Build display text with confidence indicators
+                display_text = f"  {profile.name}"
+                
+                # Add match indicator if this profile was matched
+                if profile.name in matched_profiles:
+                    match = matched_profiles[profile.name]
+                    confidence_icons = {
+                        DetectionConfidence.EXACT_MATCH: "🎯",
+                        DetectionConfidence.HIGH_CONFIDENCE: "✅", 
+                        DetectionConfidence.MEDIUM_CONFIDENCE: "⚠️",
+                        DetectionConfidence.LOW_CONFIDENCE: "❓",
+                        DetectionConfidence.UNKNOWN: "❌"
+                    }
+                    icon = confidence_icons.get(match.confidence, "")
+                    display_text = f"  {icon} {profile.name} ({match.match_score:.0f}%)"
+                
+                item = QListWidgetItem(display_text)
                 item.setData(Qt.ItemDataRole.UserRole, profile)
                 
-                # Color code by platform
+                # Color code by platform with match highlighting
+                base_color = QColor("#6C757D")  # Default gray
                 if profile.platform == "mac":
-                    item.setBackground(QColor("#007AFF"))
+                    base_color = QColor("#007AFF")
                 elif profile.platform == "windows":
-                    item.setBackground(QColor("#FF6B35"))
+                    base_color = QColor("#FF6B35")
                 elif profile.platform == "linux":
-                    item.setBackground(QColor("#28A745"))
+                    base_color = QColor("#28A745")
+                
+                # Brighten color for high-confidence matches
+                if profile.name in matched_profiles:
+                    match = matched_profiles[profile.name]
+                    if match.confidence in [DetectionConfidence.EXACT_MATCH, DetectionConfidence.HIGH_CONFIDENCE]:
+                        # Make the color brighter for good matches
+                        r, g, b = base_color.red(), base_color.green(), base_color.blue()
+                        base_color = QColor(min(255, r + 40), min(255, g + 40), min(255, b + 40))
+                
+                item.setBackground(base_color)
+                
+                # Set tooltip with match details
+                if profile.name in matched_profiles:
+                    match = matched_profiles[profile.name]
+                    tooltip = f"{profile.name}\n\nMatch Score: {match.match_score:.1f}%\nConfidence: {match.get_confidence_text()}\n\nReasons:\n"
+                    for reason in match.match_reasons[:3]:
+                        tooltip += f"• {reason}\n"
+                    item.setToolTip(tooltip)
+                else:
+                    item.setToolTip(f"{profile.name}\nPlatform: {profile.platform}\nArchitecture: {profile.architecture}")
                 
                 self.profile_list.addItem(item)
     
@@ -245,6 +366,122 @@ class HardwareProfileWidget(QWidget):
         self.arch_label.setText(profile.architecture)
         self.year_label.setText(str(profile.year) if profile.year else "Unknown")
         self.cpu_label.setText(profile.cpu_family or "Unknown")
+        
+        # Update match confidence if available
+        matched_profiles = {match.profile.name: match for match in self.profile_matches}
+        if profile.name in matched_profiles:
+            match = matched_profiles[profile.name]
+            confidence_text = f"{match.get_confidence_text()} ({match.match_score:.1f}%)"
+            self.confidence_label.setText(confidence_text)
+            self.confidence_label.setVisible(True)
+        else:
+            self.confidence_label.setVisible(False)
+    
+    def _setup_detection_connections(self):
+        """Setup hardware detection connections"""
+        self.auto_detect_btn.clicked.connect(self._start_detection)
+    
+    def _start_detection(self):
+        """Start hardware detection process"""
+        if self.detection_thread.isRunning():
+            return
+        
+        # Update UI to show detection in progress
+        self.auto_detect_btn.setEnabled(False)
+        self.auto_detect_btn.setText("🔄 Detecting...")
+        self.detection_status.setText("Scanning hardware...")
+        self.detection_results.setText("🔍 Scanning your system hardware...\nThis may take a few moments.")
+        
+        # Start detection thread
+        self.detection_thread.start()
+    
+    def _on_detection_completed(self, detected_hardware: DetectedHardware):
+        """Handle successful hardware detection"""
+        self.detected_hardware = detected_hardware
+        
+        # Find matching profiles
+        self.profile_matches = self.hardware_matcher.find_matching_profiles(detected_hardware, max_results=10)
+        
+        # Update UI
+        self._update_detection_results()
+        self._update_profile_list()
+        
+        # Auto-select best match if available
+        if self.profile_matches:
+            best_match = self.profile_matches[0]
+            self._select_profile_by_name(best_match.profile.name)
+        
+        # Reset button state
+        self.auto_detect_btn.setEnabled(True)
+        self.auto_detect_btn.setText("🔍 Auto-Detect Hardware")
+        self.detection_status.setText(f"✅ Detection completed ({detected_hardware.detection_confidence.value})")
+        
+        # Emit detection completed signal
+        self.detection_completed.emit(detected_hardware)
+    
+    def _on_detection_failed(self, error_message: str):
+        """Handle failed hardware detection"""
+        # Update UI to show error
+        self.detection_results.setText(f"❌ Hardware detection failed:\n{error_message}")
+        self.detection_status.setText("❌ Detection failed")
+        
+        # Reset button state
+        self.auto_detect_btn.setEnabled(True)
+        self.auto_detect_btn.setText("🔍 Auto-Detect Hardware")
+    
+    def _update_detection_results(self):
+        """Update the detection results display"""
+        if not self.detected_hardware:
+            return
+        
+        hw = self.detected_hardware
+        
+        # Create detection summary
+        summary_parts = []
+        summary_parts.append(f"🖥️  System: {hw.get_summary()}")
+        summary_parts.append(f"🎯  Detection Confidence: {hw.detection_confidence.value.title()}")
+        
+        if hw.platform:
+            summary_parts.append(f"💻  Platform: {hw.platform.title()}")
+        
+        if self.profile_matches:
+            best_match = self.profile_matches[0]
+            summary_parts.append(f"✨  Best Match: {best_match.profile.name} ({best_match.match_score:.0f}%)")
+            summary_parts.append(f"📊  Found {len(self.profile_matches)} compatible profiles")
+        
+        summary_text = "\n".join(summary_parts)
+        
+        self.detection_results.setText("🎯 Hardware Detection Results:")
+        self.hardware_summary.setText(summary_text)
+        self.hardware_summary.setVisible(True)
+    
+    def _select_profile_by_name(self, profile_name: str):
+        """Select a profile by name in the list"""
+        for i in range(self.profile_list.count()):
+            item = self.profile_list.item(i)
+            if item and item.data(Qt.ItemDataRole.UserRole):
+                profile = item.data(Qt.ItemDataRole.UserRole)
+                if profile.name == profile_name:
+                    self.profile_list.setCurrentItem(item)
+                    break
+    
+    def get_detection_summary(self) -> str:
+        """Get a summary of the detection results for logging/reporting"""
+        if not self.detected_hardware:
+            return "No hardware detection performed"
+        
+        summary = []
+        summary.append(f"Hardware Detection Summary:")
+        summary.append(f"  System: {self.detected_hardware.get_summary()}")
+        summary.append(f"  Platform: {self.detected_hardware.platform}")
+        summary.append(f"  Confidence: {self.detected_hardware.detection_confidence.value}")
+        
+        if self.profile_matches:
+            summary.append(f"  Profile Matches: {len(self.profile_matches)}")
+            for i, match in enumerate(self.profile_matches[:3]):
+                summary.append(f"    {i+1}. {match.profile.name} ({match.match_score:.1f}%)")
+        
+        return "\n".join(summary)
 
 
 class FileSelectionWidget(QWidget):
@@ -517,12 +754,15 @@ class BuildProgressWidget(QWidget):
 class USBRecipeManagerWidget(QWidget):
     """Main USB Recipe Manager widget"""
     
-    def __init__(self, disk_manager=None):
+    def __init__(self, disk_manager=None, config=None):
         super().__init__()
         self.logger = logging.getLogger(__name__)
         self.usb_builder = USBBuilderEngine()
         self.disk_manager = disk_manager
         self.safety_validator = SafetyValidator(SafetyLevel.STANDARD)
+        
+        # Initialize config
+        self.config = config if config is not None else Config()
         
         # Current selections
         self.selected_recipe: Optional[str] = None
@@ -605,19 +845,23 @@ class USBRecipeManagerWidget(QWidget):
         
         # Recipe tab
         self.recipe_widget = RecipeSelectionWidget()
-        tab_widget.addTab(self.recipe_widget, "Recipe")
+        tab_widget.addTab(self.recipe_widget, "1. Recipe")
         
         # Hardware tab
         self.hardware_widget = HardwareProfileWidget()
-        tab_widget.addTab(self.hardware_widget, "Hardware")
+        tab_widget.addTab(self.hardware_widget, "2. Hardware")
         
-        # Files tab
+        # OS Images tab (new!)
+        self.os_image_widget = OSImageSelectionWidget(self.config)
+        tab_widget.addTab(self.os_image_widget, "3. OS Images")
+        
+        # Files tab (now for additional files)
         self.files_widget = FileSelectionWidget()
-        tab_widget.addTab(self.files_widget, "Files")
+        tab_widget.addTab(self.files_widget, "4. Files")
         
         # Device tab
         device_widget = self._create_device_selection_widget()
-        tab_widget.addTab(device_widget, "Device")
+        tab_widget.addTab(device_widget, "5. Device")
         
         layout.addWidget(tab_widget)
         
@@ -705,6 +949,9 @@ class USBRecipeManagerWidget(QWidget):
         # Hardware selection
         self.hardware_widget.profile_selected.connect(self._on_profile_selected)
         
+        # OS Image selection (new!)
+        self.os_image_widget.images_updated.connect(self._on_os_images_updated)
+        
         # File selection
         self.files_widget.files_updated.connect(self._on_files_updated)
     
@@ -742,12 +989,16 @@ class USBRecipeManagerWidget(QWidget):
         """Handle recipe selection"""
         self.selected_recipe = recipe_name
         
-        # Update required files
+        # Update required files for both OS Image Manager and traditional file selection
         recipes = self.usb_builder.get_available_recipes()
         recipe = next((r for r in recipes if r.name == recipe_name), None)
         
         if recipe:
-            self.files_widget.set_required_files(recipe.required_files, recipe.optional_files)
+            # Set required files for OS Image Manager (primary)
+            self.os_image_widget.set_required_files(recipe.required_files)
+            
+            # Set only optional files for traditional file selection (secondary)
+            self.files_widget.set_required_files([], recipe.optional_files)
         
         self._update_build_button()
     
@@ -756,9 +1007,17 @@ class USBRecipeManagerWidget(QWidget):
         self.selected_profile = profile_name
         self._update_build_button()
     
+    def _on_os_images_updated(self, os_images: Dict[str, str]):
+        """Handle OS image selection updates"""
+        # Merge OS images with traditional files
+        self.source_files.update(os_images)
+        self._update_build_button()
+        self.logger.info(f"OS images updated: {len(os_images)} files ready")
+    
     def _on_files_updated(self, files: Dict[str, str]):
-        """Handle file selection updates"""
-        self.source_files = files
+        """Handle traditional file selection updates"""
+        # Merge traditional files with OS images
+        self.source_files.update(files)
         self._update_build_button()
     
     def _on_device_selected(self):
@@ -782,14 +1041,43 @@ class USBRecipeManagerWidget(QWidget):
     
     def _update_build_button(self):
         """Update build button state"""
-        ready = all([
+        # Check basic selections
+        basic_ready = all([
             self.selected_recipe,
             self.selected_profile,
-            self.selected_device,
-            self.files_widget.is_ready()
+            self.selected_device
         ])
         
+        # Check if OS images are ready
+        os_images_ready = self.os_image_widget.is_ready()
+        
+        # Check if traditional files are ready (now only optional files)
+        traditional_files_ready = self.files_widget.is_ready()
+        
+        # Overall readiness: basic selections + OS images ready
+        # Traditional files are now optional since required files come from OS images
+        ready = basic_ready and os_images_ready
+        
         self.build_btn.setEnabled(ready)
+        
+        # Update status message
+        if ready:
+            status_msg = "✅ Ready to build USB drive"
+        elif not basic_ready:
+            missing = []
+            if not self.selected_recipe: missing.append("recipe")
+            if not self.selected_profile: missing.append("hardware profile")
+            if not self.selected_device: missing.append("target device")
+            status_msg = f"Please select: {', '.join(missing)}"
+        elif not os_images_ready:
+            status_msg = "⏳ Waiting for OS images to be assigned and verified"
+        else:
+            status_msg = "⚙️ Ready (some optional files may be missing)"
+        
+        # Update progress widget with status
+        if hasattr(self, 'progress_widget'):
+            # This will show the status in the progress panel
+            pass
     
     def _start_build(self):
         """Start USB build process with comprehensive safety validation"""
