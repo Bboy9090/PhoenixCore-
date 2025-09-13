@@ -6,6 +6,7 @@ Main stepper interface combining StepperHeader with step content for professiona
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from datetime import datetime
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QStackedWidget, QLabel, 
     QPushButton, QHBoxLayout, QSpacerItem, QSizePolicy,
@@ -2436,65 +2437,832 @@ class USBConfigurationStepView(StepView):
 
 
 class SafetyReviewStepView(StepView):
-    """Safety review step view"""
+    """🚨 CRITICAL SAFETY REVIEW STEP - Final confirmation before destructive USB operations 🚨
+    
+    This step implements comprehensive safety measures to prevent accidental system damage:
+    - Shows exact devices, images, and operations to be performed
+    - Requires multiple levels of explicit user confirmation
+    - Uses SafetyValidator to assess device risks
+    - Blocks dangerous operations (system disks, etc.)
+    - Professional UI with clear warnings and safety messaging
+    """
+    
+    # Signals for safety events
+    safety_assessment_completed = pyqtSignal(object)  # DeviceRisk
+    critical_warning_displayed = pyqtSignal(str)  # Warning message
     
     def __init__(self):
         super().__init__(
-            "Safety Review",
-            "Review all settings and confirm the deployment operation."
+            "🚨 Final Safety Review",
+            "CRITICAL: Review all settings and provide explicit confirmations before proceeding with destructive USB operations."
         )
+        
+        # Initialize safety components
+        self.safety_validator = SafetyValidator(SafetyLevel.STANDARD)
+        
+        # State tracking
+        self.detected_hardware = None
+        self.selected_image = None
+        self.target_device = None
+        self.selected_recipe = None
+        self.device_risk = None
+        
+        # UI Components (initialized in _setup_content)
+        self.summary_layout = None
+        self.safety_assessment_group = None
+        self.confirmation_widgets = {}
+        self.typed_confirmations = {}
+        
         self._setup_content()
     
     def _setup_content(self):
-        """Setup safety review content"""
-        # Summary group
-        summary_group = QGroupBox("Deployment Summary")
-        summary_layout = QVBoxLayout(summary_group)
+        """Setup comprehensive safety review interface with multi-level confirmations"""
+        # Create main scroll area for large content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                background-color: #404040;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #606060;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #707070;
+            }
+        """)
         
-        summary_text = """Source Image: macOS Ventura 13.0 (4.2 GB)
-Target Device: SanDisk 32GB USB Drive
-Operation: Format + Write + Verify
-Estimated Time: 15-20 minutes
-
-⚠️  WARNING: All data on the target drive will be permanently erased!"""
+        scroll_widget = QWidget()
+        main_layout = QVBoxLayout(scroll_widget)
+        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(10, 10, 10, 10)
         
-        summary_label = QLabel(summary_text)
-        summary_label.setWordWrap(True)
-        summary_label.setStyleSheet("color: #cccccc; font-size: 14px; padding: 10px;")
-        summary_layout.addWidget(summary_label)
+        # CRITICAL WARNING BANNER
+        self._create_warning_banner(main_layout)
         
-        self.content_layout.addWidget(summary_group)
+        # 1. COMPREHENSIVE ACTION SUMMARY
+        self._create_action_summary(main_layout)
         
-        # Confirmation checkboxes
-        confirm_group = QGroupBox("Safety Confirmations")
-        confirm_layout = QVBoxLayout(confirm_group)
+        # 2. DEVICE SAFETY ASSESSMENT
+        self._create_safety_assessment(main_layout)
         
-        self.backup_checkbox = QCheckBox("I have backed up any important data on the target drive")
-        confirm_layout.addWidget(self.backup_checkbox)
+        # 3. DESTRUCTIVE ACTION WARNINGS
+        self._create_destructive_warnings(main_layout)
         
-        self.understand_checkbox = QCheckBox("I understand that this operation cannot be undone")
-        confirm_layout.addWidget(self.understand_checkbox)
+        # 4. MULTI-LEVEL CONFIRMATION SYSTEM
+        self._create_confirmation_system(main_layout)
         
-        self.proceed_checkbox = QCheckBox("I am ready to proceed with the deployment")
-        confirm_layout.addWidget(self.proceed_checkbox)
+        # 5. TYPED CONFIRMATIONS
+        self._create_typed_confirmations(main_layout)
         
-        # Connect checkboxes to validation
-        for checkbox in [self.backup_checkbox, self.understand_checkbox, self.proceed_checkbox]:
-            checkbox.toggled.connect(self._validate_confirmations)
+        # 6. FINAL VALIDATION STATUS
+        self._create_validation_status(main_layout)
         
-        self.content_layout.addWidget(confirm_group)
+        scroll_area.setWidget(scroll_widget)
+        self.content_layout.addWidget(scroll_area)
         
-        # Initially disable next
+        # Initially disable next until all confirmations complete
         self.set_navigation_enabled(next=False)
     
-    def _validate_confirmations(self):
-        """Validate safety confirmations"""
-        all_checked = (self.backup_checkbox.isChecked() and 
-                      self.understand_checkbox.isChecked() and 
-                      self.proceed_checkbox.isChecked())
-        self.set_navigation_enabled(next=all_checked)
-        if all_checked:
+    def _create_warning_banner(self, parent_layout):
+        """Create prominent warning banner at top"""
+        warning_frame = QFrame()
+        warning_frame.setFrameStyle(QFrame.Shape.Box)
+        warning_frame.setStyleSheet("""
+            QFrame {
+                background-color: #4a1f1f;
+                border: 3px solid #ff4444;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        
+        warning_layout = QHBoxLayout(warning_frame)
+        
+        # Warning icon
+        warning_icon = QLabel("🚨")
+        warning_icon.setStyleSheet("font-size: 48px;")
+        warning_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        warning_layout.addWidget(warning_icon)
+        
+        # Warning text
+        warning_text = QLabel(
+            "<b>CRITICAL SAFETY CHECK</b><br>"
+            "<span style='font-size: 16px; color: #ff6666;'>"
+            "This operation will PERMANENTLY ERASE data!<br>"
+            "Carefully review all details before proceeding."
+            "</span>"
+        )
+        warning_text.setStyleSheet(
+            "color: #ffffff; font-size: 18px; font-weight: bold; padding: 5px;"
+        )
+        warning_layout.addWidget(warning_text)
+        
+        # Stop sign icon
+        stop_icon = QLabel("🛑")
+        stop_icon.setStyleSheet("font-size: 48px;")
+        stop_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        warning_layout.addWidget(stop_icon)
+        
+        parent_layout.addWidget(warning_frame)
+    
+    def _create_action_summary(self, parent_layout):
+        """Create comprehensive summary of all selected options"""
+        summary_group = QGroupBox("📋 Deployment Configuration Summary")
+        summary_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                color: #ffffff;
+                border: 2px solid #0078d4;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #0078d4;
+            }
+        """)
+        
+        self.summary_layout = QVBoxLayout(summary_group)
+        
+        # Placeholders - will be populated when wizard state is loaded
+        self.hardware_summary = QLabel("⏳ Loading hardware information...")
+        self.hardware_summary.setStyleSheet("color: #cccccc; font-size: 14px; padding: 5px;")
+        self.summary_layout.addWidget(self.hardware_summary)
+        
+        self.image_summary = QLabel("⏳ Loading OS image information...")
+        self.image_summary.setStyleSheet("color: #cccccc; font-size: 14px; padding: 5px;")
+        self.summary_layout.addWidget(self.image_summary)
+        
+        self.device_summary = QLabel("⏳ Loading device information...")
+        self.device_summary.setStyleSheet("color: #cccccc; font-size: 14px; padding: 5px;")
+        self.summary_layout.addWidget(self.device_summary)
+        
+        self.recipe_summary = QLabel("⏳ Loading recipe information...")
+        self.recipe_summary.setStyleSheet("color: #cccccc; font-size: 14px; padding: 5px;")
+        self.summary_layout.addWidget(self.recipe_summary)
+        
+        parent_layout.addWidget(summary_group)
+    
+    def _create_safety_assessment(self, parent_layout):
+        """Create device safety assessment display"""
+        self.safety_assessment_group = QGroupBox("🔍 Device Safety Assessment")
+        self.safety_assessment_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                color: #ffffff;
+                border: 2px solid #ff8800;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #ff8800;
+            }
+        """)
+        
+        assessment_layout = QVBoxLayout(self.safety_assessment_group)
+        
+        self.safety_status_label = QLabel("⏳ Running safety assessment...")
+        self.safety_status_label.setStyleSheet("color: #cccccc; font-size: 14px; padding: 5px;")
+        assessment_layout.addWidget(self.safety_status_label)
+        
+        self.risk_factors_label = QLabel("")
+        self.risk_factors_label.setStyleSheet("color: #cccccc; font-size: 14px; padding: 5px;")
+        self.risk_factors_label.setWordWrap(True)
+        assessment_layout.addWidget(self.risk_factors_label)
+        
+        parent_layout.addWidget(self.safety_assessment_group)
+    
+    def _create_destructive_warnings(self, parent_layout):
+        """Create explicit warnings about destructive operations"""
+        warning_group = QGroupBox("⚠️ Destructive Operations Warning")
+        warning_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                color: #ffffff;
+                border: 2px solid #ff4444;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #ff4444;
+            }
+        """)
+        
+        warning_layout = QVBoxLayout(warning_group)
+        
+        # Destructive action text
+        destruction_text = QTextEdit()
+        destruction_text.setMaximumHeight(120)
+        destruction_text.setReadOnly(True)
+        destruction_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #3d1a1a;
+                border: 2px solid #ff6666;
+                border-radius: 6px;
+                color: #ffcccc;
+                font-size: 13px;
+                font-weight: bold;
+                padding: 10px;
+            }
+        """)
+        
+        destruction_content = """
+🛑 PERMANENT DATA LOSS WARNING 🛑
+
+The following DESTRUCTIVE operations will be performed:
+• Complete erasure of ALL data on the target USB device
+• Destruction of ALL existing partitions and file systems
+• Overwriting with new bootable OS image data
+• Cannot be undone - data will be permanently lost!
+
+⏰ Estimated time: 15-30 minutes (depending on USB speed)
+💾 Space required: Full device capacity will be used
+        """
+        
+        destruction_text.setPlainText(destruction_content)
+        warning_layout.addWidget(destruction_text)
+        
+        parent_layout.addWidget(warning_group)
+    
+    def _create_confirmation_system(self, parent_layout):
+        """Create multi-level checkbox confirmation system"""
+        confirm_group = QGroupBox("☑️ Safety Confirmations (All Required)")
+        confirm_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                color: #ffffff;
+                border: 2px solid #00aa44;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #00aa44;
+            }
+        """)
+        
+        confirm_layout = QVBoxLayout(confirm_group)
+        
+        # Confirmation checkboxes with enhanced styling
+        checkbox_style = """
+            QCheckBox {
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 8px;
+                spacing: 10px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+            }
+            QCheckBox::indicator:unchecked {
+                border: 2px solid #666666;
+                background-color: #2d2d30;
+                border-radius: 4px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #00aa44;
+                background-color: #00aa44;
+                border-radius: 4px;
+            }
+            QCheckBox::indicator:unchecked:hover {
+                border: 2px solid #888888;
+            }
+            QCheckBox::indicator:checked:hover {
+                border: 2px solid #00cc55;
+                background-color: #00cc55;
+            }
+        """
+        
+        # Create confirmation checkboxes
+        self.confirmation_widgets = {
+            'understand_erase': QCheckBox("I understand this will PERMANENTLY ERASE all data on the target device"),
+            'backup_complete': QCheckBox("I have backed up any important data from this device (or it contains no important data)"),
+            'device_confirmed': QCheckBox("I have confirmed the correct USB device is selected (not a system drive)"),
+            'understand_irreversible': QCheckBox("I understand this operation cannot be undone or stopped once started"),
+            'accept_responsibility': QCheckBox("I accept full responsibility for any data loss that may occur"),
+            'ready_proceed': QCheckBox("I am ready to proceed with the USB creation process")
+        }
+        
+        for checkbox in self.confirmation_widgets.values():
+            checkbox.setStyleSheet(checkbox_style)
+            checkbox.toggled.connect(self._validate_all_confirmations)
+            confirm_layout.addWidget(checkbox)
+        
+        parent_layout.addWidget(confirm_group)
+    
+    def _create_typed_confirmations(self, parent_layout):
+        """Create typed confirmation fields for extra safety"""
+        typed_group = QGroupBox("⌨️ Typed Confirmations (Type Exactly as Shown)")
+        typed_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                color: #ffffff;
+                border: 2px solid #ff8800;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #ff8800;
+            }
+        """)
+        
+        typed_layout = QGridLayout(typed_group)
+        
+        # Typed confirmation fields
+        row = 0
+        
+        # "ERASE" confirmation
+        erase_label = QLabel("Type 'ERASE' to confirm data destruction:")
+        erase_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 14px;")
+        typed_layout.addWidget(erase_label, row, 0)
+        
+        self.typed_confirmations['erase'] = QLineEdit()
+        self.typed_confirmations['erase'].setPlaceholderText("Type: ERASE")
+        self.typed_confirmations['erase'].textChanged.connect(self._validate_all_confirmations)
+        self.typed_confirmations['erase'].setStyleSheet("""
+            QLineEdit {
+                padding: 8px;
+                font-size: 14px;
+                font-weight: bold;
+                border: 2px solid #666666;
+                border-radius: 4px;
+                background-color: #2d2d30;
+                color: #ffffff;
+            }
+            QLineEdit:focus {
+                border-color: #0078d4;
+            }
+        """)
+        typed_layout.addWidget(self.typed_confirmations['erase'], row, 1)
+        row += 1
+        
+        # Device path confirmation (will be populated when device is loaded)
+        self.device_path_label = QLabel("Type device path to confirm target:")
+        self.device_path_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 14px;")
+        typed_layout.addWidget(self.device_path_label, row, 0)
+        
+        self.typed_confirmations['device_path'] = QLineEdit()
+        self.typed_confirmations['device_path'].setPlaceholderText("Device path will appear here")
+        self.typed_confirmations['device_path'].textChanged.connect(self._validate_all_confirmations)
+        self.typed_confirmations['device_path'].setStyleSheet("""
+            QLineEdit {
+                padding: 8px;
+                font-size: 14px;
+                font-family: 'Courier New', monospace;
+                border: 2px solid #666666;
+                border-radius: 4px;
+                background-color: #2d2d30;
+                color: #ffffff;
+            }
+            QLineEdit:focus {
+                border-color: #0078d4;
+            }
+        """)
+        typed_layout.addWidget(self.typed_confirmations['device_path'], row, 1)
+        
+        parent_layout.addWidget(typed_group)
+    
+    def _create_validation_status(self, parent_layout):
+        """Create final validation status display"""
+        status_group = QGroupBox("✅ Final Validation Status")
+        status_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                color: #ffffff;
+                border: 2px solid #666666;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #666666;
+            }
+        """)
+        
+        status_layout = QVBoxLayout(status_group)
+        
+        self.validation_status_label = QLabel("⏳ Complete all confirmations to enable USB creation")
+        self.validation_status_label.setStyleSheet(
+            "color: #ffaa00; font-size: 16px; font-weight: bold; padding: 10px;"
+        )
+        self.validation_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        status_layout.addWidget(self.validation_status_label)
+        
+        parent_layout.addWidget(status_group)
+    
+    def _validate_all_confirmations(self):
+        """Comprehensive validation of all confirmation requirements"""
+        # Check all checkboxes are checked
+        checkboxes_valid = all(checkbox.isChecked() for checkbox in self.confirmation_widgets.values())
+        
+        # Check typed confirmations
+        erase_valid = self.typed_confirmations['erase'].text().strip() == 'ERASE'
+        device_path_valid = self._validate_device_path_confirmation()
+        
+        # Check safety assessment (no blocked/dangerous devices)
+        safety_valid = self.device_risk is None or self.device_risk.overall_risk not in [ValidationResult.BLOCKED, ValidationResult.DANGEROUS]
+        
+        # Overall validation
+        all_valid = checkboxes_valid and erase_valid and device_path_valid and safety_valid
+        
+        # Update UI based on validation status
+        self._update_validation_status(all_valid, checkboxes_valid, erase_valid, device_path_valid, safety_valid)
+        
+        # Enable/disable next button
+        self.set_navigation_enabled(next=all_valid)
+        
+        if all_valid:
             self.step_completed.emit()
+    
+    def _validate_device_path_confirmation(self) -> bool:
+        """Validate device path typed confirmation"""
+        if not self.target_device:
+            return False
+        
+        expected_path = self.target_device.path
+        typed_path = self.typed_confirmations['device_path'].text().strip()
+        
+        return typed_path == expected_path
+    
+    def _update_validation_status(self, all_valid: bool, checkboxes_valid: bool, erase_valid: bool, device_path_valid: bool, safety_valid: bool):
+        """Update validation status display with detailed feedback"""
+        if all_valid:
+            # All validations passed
+            self.validation_status_label.setText("✅ All confirmations complete - Ready to create USB drive!")
+            self.validation_status_label.setStyleSheet(
+                "color: #00ff00; font-size: 16px; font-weight: bold; padding: 10px;"
+            )
+            # Update group box border color to green
+            self.validation_status_label.parent().setStyleSheet("""
+                QGroupBox {
+                    border: 2px solid #00aa44;
+                }
+                QGroupBox::title {
+                    color: #00aa44;
+                }
+            """)
+        else:
+            # Show what still needs to be completed
+            missing = []
+            if not checkboxes_valid:
+                missing.append("safety checkboxes")
+            if not erase_valid:
+                missing.append("'ERASE' confirmation")
+            if not device_path_valid:
+                missing.append("device path confirmation")
+            if not safety_valid:
+                missing.append("device safety approval")
+            
+            self.validation_status_label.setText(f"⏳ Please complete: {', '.join(missing)}")
+            self.validation_status_label.setStyleSheet(
+                "color: #ffaa00; font-size: 16px; font-weight: bold; padding: 10px;"
+            )
+            # Keep border color as default gray
+            self.validation_status_label.parent().setStyleSheet("""
+                QGroupBox {
+                    border: 2px solid #666666;
+                }
+                QGroupBox::title {
+                    color: #666666;
+                }
+            """)
+    
+    def _run_device_safety_assessment(self):
+        """Run comprehensive device safety assessment"""
+        if not self.target_device:
+            return
+        
+        try:
+            # Run safety validation
+            device_path = self.target_device.path
+            self.device_risk = self.safety_validator.validate_device_safety(device_path)
+            
+            # Update safety assessment UI
+            self._update_safety_assessment_display()
+            
+            # Emit signal for external listeners
+            self.safety_assessment_completed.emit(self.device_risk)
+            
+            # Re-validate all confirmations (in case device is now blocked)
+            self._validate_all_confirmations()
+            
+        except Exception as e:
+            self.logger.error(f"Safety assessment failed: {e}", exc_info=True)
+            self.safety_status_label.setText(f"❌ Safety assessment failed: {str(e)}")
+            self.safety_status_label.setStyleSheet("color: #ff4444; font-size: 14px; padding: 5px;")
+    
+    def _update_safety_assessment_display(self):
+        """Update the safety assessment display with device risk information"""
+        if not self.device_risk:
+            return
+        
+        # Color code based on risk level
+        risk_colors = {
+            ValidationResult.SAFE: "#00aa44",
+            ValidationResult.WARNING: "#ff8800", 
+            ValidationResult.DANGEROUS: "#ff4444",
+            ValidationResult.BLOCKED: "#ff0000"
+        }
+        
+        risk_icons = {
+            ValidationResult.SAFE: "✅",
+            ValidationResult.WARNING: "⚠️",
+            ValidationResult.DANGEROUS: "🚨", 
+            ValidationResult.BLOCKED: "🛑"
+        }
+        
+        risk_level = self.device_risk.overall_risk
+        color = risk_colors.get(risk_level, "#cccccc")
+        icon = risk_icons.get(risk_level, "❓")
+        
+        # Update status label
+        device_info = (
+            f"{icon} Risk Level: {risk_level.value.upper()}\n"
+            f"Device: {self.device_risk.device_path}\n"
+            f"Size: {self.device_risk.size_gb:.1f} GB\n"
+            f"Removable: {'Yes' if self.device_risk.is_removable else 'No'}\n"
+            f"System Disk: {'Yes' if self.device_risk.is_system_disk else 'No'}\n"
+            f"Boot Disk: {'Yes' if self.device_risk.is_boot_disk else 'No'}"
+        )
+        
+        self.safety_status_label.setText(device_info)
+        self.safety_status_label.setStyleSheet(f"color: {color}; font-size: 14px; font-weight: bold; padding: 5px;")
+        
+        # Update risk factors if any
+        if self.device_risk.risk_factors:
+            risk_text = "\n".join([f"• {factor}" for factor in self.device_risk.risk_factors])
+            self.risk_factors_label.setText(f"Risk Factors:\n{risk_text}")
+            self.risk_factors_label.setStyleSheet(f"color: {color}; font-size: 14px; padding: 5px;")
+        else:
+            self.risk_factors_label.setText("✅ No risk factors detected")
+            self.risk_factors_label.setStyleSheet("color: #00aa44; font-size: 14px; padding: 5px;")
+        
+        # Show critical warning for dangerous/blocked devices
+        if risk_level in [ValidationResult.DANGEROUS, ValidationResult.BLOCKED]:
+            critical_msg = f"CRITICAL: Device is {risk_level.value.upper()} - operation blocked for safety!"
+            self.critical_warning_displayed.emit(critical_msg)
+            
+            # Show message box for immediate attention
+            QMessageBox.critical(
+                self,
+                "Critical Safety Warning",
+                f"The selected device has been flagged as {risk_level.value.upper()}.\n\n"
+                f"Risk factors:\n• {chr(10).join(self.device_risk.risk_factors)}\n\n"
+                f"This operation cannot proceed for safety reasons."
+            )
+    
+    # Step interface methods
+    def validate_step(self) -> bool:
+        """Final validation before allowing progression to next step"""
+        # Must have all required data loaded
+        if not all([self.detected_hardware, self.selected_image, self.target_device]):
+            return False
+        
+        # Must have completed safety assessment
+        if not self.device_risk:
+            return False
+        
+        # Must not be blocked or dangerous
+        if self.device_risk.overall_risk in [ValidationResult.BLOCKED, ValidationResult.DANGEROUS]:
+            return False
+        
+        # Must have all confirmations completed
+        checkboxes_valid = all(checkbox.isChecked() for checkbox in self.confirmation_widgets.values())
+        erase_valid = self.typed_confirmations['erase'].text().strip() == 'ERASE'
+        device_path_valid = self._validate_device_path_confirmation()
+        
+        return checkboxes_valid and erase_valid and device_path_valid
+    
+    def get_step_data(self) -> Dict[str, Any]:
+        """Get comprehensive step data including all safety confirmations"""
+        return {
+            'safety_confirmations_complete': self.validate_step(),
+            'device_risk_assessment': self.device_risk,
+            'user_confirmations': {
+                'checkboxes': {key: checkbox.isChecked() for key, checkbox in self.confirmation_widgets.items()},
+                'typed_confirmations': {key: field.text() for key, field in self.typed_confirmations.items()}
+            },
+            'safety_level': self.safety_validator.safety_level.value,
+            'final_device_path': self.target_device.path if self.target_device else None,
+            'final_validation_timestamp': datetime.now().isoformat()
+        }
+    
+    def load_step_data(self, data: Dict[str, Any]):
+        """Load wizard state data and update all displays"""
+        self.logger.info(f"Loading safety review step data: {list(data.keys())}")
+        
+        # Load hardware information
+        if 'detected_hardware' in data:
+            self.detected_hardware = data['detected_hardware']
+            self._update_hardware_summary()
+        
+        # Load OS image information
+        if 'selected_image' in data or 'image_info' in data:
+            self.selected_image = data.get('selected_image') or data.get('image_info')
+            self._update_image_summary()
+        
+        # Load device information
+        if 'device_info' in data:
+            self.target_device = data['device_info']
+            self._update_device_summary()
+            self._update_device_path_confirmation()
+            # Run safety assessment for the device
+            QTimer.singleShot(100, self._run_device_safety_assessment)
+        
+        # Load recipe information
+        if 'selected_recipe' in data:
+            self.selected_recipe = data['selected_recipe']
+            self._update_recipe_summary()
+    
+    def _update_hardware_summary(self):
+        """Update hardware information display"""
+        if not self.detected_hardware:
+            return
+        
+        try:
+            # Get hardware summary text
+            if hasattr(self.detected_hardware, 'get_summary'):
+                hw_summary = self.detected_hardware.get_summary()
+            else:
+                hw_summary = "Hardware detected successfully"
+            
+            # Get additional details if available
+            hw_details = []
+            if hasattr(self.detected_hardware, 'system_info'):
+                sys_info = self.detected_hardware.system_info
+                if hasattr(sys_info, 'model'):
+                    hw_details.append(f"Model: {sys_info.model}")
+                if hasattr(sys_info, 'cpu'):
+                    hw_details.append(f"CPU: {sys_info.cpu}")
+                if hasattr(sys_info, 'memory_gb'):
+                    hw_details.append(f"Memory: {sys_info.memory_gb}GB")
+            
+            summary_text = f"🔧 <b>Detected Hardware:</b> {hw_summary}"
+            if hw_details:
+                summary_text += f"<br>{'<br>'.join(hw_details)}"
+            
+            self.hardware_summary.setText(summary_text)
+            self.hardware_summary.setStyleSheet("color: #00aa44; font-size: 14px; padding: 5px;")
+            
+        except Exception as e:
+            self.logger.error(f"Error updating hardware summary: {e}")
+            self.hardware_summary.setText("🔧 <b>Hardware:</b> Detection completed")
+    
+    def _update_image_summary(self):
+        """Update OS image information display"""
+        if not self.selected_image:
+            return
+        
+        try:
+            # Handle both OSImageInfo objects and dictionaries
+            if hasattr(self.selected_image, 'name'):
+                name = self.selected_image.name
+                size_bytes = getattr(self.selected_image, 'size_bytes', 0)
+                verified = getattr(self.selected_image, 'status', None) == 'verified'
+                os_family = getattr(self.selected_image, 'os_family', 'Unknown')
+            else:
+                # Dictionary format
+                name = self.selected_image.get('name', 'Unknown')
+                size_bytes = self.selected_image.get('size_bytes', 0)
+                verified = self.selected_image.get('verified', False)
+                os_family = self.selected_image.get('os_family', 'Unknown')
+            
+            size_gb = size_bytes / (1024**3) if size_bytes > 0 else 0
+            verify_status = "✅ Verified" if verified else "⚠️ Not Verified"
+            verify_color = "#00aa44" if verified else "#ff8800"
+            
+            summary_text = (
+                f"📀 <b>OS Image:</b> {name}<br>"
+                f"Size: {size_gb:.1f} GB • Type: {os_family.title()}<br>"
+                f"<span style='color: {verify_color};'>{verify_status}</span>"
+            )
+            
+            self.image_summary.setText(summary_text)
+            self.image_summary.setStyleSheet("color: #00aa44; font-size: 14px; padding: 5px;")
+            
+        except Exception as e:
+            self.logger.error(f"Error updating image summary: {e}")
+            self.image_summary.setText("📀 <b>OS Image:</b> Selected")
+    
+    def _update_device_summary(self):
+        """Update device information display"""
+        if not self.target_device:
+            return
+        
+        try:
+            size_gb = self.target_device.size_bytes / (1024**3)
+            vendor_model = f"{self.target_device.vendor} {self.target_device.model}".strip()
+            
+            summary_text = (
+                f"💾 <b>Target Device:</b> {self.target_device.name}<br>"
+                f"Path: <code>{self.target_device.path}</code><br>"
+                f"Size: {size_gb:.1f} GB • Model: {vendor_model}<br>"
+                f"Removable: {'Yes' if self.target_device.is_removable else 'No'}"
+            )
+            
+            # Color code based on removable status
+            color = "#00aa44" if self.target_device.is_removable else "#ff8800"
+            
+            self.device_summary.setText(summary_text)
+            self.device_summary.setStyleSheet(f"color: {color}; font-size: 14px; padding: 5px;")
+            
+        except Exception as e:
+            self.logger.error(f"Error updating device summary: {e}")
+            self.device_summary.setText("💾 <b>Target Device:</b> Selected")
+    
+    def _update_recipe_summary(self):
+        """Update recipe configuration display"""
+        if not self.selected_recipe:
+            self.recipe_summary.setText("⚙️ <b>Recipe:</b> Standard USB creation")
+            return
+        
+        try:
+            if hasattr(self.selected_recipe, 'name'):
+                name = self.selected_recipe.name
+                description = getattr(self.selected_recipe, 'description', 'No description')
+            else:
+                name = str(self.selected_recipe)
+                description = "Configuration selected"
+            
+            summary_text = f"⚙️ <b>Recipe:</b> {name}<br>{description}"
+            
+            self.recipe_summary.setText(summary_text)
+            self.recipe_summary.setStyleSheet("color: #00aa44; font-size: 14px; padding: 5px;")
+            
+        except Exception as e:
+            self.logger.error(f"Error updating recipe summary: {e}")
+            self.recipe_summary.setText("⚙️ <b>Recipe:</b> Selected")
+    
+    def _update_device_path_confirmation(self):
+        """Update device path confirmation field with actual device path"""
+        if not self.target_device:
+            return
+        
+        device_path = self.target_device.path
+        self.device_path_label.setText(f"Type device path to confirm target: <code>{device_path}</code>")
+        self.typed_confirmations['device_path'].setPlaceholderText(f"Type: {device_path}")
+    
+    def on_step_entered(self):
+        """Called when step becomes active"""
+        self.logger.info("Safety Review step entered - performing final validation")
+        
+        # Clear any previous confirmations for fresh start
+        for checkbox in self.confirmation_widgets.values():
+            checkbox.setChecked(False)
+        
+        for field in self.typed_confirmations.values():
+            field.clear()
+        
+        # Reset validation status
+        self._validate_all_confirmations()
+    
+    def on_step_left(self):
+        """Called when leaving step"""
+        self.logger.info("Safety Review step exited - confirmations recorded")
+        
+        # Log final confirmation state for audit trail
+        if self.validate_step():
+            self.logger.info("All safety confirmations completed successfully")
+        else:
+            self.logger.warning("Safety confirmations incomplete - this should not happen!")
 
 
 class BuildVerifyStepView(StepView):
