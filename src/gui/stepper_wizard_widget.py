@@ -9,14 +9,18 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QStackedWidget, QLabel, 
     QPushButton, QHBoxLayout, QSpacerItem, QSizePolicy,
     QGroupBox, QTextEdit, QProgressBar, QCheckBox,
-    QComboBox, QListWidget, QFileDialog, QMessageBox
+    QComboBox, QListWidget, QFileDialog, QMessageBox,
+    QFrame, QGridLayout
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QPixmap
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QMutex
+from PyQt6.QtGui import QFont, QPixmap, QIcon
 
 from src.gui.stepper_header import StepperHeader, StepState
 from src.gui.stepper_wizard import WizardController, WizardStep, WizardState
 from src.core.disk_manager import DiskManager
+from src.core.hardware_detector import HardwareDetector, DetectedHardware, DetectionConfidence
+from src.core.hardware_matcher import HardwareMatcher, ProfileMatch
+from src.core.vendor_database import VendorDatabase
 
 
 class StepView(QWidget):
@@ -124,100 +128,579 @@ class StepView(QWidget):
         pass
 
 
+class HardwareDetectionWorker(QThread):
+    """Worker thread for hardware detection to prevent UI blocking"""
+    
+    # Signals for communication with UI
+    detection_started = pyqtSignal()
+    detection_progress = pyqtSignal(str, int)  # status_message, progress_percent
+    detection_completed = pyqtSignal(object, list)  # detected_hardware, profile_matches
+    detection_failed = pyqtSignal(str)  # error_message
+    detection_cancelled = pyqtSignal()
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.hardware_detector = HardwareDetector()
+        self.hardware_matcher = HardwareMatcher()
+        self.vendor_db = VendorDatabase()
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self._cancelled = False
+        self._mutex = QMutex()
+    
+    def cancel_detection(self):
+        """Cancel the hardware detection process"""
+        self._mutex.lock()
+        self._cancelled = True
+        self._mutex.unlock()
+        self.logger.info("Hardware detection cancellation requested")
+    
+    def run(self):
+        """Run hardware detection in thread"""
+        try:
+            self.detection_started.emit()
+            
+            if self._check_cancelled():
+                return
+            
+            # Step 1: Initialize detection
+            self.detection_progress.emit("Initializing hardware detection...", 10)
+            self.msleep(500)  # Brief pause for UI feedback
+            
+            if self._check_cancelled():
+                return
+            
+            # Step 2: Detect hardware
+            self.detection_progress.emit("Scanning system hardware...", 30)
+            detected_hardware = self.hardware_detector.detect_hardware()
+            
+            if self._check_cancelled():
+                return
+            
+            if not detected_hardware:
+                self.detection_failed.emit("Hardware detection failed - no hardware information found")
+                return
+            
+            # Step 3: Analyze detected hardware
+            self.detection_progress.emit("Analyzing hardware components...", 60)
+            self.msleep(300)
+            
+            if self._check_cancelled():
+                return
+            
+            # Step 4: Find matching profiles
+            self.detection_progress.emit("Finding compatible hardware profiles...", 80)
+            profile_matches = self.hardware_matcher.find_matching_profiles(detected_hardware, max_results=5)
+            
+            if self._check_cancelled():
+                return
+            
+            # Step 5: Complete
+            self.detection_progress.emit("Hardware detection completed!", 100)
+            self.msleep(200)
+            
+            # Emit results
+            self.detection_completed.emit(detected_hardware, profile_matches)
+            
+        except Exception as e:
+            self.logger.error(f"Hardware detection error: {e}", exc_info=True)
+            self.detection_failed.emit(f"Hardware detection failed: {str(e)}")
+    
+    def _check_cancelled(self) -> bool:
+        """Check if detection was cancelled"""
+        self._mutex.lock()
+        cancelled = self._cancelled
+        self._mutex.unlock()
+        
+        if cancelled:
+            self.detection_cancelled.emit()
+            return True
+        return False
+
+
 class HardwareDetectionStepView(StepView):
-    """Hardware detection step view"""
+    """Revolutionary hardware auto-detection step with real-time detection and profile matching"""
     
     def __init__(self):
         super().__init__(
             "Hardware Detection",
-            "Detecting your computer's hardware to recommend the best OS deployment configuration."
+            "Click 'Auto-Detect Hardware' to let BootForge automatically identify your system and recommend the perfect deployment configuration."
         )
+        
+        # State management
+        self.detected_hardware: Optional[DetectedHardware] = None
+        self.profile_matches: List[ProfileMatch] = []
+        self.detection_worker: Optional[HardwareDetectionWorker] = None
+        self.selected_profile: Optional[ProfileMatch] = None
+        
         self._setup_content()
+        
+        # Disable next button initially
+        self.set_navigation_enabled(next=False)
     
     def _setup_content(self):
-        """Setup hardware detection content"""
-        # Status group
-        status_group = QGroupBox("Detection Status")
-        status_layout = QVBoxLayout(status_group)
+        """Setup enhanced hardware detection content"""
+        # Main detection control
+        detection_group = QGroupBox("Hardware Detection")
+        detection_layout = QVBoxLayout(detection_group)
         
-        self.status_label = QLabel("Ready to scan hardware...")
-        self.status_label.setStyleSheet("color: #cccccc; font-size: 14px;")
-        status_layout.addWidget(self.status_label)
+        # Status display
+        self.status_label = QLabel("Ready to detect your hardware configuration")
+        self.status_label.setStyleSheet("color: #ffffff; font-size: 16px; font-weight: bold; padding: 10px;")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        detection_layout.addWidget(self.status_label)
         
+        # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
-        status_layout.addWidget(self.progress_bar)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #555555;
+                border-radius: 8px;
+                text-align: center;
+                font-weight: bold;
+                background-color: #2d2d30;
+            }
+            QProgressBar::chunk {
+                background-color: #0078d4;
+                border-radius: 6px;
+            }
+        """)
+        detection_layout.addWidget(self.progress_bar)
         
-        # Start detection button
-        self.scan_button = QPushButton("Start Hardware Detection")
-        self.scan_button.setMinimumSize(200, 40)
-        self.scan_button.clicked.connect(self._start_detection)
-        status_layout.addWidget(self.scan_button)
+        # Detection buttons layout
+        button_layout = QHBoxLayout()
+        button_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         
-        self.content_layout.addWidget(status_group)
+        # Auto-detect button (primary action)
+        self.detect_button = QPushButton("🔍 Auto-Detect Hardware")
+        self.detect_button.setMinimumSize(250, 50)
+        self.detect_button.setStyleSheet("""
+            QPushButton {
+                background-color: #0078d4;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 12px 24px;
+            }
+            QPushButton:hover {
+                background-color: #106ebe;
+            }
+            QPushButton:pressed {
+                background-color: #005a9e;
+            }
+            QPushButton:disabled {
+                background-color: #4a4a4a;
+                color: #888888;
+            }
+        """)
+        self.detect_button.clicked.connect(self._start_detection)
+        button_layout.addWidget(self.detect_button)
         
-        # Results area
+        # Cancel button (hidden initially)
+        self.cancel_button = QPushButton("Cancel Detection")
+        self.cancel_button.setMinimumSize(150, 50)
+        self.cancel_button.setVisible(False)
+        self.cancel_button.setStyleSheet("""
+            QPushButton {
+                background-color: #d73a49;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 12px 18px;
+            }
+            QPushButton:hover {
+                background-color: #cb2431;
+            }
+            QPushButton:pressed {
+                background-color: #b22a37;
+            }
+        """)
+        self.cancel_button.clicked.connect(self._cancel_detection)
+        button_layout.addWidget(self.cancel_button)
+        
+        button_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
+        detection_layout.addLayout(button_layout)
+        
+        self.content_layout.addWidget(detection_group)
+        
+        # Hardware results display (hidden initially)
         self.results_group = QGroupBox("Detected Hardware")
         results_layout = QVBoxLayout(self.results_group)
         
-        self.results_text = QTextEdit()
-        self.results_text.setMaximumHeight(200)
-        self.results_text.setReadOnly(True)
-        self.results_text.setStyleSheet("""
-            QTextEdit {
+        # Hardware summary
+        self.hardware_summary_label = QLabel()
+        self.hardware_summary_label.setStyleSheet("""
+            QLabel {
                 background-color: #2d2d30;
-                color: #cccccc;
-                border: 1px solid #555555;
-                font-family: 'Courier New', monospace;
+                color: #ffffff;
+                padding: 15px;
+                border-radius: 8px;
+                border: 2px solid #0078d4;
+                font-size: 16px;
+                font-weight: bold;
             }
         """)
-        results_layout.addWidget(self.results_text)
+        self.hardware_summary_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        results_layout.addWidget(self.hardware_summary_label)
+        
+        # Detailed hardware information
+        self.hardware_details = QTextEdit()
+        self.hardware_details.setMaximumHeight(180)
+        self.hardware_details.setReadOnly(True)
+        self.hardware_details.setStyleSheet("""
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #cccccc;
+                border: 1px solid #555555;
+                border-radius: 6px;
+                font-family: 'Segoe UI', 'Arial', sans-serif;
+                font-size: 12px;
+                padding: 10px;
+            }
+        """)
+        results_layout.addWidget(self.hardware_details)
+        
+        # Profile matching results
+        profile_frame = QFrame()
+        profile_layout = QVBoxLayout(profile_frame)
+        
+        profile_label = QLabel("Recommended Hardware Profiles:")
+        profile_label.setStyleSheet("color: #ffffff; font-size: 14px; font-weight: bold; margin-top: 10px;")
+        profile_layout.addWidget(profile_label)
+        
+        self.profile_combo = QComboBox()
+        self.profile_combo.setMinimumHeight(35)
+        self.profile_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #2d2d30;
+                color: #ffffff;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            QComboBox:hover {
+                border-color: #0078d4;
+            }
+            QComboBox::drop-down {
+                background-color: #555555;
+                border: none;
+                border-top-right-radius: 6px;
+                border-bottom-right-radius: 6px;
+            }
+            QComboBox::down-arrow {
+                width: 12px;
+                height: 12px;
+            }
+        """)
+        self.profile_combo.currentIndexChanged.connect(self._on_profile_selected)
+        profile_layout.addWidget(self.profile_combo)
+        
+        # Re-detect button
+        redetect_layout = QHBoxLayout()
+        redetect_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
+        
+        self.redetect_button = QPushButton("🔄 Re-detect Hardware")
+        self.redetect_button.setMinimumSize(180, 35)
+        self.redetect_button.setStyleSheet("""
+            QPushButton {
+                background-color: #6f42c1;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #5a32a3;
+            }
+            QPushButton:pressed {
+                background-color: #4c2a85;
+            }
+        """)
+        self.redetect_button.clicked.connect(self._start_detection)
+        redetect_layout.addWidget(self.redetect_button)
+        
+        redetect_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
+        profile_layout.addLayout(redetect_layout)
+        
+        results_layout.addWidget(profile_frame)
         
         self.results_group.setVisible(False)
         self.content_layout.addWidget(self.results_group)
     
     def _start_detection(self):
-        """Start hardware detection simulation"""
-        self.scan_button.setEnabled(False)
+        """Start hardware detection using worker thread"""
+        self.logger.info("Starting hardware detection...")
+        
+        # Update UI state for detection
+        self.detect_button.setEnabled(False)
+        self.cancel_button.setVisible(True)
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
-        self.status_label.setText("Scanning hardware components...")
+        self.status_label.setText("🔍 Initializing hardware detection...")
         
-        # Simulate detection process
-        self.detection_timer = QTimer()
-        self.detection_timer.timeout.connect(self._update_detection)
-        self.detection_timer.start(100)
-        self.detection_progress = 0
+        # Hide previous results
+        self.results_group.setVisible(False)
+        
+        # Create and configure worker thread
+        self.detection_worker = HardwareDetectionWorker()
+        
+        # Connect signals
+        self.detection_worker.detection_started.connect(self._on_detection_started)
+        self.detection_worker.detection_progress.connect(self._on_detection_progress)
+        self.detection_worker.detection_completed.connect(self._on_detection_completed)
+        self.detection_worker.detection_failed.connect(self._on_detection_failed)
+        self.detection_worker.detection_cancelled.connect(self._on_detection_cancelled)
+        self.detection_worker.finished.connect(self._on_worker_finished)
+        
+        # Start detection
+        self.detection_worker.start()
     
-    def _update_detection(self):
-        """Update detection progress"""
-        self.detection_progress += 5
-        self.progress_bar.setValue(self.detection_progress)
-        
-        if self.detection_progress >= 100:
-            self.detection_timer.stop()
-            self._complete_detection()
+    def _cancel_detection(self):
+        """Cancel ongoing hardware detection"""
+        if self.detection_worker and self.detection_worker.isRunning():
+            self.logger.info("Cancelling hardware detection...")
+            self.detection_worker.cancel_detection()
+            self.status_label.setText("⏹️ Cancelling detection...")
     
-    def _complete_detection(self):
-        """Complete hardware detection"""
-        self.status_label.setText("Hardware detection completed successfully!")
-        self.results_group.setVisible(True)
+    def _on_detection_started(self):
+        """Handle detection started signal"""
+        self.logger.debug("Hardware detection started")
+    
+    def _on_detection_progress(self, message: str, progress: int):
+        """Handle detection progress updates"""
+        self.status_label.setText(f"🔍 {message}")
+        self.progress_bar.setValue(progress)
+        self.logger.debug(f"Detection progress: {progress}% - {message}")
+    
+    def _on_detection_completed(self, detected_hardware: DetectedHardware, profile_matches: List[ProfileMatch]):
+        """Handle successful detection completion"""
+        self.logger.info(f"Hardware detection completed: {detected_hardware.get_summary()}")
         
-        # Show mock detection results
-        results = """CPU: Intel Core i7-10700K @ 3.80GHz
-RAM: 32GB DDR4
-Storage: NVMe SSD 1TB
-GPU: NVIDIA GeForce RTX 3070
-Motherboard: ASUS ROG STRIX Z490-E
-Network: Intel Ethernet I225-V
-Audio: Realtek ALC1220
-
-Recommended Profile: High-Performance Gaming System
-Compatible OS: macOS 12+, Windows 11, Linux (all distributions)"""
+        # Store results
+        self.detected_hardware = detected_hardware
+        self.profile_matches = profile_matches
         
-        self.results_text.setText(results)
+        # Update UI with results
+        self._display_detection_results()
+        
+        # Enable next step if we have results
         self.set_navigation_enabled(next=True)
         self.step_completed.emit()
+    
+    def _on_detection_failed(self, error_message: str):
+        """Handle detection failure"""
+        self.logger.error(f"Hardware detection failed: {error_message}")
+        
+        # Update UI to show error
+        self.status_label.setText(f"❌ Detection failed: {error_message}")
+        self.progress_bar.setVisible(False)
+        
+        # Reset buttons
+        self.detect_button.setEnabled(True)
+        self.cancel_button.setVisible(False)
+        
+        # Show option to retry
+        self.detect_button.setText("🔄 Retry Detection")
+    
+    def _on_detection_cancelled(self):
+        """Handle detection cancellation"""
+        self.logger.info("Hardware detection cancelled by user")
+        
+        # Update UI
+        self.status_label.setText("⏹️ Detection cancelled")
+        self.progress_bar.setVisible(False)
+        
+        # Reset buttons
+        self.detect_button.setEnabled(True)
+        self.cancel_button.setVisible(False)
+    
+    def _on_worker_finished(self):
+        """Handle worker thread cleanup"""
+        if self.detection_worker:
+            self.detection_worker.deleteLater()
+            self.detection_worker = None
+    
+    def _display_detection_results(self):
+        """Display the hardware detection results in the UI"""
+        if not self.detected_hardware:
+            return
+        
+        # Update status
+        confidence_emoji = {
+            DetectionConfidence.EXACT_MATCH: "✅",
+            DetectionConfidence.HIGH_CONFIDENCE: "🎯", 
+            DetectionConfidence.MEDIUM_CONFIDENCE: "✔️",
+            DetectionConfidence.LOW_CONFIDENCE: "⚠️",
+            DetectionConfidence.UNKNOWN: "❓"
+        }
+        
+        emoji = confidence_emoji.get(self.detected_hardware.detection_confidence, "❓")
+        self.status_label.setText(f"{emoji} Hardware detection completed successfully!")
+        
+        # Hide progress elements
+        self.progress_bar.setVisible(False)
+        self.cancel_button.setVisible(False)
+        self.detect_button.setEnabled(True)
+        self.detect_button.setText("🔍 Auto-Detect Hardware")
+        
+        # Show results group
+        self.results_group.setVisible(True)
+        
+        # Update hardware summary
+        summary = self.detected_hardware.get_summary()
+        confidence_text = self.detected_hardware.detection_confidence.value.replace("_", " ").title()
+        self.hardware_summary_label.setText(f"📱 {summary}\\n🎯 Detection Confidence: {confidence_text}")
+        
+        # Update detailed information
+        details = self._format_hardware_details(self.detected_hardware)
+        self.hardware_details.setText(details)
+        
+        # Populate profile matches
+        self._populate_profile_matches()
+    
+    def _format_hardware_details(self, hardware: DetectedHardware) -> str:
+        """Format detailed hardware information for display"""
+        details = []
+        
+        # System information
+        if hardware.system_manufacturer and hardware.system_model:
+            details.append(f"🖥️ System: {hardware.system_manufacturer} {hardware.system_model}")
+        elif hardware.system_name:
+            details.append(f"🖥️ System: {hardware.system_name}")
+        
+        # CPU information
+        if hardware.cpu_name:
+            cpu_info = f"🔧 CPU: {hardware.cpu_name}"
+            if hardware.cpu_cores:
+                cpu_info += f" ({hardware.cpu_cores} cores"
+                if hardware.cpu_threads and hardware.cpu_threads != hardware.cpu_cores:
+                    cpu_info += f", {hardware.cpu_threads} threads"
+                cpu_info += ")"
+            details.append(cpu_info)
+        
+        # Memory information
+        if hardware.total_ram_gb:
+            details.append(f"💾 RAM: {hardware.total_ram_gb:.1f} GB")
+        
+        # GPU information
+        if hardware.primary_gpu:
+            details.append(f"🎮 Graphics: {hardware.primary_gpu}")
+        elif hardware.gpus:
+            gpu_names = [gpu.get('name', 'Unknown GPU') for gpu in hardware.gpus[:2]]
+            details.append(f"🎮 Graphics: {', '.join(gpu_names)}")
+        
+        # Storage information
+        if hardware.storage_devices:
+            storage_info = []
+            for storage in hardware.storage_devices[:2]:
+                name = storage.get('model', 'Unknown Storage')
+                size = storage.get('size_gb', 0)
+                if size > 0:
+                    storage_info.append(f"{name} ({size:.0f} GB)")
+                else:
+                    storage_info.append(name)
+            details.append(f"💽 Storage: {', '.join(storage_info)}")
+        
+        # Network information
+        if hardware.network_adapters:
+            network_names = [adapter.get('name', 'Unknown Network') for adapter in hardware.network_adapters[:2]]
+            details.append(f"🌐 Network: {', '.join(network_names)}")
+        
+        # Platform information
+        if hardware.platform and hardware.platform_version:
+            details.append(f"🔧 Platform: {hardware.platform.title()} {hardware.platform_version}")
+        elif hardware.platform:
+            details.append(f"🔧 Platform: {hardware.platform.title()}")
+        
+        return "\\n".join(details) if details else "No detailed hardware information available"
+    
+    def _populate_profile_matches(self):
+        """Populate the profile selection combo box with matches"""
+        self.profile_combo.clear()
+        
+        if not self.profile_matches:
+            self.profile_combo.addItem("No compatible profiles found")
+            self.profile_combo.setEnabled(False)
+            return
+        
+        self.profile_combo.setEnabled(True)
+        
+        # Add profile matches with confidence indicators
+        for i, match in enumerate(self.profile_matches):
+            confidence_icon = {
+                DetectionConfidence.EXACT_MATCH: "🎯",
+                DetectionConfidence.HIGH_CONFIDENCE: "✅", 
+                DetectionConfidence.MEDIUM_CONFIDENCE: "✔️",
+                DetectionConfidence.LOW_CONFIDENCE: "⚠️",
+                DetectionConfidence.UNKNOWN: "❓"
+            }.get(match.confidence, "❓")
+            
+            text = f"{confidence_icon} {match.profile.name} ({match.match_score:.0f}% match)"
+            self.profile_combo.addItem(text)
+            
+            # Store the match object as data
+            self.profile_combo.setItemData(i, match)
+        
+        # Select the best match by default
+        if self.profile_matches:
+            self.profile_combo.setCurrentIndex(0)
+            self._on_profile_selected(0)
+    
+    def _on_profile_selected(self, index: int):
+        """Handle profile selection change"""
+        if index >= 0 and index < self.profile_combo.count():
+            match_data = self.profile_combo.itemData(index)
+            if isinstance(match_data, ProfileMatch):
+                self.selected_profile = match_data
+                self.logger.info(f"Selected hardware profile: {match_data.profile.name}")
+    
+    def validate_step(self) -> bool:
+        """Validate that hardware detection is completed"""
+        return (self.detected_hardware is not None and 
+                self.selected_profile is not None)
+    
+    def get_step_data(self) -> Dict[str, Any]:
+        """Get the hardware detection data for the wizard state"""
+        return {
+            "detected_hardware": self.detected_hardware,
+            "profile_matches": self.profile_matches,
+            "selected_profile": self.selected_profile,
+            "detection_confidence": self.detected_hardware.detection_confidence.value if self.detected_hardware else None
+        }
+    
+    def load_step_data(self, data: Dict[str, Any]):
+        """Load previously saved step data"""
+        if "detected_hardware" in data and data["detected_hardware"]:
+            self.detected_hardware = data["detected_hardware"]
+            self.profile_matches = data.get("profile_matches", [])
+            self.selected_profile = data.get("selected_profile")
+            
+            # Update UI with loaded data
+            self._display_detection_results()
+    
+    def on_step_entered(self):
+        """Called when the step becomes active"""
+        self.logger.info("Hardware detection step entered")
+        
+        # Auto-start detection if no hardware has been detected yet
+        if not self.detected_hardware:
+            # Brief delay to allow UI to settle, then start detection
+            QTimer.singleShot(1000, self._start_detection)
+    
+    def on_step_left(self):
+        """Called when leaving the step"""
+        self.logger.info("Hardware detection step exited")
+        
+        # Cancel any running detection
+        if self.detection_worker and self.detection_worker.isRunning():
+            self.detection_worker.cancel_detection()
 
 
 class OSImageSelectionStepView(StepView):
