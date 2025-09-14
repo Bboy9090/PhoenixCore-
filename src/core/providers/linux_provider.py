@@ -21,7 +21,7 @@ from src.core.config import Config
 
 
 class LinuxProvider(OSImageProvider):
-    """Provider for Linux distributions, supporting Ubuntu LTS, Kali Linux, and Parrot OS releases"""
+    """Provider for Linux distributions, supporting Ubuntu LTS, Kali Linux, Parrot OS, and Arch Linux releases"""
     
     # Ubuntu LTS release information
     UBUNTU_LTS_RELEASES = {
@@ -177,15 +177,58 @@ class LinuxProvider(OSImageProvider):
         }
     }
     
+    # Arch Linux release information (rolling release with monthly ISOs)
+    ARCH_RELEASES = {
+        "2025.09.01": {
+            "name": "Arch Linux 2025.09.01",
+            "codename": "rolling",
+            "release_date": "2025-09-01",
+            "type": "monthly",
+            "kernel_version": "6.16"
+        },
+        "2025.08.01": {
+            "name": "Arch Linux 2025.08.01",
+            "codename": "rolling",
+            "release_date": "2025-08-01",
+            "type": "monthly",
+            "kernel_version": "6.15"
+        },
+        "2024.12.01": {
+            "name": "Arch Linux 2024.12.01",
+            "codename": "rolling",
+            "release_date": "2024-12-01",
+            "type": "monthly",
+            "kernel_version": "6.12"
+        },
+        "2024.10.01": {
+            "name": "Arch Linux 2024.10.01",
+            "codename": "rolling",
+            "release_date": "2024-10-01",
+            "type": "monthly",
+            "kernel_version": "6.11"
+        },
+        "2024.08.01": {
+            "name": "Arch Linux 2024.08.01",
+            "codename": "rolling",
+            "release_date": "2024-08-01",
+            "type": "monthly",
+            "kernel_version": "6.10"
+        }
+    }
+    
     UBUNTU_BASE_URL = "http://releases.ubuntu.com/"
     KALI_BASE_URL = "https://cdimage.kali.org/"
     KALI_CURRENT_URL = "https://cdimage.kali.org/current/"
     PARROT_BASE_URL = "https://download.parrot.sh/parrot/iso/"
     PARROT_MIRROR_URL = "https://deb.parrot.sh/parrot/iso/"
+    ARCH_BASE_URL = "https://geo.mirror.pkgbuild.com/iso/"
+    ARCH_LATEST_URL = "https://geo.mirror.pkgbuild.com/iso/latest/"
+    ARCH_DOWNLOAD_PAGE = "https://archlinux.org/download/"
     GPG_KEYSERVER = "hkp://keyserver.ubuntu.com:80"
     UBUNTU_SIGNING_KEY = "843938DF228D22F7B3742BC0D94AA3F0EFE21092"  # Ubuntu CD Image Signing Key
     KALI_SIGNING_KEY = "44C6513A8E4FB3D30875F758ED444FF07D8D0BF6"  # Kali Linux Official Signing Key
     PARROT_SIGNING_KEY = "B71182234655E4D92DA02DF7A8286AF0E81EE4A"  # Parrot Archive Keyring (2024-2026)
+    ARCH_SIGNING_KEY = "3E80CA1A8B89F69CBA57D98A76A5EF9054449A5C"  # Arch Linux Release Engineering (Pierre Schmitz)
     
     def __init__(self, config: Config):
         super().__init__("linux", config)
@@ -199,7 +242,7 @@ class LinuxProvider(OSImageProvider):
         self._cache_expires = 0
         
     def get_available_images(self) -> List[OSImageInfo]:
-        """Get all available Ubuntu LTS, Kali Linux, and Parrot OS images"""
+        """Get all available Ubuntu LTS, Kali Linux, Parrot OS, and Arch Linux images"""
         import time
         
         # Use cache if still valid (1 hour)
@@ -229,6 +272,13 @@ class LinuxProvider(OSImageProvider):
             images.extend(parrot_images)
         except Exception as e:
             self.logger.warning(f"Failed to get Parrot OS images: {e}")
+        
+        # Check Arch Linux releases
+        try:
+            arch_images = self._get_arch_images()
+            images.extend(arch_images)
+        except Exception as e:
+            self.logger.warning(f"Failed to get Arch Linux images: {e}")
         
         # Update cache
         self._image_cache = images
@@ -941,9 +991,15 @@ class LinuxProvider(OSImageProvider):
                         ubuntu_img = next((img for img in latest_images if img.metadata.get('distribution') == 'ubuntu'), None)
                         if ubuntu_img:
                             return ubuntu_img
+                    
+                    # Check for Arch-specific terms
+                    elif any(arch_term in pattern_lower for arch_term in ['arch', 'rolling', 'bleeding', 'pacman', 'aur']):
+                        arch_img = next((img for img in latest_images if img.metadata.get('distribution') == 'arch'), None)
+                        if arch_img:
+                            return arch_img
                 
-                # Default behavior: prefer Ubuntu for backward compatibility, then Parrot, then Kali
-                for preferred_dist in ['ubuntu', 'parrot', 'kali']:
+                # Default behavior: prefer Ubuntu for backward compatibility, then Parrot, then Kali, then Arch
+                for preferred_dist in ['ubuntu', 'parrot', 'kali', 'arch']:
                     dist_img = next((img for img in latest_images if img.metadata.get('distribution') == preferred_dist), None)
                     if dist_img:
                         return dist_img
@@ -954,7 +1010,7 @@ class LinuxProvider(OSImageProvider):
         return None
     
     def verify_image(self, image_info: OSImageInfo, local_path: str) -> bool:
-        """Verify Linux image (Ubuntu/Kali/Parrot) using SHA256 + GPG signature"""
+        """Verify Linux image (Ubuntu/Kali/Parrot/Arch) using SHA256 + GPG signature"""
         try:
             distribution = image_info.metadata.get("distribution", "ubuntu")
             self.logger.info(f"Verifying {distribution} image: {local_path}")
@@ -977,6 +1033,10 @@ class LinuxProvider(OSImageProvider):
                     checksums_path = temp_path / "signed-hashes.txt"
                     signature_path = temp_path / "signed-hashes.txt.gpg"
                     checksum_name = "signed-hashes.txt"
+                elif distribution == "arch":
+                    checksums_path = temp_path / "sha256sums.txt"
+                    signature_path = temp_path / "sha256sums.txt.sig"
+                    checksum_name = "sha256sums.txt"
                 else:
                     checksums_path = temp_path / "SHA256SUMS"
                     signature_path = temp_path / "SHA256SUMS.gpg"
@@ -1033,6 +1093,9 @@ class LinuxProvider(OSImageProvider):
             elif distribution == "parrot":
                 signing_key = self.PARROT_SIGNING_KEY
                 key_name = "Parrot"
+            elif distribution == "arch":
+                signing_key = self.ARCH_SIGNING_KEY
+                key_name = "Arch"
             else:
                 signing_key = self.UBUNTU_SIGNING_KEY
                 key_name = "Ubuntu"
@@ -1096,6 +1159,203 @@ class LinuxProvider(OSImageProvider):
         except Exception as e:
             self.logger.error(f"Failed to extract checksum: {e}")
             return None
+    
+    def _get_arch_images(self) -> List[OSImageInfo]:
+        """Get available Arch Linux images from latest and archived releases"""
+        images = []
+        
+        # Get latest release first
+        try:
+            latest_images = self._get_arch_latest_images()
+            images.extend(latest_images)
+        except Exception as e:
+            self.logger.warning(f"Failed to get latest Arch images: {e}")
+        
+        # Get archived releases for older versions
+        for version, info in self.ARCH_RELEASES.items():
+            # Skip versions we already got from latest
+            if any(img.version == version for img in images):
+                continue
+                
+            try:
+                archived_images = self._get_arch_archived_images(version, info)
+                images.extend(archived_images)
+            except Exception as e:
+                self.logger.warning(f"Failed to get Arch {version} images: {e}")
+        
+        return images
+    
+    def _get_arch_latest_images(self) -> List[OSImageInfo]:
+        """Get latest Arch Linux release images"""
+        images = []
+        
+        try:
+            # Get latest directory listing
+            response = self.session.get(self.ARCH_LATEST_URL, timeout=15)
+            response.raise_for_status()
+            
+            # Parse available ISO files
+            iso_pattern = r'href="(archlinux-.*?\.iso)"'
+            isos = re.findall(iso_pattern, response.text)
+            
+            # Process each ISO
+            for iso_filename in isos:
+                # Parse version from filename
+                version = self._parse_arch_version_from_filename(iso_filename)
+                if not version:
+                    continue
+                    
+                image_info = self._process_arch_iso(iso_filename, self.ARCH_LATEST_URL, version)
+                if image_info:
+                    images.append(image_info)
+                    
+        except Exception as e:
+            self.logger.error(f"Failed to get latest Arch images: {e}")
+        
+        return images
+    
+    def _get_arch_archived_images(self, version: str, release_info: Dict) -> List[OSImageInfo]:
+        """Get archived Arch Linux release images"""
+        images = []
+        
+        try:
+            # Construct archive URL
+            archive_url = urljoin(self.ARCH_BASE_URL, f"{version}/")
+            
+            # Try to get archive directory listing
+            response = self.session.get(archive_url, timeout=15)
+            response.raise_for_status()
+            
+            # Parse available ISO files
+            iso_pattern = r'href="(archlinux-.*?\.iso)"'
+            isos = re.findall(iso_pattern, response.text)
+            
+            # Process each ISO
+            for iso_filename in isos:
+                image_info = self._process_arch_iso(iso_filename, archive_url, version)
+                if image_info:
+                    images.append(image_info)
+                    
+        except Exception as e:
+            self.logger.warning(f"Failed to get archived Arch {version} images: {e}")
+        
+        return images
+    
+    def _process_arch_iso(self, iso_filename: str, base_url: str, version: str) -> Optional[OSImageInfo]:
+        """Process an Arch ISO filename and create OSImageInfo"""
+        try:
+            # Determine architecture
+            arch = self._detect_arch_architecture(iso_filename)
+            if not arch:
+                return None
+            
+            # Get file size
+            iso_url = urljoin(base_url, iso_filename)
+            size_bytes = self._get_file_size(iso_url)
+            
+            # Create unique image ID
+            sanitized_version = version.replace('.', '-')
+            image_id = f"arch-{sanitized_version}-{arch}"
+            
+            # Get release info
+            arch_info = self.ARCH_RELEASES.get(version, {
+                "name": f"Arch Linux {version}",
+                "codename": "rolling",
+                "release_date": version,
+                "type": "monthly"
+            })
+            
+            # Build display name
+            display_name = f"{arch_info['name']} ({arch})"
+            
+            # Create metadata
+            metadata = {
+                "distribution": "arch",
+                "release_type": "rolling",
+                "codename": "rolling",
+                "filename": iso_filename,
+                "use_case": "advanced_users",
+                "target_audience": "developers",
+                "philosophy": "rolling_release",
+                "installer_type": "comprehensive",
+                "checksum_url": urljoin(base_url, "sha256sums.txt"),
+                "signature_url": urljoin(base_url, "sha256sums.txt.sig"),
+                "bleeding_edge": True,
+                "package_manager": "pacman"
+            }
+            
+            # Add kernel version if available
+            if "kernel_version" in arch_info:
+                metadata["kernel_version"] = arch_info["kernel_version"]
+            
+            # Add release date
+            if "release_date" in arch_info:
+                metadata["release_date"] = arch_info["release_date"]
+            
+            # Create image info
+            image = OSImageInfo(
+                id=image_id,
+                name=display_name,
+                os_family="linux",
+                version=version,
+                architecture=arch,
+                size_bytes=size_bytes,
+                download_url=iso_url,
+                checksum=None,  # Will be populated when needed
+                checksum_type="sha256",
+                verification_method=VerificationMethod.HYBRID,  # SHA256 + GPG
+                status=ImageStatus.AVAILABLE,
+                provider=self.name,
+                metadata=metadata
+            )
+            
+            return image
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to process Arch ISO {iso_filename}: {e}")
+            return None
+    
+    def _detect_arch_architecture(self, filename: str) -> Optional[str]:
+        """Detect architecture from Arch ISO filename"""
+        filename_lower = filename.lower()
+        
+        # Arch primarily focuses on x86_64
+        if "x86_64" in filename_lower or "amd64" in filename_lower:
+            return "x86_64"
+        elif "i686" in filename_lower or "i386" in filename_lower:
+            return "i386"
+        elif "arm64" in filename_lower or "aarch64" in filename_lower:
+            return "arm64"
+        
+        # Default to x86_64 for Arch (most common and primary target)
+        # Only if we don't see any other architecture indicators
+        if not any(arch_indicator in filename_lower for arch_indicator in ["arm", "i686", "i386"]):
+            return "x86_64"
+        
+        return None
+    
+    def _parse_arch_version_from_filename(self, filename: str) -> Optional[str]:
+        """Parse Arch Linux version from filename
+        
+        Examples:
+        - archlinux-2025.09.01-x86_64.iso → 2025.09.01
+        - archlinux-2024.12.01-x86_64.iso → 2024.12.01
+        """
+        # Arch uses YYYY.MM.DD format
+        version_pattern = r'archlinux-(\d{4}\.\d{2}\.\d{2})-'
+        match = re.search(version_pattern, filename)
+        
+        if match:
+            return match.group(1)
+        
+        # Fallback: try to extract any date-like pattern
+        date_pattern = r'(\d{4}\.\d{2}\.\d{2})'
+        match = re.search(date_pattern, filename)
+        
+        if match:
+            return match.group(1)
+        
+        return None
     
     def _calculate_sha256(self, file_path: str) -> str:
         """Calculate SHA256 checksum of a file"""
