@@ -1,0 +1,84 @@
+robg@Robs-iMac ~ % curl -fsSL http://64df6ecc-b2b6-4249-92a3-a7954138dd1d-00-1yjprj56yguoo.kirk.replit.dev/install/macos | bash
+
+╔══════════════════════════════════════════════╗
+║              BootForge Installer             ║
+║     Professional OS Deployment Tool         ║
+║                   macOS                      ║
+║             Security Enhanced                ║
+╚══════════════════════════════════════════════╝
+
+ℹ️  Detected macOS: 13.7.8 ✓
+13.7.8
+ℹ️  Detected macOS: 13.7.8
+ℹ️  Architecture: 🔄 Detecting macOS architecture...
+ℹ️  Detected Intel Mac (x86_64)
+x64
+ℹ️  Shell: zsh
+ℹ️  Base URL: http://64df6ecc-b2b6-4249-92a3-a7954138dd1d-00-1yjprj56yguoo.kirk.replit.dev
+🔒 Checking administrator privileges...
+🔒 Administrator privileges confirmed
+🔄 Checking system requirements...
+✅ System requirements met
+🔄 Creating installation directories...
+✅ Directories created
+🔄 Downloading BootForge for macOS 🔄 Detecting macOS architecture...
+ℹ️  Detected Intel Mac (x86_64)
+x64 with integrity verification...
+🔄 Cleaning up temporary files...
+robg@Robs-iMac ~ % curl -fsSL https://64df6ecc-b2b6-4249-92a3-a7954138dd1d-00-1yjprj56yguoo.kirk.replit.dev/install/macos | bash
+
+╔══════════════════════════════════════════════╗
+║              BootForge Installer             ║
+║     Professional OS Deployment Tool         ║
+║                   macOS                      ║
+║             Security Enhanced                ║
+╚══════════════════════════════════════════════╝
+
+ℹ️  Detected macOS: 13.7.8 ✓
+13.7.8
+ℹ️  Detected macOS: 13.7.8
+ℹ️  Architecture: 🔄 Detecting macOS architecture...
+ℹ️  Detected Intel Mac (x86_64)
+x64
+ℹ️  Shell: zsh
+ℹ️  Base URL: http://64df6ecc-b2b6-4249-92a3-a7954138dd1d-00-1yjprj56yguoo.kirk.replit.dev
+🔒 Checking administrator privileges...
+🔒 Administrator privileges confirmed
+🔄 Checking system requirements...
+✅ System requirements met
+🔄 Creating installation directories...
+✅ Directories created
+🔄 Downloading BootForge for macOS 🔄 Detecting macOS architecture...
+ℹ️  Detected Intel Mac (x86_64)
+x64 with integrity verification...
+🔄 Cleaning up temporary files...
+robg@Robs-iMac ~ % #!/bin/bash
+zsh: event not found: /bin/bash
+robg@Robs-iMac ~ % curl -fsSL https://64df6ecc-b2b6-4249-92a3-a7954138dd1d-00-1yjprj56yguoo.kirk.replit.dev/install/macos | bash
+
+╔══════════════════════════════════════════════╗
+║              BootForge Installer             ║
+║     Professional OS Deployment Tool         ║
+║                   macOS                      ║
+║             Security Enhanced                ║
+╚══════════════════════════════════════════════╝
+
+ℹ️  Detected macOS: 13.7.8 ✓
+13.7.8
+ℹ️  Detected macOS: 13.7.8
+ℹ️  Architecture: 🔄 Detecting macOS architecture...
+ℹ️  Detected Intel Mac (x86_64)
+x64
+ℹ️  Shell: zsh
+ℹ️  Base URL: http://64df6ecc-b2b6-4249-92a3-a7954138dd1d-00-1yjprj56yguoo.kirk.replit.dev
+🔒 Checking administrator privileges...
+🔒 Administrator privileges confirmed
+🔄 Checking system requirements...
+✅ System requirements met
+🔄 Creating installation directories...
+✅ Directories created
+🔄 Downloading BootForge for macOS 🔄 Detecting macOS architecture...
+ℹ️  Detected Intel Mac (x86_64)
+x64 with integrity verification...
+🔄 Cleaning up temporary files...
+robg@Robs-iMac ~ %            
