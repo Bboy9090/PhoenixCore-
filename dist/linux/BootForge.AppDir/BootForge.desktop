@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=BootForge
+Comment=Professional OS Deployment Tool for Mac, Windows, and Linux
+GenericName=OS Deployment Tool
+Exec=BootForge
+Icon=bootforge
+StartupNotify=true
+Categories=System;Utility;Settings;
+Keywords=bootable;usb;installer;deployment;macos;windows;linux;
+MimeType=application/x-iso9660-image;application/x-cd-image;application/x-raw-disk-image;
+X-AppImage-Version=1.0.0

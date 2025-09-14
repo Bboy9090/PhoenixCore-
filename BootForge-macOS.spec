@@ -1,11 +1,16 @@
 
 # -*- mode: python ; coding: utf-8 -*-
+import os
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('src', 'src')],
+    datas=[
+        ('src', 'src'),
+        ('assets', 'assets'),
+        ('README.md', '.'),
+    ],
     hiddenimports=[
         'PyQt6.QtWidgets',
         'PyQt6.QtCore', 
@@ -40,7 +45,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -51,7 +56,22 @@ exe = EXE(
 app = BUNDLE(
     exe,
     name='BootForge.app',
-    icon='assets/icon.icns' if os.path.exists('assets/icon.icns') else None,
+    icon='assets/icons/app_icon_premium.png',
+    info_plist={
+        'CFBundleShortVersionString': '1.0.0',
+        'CFBundleVersion': '1.0.0',
+        'CFBundleIdentifier': 'dev.bootforge.BootForge',
+        'LSMinimumSystemVersion': '10.15',
+        'NSHighResolutionCapable': True,
+        'LSApplicationCategoryType': 'public.app-category.utilities',
+        'CFBundleDocumentTypes': [
+            {
+                'CFBundleTypeName': 'Disk Image',
+                'CFBundleTypeExtensions': ['iso', 'dmg', 'img'],
+                'CFBundleTypeRole': 'Editor'
+            }
+        ]
+    },
     bundle_identifier='com.bootforge.app',
     version='1.0.0',
 )

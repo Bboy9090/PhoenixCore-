@@ -5,7 +5,11 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('src', 'src')],
+    datas=[
+        ('src', 'src'),
+        ('assets', 'assets'),
+        ('README.md', '.'),
+    ],
     hiddenimports=[
         'PyQt6.QtWidgets',
         'PyQt6.QtCore', 
@@ -40,11 +44,11 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/icon.ico' if os.path.exists('assets/icon.ico') else None,
+    icon='assets/icons/app_icon_premium.png',
 )

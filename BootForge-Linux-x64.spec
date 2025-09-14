@@ -5,7 +5,11 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('src', 'src')],
+    datas=[
+        ('src', 'src'),
+        ('assets', 'assets'),
+        ('README.md', '.'),
+    ],
     hiddenimports=['PyQt6.QtWidgets', 'PyQt6.QtCore', 'PyQt6.QtGui', 'src.gui.main_window', 'src.core.config', 'src.core.logger'],
     hookspath=[],
     hooksconfig={},

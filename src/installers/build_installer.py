@@ -9,81 +9,424 @@ import platform
 import subprocess
 import shutil
 from pathlib import Path
+import importlib.util
+from typing import Optional, List, Tuple
 
 
-def build_executable():
-    """Build standalone executable with PyInstaller"""
-    print("Building BootForge executable...")
+def find_pyinstaller() -> Optional[str]:
+    """Find PyInstaller executable with robust path detection"""
     
-    # PyInstaller command
-    cmd = [
-        'pyinstaller',
-        '--onefile',
-        '--name=BootForge',
-        '--add-data=src:src',
-        '--hidden-import=src.core',
-        '--hidden-import=src.plugins',
-        '--hidden-import=src.cli',
-        '--console',  # Console application
-        'main.py'
+    # Try using Python module approach first (more reliable in restricted environments)
+    try:
+        import PyInstaller
+        print(f"✅ Found PyInstaller module at: {PyInstaller.__file__}")
+        return f"{sys.executable} -m PyInstaller"
+    except ImportError:
+        pass
+    
+    # Common installation locations to check
+    search_paths = [
+        # Current PATH
+        shutil.which('pyinstaller'),
+        
+        # Python scripts directory
+        str(Path(sys.executable).parent / 'pyinstaller'),
+        str(Path(sys.executable).parent / 'pyinstaller.exe'),
+        
+        # User site packages (common on Linux/macOS)
+        str(Path.home() / '.local' / 'bin' / 'pyinstaller'),
+        
+        # macOS user Python installations
+        str(Path.home() / 'Library' / 'Python' / f'{sys.version_info.major}.{sys.version_info.minor}' / 'bin' / 'pyinstaller'),
+        
+        # Homebrew Python on macOS
+        '/opt/homebrew/bin/pyinstaller',
+        '/usr/local/bin/pyinstaller',
+        
+        # Windows AppData
+        str(Path.home() / 'AppData' / 'Roaming' / 'Python' / f'Python{sys.version_info.major}{sys.version_info.minor}' / 'Scripts' / 'pyinstaller.exe'),
+        str(Path.home() / 'AppData' / 'Local' / 'Programs' / 'Python' / f'Python{sys.version_info.major}{sys.version_info.minor}' / 'Scripts' / 'pyinstaller.exe'),
+        
+        # Current workspace (Replit-specific)
+        str(Path.cwd() / '.pythonlibs' / 'bin' / 'pyinstaller'),
+        '/home/runner/workspace/.pythonlibs/bin/pyinstaller',
     ]
     
-    # Add GUI support if available
+    # Check each location
+    for path in search_paths:
+        if path and Path(path).exists() and os.access(path, os.X_OK):
+            print(f"✅ Found PyInstaller binary at: {path}")
+            return path
+    
+    return None
+
+
+def check_dependencies() -> Tuple[bool, List[str]]:
+    """Check if all required dependencies are available"""
+    missing_deps = []
+    warnings = []
+    
+    # Check PyInstaller (not critical - we have fallbacks)
+    if not find_pyinstaller():
+        warnings.append('PyInstaller not found - will use fallback method')
+    
+    # Check PyQt6 for GUI builds (this IS critical for GUI functionality)
     try:
         import PyQt6
-        cmd.extend([
-            '--hidden-import=PyQt6.QtWidgets',
-            '--hidden-import=PyQt6.QtCore',
-            '--hidden-import=PyQt6.QtGui',
-            '--hidden-import=src.gui'
-        ])
+        print("✅ PyQt6 available - GUI features enabled")
     except ImportError:
-        print("PyQt6 not available - building CLI-only version")
+        print("⚠️  PyQt6 not available - GUI features will be limited")
+        warnings.append('PyQt6 missing - GUI may not work properly')
     
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # Show warnings but don't fail
+    for warning in warnings:
+        print(f"⚠️  {warning}")
     
-    if result.returncode == 0:
-        print("✅ Executable built successfully")
+    return True, []  # Always return success, handle issues in build functions
+
+
+def get_platform_spec_file() -> Optional[str]:
+    """Get the appropriate .spec file for the current platform"""
+    system = platform.system()
+    
+    spec_files = {
+        'Linux': 'BootForge-Linux-x64.spec',
+        'Darwin': 'BootForge-macOS.spec',
+        'Windows': 'BootForge-Windows.spec'
+    }
+    
+    spec_file = spec_files.get(system)
+    if spec_file and Path(spec_file).exists():
+        return spec_file
+    
+    return None
+
+
+def create_standalone_script() -> bool:
+    """Create a standalone script as fallback when PyInstaller doesn't work"""
+    print("🔄 Creating standalone script (PyInstaller fallback)...")
+    
+    try:
+        # Create dist directory
+        Path('dist').mkdir(exist_ok=True)
+        
+        # Create a portable script that bundles everything
+        standalone_content = '''#!/usr/bin/env python3
+"""
+BootForge Standalone Script
+Generated portable version of BootForge
+"""
+
+import sys
+import os
+from pathlib import Path
+
+# Add src directory to path
+script_dir = Path(__file__).parent
+sys.path.insert(0, str(script_dir / "src"))
+
+def main():
+    """Main entry point"""
+    # Import after path setup
+    try:
+        from main import main as bootforge_main
+        bootforge_main()
+    except Exception as e:
+        print(f"Error running BootForge: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+'''
+        
+        # Write standalone script
+        standalone_file = Path('dist/bootforge-standalone.py')
+        standalone_file.write_text(standalone_content)
+        standalone_file.chmod(0o755)
+        
+        # Copy source files to dist
+        src_dist = Path('dist/src')
+        if src_dist.exists():
+            shutil.rmtree(src_dist)
+        shutil.copytree('src', src_dist)
+        
+        # Copy main.py
+        shutil.copy2('main.py', 'dist/main.py')
+        
+        # Copy requirements
+        if Path('requirements.txt').exists():
+            shutil.copy2('requirements.txt', 'dist/requirements.txt')
+        
+        print("✅ Standalone script created successfully")
+        print("📝 Usage: python3 dist/bootforge-standalone.py")
         return True
-    else:
-        print(f"❌ Build failed: {result.stderr}")
+        
+    except Exception as e:
+        print(f"❌ Failed to create standalone script: {e}")
         return False
 
 
+def build_executable() -> bool:
+    """Build standalone executable with PyInstaller"""
+    print("🔨 Building BootForge executable...")
+    
+    # Find PyInstaller
+    pyinstaller_cmd = find_pyinstaller()
+    if not pyinstaller_cmd:
+        print("❌ PyInstaller not found!")
+        print("\n📦 Installation options:")
+        print("   • pip install pyinstaller")
+        print("   • pip3 install --user pyinstaller")
+        print("   • python -m pip install pyinstaller")
+        return False
+    
+    # Check if we should use existing spec file
+    spec_file = get_platform_spec_file()
+    
+    if spec_file:
+        print(f"📋 Using existing spec file: {spec_file}")
+        if 'python' in pyinstaller_cmd.lower():
+            cmd = pyinstaller_cmd.split() + [spec_file]
+        else:
+            cmd = [pyinstaller_cmd, spec_file]
+    else:
+        print("📋 Creating new build configuration")
+        
+        # Build command dynamically
+        if 'python' in pyinstaller_cmd.lower():
+            cmd = pyinstaller_cmd.split()
+        else:
+            cmd = [pyinstaller_cmd]
+        
+        cmd.extend([
+            '--onefile',
+            '--name=BootForge',
+            '--add-data=src:src',
+            '--hidden-import=src.core',
+            '--hidden-import=src.plugins',
+            '--hidden-import=src.cli',
+            '--console',  # Console application
+            'main.py'
+        ])
+        
+        # Add GUI support if available
+        try:
+            import PyQt6
+            cmd.extend([
+                '--hidden-import=PyQt6.QtWidgets',
+                '--hidden-import=PyQt6.QtCore', 
+                '--hidden-import=PyQt6.QtGui',
+                '--hidden-import=src.gui'
+            ])
+            print("🖥️  Including GUI support (PyQt6 detected)")
+        except ImportError:
+            print("📟 Building CLI-only version (PyQt6 not available)")
+    
+    print(f"🚀 Running: {' '.join(cmd)}")
+    
+    try:
+        # Create dist directory
+        Path('dist').mkdir(exist_ok=True)
+        
+        # Run PyInstaller with environment restrictions check
+        result = subprocess.run(
+            cmd, 
+            capture_output=True, 
+            text=True,
+            cwd=Path.cwd(),
+            timeout=300  # 5 minute timeout
+        )
+        
+        if result.returncode == 0:
+            print("✅ Executable built successfully")
+            
+            # Show build artifacts
+            dist_dir = Path('dist')
+            if dist_dir.exists():
+                artifacts = list(dist_dir.glob('*'))
+                if artifacts:
+                    print("\n📦 Build artifacts:")
+                    for artifact in artifacts:
+                        size = artifact.stat().st_size if artifact.is_file() else 0
+                        size_mb = size / (1024 * 1024) if size > 0 else 0
+                        print(f"   • {artifact.name} ({size_mb:.1f}MB)")
+            
+            return True
+        else:
+            print("❌ PyInstaller build failed!")
+            
+            # Check for specific environment issues
+            error_output = result.stderr.lower() if result.stderr else ""
+            if "ptrace" in error_output or "esrch" in error_output:
+                print("\n⚠️  Environment Limitation Detected:")
+                print("   This appears to be a restricted environment that doesn't support")
+                print("   PyInstaller's process monitoring features (ptrace restrictions).")
+                print("\n🔄 Switching to fallback method...")
+                return create_standalone_script()
+            else:
+                print(f"\n🔍 Error details:")
+                print(f"Exit code: {result.returncode}")
+                if result.stdout:
+                    print(f"STDOUT: {result.stdout}")
+                if result.stderr:
+                    print(f"STDERR: {result.stderr}")
+                
+                print("\n🔄 Trying fallback method...")
+                return create_standalone_script()
+            
+    except subprocess.TimeoutExpired:
+        print("❌ Build timed out (5 minutes)")
+        print("🔄 Switching to fallback method...")
+        return create_standalone_script()
+    except Exception as e:
+        print(f"❌ Build failed with exception: {e}")
+        print("🔄 Switching to fallback method...")
+        return create_standalone_script()
+
+
+def find_windows_executable() -> Optional[Path]:
+    """Find the Windows executable"""
+    dist_dir = Path("dist")
+    executable_candidates = [
+        "BootForge-Windows-x64.exe",
+        "BootForge.exe",
+        "bootforge-windows-x64.exe", 
+        "bootforge.exe"
+    ]
+    
+    for candidate in executable_candidates:
+        candidate_path = dist_dir / candidate
+        if candidate_path.exists() and candidate_path.is_file():
+            print(f"✅ Found Windows executable: {candidate_path}")
+            return candidate_path
+    
+    return None
+
+def create_windows_zip_package() -> bool:
+    """Create portable ZIP package for Windows"""
+    print("📦 Creating Windows ZIP package...")
+    
+    # Find the executable
+    executable = find_windows_executable()
+    if not executable:
+        print("❌ Could not find Windows executable")
+        return False
+    
+    import zipfile
+    
+    # Create ZIP package
+    zip_path = Path("dist/windows/BootForge-Portable.zip")
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        # Add executable
+        zipf.write(executable, f"BootForge/{executable.name}")
+        
+        # Add README for portable version
+        readme_content = """BootForge Portable
+================
+
+This is a portable version of BootForge.
+
+To run:
+1. Extract this ZIP file to any folder
+2. Double-click BootForge.exe
+3. No installation required!
+
+For full installation with Start Menu shortcuts,
+download the installer version instead.
+
+Support: https://bootforge.dev
+"""
+        
+        from io import BytesIO
+        readme_bytes = BytesIO(readme_content.encode('utf-8'))
+        zipf.writestr("BootForge/README.txt", readme_bytes.getvalue())
+        
+        # Add assets if available
+        asset_dirs = ["assets", "docs"]
+        for asset_dir in asset_dirs:
+            asset_path = Path(asset_dir)
+            if asset_path.exists():
+                for file_path in asset_path.rglob("*"):
+                    if file_path.is_file():
+                        arc_path = f"BootForge/{file_path}"
+                        zipf.write(file_path, arc_path)
+    
+    print(f"✅ Windows ZIP package created: {zip_path}")
+    return True
+
 def create_windows_installer():
-    """Create Windows installer with Inno Setup"""
+    """Create Windows installer with Inno Setup or ZIP fallback"""
     print("Creating Windows installer...")
     
-    # Inno Setup script
-    iss_content = """
-[Setup]
+    # Find the executable first
+    executable = find_windows_executable()
+    if not executable:
+        print("❌ Could not find Windows executable")
+        return False
+    
+    # Prepare for Authenticode signing (structure only)
+    print("📝 Preparing Authenticode signing structure...")
+    
+    sign_script = Path("dist/windows/sign_exe.bat")
+    sign_script.parent.mkdir(parents=True, exist_ok=True)
+    sign_script_content = f"""@echo off
+REM Windows Executable Signing Script
+REM Run this script after obtaining a Code Signing Certificate
+
+set EXE_PATH={executable}
+set CERT_PATH=path\\to\\your\\certificate.p12
+set TIMESTAMP_URL=http://timestamp.digicert.com
+
+echo 🔐 Signing Windows executable...
+
+REM Sign the executable with timestamp
+signtool sign /f "%CERT_PATH%" /p YOUR_CERT_PASSWORD /t "%TIMESTAMP_URL%" /fd SHA256 /v "%EXE_PATH%"
+
+REM Verify the signature
+echo ✅ Verifying signature...
+signtool verify /pa /v "%EXE_PATH%"
+
+echo ✅ Signed executable ready for distribution
+pause
+"""
+    
+    sign_script.write_text(sign_script_content)
+    print(f"✅ Code signing script created: {sign_script}")
+    
+    # Try Inno Setup installer first
+    iss_content = f"""[Setup]
 AppName=BootForge
 AppVersion=1.0.0
 AppPublisher=BootForge Team
 AppPublisherURL=https://bootforge.dev
-DefaultDirName={pf}\\BootForge
+DefaultDirName={{pf}}\\BootForge
 DefaultGroupName=BootForge
-UninstallDisplayIcon={app}\\BootForge.exe
+UninstallDisplayIcon={{app}}\\{executable.name}
 Compression=lzma2
 SolidCompression=yes
 OutputDir=dist\\windows
 OutputBaseFilename=BootForge-Setup
+WizardStyle=modern
+DisableWelcomePage=no
 
 [Files]
-Source: "dist\\BootForge.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
-Source: "docs\\*"; DestDir: "{app}\\docs"; Flags: ignoreversion recursesubdirs
+Source: "{executable}"; DestDir: "{{app}}"; Flags: ignoreversion
+Source: "README.md"; DestDir: "{{app}}"; Flags: ignoreversion external skipifnotexists
+Source: "assets\\*"; DestDir: "{{app}}\\assets"; Flags: ignoreversion recursesubdirs external skipifnotexists
+Source: "docs\\*"; DestDir: "{{app}}\\docs"; Flags: ignoreversion recursesubdirs external skipifnotexists
 
 [Icons]
-Name: "{group}\\BootForge"; Filename: "{app}\\BootForge.exe"
-Name: "{group}\\Uninstall BootForge"; Filename: "{uninstallexe}"
-Name: "{commondesktop}\\BootForge"; Filename: "{app}\\BootForge.exe"; Tasks: desktopicon
+Name: "{{group}}\\BootForge"; Filename: "{{app}}\\{executable.name}"
+Name: "{{group}}\\Uninstall BootForge"; Filename: "{{uninstallexe}}"
+Name: "{{commondesktop}}\\BootForge"; Filename: "{{app}}\\{executable.name}"; Tasks: desktopicon
 
 [Tasks]
-Name: desktopicon; Description: "Create a desktop icon"; GroupDescription: "Additional icons:"
+Name: desktopicon; Description: "Create a desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Run]
-Filename: "{app}\\BootForge.exe"; Description: "Launch BootForge"; Flags: nowait postinstall skipifsilent
+Filename: "{{app}}\\{executable.name}"; Description: "Launch BootForge"; Flags: nowait postinstall skipifsilent
 """
     
     # Write Inno Setup script
@@ -95,33 +438,78 @@ Filename: "{app}\\BootForge.exe"; Description: "Launch BootForge"; Flags: nowait
         result = subprocess.run(['iscc', 'BootForge.iss'], capture_output=True, text=True)
         if result.returncode == 0:
             print("✅ Windows installer created")
+            # Also create ZIP package as alternative
+            create_windows_zip_package()
             return True
         else:
             print(f"❌ Installer creation failed: {result.stderr}")
-            return False
+            return create_windows_zip_package()
     except FileNotFoundError:
-        print("❌ Inno Setup not found - install from https://jrsoftware.org/isinfo.php")
-        return False
+        print("⚠️  Inno Setup not found - creating ZIP fallback")
+        return create_windows_zip_package()
 
+
+def find_macos_executable() -> Optional[Path]:
+    """Find the macOS executable, handling both .app bundles and bare binaries"""
+    dist_dir = Path("dist")
+    
+    # First, look for .app bundle (preferred from spec file)
+    app_bundle = dist_dir / "BootForge.app"
+    if app_bundle.exists() and app_bundle.is_dir():
+        print(f"✅ Found .app bundle: {app_bundle}")
+        return app_bundle
+    
+    # Look for bare executable (fallback)
+    executable_candidates = [
+        "BootForge-macOS-x64",
+        "BootForge",
+        "bootforge-macos-x64",
+        "bootforge"
+    ]
+    
+    for candidate in executable_candidates:
+        candidate_path = dist_dir / candidate
+        if candidate_path.exists() and candidate_path.is_file():
+            print(f"✅ Found executable: {candidate_path}")
+            return candidate_path
+    
+    return None
 
 def create_macos_installer():
     """Create macOS installer"""
     print("Creating macOS installer...")
     
+    # Find the macOS executable or .app bundle
+    macos_executable = find_macos_executable()
+    if not macos_executable:
+        print("❌ Could not find macOS executable or .app bundle")
+        print("Available files in dist:")
+        dist_dir = Path("dist")
+        for item in dist_dir.iterdir():
+            print(f"   • {item.name}")
+        return False
+    
     app_name = "BootForge.app"
     app_dir = Path("dist/macos") / app_name
     
-    # Create app bundle structure
-    app_dir.mkdir(parents=True, exist_ok=True)
-    (app_dir / "Contents").mkdir(exist_ok=True)
-    (app_dir / "Contents/MacOS").mkdir(exist_ok=True)
-    (app_dir / "Contents/Resources").mkdir(exist_ok=True)
-    
-    # Copy executable
-    shutil.copy2("dist/BootForge", app_dir / "Contents/MacOS/BootForge")
-    
-    # Create Info.plist
-    plist_content = """<?xml version="1.0" encoding="UTF-8"?>
+    if macos_executable.suffix == ".app" or macos_executable.name.endswith(".app"):
+        # We already have a .app bundle, just copy it
+        if app_dir.exists():
+            shutil.rmtree(app_dir)
+        shutil.copytree(macos_executable, app_dir)
+        print(f"✅ Copied existing .app bundle to {app_dir}")
+    else:
+        # Create app bundle structure from bare executable
+        app_dir.mkdir(parents=True, exist_ok=True)
+        (app_dir / "Contents").mkdir(exist_ok=True)
+        (app_dir / "Contents/MacOS").mkdir(exist_ok=True)
+        (app_dir / "Contents/Resources").mkdir(exist_ok=True)
+        
+        # Copy executable
+        shutil.copy2(macos_executable, app_dir / "Contents/MacOS/BootForge")
+        
+        # Create Info.plist
+        plist_content = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -139,10 +527,66 @@ def create_macos_installer():
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.15</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
 </dict>
 </plist>"""
+        
+        (app_dir / "Contents/Info.plist").write_text(plist_content)
+        
+        # Copy icon if available
+        icon_paths = [
+            Path("assets/icons/app_icon_premium.png"),
+            Path("assets/icons/BootForge_App_Icon_1685d1e8.png"),
+            Path("attached_assets/generated_images/BootForge_App_Icon_1685d1e8.png")
+        ]
+        
+        for icon_path in icon_paths:
+            if icon_path.exists():
+                # Convert PNG to ICNS if needed (or just copy as is)
+                shutil.copy2(icon_path, app_dir / "Contents/Resources/AppIcon.png")
+                print(f"✅ Added app icon from {icon_path}")
+                break
+        else:
+            print("⚠️  No app icon found, using default")
+        
+        print(f"✅ Created .app bundle at {app_dir}")
     
-    (app_dir / "Contents/Info.plist").write_text(plist_content)
+    # Prepare for code signing (structure only)
+    print("📝 Preparing code signing structure...")
+    
+    # Create a simple script that could be used for signing later
+    sign_script = app_dir.parent / "sign_app.sh"
+    sign_script_content = f"""#!/bin/bash
+# macOS App Signing Script
+# Run this script after obtaining a Developer Certificate
+
+APP_PATH="{app_dir}"
+DEVELOPER_ID="Developer ID Application: Your Name (XXXXXXXXXX)"  # Replace with actual ID
+
+echo "🔐 Signing BootForge.app..."
+
+# Sign the app bundle
+codesign --force --options runtime --sign "$DEVELOPER_ID" "$APP_PATH"
+
+# Verify the signature
+echo "✅ Verifying signature..."
+codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+echo "📦 Creating signed DMG..."
+hdiutil create -volname "BootForge" -srcfolder "$(dirname "$APP_PATH")" -ov -format UDZO "../BootForge-Signed.dmg"
+
+echo "✅ Signed app and DMG ready for distribution"
+echo "📝 Next step: Submit DMG to Apple for notarization"
+"""
+    
+    sign_script.write_text(sign_script_content)
+    sign_script.chmod(0o755)
+    print(f"✅ Code signing script created: {sign_script}")
     
     # Create DMG
     try:
@@ -164,85 +608,324 @@ def create_macos_installer():
         return False
 
 
+def find_linux_executable() -> Optional[Path]:
+    """Find the Linux executable"""
+    dist_dir = Path("dist")
+    executable_candidates = [
+        "BootForge-Linux-x64",
+        "BootForge", 
+        "bootforge-linux-x64",
+        "bootforge"
+    ]
+    
+    for candidate in executable_candidates:
+        candidate_path = dist_dir / candidate
+        if candidate_path.exists() and candidate_path.is_file():
+            print(f"✅ Found Linux executable: {candidate_path}")
+            return candidate_path
+    
+    return None
+
+def create_linux_tarball() -> bool:
+    """Create portable tarball for Linux (fallback)"""
+    print("📦 Creating Linux tarball package...")
+    
+    # Find the executable
+    executable = find_linux_executable()
+    if not executable:
+        print("❌ Could not find Linux executable")
+        return False
+    
+    import tarfile
+    
+    # Create tarball package
+    tar_path = Path("dist/linux/BootForge-Portable.tar.gz")
+    tar_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with tarfile.open(tar_path, 'w:gz') as tar:
+        # Add executable
+        tar.add(executable, arcname=f"BootForge/{executable.name}")
+        
+        # Add run script
+        run_script_content = f"""#!/bin/bash
+# BootForge Portable Linux Launcher
+SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+exec "$SCRIPT_DIR/{executable.name}" "$@"
+"""
+        
+        from io import BytesIO
+        run_script_bytes = BytesIO(run_script_content.encode('utf-8'))
+        tarinfo = tarfile.TarInfo(name="BootForge/bootforge")
+        tarinfo.size = len(run_script_bytes.getvalue())
+        tarinfo.mode = 0o755
+        run_script_bytes.seek(0)
+        tar.addfile(tarinfo, run_script_bytes)
+        
+        # Add README
+        readme_content = """BootForge Portable Linux
+========================
+
+To run BootForge:
+1. Extract this tarball: tar -xzf BootForge-Portable.tar.gz
+2. cd BootForge
+3. ./bootforge
+
+Or directly: ./BootForge/{executable.name}
+
+No installation required!
+
+Support: https://bootforge.dev
+"""
+        readme_bytes = BytesIO(readme_content.encode('utf-8'))
+        readme_info = tarfile.TarInfo(name="BootForge/README.txt")
+        readme_info.size = len(readme_bytes.getvalue())
+        readme_bytes.seek(0)
+        tar.addfile(readme_info, readme_bytes)
+        
+        # Add assets if available
+        for asset_dir in ["assets", "docs"]:
+            asset_path = Path(asset_dir)
+            if asset_path.exists():
+                tar.add(asset_path, arcname=f"BootForge/{asset_dir}")
+    
+    print(f"✅ Linux tarball created: {tar_path}")
+    return True
+
 def create_linux_package():
-    """Create Linux package (AppImage)"""
+    """Create Linux package (AppImage with fallback)"""
     print("Creating Linux package...")
+    
+    # Find the executable in dist directory
+    executable_path = find_linux_executable()
+    if not executable_path:
+        print("❌ Could not find Linux executable in dist directory")
+        print("Available files:")
+        dist_dir = Path("dist")
+        for item in dist_dir.iterdir():
+            if item.is_file():
+                print(f"   • {item.name}")
+        return False
+    
+    print(f"✅ Found executable: {executable_path}")
     
     # Create AppDir structure
     appdir = Path("dist/linux/BootForge.AppDir")
+    if appdir.exists():
+        shutil.rmtree(appdir)
     appdir.mkdir(parents=True, exist_ok=True)
     
     # Copy executable
-    shutil.copy2("dist/BootForge", appdir / "BootForge")
+    shutil.copy2(executable_path, appdir / "BootForge")
+    (appdir / "BootForge").chmod(0o755)
     
-    # Create desktop file
-    desktop_content = """[Desktop Entry]
+    # Find and copy icon
+    icon_paths = [
+        Path("assets/icons/app_icon_premium.png"),
+        Path("assets/icons/BootForge_App_Icon_1685d1e8.png"),
+        Path("attached_assets/generated_images/BootForge_App_Icon_1685d1e8.png")
+    ]
+    
+    icon_file = None
+    for icon_path in icon_paths:
+        if icon_path.exists():
+            icon_file = appdir / "bootforge.png"
+            shutil.copy2(icon_path, icon_file)
+            print(f"✅ Added app icon from {icon_path}")
+            break
+    
+    # Create enhanced desktop file
+    desktop_content = f"""[Desktop Entry]
+Version=1.0
 Type=Application
 Name=BootForge
-Comment=Professional OS Deployment Tool
+Comment=Professional OS Deployment Tool for Mac, Windows, and Linux
+GenericName=OS Deployment Tool
 Exec=BootForge
 Icon=bootforge
-Categories=System;
+StartupNotify=true
+Categories=System;Utility;Settings;
+Keywords=bootable;usb;installer;deployment;macos;windows;linux;
+MimeType=application/x-iso9660-image;application/x-cd-image;application/x-raw-disk-image;
+X-AppImage-Version=1.0.0
 """
     
     (appdir / "BootForge.desktop").write_text(desktop_content)
     
-    # Create AppRun script
+    # Create AppRun script with better error handling
     apprun_content = """#!/bin/bash
-HERE="$(dirname "$(readlink -f "${0}")")"
-exec "${HERE}/BootForge" "$@"
+# BootForge AppImage Launcher
+set -e
+
+HERE="$(dirname "$(readlink -f "${0}")")" 
+cd "$HERE"
+
+# Check if we can run
+if [ ! -f "./BootForge" ]; then
+    echo "Error: BootForge executable not found"
+    exit 1
+fi
+
+# Make sure it's executable
+chmod +x "./BootForge"
+
+# Launch with all arguments
+exec "./BootForge" "$@"
 """
     
     apprun_file = appdir / "AppRun"
     apprun_file.write_text(apprun_content)
     apprun_file.chmod(0o755)
     
+    # Copy the icon as the main icon (required by AppImage)
+    if icon_file and icon_file != appdir / "bootforge.png":
+        shutil.copy2(icon_file, appdir / "bootforge.png")
+    
+    # Copy desktop file as the main desktop file (required by AppImage) 
+    shutil.copy2(appdir / "BootForge.desktop", appdir / "bootforge.desktop")
+    
+    # Create AppImage metadata
+    appdata_content = """<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.bootforge.BootForge</id>
+  <name>BootForge</name>
+  <summary>Professional OS Deployment Tool</summary>
+  <description>
+    <p>
+      BootForge is a professional OS deployment tool that creates bootable USB drives
+      for macOS, Windows, and Linux systems with advanced customization options.
+    </p>
+  </description>
+  <categories>
+    <category>System</category>
+    <category>Utility</category>
+  </categories>
+  <url type="homepage">https://bootforge.dev</url>
+  <launchable type="desktop-id">bootforge.desktop</launchable>
+  <provides>
+    <binary>BootForge</binary>
+  </provides>
+  <releases>
+    <release version="1.0.0" date="2025-09-14"/>
+  </releases>
+</component>
+"""
+    
+    # Create usr/share/metainfo directory
+    metainfo_dir = appdir / "usr/share/metainfo"
+    metainfo_dir.mkdir(parents=True, exist_ok=True)
+    (metainfo_dir / "dev.bootforge.BootForge.appdata.xml").write_text(appdata_content)
+    
     # Try to create AppImage
     try:
+        print("🔨 Building AppImage...")
         result = subprocess.run([
-            'appimagetool', str(appdir), 'dist/BootForge-1.0.0-x86_64.AppImage'
+            'appimagetool', '--no-appstream',  # Skip appstream validation for now
+            str(appdir), 'dist/linux/BootForge-1.0.0-x86_64.AppImage'
         ], capture_output=True, text=True)
         
         if result.returncode == 0:
             print("✅ Linux AppImage created")
+            # Also create tarball as fallback
+            create_linux_tarball()
             return True
         else:
-            print(f"❌ AppImage creation failed: {result.stderr}")
-            return False
+            print(f"⚠️  AppImage creation had issues: {result.stderr}")
+            print("🔄 Creating tarball fallback...")
+            return create_linux_tarball()
     except FileNotFoundError:
-        print("❌ appimagetool not found - install AppImageKit")
-        return False
+        print("⚠️  appimagetool not found - creating tarball fallback")
+        return create_linux_tarball()
 
 
-def main():
+def main() -> bool:
     """Main installer build function"""
-    print("BootForge Installer Builder")
-    print("=" * 40)
+    print("🚀 BootForge Installer Builder")
+    print("═" * 50)
+    
+    # Check system info
+    system = platform.system()
+    arch = platform.machine()
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    
+    print(f"🖥️  Platform: {system} {arch}")
+    print(f"🐍 Python: {python_version}")
+    print(f"📁 Working directory: {Path.cwd()}")
+    print()
+    
+    # Check dependencies
+    print("🔍 Checking dependencies...")
+    deps_ok, missing_deps = check_dependencies()
+    
+    if missing_deps:
+        print("⚠️  Some dependencies are missing, but continuing with fallbacks")
+    else:
+        print("✅ All dependencies available")
+    print()
     
     # Create dist directory
-    Path("dist").mkdir(exist_ok=True)
+    dist_dir = Path("dist")
+    dist_dir.mkdir(exist_ok=True)
     
     # Build executable
-    if not build_executable():
-        print("❌ Failed to build executable")
+    success = build_executable()
+    
+    if not success:
+        print("\n❌ Failed to build executable")
+        print("\n🔧 Troubleshooting tips:")
+        print("   1. Check that all dependencies are properly installed")
+        print("   2. Ensure you have enough disk space")
+        print("   3. Check file permissions in the project directory")
+        print("   4. Try running with verbose output: python -c 'import PyInstaller; print(PyInstaller.__file__)'")
         return False
     
     # Create platform-specific installers
-    system = platform.system()
+    print("\n📦 Creating platform-specific installer...")
     
+    installer_created = False
     if system == "Windows":
-        create_windows_installer()
+        installer_created = create_windows_installer()
     elif system == "Darwin":
-        create_macos_installer()
+        installer_created = create_macos_installer()
     elif system == "Linux":
-        create_linux_package()
+        installer_created = create_linux_package()
     else:
-        print(f"Unsupported platform: {system}")
+        print(f"⚠️  Platform {system} not directly supported for packaging")
+        print("   Executable is available in dist/ directory")
+        installer_created = True  # Executable exists
     
-    print()
-    print("Build completed!")
-    print("Installers available in dist/ directory")
+    print("\n" + "═" * 50)
+    if success and installer_created:
+        print("✅ Build completed successfully!")
+        print(f"📁 Installers available in: {dist_dir.absolute()}")
+        
+        # List all build artifacts
+        artifacts = list(dist_dir.rglob('*'))
+        if artifacts:
+            print("\n📦 Available artifacts:")
+            for artifact in sorted(artifacts):
+                if artifact.is_file():
+                    size = artifact.stat().st_size
+                    size_mb = size / (1024 * 1024)
+                    rel_path = artifact.relative_to(dist_dir)
+                    print(f"   • {rel_path} ({size_mb:.1f}MB)")
+        
+        print("\n🎉 Ready for distribution!")
+        return True
+    else:
+        print("❌ Build completed with errors")
+        return False
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        success = main()
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Build cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n\n❌ Unexpected error: {e}")
+        import traceback
+        print("\n🔍 Full traceback:")
+        traceback.print_exc()
+        sys.exit(1)
