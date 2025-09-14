@@ -138,8 +138,8 @@ def index():
         </div>
 
         <div class="status">
-            <strong>✅ Ready for Distribution:</strong> Linux executable and USB package are ready for download. 
-            The USB package includes auto-installers for all platforms and works on Windows/Mac/Linux computers.
+            <strong>🏗️ Build Status:</strong> BootForge is production-ready with Linux support complete. 
+            USB package includes cross-platform installers (Linux executable + Windows/Mac installer scripts ready for future builds).
         </div>
 
         <div class="features">
@@ -172,13 +172,13 @@ def index():
         <div class="download-section">
             <h2>Download BootForge</h2>
             <p>Get the full desktop application with hardware access and complete functionality</p>
-            <a href="/download/linux" class="download-btn available">📱 Linux (64-bit) - Ready!</a>
-            <a href="/download/usb-package" class="download-btn available">💾 USB Package - All Platforms</a>
-            <a href="#" class="download-btn coming-soon" onclick="alert('Windows build coming soon!')">🪟 Windows - Coming Soon</a>
-            <a href="#" class="download-btn coming-soon" onclick="alert('macOS build coming soon!')">🍎 macOS - Coming Soon</a>
+            <a href="/download/linux" class="download-btn available">📱 Linux (64-bit)</a>
+            <a href="/download/usb-package" class="download-btn available">💾 USB Distribution Package</a>
+            <a href="#" class="download-btn coming-soon" onclick="alert('Windows executable coming soon! Use USB package for installer.')">🪟 Windows - Installer Ready</a>
+            <a href="#" class="download-btn coming-soon" onclick="alert('macOS executable coming soon! Use USB package for installer.')">🍎 macOS - Installer Ready</a>
             <a href="/cli-demo" class="download-btn">🔧 CLI Demo</a>
             <p style="margin-top: 1rem; color: #cccccc;">
-                Cross-platform builds will be available soon
+                USB package includes working Linux executable + Windows/Mac installers ready for when executables are built
             </p>
         </div>
 
@@ -212,7 +212,11 @@ def download_linux():
         return send_from_directory('dist', 'BootForge-Linux-x64', as_attachment=True, 
                                  download_name='BootForge-Linux-x64')
     except FileNotFoundError:
-        return jsonify({"error": "Linux executable not found. Build in progress."}), 404
+        return jsonify({
+            "error": "Linux executable not found", 
+            "message": "Run 'python build_cross_platform.py' to build the executable",
+            "status": "build_required"
+        }), 404
     except Exception as e:
         return jsonify({"error": f"Download failed: {str(e)}"}), 500
 
@@ -223,7 +227,12 @@ def download_usb_package():
         return send_from_directory('dist', 'BootForge-USB-Package.tar.gz', as_attachment=True, 
                                  download_name='BootForge-USB-Package.tar.gz')
     except FileNotFoundError:
-        return jsonify({"error": "USB package not found. Build in progress."}), 404
+        return jsonify({
+            "error": "USB package not found", 
+            "message": "Run 'python build_cross_platform.py' to create the USB distribution package",
+            "status": "build_required",
+            "contains": "Linux executable + Windows/Mac installer scripts"
+        }), 404
     except Exception as e:
         return jsonify({"error": f"Download failed: {str(e)}"}), 500
 

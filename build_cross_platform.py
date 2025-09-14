@@ -7,6 +7,9 @@ Builds executables for Linux, Windows, and macOS
 import os
 import subprocess
 import sys
+import tarfile
+import tempfile
+import shutil
 from pathlib import Path
 
 def run_command(cmd, description):
@@ -194,9 +197,16 @@ INSTALL_DIR="$HOME/BootForge"
 mkdir -p "$INSTALL_DIR"
 
 # Copy executable
-if [ -f "./$EXECUTABLE" ]; then
-    cp "./$EXECUTABLE" "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/$EXECUTABLE"
+if [ -f "./$EXECUTABLE" ] || [ -d "./$EXECUTABLE" ]; then
+    if [[ "$PLATFORM" == "macos" ]]; then
+        # macOS .app bundle - copy recursively
+        cp -R "./$EXECUTABLE" "$INSTALL_DIR/"
+        chmod +x "$INSTALL_DIR/BootForge.app/Contents/MacOS/BootForge-macOS-x64"
+    else
+        # Regular executable file
+        cp "./$EXECUTABLE" "$INSTALL_DIR/"
+        chmod +x "$INSTALL_DIR/$EXECUTABLE"
+    fi
     echo "✅ BootForge installed to $INSTALL_DIR"
     
     # Create desktop shortcut (Linux)
@@ -217,7 +227,11 @@ EOF
     
     echo ""
     echo "🎉 Installation complete!"
-    echo "Run: $INSTALL_DIR/$EXECUTABLE --gui"
+    if [[ "$PLATFORM" == "macos" ]]; then
+        echo "Run: open \"$INSTALL_DIR/BootForge.app\" --args --gui"
+    else
+        echo "Run: $INSTALL_DIR/$EXECUTABLE --gui"
+    fi
     echo ""
 else
     echo "❌ Executable not found: $EXECUTABLE"
@@ -270,6 +284,92 @@ if exist "BootForge-Windows-x64.exe" (
     print("✅ USB installer scripts created")
     return True
 
+def create_usb_package():
+    """Create complete USB distribution package"""
+    print("📦 Creating USB distribution package...")
+    
+    # Create temporary directory for packaging
+    with tempfile.TemporaryDirectory() as temp_dir:
+        package_dir = Path(temp_dir) / "BootForge-USB-Package"
+        package_dir.mkdir()
+        
+        # Create README for USB package
+        readme_content = """# BootForge USB Distribution Package
+
+## Installation Instructions
+
+### Linux
+1. Copy this folder to your Linux system
+2. Open terminal in this directory
+3. Run: `chmod +x usb-installer.sh && ./usb-installer.sh`
+
+### Windows
+1. Copy this folder to your Windows system
+2. Double-click `usb-installer.bat`
+3. Follow the installation prompts
+
+### macOS
+1. Copy this folder to your Mac
+2. Open Terminal in this directory
+3. Run: `chmod +x usb-installer.sh && ./usb-installer.sh`
+
+## What's Included
+
+- BootForge-Linux-x64: Linux executable (ready to use)
+- usb-installer.sh: Unix/Linux/macOS installer script
+- usb-installer.bat: Windows installer script
+- README.md: This file
+
+## Cross-Platform Support
+
+- Linux: ✅ Ready for immediate use
+- Windows: ⏳ Executable coming soon (installer ready)
+- macOS: ⏳ Executable coming soon (installer ready)
+
+## Running BootForge
+
+After installation:
+- Linux/Windows: Run with `--gui` flag for graphical interface
+- macOS: Use `open BootForge.app --args --gui`
+- All platforms: Use `--help` to see CLI options
+
+## System Requirements
+
+- 64-bit operating system
+- 2GB RAM minimum
+- USB port for device operations
+- Administrator/root privileges for USB access
+
+For more information, visit: https://bootforge.dev
+"""
+        
+        readme_path = package_dir / "README.md"
+        with open(readme_path, 'w') as f:
+            f.write(readme_content)
+        
+        # Copy installer scripts
+        shutil.copy2('usb-installer.sh', package_dir)
+        shutil.copy2('usb-installer.bat', package_dir)
+        
+        # Copy Linux executable if it exists
+        linux_exe = Path('dist') / 'BootForge-Linux-x64'
+        if linux_exe.exists():
+            shutil.copy2(linux_exe, package_dir)
+            print("✅ Included Linux executable")
+        else:
+            print("⚠️ Linux executable not found - package will contain installers only")
+        
+        # Create tar.gz package
+        package_path = Path('dist') / 'BootForge-USB-Package.tar.gz'
+        with tarfile.open(package_path, 'w:gz') as tar:
+            tar.add(package_dir, arcname='BootForge-USB-Package')
+        
+        # Calculate package size
+        package_size = package_path.stat().st_size / 1024 / 1024
+        print(f"✅ USB package created: {package_path} ({package_size:.1f} MB)")
+        
+        return True
+
 def main():
     """Main build process"""
     print("🏗️ BootForge Cross-Platform Build System")
@@ -295,15 +395,26 @@ def main():
     print("\n💾 Creating USB installer scripts...")
     create_usb_installer()
     
+    # Create USB distribution package
+    print("\n📦 Creating USB distribution package...")
+    if not create_usb_package():
+        print("❌ USB package creation failed")
+        return False
+    
     print(f"\n✅ Build process complete!")
     print(f"📁 Files created in: {os.path.abspath('dist')}")
-    print(f"📦 Linux executable: dist/BootForge-Linux-x64 ({os.path.getsize('dist/BootForge-Linux-x64') / 1024 / 1024:.1f} MB)")
+    
+    # Show created files
+    if os.path.exists('dist/BootForge-Linux-x64'):
+        print(f"📦 Linux executable: dist/BootForge-Linux-x64 ({os.path.getsize('dist/BootForge-Linux-x64') / 1024 / 1024:.1f} MB)")
+    if os.path.exists('dist/BootForge-USB-Package.tar.gz'):
+        print(f"💾 USB package: dist/BootForge-USB-Package.tar.gz ({os.path.getsize('dist/BootForge-USB-Package.tar.gz') / 1024 / 1024:.1f} MB)")
     
     print(f"\n📋 Next steps:")
-    print(f"   • Linux: Ready for distribution")
+    print(f"   • Linux: Ready for distribution and download")
+    print(f"   • USB Package: Ready for distribution and download")
     print(f"   • Windows: Run build on Windows system with: pyinstaller BootForge-Windows.spec")  
     print(f"   • macOS: Run build on Mac system with: pyinstaller BootForge-macOS.spec")
-    print(f"   • USB: Copy executables + installer scripts to USB drive")
     
     return True
 

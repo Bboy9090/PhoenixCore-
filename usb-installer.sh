@@ -26,9 +26,16 @@ INSTALL_DIR="$HOME/BootForge"
 mkdir -p "$INSTALL_DIR"
 
 # Copy executable
-if [ -f "./$EXECUTABLE" ]; then
-    cp "./$EXECUTABLE" "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/$EXECUTABLE"
+if [ -f "./$EXECUTABLE" ] || [ -d "./$EXECUTABLE" ]; then
+    if [[ "$PLATFORM" == "macos" ]]; then
+        # macOS .app bundle - copy recursively
+        cp -R "./$EXECUTABLE" "$INSTALL_DIR/"
+        chmod +x "$INSTALL_DIR/BootForge.app/Contents/MacOS/BootForge-macOS-x64"
+    else
+        # Regular executable file
+        cp "./$EXECUTABLE" "$INSTALL_DIR/"
+        chmod +x "$INSTALL_DIR/$EXECUTABLE"
+    fi
     echo "✅ BootForge installed to $INSTALL_DIR"
     
     # Create desktop shortcut (Linux)
@@ -49,7 +56,11 @@ EOF
     
     echo ""
     echo "🎉 Installation complete!"
-    echo "Run: $INSTALL_DIR/$EXECUTABLE --gui"
+    if [[ "$PLATFORM" == "macos" ]]; then
+        echo "Run: open \"$INSTALL_DIR/BootForge.app\" --args --gui"
+    else
+        echo "Run: $INSTALL_DIR/$EXECUTABLE --gui"
+    fi
     echo ""
 else
     echo "❌ Executable not found: $EXECUTABLE"
