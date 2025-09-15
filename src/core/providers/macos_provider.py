@@ -21,8 +21,9 @@ from src.core.config import Config
 from src.core.patch_pipeline import PatchPlanner
 from src.core.hardware_detector import DetectedHardware
 from src.core.models import HardwareProfile
-from src.core.hardware_profiles import create_mac_hardware_profile
+from src.core.hardware_profiles import create_mac_hardware_profile, is_mac_oclp_compatible, get_recommended_macos_version_for_model
 from src.core.safety_validator import SafetyValidator, PatchValidationMode
+from src.core.oclp_integration import OCLPIntegration, OCLPCompatibility
 
 
 class MacOSProvider(OSImageProvider):
@@ -63,7 +64,11 @@ class MacOSProvider(OSImageProvider):
         # CRITICAL INTEGRATION: PatchPlanner with strict security defaults
         safety_validator = SafetyValidator(patch_mode=PatchValidationMode.COMPLIANT)
         self.patch_planner = PatchPlanner(safety_validator)
-        self.logger.info("MacOSProvider initialized with COMPLIANT security mode")
+        
+        # OCLP Integration for unsupported Mac hardware
+        self.oclp_integration = OCLPIntegration()
+        
+        self.logger.info("MacOSProvider initialized with COMPLIANT security mode and OCLP integration")
     
     def get_available_images(self) -> List[OSImageInfo]:
         """Get all available macOS recovery images"""
@@ -574,3 +579,249 @@ class MacOSProvider(OSImageProvider):
     def get_verification_methods(self) -> List[VerificationMethod]:
         """Get supported verification methods"""
         return [VerificationMethod.SHA256, VerificationMethod.SHA1, VerificationMethod.MD5]
+    
+    # ===== OCLP INTEGRATION METHODS =====
+    
+    def requires_oclp_integration(self, hardware: DetectedHardware, image_info: OSImageInfo) -> bool:
+        """Determine if OCLP integration is required for this hardware/macOS combination"""
+        try:
+            if not hardware.system_model:
+                return False  # Cannot determine without model info
+            
+            # Check if Mac model is OCLP compatible
+            if not is_mac_oclp_compatible(hardware.system_model):
+                return False  # Not an OCLP-compatible Mac
+            
+            # Create hardware profile to check compatibility
+            hardware_profile = create_mac_hardware_profile(hardware.system_model)
+            
+            # Check if this macOS version needs OCLP patches for this model
+            macos_version = image_info.version
+            native_support = hardware_profile.native_macos_support.get(macos_version, False)
+            
+            # If not natively supported, OCLP is required
+            if not native_support:
+                self.logger.info(f"OCLP required: {hardware.system_model} does not natively support macOS {macos_version}")
+                return True
+            
+            # Check for specific patch requirements even on supported versions
+            required_patches = hardware_profile.required_patches.get(macos_version, [])
+            if required_patches:
+                self.logger.info(f"OCLP recommended: {hardware.system_model} has specific patch requirements for macOS {macos_version}")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Failed to determine OCLP requirement: {e}")
+            return False  # Default to standard macOS installation
+    
+    def prepare_oclp_installer(self, image_info: OSImageInfo, hardware: DetectedHardware, 
+                               target_mount_point: str, efi_mount_point: str) -> Tuple[bool, List[str]]:
+        """Prepare macOS installer with OCLP integration"""
+        try:
+            self.logger.info(f"Preparing OCLP-enabled macOS installer for {hardware.get_summary()}")
+            
+            # Validate hardware compatibility
+            if not hardware.system_model:
+                return False, ["Cannot create OCLP installer without Mac model detection"]
+            
+            if not is_mac_oclp_compatible(hardware.system_model):
+                return False, [f"Mac model {hardware.system_model} is not supported by OCLP"]
+            
+            # Get recommended macOS version for this hardware
+            recommended_version = get_recommended_macos_version_for_model(hardware.system_model)
+            if recommended_version and image_info.version < recommended_version:
+                self.logger.warning(f"macOS {image_info.version} is older than recommended {recommended_version} for {hardware.system_model}")
+            
+            # Configure OCLP integration for this hardware
+            oclp_config_success = self.oclp_integration.configure_for_hardware(
+                model=hardware.system_model,
+                macos_version=image_info.version
+            )
+            
+            if not oclp_config_success:
+                return False, ["Failed to configure OCLP for target hardware"]
+            
+            # Start OCLP build process
+            build_success = self.oclp_integration.build_oclp_for_hardware()
+            
+            if not build_success:
+                return False, ["OCLP build process failed"]
+            
+            # Get build results
+            build_result = self.oclp_integration.get_build_result()
+            if not build_result:
+                return False, ["OCLP build completed but no results available"]
+            
+            # Stage OpenCore to EFI partition
+            efi_success, efi_logs = self._stage_opencore_to_efi(build_result, efi_mount_point)
+            if not efi_success:
+                return False, efi_logs
+            
+            # Apply additional patches to the macOS installer
+            patch_success, patch_logs = self._apply_oclp_installer_patches(
+                build_result, target_mount_point
+            )
+            
+            if not patch_success:
+                return False, patch_logs
+            
+            success_logs = [
+                f"OCLP installer prepared successfully for {hardware.system_model}",
+                f"Target macOS version: {image_info.version}",
+                f"OpenCore EFI staged to: {efi_mount_point}",
+                f"Installer patches applied to: {target_mount_point}"
+            ]
+            success_logs.extend(efi_logs)
+            success_logs.extend(patch_logs)
+            
+            return True, success_logs
+            
+        except Exception as e:
+            error = f"Failed to prepare OCLP installer: {e}"
+            self.logger.error(error)
+            return False, [error]
+    
+    def _stage_opencore_to_efi(self, build_result, efi_mount_point: str) -> Tuple[bool, List[str]]:
+        """Stage OpenCore build artifacts to EFI partition"""
+        try:
+            import shutil
+            from pathlib import Path
+            
+            logs = []
+            efi_path = Path(efi_mount_point)
+            
+            if not efi_path.exists():
+                return False, [f"EFI mount point does not exist: {efi_mount_point}"]
+            
+            # Stage EFI folder structure
+            if build_result.efi_folder_path and build_result.efi_folder_path.exists():
+                dest_efi = efi_path / "EFI"
+                
+                # Remove existing EFI folder if present
+                if dest_efi.exists():
+                    shutil.rmtree(dest_efi)
+                    logs.append("Removed existing EFI folder")
+                
+                # Copy OCLP EFI structure
+                shutil.copytree(build_result.efi_folder_path, dest_efi)
+                logs.append(f"Staged OpenCore EFI to {dest_efi}")
+                
+                # Verify critical files
+                critical_files = [
+                    dest_efi / "BOOT" / "BOOTx64.efi",
+                    dest_efi / "OC" / "config.plist",
+                    dest_efi / "OC" / "OpenCore.efi"
+                ]
+                
+                for critical_file in critical_files:
+                    if critical_file.exists():
+                        logs.append(f"✓ Verified: {critical_file.name}")
+                    else:
+                        return False, [f"Missing critical file after staging: {critical_file}"]
+            
+            else:
+                return False, ["No EFI folder available in OCLP build result"]
+            
+            return True, logs
+            
+        except Exception as e:
+            error = f"Failed to stage OpenCore to EFI: {e}"
+            self.logger.error(error)
+            return False, [error]
+    
+    def _apply_oclp_installer_patches(self, build_result, target_mount_point: str) -> Tuple[bool, List[str]]:
+        """Apply OCLP-specific patches to macOS installer"""
+        try:
+            import shutil
+            from pathlib import Path
+            
+            logs = []
+            target_path = Path(target_mount_point)
+            
+            if not target_path.exists():
+                return False, [f"Target mount point does not exist: {target_mount_point}"]
+            
+            # Stage kext files to installer
+            if build_result.kext_files:
+                kexts_dest = target_path / "System" / "Library" / "Extensions"
+                kexts_dest.mkdir(parents=True, exist_ok=True)
+                
+                for kext_file in build_result.kext_files:
+                    if kext_file.exists():
+                        dest_kext = kexts_dest / kext_file.name
+                        if kext_file.is_dir():
+                            if dest_kext.exists():
+                                shutil.rmtree(dest_kext)
+                            shutil.copytree(kext_file, dest_kext)
+                        else:
+                            shutil.copy2(kext_file, dest_kext)
+                        logs.append(f"Staged kext: {kext_file.name}")
+                
+                logs.append(f"Staged {len(build_result.kext_files)} kext files")
+            
+            # Copy additional OCLP files if available
+            if build_result.drivers_folder_path and build_result.drivers_folder_path.exists():
+                drivers = list(build_result.drivers_folder_path.glob("*.efi"))
+                logs.append(f"OCLP includes {len(drivers)} EFI drivers")
+            
+            if build_result.tools_folder_path and build_result.tools_folder_path.exists():
+                tools = list(build_result.tools_folder_path.glob("*.efi"))
+                logs.append(f"OCLP includes {len(tools)} EFI tools")
+            
+            logs.append("OCLP installer patches applied successfully")
+            return True, logs
+            
+        except Exception as e:
+            error = f"Failed to apply OCLP installer patches: {e}"
+            self.logger.error(error)
+            return False, [error]
+    
+    def get_oclp_compatibility_info(self, hardware: DetectedHardware) -> Dict[str, any]:
+        """Get comprehensive OCLP compatibility information for detected hardware"""
+        try:
+            if not hardware.system_model:
+                return {"compatible": False, "reason": "No Mac model detected"}
+            
+            # Check basic compatibility
+            is_compatible = is_mac_oclp_compatible(hardware.system_model)
+            if not is_compatible:
+                return {"compatible": False, "reason": f"Mac model {hardware.system_model} is not supported by OCLP"}
+            
+            # Get hardware profile for detailed info
+            hardware_profile = create_mac_hardware_profile(hardware.system_model)
+            
+            # Get recommended macOS version
+            recommended_version = get_recommended_macos_version_for_model(hardware.system_model)
+            
+            # Get OCLP compatibility level
+            compatibility_level = hardware_profile.oclp_compatibility
+            
+            return {
+                "compatible": True,
+                "model_name": hardware_profile.name,
+                "compatibility_level": compatibility_level,
+                "recommended_macos_version": recommended_version,
+                "native_support": hardware_profile.native_macos_support,
+                "required_patches": hardware_profile.required_patches,
+                "graphics_patches": hardware_profile.graphics_patches,
+                "audio_patches": hardware_profile.audio_patches,
+                "wifi_bluetooth_patches": hardware_profile.wifi_bluetooth_patches,
+                "usb_patches": hardware_profile.usb_patches,
+                "sip_requirements": hardware_profile.sip_requirements,
+                "notes": hardware_profile.notes
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get OCLP compatibility info: {e}")
+            return {"compatible": False, "reason": f"Error checking compatibility: {e}"}
+    
+    def get_oclp_workflow_status(self) -> Dict[str, any]:
+        """Get current status of OCLP workflow"""
+        return {
+            "integration_available": self.oclp_integration is not None,
+            "oclp_executable_found": self.oclp_integration.check_oclp_availability() if self.oclp_integration else False,
+            "current_build_status": self.oclp_integration.get_build_status() if self.oclp_integration else None,
+            "build_result_available": bool(self.oclp_integration.get_build_result()) if self.oclp_integration else False
+        }

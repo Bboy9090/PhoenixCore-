@@ -80,6 +80,46 @@ class HardwareProfile:
     patch_compatibility: Optional[Any] = None  # PatchCompatibility from vendor_database
     supported_os_versions: List[str] = field(default_factory=list)  # OS versions this profile supports
     deployment_type: Optional[str] = None  # Type of deployment this profile uses
+    
+    @classmethod
+    def from_mac_model(cls, model: str) -> 'HardwareProfile':
+        """Create hardware profile from Mac model identifier using comprehensive database"""
+        # Import here to avoid circular imports
+        from .hardware_profiles import get_mac_model_data
+        
+        mac_models = get_mac_model_data()
+        
+        if model in mac_models:
+            model_data = mac_models[model]
+            return cls(
+                name=model_data["name"],
+                platform="mac",
+                model=model,
+                architecture=model_data["architecture"],
+                year=model_data.get("year"),
+                cpu_family=model_data.get("cpu_family"),
+                oclp_compatibility=model_data.get("oclp_compatibility"),
+                native_macos_support=model_data.get("native_macos_support", {}),
+                required_patches=model_data.get("required_patches", {}),
+                optional_patches=model_data.get("optional_patches", {}),
+                graphics_patches=model_data.get("graphics_patches", []),
+                audio_patches=model_data.get("audio_patches", []),
+                wifi_bluetooth_patches=model_data.get("wifi_bluetooth_patches", []),
+                usb_patches=model_data.get("usb_patches", []),
+                secure_boot_model=model_data.get("secure_boot_model"),
+                sip_requirements=model_data.get("sip_requirements"),
+                notes=model_data.get("notes", [])
+            )
+        else:
+            # Fallback for unknown models
+            return cls(
+                name=f"Unknown Mac ({model})",
+                platform="mac",
+                model=model,
+                architecture="x86_64",  # Default assumption
+                oclp_compatibility="unknown",
+                notes=[f"Unknown Mac model: {model}"]
+            )
 
 
 @dataclass
@@ -149,4 +189,21 @@ class DeploymentRecipe:
             hardware_profiles=["generic_x64", "thinkpad_x1", "dell_precision"],
             required_files=["linux.iso", "preseed.cfg"],
             optional_files=["driver_pack.tar.gz", "postinstall.sh"]
+        )
+    
+    @classmethod
+    def create_custom_payload_recipe(cls) -> 'DeploymentRecipe':
+        """Create custom payload deployment recipe"""
+        return cls(
+            name="Custom Payload Deployment",
+            description="Deploy custom bootable payload with flexible configuration",
+            deployment_type=DeploymentType.CUSTOM_PAYLOAD,
+            partition_scheme=PartitionScheme.GPT,
+            partitions=[
+                PartitionInfo("Boot", 512, FileSystem.FAT32, bootable=True, label="BOOT"),
+                PartitionInfo("Payload", -1, FileSystem.EXFAT, label="PAYLOAD")
+            ],
+            hardware_profiles=["generic_x64", "generic_linux_x64", "rpi4"],
+            required_files=["bootloader", "payload.img"],
+            optional_files=["config.json", "additional_files.zip"]
         )

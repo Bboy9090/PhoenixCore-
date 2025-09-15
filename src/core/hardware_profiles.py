@@ -1685,5 +1685,91 @@ def create_mac_hardware_profile(model: str) -> HardwareProfile:
         # Patch pipeline integration
         patch_compatibility=patch_compatibility,
         supported_os_versions=supported_versions,
-        deployment_type="macos_oclp" if profile_data.get("oclp_compatibility") else "macos_native"
+        deployment_type="macos_oclp" if profile_data.get("oclp_compatibility") != "unsupported" else "macos_native"
     )
+
+
+# === ADDITIONAL HELPER FUNCTIONS FOR OCLP INTEGRATION ===
+
+def get_patch_requirements_for_model(model_id: str, macos_version: str = "13.0") -> List[str]:
+    """Get patch requirements for a specific Mac model and macOS version"""
+    mac_models = get_mac_model_data()
+    
+    if model_id not in mac_models:
+        return []
+    
+    model_data = mac_models[model_id]
+    required_patches = model_data.get("required_patches", {})
+    
+    # Get patches for the specific macOS version
+    if macos_version in required_patches:
+        return required_patches[macos_version]
+    
+    # Fallback to closest version
+    available_versions = sorted(required_patches.keys(), reverse=True)
+    for version in available_versions:
+        if version <= macos_version:
+            return required_patches[version]
+    
+    return []
+
+
+def is_mac_oclp_compatible(model_id: str) -> bool:
+    """Check if a Mac model is compatible with OCLP"""
+    mac_models = get_mac_model_data()
+    
+    if model_id not in mac_models:
+        return False
+    
+    oclp_compatibility = mac_models[model_id].get("oclp_compatibility", "unknown")
+    return oclp_compatibility in ["fully_supported", "partially_supported", "experimental"]
+
+
+def get_recommended_macos_version_for_model(model_id: str) -> Optional[str]:
+    """Get recommended macOS version for a Mac model"""
+    mac_models = get_mac_model_data()
+    
+    if model_id not in mac_models:
+        return None
+    
+    model_data = mac_models[model_id]
+    native_support = model_data.get("native_macos_support", {})
+    
+    # Find highest natively supported version
+    supported_versions = [v for v, supported in native_support.items() if supported]
+    if supported_versions:
+        return max(supported_versions, key=lambda x: tuple(map(int, x.split('.'))))
+    
+    # Fallback to OCLP compatibility
+    oclp_compatibility = model_data.get("oclp_compatibility")
+    if oclp_compatibility == "fully_supported":
+        return "13.0"  # macOS Ventura
+    elif oclp_compatibility == "partially_supported":
+        return "12.0"  # macOS Monterey
+    elif oclp_compatibility == "experimental":
+        return "11.0"  # macOS Big Sur
+    
+    return None
+
+
+def get_mac_oclp_requirements(model_id: str, macos_version: str) -> Dict[str, Any]:
+    """Get comprehensive OCLP requirements for a Mac model and macOS version"""
+    mac_models = get_mac_model_data()
+    
+    if model_id not in mac_models:
+        return {}
+    
+    model_data = mac_models[model_id]
+    
+    return {
+        "model_name": model_data.get("name", model_id),
+        "oclp_compatibility": model_data.get("oclp_compatibility", "unknown"),
+        "required_patches": model_data.get("required_patches", {}).get(macos_version, []),
+        "graphics_patches": model_data.get("graphics_patches", []),
+        "audio_patches": model_data.get("audio_patches", []),
+        "wifi_bluetooth_patches": model_data.get("wifi_bluetooth_patches", []),
+        "usb_patches": model_data.get("usb_patches", []),
+        "secure_boot_model": model_data.get("secure_boot_model"),
+        "sip_requirements": model_data.get("sip_requirements"),
+        "notes": model_data.get("notes", [])
+    }

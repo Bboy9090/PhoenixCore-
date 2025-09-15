@@ -910,17 +910,31 @@ class SafetyValidator:
     
     def require_user_consent(self, operation_id: str, operation_type: str,
                            risk_level: ValidationResult, risk_factors: List[str],
-                           user_id: Optional[str] = None) -> Optional[UserConsent]:
+                           user_id: Optional[str] = None, interactive: bool = True) -> Optional[UserConsent]:
         """Require explicit user consent for risky operations"""
         try:
             self.logger.info(f"Requesting user consent for {operation_type} (risk: {risk_level.value})")
             
             # Generate consent prompt
             consent_prompt = self._generate_consent_prompt(operation_type, risk_level, risk_factors)
-            
-            # In a real implementation, this would show a GUI dialog or CLI prompt
-            # For now, we'll simulate the consent process
             consent_level = self._determine_required_consent_level(risk_level)
+            
+            user_confirmation = ""
+            
+            # Get actual user consent if interactive
+            if interactive:
+                user_confirmation = self._get_interactive_consent(
+                    operation_type, risk_level, risk_factors, consent_prompt
+                )
+                
+                # If user declined consent, return None
+                if not user_confirmation:
+                    self.logger.warning(f"User declined consent for {operation_type}")
+                    return None
+            else:
+                # Non-interactive mode - log warning and simulate
+                self.logger.warning(f"Non-interactive mode: simulating consent for {operation_type}")
+                user_confirmation = f"Simulated: User acknowledged {len(risk_factors)} risk factors"
             
             # Create consent record
             consent = UserConsent(
@@ -928,7 +942,7 @@ class SafetyValidator:
                 operation_type=operation_type,
                 consent_level=consent_level,
                 risk_factors=risk_factors,
-                user_confirmation=f"User acknowledged {len(risk_factors)} risk factors",
+                user_confirmation=user_confirmation,
                 timestamp=time.time(),
                 user_id=user_id,
                 warnings_shown=consent_prompt
@@ -945,6 +959,89 @@ class SafetyValidator:
         except Exception as e:
             self.logger.error(f"Failed to obtain user consent: {e}")
             return None
+    
+    def _get_interactive_consent(self, operation_type: str, risk_level: ValidationResult, 
+                                risk_factors: List[str], consent_prompt: List[str]) -> str:
+        """Get interactive user consent via CLI prompts"""
+        try:
+            # Try importing click for CLI prompts
+            import click
+            from colorama import Fore, Style
+            
+            # Display warning
+            click.echo(f"\n{Fore.RED}{Style.BRIGHT}{'═' * 60}{Style.RESET_ALL}")
+            for line in consent_prompt:
+                if "SAFETY WARNING" in line:
+                    click.echo(f"{Fore.RED}{Style.BRIGHT}{line}{Style.RESET_ALL}")
+                elif "DANGEROUS" in line or "BLOCKED" in line:
+                    click.echo(f"{Fore.RED}{Style.BRIGHT}{line}{Style.RESET_ALL}")
+                elif line.startswith("•"):
+                    click.echo(f"{Fore.YELLOW}  {line}{Style.RESET_ALL}")
+                else:
+                    click.echo(f"{Fore.WHITE}{line}{Style.RESET_ALL}")
+            click.echo(f"{Fore.RED}{Style.BRIGHT}{'═' * 60}{Style.RESET_ALL}\n")
+            
+            # Risk-level specific consent handling
+            if risk_level == ValidationResult.BLOCKED:
+                click.echo(f"{Fore.RED}❌ This operation is BLOCKED and cannot proceed.{Style.RESET_ALL}")
+                return ""  # No consent possible for blocked operations
+            
+            elif risk_level == ValidationResult.DANGEROUS:
+                # Multi-step consent for dangerous operations
+                click.echo(f"{Fore.RED}This is a DANGEROUS operation with significant risks.{Style.RESET_ALL}")
+                
+                # First confirmation
+                if not click.confirm(f"{Fore.YELLOW}Do you understand the risks and want to proceed?{Style.RESET_ALL}"):
+                    click.echo(f"{Fore.GREEN}✅ Operation cancelled for safety.{Style.RESET_ALL}")
+                    return ""
+                
+                # Second confirmation - type the operation name
+                click.echo(f"\n{Fore.RED}To confirm, type the exact operation name: {Fore.WHITE}{operation_type}{Style.RESET_ALL}")
+                confirmation_input = click.prompt(f"{Fore.YELLOW}Enter operation name{Style.RESET_ALL}", type=str)
+                
+                if confirmation_input.strip().lower() != operation_type.lower():
+                    click.echo(f"{Fore.RED}❌ Operation name mismatch. Cancelled for safety.{Style.RESET_ALL}")
+                    return ""
+                
+                click.echo(f"{Fore.GREEN}✅ Dangerous operation confirmed by user.{Style.RESET_ALL}")
+                return f"User confirmed dangerous operation: {operation_type} with {len(risk_factors)} risk factors"
+            
+            else:
+                # Standard confirmation for medium/warning level operations
+                click.echo(f"{Fore.YELLOW}This operation has potential risks.{Style.RESET_ALL}")
+                
+                if not click.confirm(f"{Fore.YELLOW}Do you want to proceed?{Style.RESET_ALL}"):
+                    click.echo(f"{Fore.GREEN}✅ Operation cancelled.{Style.RESET_ALL}")
+                    return ""
+                
+                click.echo(f"{Fore.GREEN}✅ Operation confirmed by user.{Style.RESET_ALL}")
+                return f"User confirmed operation: {operation_type} with {len(risk_factors)} risk factors"
+        
+        except ImportError:
+            # Fall back to basic input if click is not available
+            self.logger.warning("Click not available, using basic input for consent")
+            print(f"\n⚠️  SAFETY WARNING ⚠️")
+            print(f"Operation: {operation_type}")
+            print(f"Risk Level: {risk_level.value.upper()}")
+            print("Risk Factors:")
+            for factor in risk_factors:
+                print(f"  • {factor}")
+            
+            if risk_level == ValidationResult.BLOCKED:
+                print("❌ This operation is BLOCKED and cannot proceed.")
+                return ""
+            
+            response = input(f"\nDo you want to proceed with this {risk_level.value} operation? (yes/no): ").strip().lower()
+            if response in ['yes', 'y']:
+                return f"User confirmed via basic input: {operation_type}"
+            else:
+                print("✅ Operation cancelled.")
+                return ""
+        
+        except Exception as e:
+            self.logger.error(f"Failed to get interactive consent: {e}")
+            # In case of error, default to no consent for safety
+            return ""
     
     def _generate_consent_prompt(self, operation_type: str, risk_level: ValidationResult,
                                risk_factors: List[str]) -> List[str]:
