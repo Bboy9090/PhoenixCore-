@@ -28,6 +28,7 @@ from src.core.models import (
     HardwareProfile, DeploymentType, PartitionScheme, FileSystem, 
     PartitionInfo, DeploymentRecipe
 )
+from src.core.hardware_profiles import create_mac_patch_sets
 
 
 # Imported from models.py to prevent circular imports

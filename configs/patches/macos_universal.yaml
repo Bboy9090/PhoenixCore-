@@ -60,7 +60,7 @@ patch_sets:
               target: "/System/Library/Extensions/"
               backup: true
           conditions:
-            os_version: "1[1-4]\..*"
+            os_version: "1[1-4]\\.[0-9]+"
             gpu_vendor: "Intel"
           requires_reboot: true
           reversible: true
@@ -76,7 +76,7 @@ patch_sets:
               original: "48 8B 05 ?? ?? ?? ??"
               patched: "48 8B 05 12 34 56 78"
           conditions:
-            os_version: "1[2-4]\..*"
+            os_version: "1[2-4]\\.[0-9]+"
           
       # Audio functionality
       audio:
