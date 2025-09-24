@@ -624,7 +624,7 @@ def install_instructions():
             <h2 class="platform-title">🐧 Linux</h2>
             <div class="command-box">
                 <code class="command">curl -fsSL {current_base_url}/install/linux | bash</code>
-                <button class="copy-btn" onclick="copyToClipboard('curl -fsSL {current_base_url}/install/linux | bash')">Copy</button>
+                <button class="copy-btn" onclick="copyToClipboard('curl -fsSL {current_base_url}/install/linux | bash', this)">Copy</button>
             </div>
             <div class="note">
                 <strong>⚡ Features:</strong> Auto-detects architecture, creates desktop shortcuts, adds to PATH
@@ -639,7 +639,7 @@ def install_instructions():
             <h2 class="platform-title">🍎 macOS</h2>
             <div class="command-box">
                 <code class="command">curl -fsSL {current_base_url}/install/macos | bash</code>
-                <button class="copy-btn" onclick="copyToClipboard('curl -fsSL {current_base_url}/install/macos | bash')">Copy</button>
+                <button class="copy-btn" onclick="copyToClipboard('curl -fsSL {current_base_url}/install/macos | bash', this)">Copy</button>
             </div>
             <div class="note">
                 <strong>⚡ Features:</strong> Creates .app bundle in Applications, handles permissions, supports Apple Silicon
@@ -654,7 +654,7 @@ def install_instructions():
             <h2 class="platform-title">🪟 Windows</h2>
             <div class="command-box">
                 <code class="command">iwr {current_base_url}/install/windows | iex</code>
-                <button class="copy-btn" onclick="copyToClipboard('iwr {current_base_url}/install/windows | iex')">Copy</button>
+                <button class="copy-btn" onclick="copyToClipboard('iwr {current_base_url}/install/windows | iex', this)">Copy</button>
             </div>
             <div class="note">
                 <strong>⚡ Features:</strong> Creates Start Menu entries, desktop shortcuts, handles UAC, adds to PATH
@@ -701,12 +701,12 @@ def install_instructions():
     </div>
 
     <script>
-        function copyToClipboard(text) {
+        function copyToClipboard(text, button) {
             navigator.clipboard.writeText(text).then(function() {
                 // Show feedback
-                event.target.textContent = 'Copied!';
+                button.textContent = 'Copied!';
                 setTimeout(() => {
-                    event.target.textContent = 'Copy';
+                    button.textContent = 'Copy';
                 }, 2000);
             }, function(err) {
                 console.error('Could not copy text: ', err);
@@ -718,9 +718,9 @@ def install_instructions():
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
                 
-                event.target.textContent = 'Copied!';
+                button.textContent = 'Copied!';
                 setTimeout(() => {
-                    event.target.textContent = 'Copy';
+                    button.textContent = 'Copy';
                 }, 2000);
             });
         }
