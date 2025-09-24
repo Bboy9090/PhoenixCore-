@@ -1,6 +1,7 @@
 """
-BootForge USB Builder Engine
-Enhanced bootable USB creation system for offline deployment scenarios
+BootForge Storage Builder Engine
+Enhanced bootable storage device creation system for offline deployment scenarios
+Supports USB drives, hard drives, SSDs, and other storage devices
 """
 
 import os
@@ -52,8 +53,8 @@ class BuildProgress:
     logs: List[str] = field(default_factory=list)
 
 
-class USBBuilder(QThread):
-    """USB Builder thread for creating bootable deployment drives"""
+class StorageBuilder(QThread):
+    """Storage Builder thread for creating bootable deployment drives on any storage device"""
     
     # Signals
     progress_updated = pyqtSignal(object)  # BuildProgress
@@ -76,7 +77,7 @@ class USBBuilder(QThread):
     
     def start_build(self, recipe: DeploymentRecipe, target_device: str, 
                    hardware_profile: HardwareProfile, source_files: Dict[str, str]):
-        """Start USB build operation"""
+        """Start storage device build operation"""
         self.recipe = recipe
         self.target_device = target_device
         self.hardware_profile = hardware_profile
@@ -90,7 +91,7 @@ class USBBuilder(QThread):
     def start_multiboot_build(self, recipe: DeploymentRecipe, target_device: str,
                              hardware_profile: HardwareProfile, source_files: Dict[str, str],
                              grub_config):
-        """Start multi-boot USB build operation"""
+        """Start multi-boot storage device build operation"""
         self.recipe = recipe
         self.target_device = target_device  
         self.hardware_profile = hardware_profile
@@ -104,10 +105,10 @@ class USBBuilder(QThread):
     def cancel_build(self):
         """Cancel current build operation"""
         self.is_cancelled = True
-        self._log_message("INFO", "USB build operation cancelled by user")
+        self._log_message("INFO", "Storage device build operation cancelled by user")
     
     def run(self):
-        """Main USB building thread"""
+        """Main storage device building thread"""
         try:
             # Create temporary working directory
             self.temp_dir = Path(tempfile.mkdtemp(prefix="bootforge_build_"))
@@ -169,11 +170,11 @@ class USBBuilder(QThread):
                 return
             
             self._build_successful = True
-            self._log_message("INFO", "USB build completed successfully")
-            self.operation_completed.emit(True, "USB build completed successfully")
+            self._log_message("INFO", "Storage device build completed successfully")
+            self.operation_completed.emit(True, "Storage device build completed successfully")
             
         except Exception as e:
-            self.logger.error(f"Error in USB building: {e}")
+            self.logger.error(f"Error in storage device building: {e}")
             self._log_message("ERROR", f"Build error: {str(e)}")
             self.operation_completed.emit(False, f"Build error: {str(e)}")
         
@@ -203,7 +204,7 @@ class USBBuilder(QThread):
                     f"🚫 OPERATION BLOCKED FOR SAFETY 🚫\n"
                     f"Device: {self.target_device}\n"
                     f"Risk Factors: {', '.join(device_risk.risk_factors)}\n"
-                    f"This device is not safe to use for USB creation."
+                    f"This device is not safe to use for storage device creation."
                 )
                 self._log_message("ERROR", error_msg)
                 self.operation_completed.emit(False, error_msg)
