@@ -5108,7 +5108,7 @@ class BootForgeStepperWizard(QWidget):
         self.step_views = [
             HardwareDetectionStepView(),
             OSImageSelectionStepView(),
-            USBConfigurationStepView(),
+            StorageConfigurationStepView(),
             SafetyReviewStepView(),
             BuildVerifyStepView(),
             SummaryStepView()

@@ -18,7 +18,7 @@ from src.core.config import Config
 from src.core.hardware_detector import DetectedHardware, HardwareDetector
 from src.core.hardware_matcher import HardwareMatcher, ProfileMatch
 from src.core.usb_builder import (
-    DeploymentRecipe, HardwareProfile, USBBuilderEngine, 
+    DeploymentRecipe, HardwareProfile, StorageBuilderEngine, 
     BuildProgress
 )
 from src.core.disk_manager import DiskInfo

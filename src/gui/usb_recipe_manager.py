@@ -19,7 +19,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 from PyQt6.QtGui import QFont, QPixmap, QIcon, QColor, QPalette
 
 from src.core.usb_builder import (
-    USBBuilderEngine, DeploymentRecipe, HardwareProfile,
+    StorageBuilderEngine, DeploymentRecipe, HardwareProfile,
     BuildProgress, DeploymentType, PartitionScheme, FileSystem
 )
 from src.core.disk_manager import DiskInfo
@@ -757,7 +757,7 @@ class USBRecipeManagerWidget(QWidget):
     def __init__(self, disk_manager=None, config=None):
         super().__init__()
         self.logger = logging.getLogger(__name__)
-        self.usb_builder = USBBuilderEngine()
+        self.storage_builder = StorageBuilderEngine()
         self.disk_manager = disk_manager
         self.safety_validator = SafetyValidator(SafetyLevel.STANDARD)
         
@@ -1210,7 +1210,7 @@ class USBRecipeManagerWidget(QWidget):
         """Cancel current build"""
         try:
             if hasattr(self.usb_builder, 'builder'):
-                self.usb_builder.builder.cancel_build()
+                self.storage_builder.builder.cancel_build()
             
             self.build_btn.setEnabled(True)
             self.cancel_btn.setEnabled(False)
