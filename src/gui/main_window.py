@@ -20,6 +20,10 @@ from PyQt6.QtGui import QAction, QIcon, QFont, QPixmap
 from src.core.config import Config
 from src.core.system_monitor import SystemMonitor, SystemInfo
 from src.core.disk_manager import DiskManager
+from src.core.real_time_monitor import RealTimeHealthManager, MonitoringLevel
+from src.core.intelligent_guidance import IntelligentGuidanceManager, GuidanceLevel
+from src.core.error_prevention_recovery import ErrorPreventionRecoveryManager
+from src.core.one_click_profiles import OneClickProfileManager
 from src.gui.wizard_widget import BootForgeWizard
 from src.gui.status_widget import StatusWidget
 from src.gui.log_viewer import LogViewer
@@ -41,6 +45,16 @@ class BootForgeMainWindow(QMainWindow):
         self.system_monitor = SystemMonitor()
         self.disk_manager = DiskManager()
         
+        # Initialize advanced systems
+        self.health_manager = RealTimeHealthManager(MonitoringLevel.STANDARD)
+        self.guidance_manager = IntelligentGuidanceManager(GuidanceLevel.STANDARD)
+        self.recovery_manager = ErrorPreventionRecoveryManager(Path.home() / ".bootforge" / "checkpoints")
+        self.profile_manager = OneClickProfileManager()
+        
+        # Setup advanced system callbacks
+        self.health_manager.add_alert_callback(self._on_health_alert)
+        self.recovery_manager.add_error_callback(self._on_error_occurred)
+        
         # GUI components
         self.wizard = None
         self.stepper_wizard = None
@@ -52,7 +66,10 @@ class BootForgeMainWindow(QMainWindow):
         self._setup_connections()
         self._start_monitoring()
         
-        self.logger.info("BootForge main window initialized")
+        # Start advanced systems
+        self.health_manager.start_monitoring()
+        
+        self.logger.info("BootForge main window initialized with advanced systems")
     
     def _setup_ui(self):
         """Setup the main user interface"""
@@ -508,6 +525,22 @@ class BootForgeMainWindow(QMainWindow):
         self.logger.info("Documentation requested")
         # This would open documentation
     
+    def _on_health_alert(self, severity, message, data):
+        """Handle health alerts from monitoring system"""
+        self.logger.warning(f"Health Alert [{severity.value}]: {message}")
+        
+        # Show alert to user if critical
+        if severity.value in ["critical", "emergency"]:
+            QMessageBox.warning(self, "System Health Alert", f"⚠️ {message}")
+    
+    def _on_error_occurred(self, error_context):
+        """Handle errors from recovery system"""
+        self.logger.error(f"Operation Error: {error_context.error_message}")
+        
+        # You could show recovery options to user here
+        if error_context.severity.value in ["critical", "fatal"]:
+            QMessageBox.critical(self, "Operation Error", f"❌ {error_context.error_message}")
+
     def closeEvent(self, a0):
         """Handle application close"""
         event = a0  # Rename parameter to match parent class signature
@@ -515,9 +548,13 @@ class BootForgeMainWindow(QMainWindow):
         self.logger.info("Application closing")
         
         # Stop system monitoring
-        if self.system_monitor.isRunning():
+        if hasattr(self, 'system_monitor') and self.system_monitor and self.system_monitor.isRunning():
             self.system_monitor.stop()
             self.system_monitor.wait(3000)  # Wait up to 3 seconds
+        
+        # Stop advanced monitoring
+        if hasattr(self, 'health_manager') and self.health_manager:
+            self.health_manager.stop_monitoring()
         
         # Save configuration
         self.config.save()

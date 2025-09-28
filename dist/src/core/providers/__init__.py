@@ -1,1 +1,0 @@
-# OS Image Providers
