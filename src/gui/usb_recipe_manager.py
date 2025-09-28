@@ -926,15 +926,15 @@ class USBRecipeManagerWidget(QWidget):
     def _load_data(self):
         """Load initial data"""
         # Load recipes
-        recipes = self.usb_builder.get_available_recipes()
+        recipes = self.storage_builder.get_available_recipes()
         self.recipe_widget.load_recipes(recipes)
         
         # Load hardware profiles
-        profiles = self.usb_builder.get_hardware_profiles()
+        profiles = self.storage_builder.get_hardware_profiles()
         self.hardware_widget.load_profiles(profiles)
         
         # Auto-detect hardware if possible
-        detected_profile = self.usb_builder.detect_hardware_profile()
+        detected_profile = self.storage_builder.detect_hardware_profile()
         if detected_profile:
             self.logger.info(f"Auto-detected hardware: {detected_profile.name}")
         
@@ -961,7 +961,7 @@ class USBRecipeManagerWidget(QWidget):
             if self.disk_manager:
                 devices = self.disk_manager.get_removable_drives()
             else:
-                devices = self.usb_builder.get_suitable_devices()
+                devices = self.storage_builder.get_suitable_devices()
             
             self.device_list.clear()
             
@@ -990,7 +990,7 @@ class USBRecipeManagerWidget(QWidget):
         self.selected_recipe = recipe_name
         
         # Update required files for both OS Image Manager and traditional file selection
-        recipes = self.usb_builder.get_available_recipes()
+        recipes = self.storage_builder.get_available_recipes()
         recipe = next((r for r in recipes if r.name == recipe_name), None)
         
         if recipe:
@@ -1182,7 +1182,7 @@ class USBRecipeManagerWidget(QWidget):
             assert self.selected_device is not None
             assert self.selected_profile is not None
             
-            builder = self.usb_builder.create_deployment_usb(
+            builder = self.storage_builder.create_deployment_usb(
                 self.selected_recipe,
                 self.selected_device,
                 self.selected_profile,
