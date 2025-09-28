@@ -281,7 +281,7 @@ class WizardController(QObject):
         # Core system components
         self.hardware_detector = HardwareDetector()
         self.hardware_matcher = HardwareMatcher()
-        self.usb_builder_engine = USBBuilderEngine()
+        self.storage_builder_engine = StorageBuilderEngine()
         self.safety_validator = SafetyValidator()
         
         # Transition guards and restrictions

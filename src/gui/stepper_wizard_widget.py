@@ -3395,7 +3395,7 @@ class BuildVerifyStepView(StepView):
         )
         
         # Build components
-        self.usb_builder_engine = USBBuilderEngine()
+        self.storage_builder_engine = StorageBuilderEngine()
         self.safety_validator = SafetyValidator(SafetyLevel.STANDARD)
         
         # Build state

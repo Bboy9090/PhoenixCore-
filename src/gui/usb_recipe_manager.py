@@ -1209,7 +1209,7 @@ class USBRecipeManagerWidget(QWidget):
     def _cancel_build(self):
         """Cancel current build"""
         try:
-            if hasattr(self.usb_builder, 'builder'):
+            if hasattr(self.storage_builder, 'builder'):
                 self.storage_builder.builder.cancel_build()
             
             self.build_btn.setEnabled(True)

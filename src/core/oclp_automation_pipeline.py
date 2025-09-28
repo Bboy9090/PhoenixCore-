@@ -31,7 +31,7 @@ from src.core.oclp_integration import (
     OCLPCompatibility, OCLPAvailability, detect_mac_and_check_oclp_support
 )
 from src.core.usb_builder import (
-    USBBuilderEngine, HardwareProfile, DeploymentRecipe, 
+    StorageBuilderEngine, HardwareProfile, DeploymentRecipe, 
     DeploymentType, BuildProgress
 )
 from src.core.disk_manager import DiskInfo
@@ -220,7 +220,7 @@ class OCLPAutomationPipeline(QThread if HAS_PYQT6 else object):
         # Core components
         self.hardware_detector = HardwareDetector()
         self.oclp_integration = OCLPBootForgeIntegration()
-        self.usb_builder_engine = USBBuilderEngine()
+        self.storage_builder_engine = StorageBuilderEngine()
         
         # Initialize OS Image Manager
         try:
@@ -672,7 +672,7 @@ class OCLPAutomationPipeline(QThread if HAS_PYQT6 else object):
             self._update_stage_progress(10.0, "Scanning for suitable USB devices")
             
             # Get suitable USB devices
-            suitable_devices = self.usb_builder_engine.get_suitable_devices(
+            suitable_devices = self.storage_builder_engine.get_suitable_devices(
                 min_size_gb=self.config.min_usb_size_gb
             )
             
@@ -789,11 +789,11 @@ class OCLPAutomationPipeline(QThread if HAS_PYQT6 else object):
             hardware_profile = HardwareProfile.from_mac_model(self.progress.oclp_config.model_identifier)
             
             # Add hardware profile to USB builder engine if not already present
-            if hardware_profile.model not in self.usb_builder_engine.hardware_profiles:
-                self.usb_builder_engine.hardware_profiles[hardware_profile.model] = hardware_profile
+            if hardware_profile.model not in self.storage_builder_engine.hardware_profiles:
+                self.storage_builder_engine.hardware_profiles[hardware_profile.model] = hardware_profile
             
             # Start USB build
-            usb_builder = self.usb_builder_engine.create_deployment_usb(
+            storage_builder = self.storage_builder_engine.create_deployment_usb(
                 recipe_name=self.progress.deployment_recipe.name,
                 target_device=self.progress.selected_usb_device.device_path,
                 hardware_profile_name=hardware_profile.model,
