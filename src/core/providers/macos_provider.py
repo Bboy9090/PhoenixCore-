@@ -9,9 +9,10 @@ import json
 import logging
 import hashlib
 import requests
+import plistlib
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Optional, Tuple, Set, Any
 from urllib.parse import urljoin, urlparse
 
 from src.core.os_image_manager import (
@@ -116,7 +117,7 @@ class MacOSProvider(OSImageProvider):
             os_info = {
                 "family": "macos",
                 "version": image_info.version,
-                "build": image_info.build_number,
+                "build": getattr(image_info, 'build', 'unknown'),
                 "edition": getattr(image_info, 'edition', 'Standard')
             }
             
@@ -219,58 +220,87 @@ class MacOSProvider(OSImageProvider):
         
         return images
     
-    def _parse_catalog(self, catalog_text: str) -> Optional[Dict]:
-        """Parse Apple's software update catalog (simplified XML parsing)"""
+    def _parse_catalog(self, catalog_text: str) -> Optional[Dict[str, Any]]:
+        """Parse Apple's software update catalog using proper plist parsing"""
         try:
-            # Apple's catalogs are in a proprietary plist format
-            # We'll try to extract useful information using regex patterns
+            # Apple's catalogs are in plist XML format - parse properly
+            catalog_data = plistlib.loads(catalog_text.encode('utf-8'))
             
-            # Look for package references
-            package_pattern = re.compile(r'<key>Packages</key>\s*<array>(.*?)</array>', re.DOTALL)
-            package_match = package_pattern.search(catalog_text)
-            
-            if not package_match:
+            if not isinstance(catalog_data, dict):
+                self.logger.warning("Catalog is not a dictionary structure")
                 return None
             
-            packages_section = package_match.group(1)
+            # Extract products section which contains all the package info
+            products = catalog_data.get('Products', {})
+            if not products:
+                self.logger.warning("No Products section found in catalog")
+                return None
             
-            # Extract individual packages
+            # Convert to simpler structure for processing
             packages = []
-            dict_pattern = re.compile(r'<dict>(.*?)</dict>', re.DOTALL)
-            
-            for dict_match in dict_pattern.finditer(packages_section):
-                package_data = self._parse_package_dict(dict_match.group(1))
-                if package_data:
-                    packages.append(package_data)
+            for product_key, product_data in products.items():
+                if not isinstance(product_data, dict):
+                    continue
+                    
+                # Extract packages from this product
+                product_packages = product_data.get('Packages', [])
+                if not isinstance(product_packages, list):
+                    continue
+                    
+                for package in product_packages:
+                    if isinstance(package, dict):
+                        # Add product metadata to each package
+                        enhanced_package = package.copy()
+                        enhanced_package['ProductKey'] = product_key
+                        
+                        # Add version info if available
+                        if 'ExtendedMetaInfo' in product_data:
+                            meta_info = product_data['ExtendedMetaInfo']
+                            if isinstance(meta_info, dict):
+                                enhanced_package.update(meta_info)
+                        
+                        packages.append(enhanced_package)
             
             return {"packages": packages}
             
         except Exception as e:
-            self.logger.error(f"Failed to parse catalog: {e}")
-            return None
+            self.logger.error(f"Failed to parse catalog with plist parser: {e}")
+            # Fallback to trying as plain XML if plist parsing fails
+            try:
+                root = ET.fromstring(catalog_text)
+                # Try to extract basic package info from XML
+                packages = []
+                # This would need more sophisticated XML parsing logic
+                return {"packages": packages}
+            except ET.ParseError:
+                self.logger.error("Catalog is neither valid plist nor XML")
+                return None
     
-    def _parse_package_dict(self, dict_content: str) -> Optional[Dict]:
-        """Parse individual package dictionary from catalog"""
+    def _is_macos_installer_package(self, package: Dict[str, Any]) -> bool:
+        """Check if package is a macOS installer or recovery image"""
         try:
-            package = {}
+            url = package.get("URL", "")
+            filename = url.split("/")[-1] if url else ""
             
-            # Extract key-value pairs
-            key_pattern = re.compile(r'<key>(.*?)</key>\s*<string>(.*?)</string>')
-            for match in key_pattern.finditer(dict_content):
-                key, value = match.groups()
-                package[key] = value
+            # Check for recovery images
+            recovery_indicators = [
+                "RecoveryHDUpdate", "RecoveryHDMetaDmg", "BaseSystem",
+                "InstallESD", "InstallAssistant"
+            ]
             
-            # Extract integer values
-            int_pattern = re.compile(r'<key>(.*?)</key>\s*<integer>(.*?)</integer>')
-            for match in int_pattern.finditer(dict_content):
-                key, value = match.groups()
-                package[key] = int(value)
+            # Check for installer packages
+            installer_indicators = [
+                "Install", "macOS", "OSInstall", "BaseSystem"
+            ]
             
-            return package if package else None
+            # Check both URL and any metadata
+            search_text = f"{url} {filename}".lower()
             
-        except Exception as e:
-            self.logger.debug(f"Failed to parse package dict: {e}")
-            return None
+            return (any(indicator.lower() in search_text for indicator in recovery_indicators + installer_indicators) or
+                    any(key.lower() in ["install", "recovery", "macos"] for key in package.keys()))
+            
+        except Exception:
+            return False
     
     def _extract_recovery_images(self, catalog_data: Dict, major_version: str) -> List[OSImageInfo]:
         """Extract recovery images from catalog data"""
@@ -288,8 +318,8 @@ class MacOSProvider(OSImageProvider):
                 if not url or not filename:
                     continue
                 
-                # Filter for recovery-related files
-                if not self._is_recovery_package(url, filename):
+                # Filter for recovery-related files  
+                if not self._is_macos_installer_package(package):
                     continue
                 
                 # Extract version information
@@ -345,6 +375,10 @@ class MacOSProvider(OSImageProvider):
                     continue
                 
                 # Look for InstallAssistant packages
+                if not self._is_macos_installer_package(package):
+                    continue
+                
+                # More specific filtering for full installers
                 if not ("InstallAssistant" in filename or "Install" in filename):
                     continue
                 

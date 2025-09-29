@@ -378,9 +378,27 @@ class OSImageSelectionWidget(QWidget):
         
         if status_label:
             if progress.status == ImageStatus.DOWNLOADING:
-                speed_text = f"{progress.speed_mbps:.1f} MB/s" if progress.speed_mbps > 0 else "Calculating..."
-                eta_text = f"{progress.eta_seconds}s" if progress.eta_seconds > 0 else "Unknown"
-                status_text = f"Downloading - {speed_text} - ETA: {eta_text}"
+                speed_text = f"{progress.speed_mbps:.1f} MB/s" if progress.speed_mbps > 0 else "Calculating speed..."
+                # Format ETA in human-readable format
+                if progress.eta_seconds > 0:
+                    eta_mins = progress.eta_seconds // 60
+                    eta_secs = progress.eta_seconds % 60
+                    if eta_mins > 0:
+                        eta_text = f"{eta_mins}m {eta_secs}s"
+                    else:
+                        eta_text = f"{eta_secs}s"
+                else:
+                    eta_text = "Calculating ETA..."
+                
+                # Add downloaded/total bytes for better context
+                if progress.total_bytes > 0:
+                    downloaded_mb = progress.downloaded_bytes / (1024 * 1024)
+                    total_mb = progress.total_bytes / (1024 * 1024)
+                    size_text = f" ({downloaded_mb:.1f}/{total_mb:.1f} MB)"
+                else:
+                    size_text = ""
+                    
+                status_text = f"Downloading - {speed_text} - ETA: {eta_text}{size_text}"
             else:
                 status_text = progress.status.value.title()
             
