@@ -222,8 +222,8 @@ class BootForgeTheme:
         QTabBar::tab:selected {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {cls.COLORS['primary']}, stop:1 {cls.COLORS['primary_hover']});
             color: {cls.COLORS['text_primary']};
-            border-color: {cls.COLORS['border_focus']};
-            box-shadow: {cls.SHADOWS['orange_glow']};
+            border: 3px solid {cls.COLORS['border_focus']};
+            border-bottom: none;
         }}
         
         QTabBar::tab:hover:!selected {{
@@ -246,15 +246,13 @@ class BootForgeTheme:
         
         QPushButton:hover {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {cls.COLORS['surface_hover']}, stop:1 {cls.COLORS['bg_tertiary']});
-            border-color: {cls.COLORS['border_accent']};
+            border: 2px solid {cls.COLORS['border_accent']};
             color: {cls.COLORS['text_orange']};
-            box-shadow: {cls.SHADOWS['base']};
         }}
         
         QPushButton:pressed {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {cls.COLORS['surface_pressed']}, stop:1 {cls.COLORS['bg_secondary']});
-            border-color: {cls.COLORS['primary']};
-            box-shadow: {cls.SHADOWS['inset']};
+            border: 2px solid {cls.COLORS['primary']};
         }}
         
         QPushButton:disabled {{
@@ -266,22 +264,19 @@ class BootForgeTheme:
         /* Primary button style */
         QPushButton[class="primary"] {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {cls.COLORS['primary']}, stop:1 {cls.COLORS['primary_hover']});
-            border: 2px solid {cls.COLORS['border_focus']};
+            border: 3px solid {cls.COLORS['border_focus']};
             color: {cls.COLORS['text_primary']};
             font-weight: 700;
-            box-shadow: {cls.SHADOWS['orange_glow']};
         }}
         
         QPushButton[class="primary"]:hover {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {cls.COLORS['accent_3']}, stop:1 {cls.COLORS['primary']});
-            border-color: {cls.COLORS['accent_3']};
-            box-shadow: {cls.SHADOWS['orange_glow']}, {cls.SHADOWS['base']};
+            border: 3px solid {cls.COLORS['accent_3']};
         }}
         
         QPushButton[class="primary"]:pressed {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {cls.COLORS['primary_pressed']}, stop:1 {cls.COLORS['primary_hover']});
-            border-color: {cls.COLORS['primary_pressed']};
-            box-shadow: {cls.SHADOWS['inset']};
+            border: 2px solid {cls.COLORS['primary_pressed']};
         }}
         
         /* === GROUP BOXES === */
@@ -293,7 +288,6 @@ class BootForgeTheme:
             color: {cls.COLORS['text_primary']};
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {cls.COLORS['bg_card']}, stop:1 {cls.COLORS['bg_secondary']});
             padding-top: 16px;
-            box-shadow: {cls.SHADOWS['base']};
         }}
         
         QGroupBox::title {{
@@ -302,9 +296,9 @@ class BootForgeTheme:
             padding: 4px 12px;
             background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {cls.COLORS['primary']}, stop:1 {cls.COLORS['accent_3']});
             color: {cls.COLORS['text_primary']};
+            border: 2px solid {cls.COLORS['accent_3']};
             border-radius: {cls.RADIUS['base']}px;
             font-weight: 700;
-            box-shadow: {cls.SHADOWS['orange_glow']};
         }}
         
         /* === PROGRESS BARS === */
@@ -323,8 +317,8 @@ class BootForgeTheme:
         QProgressBar::chunk {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {cls.COLORS['primary']}, stop:0.5 {cls.COLORS['accent_3']}, stop:1 {cls.COLORS['primary_hover']});
             border-radius: {cls.RADIUS['base']}px;
+            border: 1px solid {cls.COLORS['accent_3']};
             margin: 2px;
-            box-shadow: {cls.SHADOWS['orange_glow']};
         }}
         
         /* === LABELS === */
@@ -378,8 +372,7 @@ class BootForgeTheme:
         }}
         
         QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
-            border-color: {cls.COLORS['border_focus']};
-            box-shadow: {cls.SHADOWS['orange_glow']};
+            border: 3px solid {cls.COLORS['border_focus']};
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {cls.COLORS['bg_tertiary']}, stop:1 {cls.COLORS['bg_input']});
         }}
         
@@ -428,7 +421,6 @@ class BootForgeTheme:
             border: 2px solid {cls.COLORS['border']};
             border-radius: {cls.RADIUS['lg']}px;
             alternate-background-color: {cls.COLORS['bg_tertiary']};
-            box-shadow: {cls.SHADOWS['base']};
         }}
         
         QListWidget::item {{
@@ -442,7 +434,7 @@ class BootForgeTheme:
             background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {cls.COLORS['primary']}, stop:1 {cls.COLORS['accent_3']});
             color: {cls.COLORS['text_primary']};
             font-weight: 600;
-            box-shadow: {cls.SHADOWS['orange_glow']};
+            border: 2px solid {cls.COLORS['accent_3']};
         }}
         
         QListWidget::item:hover {{
@@ -488,7 +480,7 @@ class BootForgeTheme:
         
         QScrollBar::handle:vertical:hover {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {cls.COLORS['accent_3']}, stop:1 {cls.COLORS['primary']});
-            box-shadow: {cls.SHADOWS['orange_glow']};
+            border: 2px solid {cls.COLORS['accent_3']};
         }}
         
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
@@ -511,7 +503,7 @@ class BootForgeTheme:
         
         QScrollBar::handle:horizontal:hover {{
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {cls.COLORS['accent_3']}, stop:1 {cls.COLORS['primary']});
-            box-shadow: {cls.SHADOWS['orange_glow']};
+            border: 2px solid {cls.COLORS['accent_3']};
         }}
         
         QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
@@ -533,7 +525,6 @@ class BootForgeTheme:
         
         QSplitter::handle:hover {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {cls.COLORS['primary']}, stop:1 {cls.COLORS['accent_3']});
-            box-shadow: {cls.SHADOWS['orange_glow']};
         }}
         
         /* === FRAMES === */
@@ -547,22 +538,19 @@ class BootForgeTheme:
             border: 2px solid {cls.COLORS['border']};
             border-radius: {cls.RADIUS['xl']}px;
             padding: {cls.SPACING['lg']}px;
-            box-shadow: {cls.SHADOWS['base']};
         }}
         
         QFrame[class="elevated"] {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {cls.COLORS['bg_tertiary']}, stop:1 {cls.COLORS['bg_secondary']});
             border: 2px solid {cls.COLORS['border_light']};
             border-radius: {cls.RADIUS['xl']}px;
-            box-shadow: {cls.SHADOWS['lg']};
         }}
         
         QFrame[class="modern-card"] {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {cls.COLORS['bg_primary']}, stop:0.3 {cls.COLORS['bg_secondary']}, stop:1 {cls.COLORS['bg_tertiary']});
-            border: 2px solid {cls.COLORS['border_accent']};
+            border: 3px solid {cls.COLORS['border_accent']};
             border-radius: {cls.RADIUS['xl']}px;
             padding: {cls.SPACING['xl']}px;
-            box-shadow: {cls.SHADOWS['lg']}, {cls.SHADOWS['orange_glow']};
         }}
         
         /* === CHECKBOXES === */
@@ -587,8 +575,7 @@ class BootForgeTheme:
         
         QCheckBox::indicator:checked {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {cls.COLORS['primary']}, stop:1 {cls.COLORS['accent_3']});
-            border-color: {cls.COLORS['primary']};
-            box-shadow: {cls.SHADOWS['orange_glow']};
+            border: 2px solid {cls.COLORS['primary']};
         }}
         
         /* === TABLE WIDGETS === */
