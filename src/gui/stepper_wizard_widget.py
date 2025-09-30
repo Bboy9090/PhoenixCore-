@@ -724,8 +724,24 @@ class HardwareDetectionStepView(StepView):
                 return handler
             
             table.itemSelectionChanged.connect(make_selection_handler(table))
-            table.horizontalHeader().setStretchLastSection(True)
-            table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            
+            # Configure header (with error handling for platform differences)
+            try:
+                header = table.horizontalHeader()
+                if header:
+                    header.setStretchLastSection(True)
+                    # Try to set resize mode for first column
+                    try:
+                        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+                    except (AttributeError, TypeError):
+                        # Try applying to all columns as fallback
+                        try:
+                            header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+                        except:
+                            # Continue with just setStretchLastSection
+                            pass
+            except Exception as e:
+                self.logger.warning(f"Could not configure table header: {e}")
             
             tabs.addTab(table, platform_name)
         
