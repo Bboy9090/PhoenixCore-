@@ -45,9 +45,30 @@ class BootForgeMainWindow(QMainWindow):
         self.system_monitor = SystemMonitor()
         self.disk_manager = DiskManager()
         
-        # Initialize advanced systems
-        self.health_manager = RealTimeHealthManager(MonitoringLevel.STANDARD)
-        self.guidance_manager = IntelligentGuidanceManager(GuidanceLevel.STANDARD)
+        # Load settings from config
+        monitoring_level_str = self.config.get("monitoring_level", "standard")
+        guidance_level_str = self.config.get("guidance_level", "standard")
+        
+        # Map string to enum values
+        monitoring_level_map = {
+            "basic": MonitoringLevel.BASIC,
+            "standard": MonitoringLevel.STANDARD,
+            "intensive": MonitoringLevel.INTENSIVE,
+            "diagnostic": MonitoringLevel.DIAGNOSTIC
+        }
+        guidance_level_map = {
+            "minimal": GuidanceLevel.MINIMAL,
+            "standard": GuidanceLevel.STANDARD,
+            "comprehensive": GuidanceLevel.COMPREHENSIVE,
+            "expert": GuidanceLevel.EXPERT
+        }
+        
+        monitoring_level = monitoring_level_map.get(monitoring_level_str, MonitoringLevel.STANDARD)
+        guidance_level = guidance_level_map.get(guidance_level_str, GuidanceLevel.STANDARD)
+        
+        # Initialize advanced systems with loaded settings
+        self.health_manager = RealTimeHealthManager(monitoring_level)
+        self.guidance_manager = IntelligentGuidanceManager(guidance_level)
         self.recovery_manager = ErrorPreventionRecoveryManager(Path.home() / ".bootforge" / "checkpoints")
         self.profile_manager = OneClickProfileManager()
         
@@ -432,8 +453,191 @@ class BootForgeMainWindow(QMainWindow):
     
     def _show_preferences(self):
         """Show preferences dialog"""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QComboBox, QPushButton, QLabel, QHBoxLayout, QGroupBox
+        from PyQt6.QtCore import Qt
+        
         self.logger.info("Preferences dialog requested")
-        # This would open a preferences dialog
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("BootForge Settings")
+        dialog.setMinimumWidth(500)
+        dialog.setModal(True)
+        dialog.setStyleSheet(BootForgeTheme.get_stylesheet())
+        
+        main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
+        
+        # Title
+        title_label = QLabel("⚙️ Application Settings")
+        title_label.setStyleSheet(f"""
+            color: {BootForgeTheme.COLORS['primary']};
+            font-size: {BootForgeTheme.FONTS['sizes']['xl']}px;
+            font-weight: 600;
+            padding-bottom: 10px;
+        """)
+        main_layout.addWidget(title_label)
+        
+        # Monitoring Settings
+        monitoring_group = QGroupBox("System Monitoring")
+        monitoring_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {BootForgeTheme.COLORS['text_primary']};
+                font-weight: 600;
+                border: 1px solid {BootForgeTheme.COLORS['border']};
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 20px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 5px;
+            }}
+        """)
+        monitoring_layout = QFormLayout(monitoring_group)
+        monitoring_layout.setContentsMargins(15, 10, 15, 15)
+        
+        # Monitoring Level
+        monitoring_combo = QComboBox()
+        monitoring_combo.addItems(["Basic", "Standard", "Intensive", "Diagnostic"])
+        monitoring_combo.setCurrentText(self.health_manager.monitoring_level.value.capitalize())
+        monitoring_combo.setStyleSheet(f"""
+            QComboBox {{
+                padding: 8px;
+                border: 1px solid {BootForgeTheme.COLORS['border']};
+                border-radius: 6px;
+                background-color: {BootForgeTheme.COLORS['background_secondary']};
+                color: {BootForgeTheme.COLORS['text_primary']};
+            }}
+        """)
+        monitoring_layout.addRow("Monitoring Level:", monitoring_combo)
+        
+        # Guidance Level
+        guidance_combo = QComboBox()
+        guidance_combo.addItems(["Minimal", "Standard", "Comprehensive", "Expert"])
+        guidance_combo.setCurrentText(self.guidance_manager.guidance_level.value.capitalize())
+        guidance_combo.setStyleSheet(f"""
+            QComboBox {{
+                padding: 8px;
+                border: 1px solid {BootForgeTheme.COLORS['border']};
+                border-radius: 6px;
+                background-color: {BootForgeTheme.COLORS['background_secondary']};
+                color: {BootForgeTheme.COLORS['text_primary']};
+            }}
+        """)
+        monitoring_layout.addRow("Guidance Level:", guidance_combo)
+        
+        main_layout.addWidget(monitoring_group)
+        
+        # Safety Settings
+        safety_group = QGroupBox("Safety & Validation")
+        safety_group.setStyleSheet(f"""
+            QGroupBox {{
+                color: {BootForgeTheme.COLORS['text_primary']};
+                font-weight: 600;
+                border: 1px solid {BootForgeTheme.COLORS['border']};
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 20px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 5px;
+            }}
+        """)
+        safety_layout = QFormLayout(safety_group)
+        safety_layout.setContentsMargins(15, 10, 15, 15)
+        
+        # Safety Level
+        safety_combo = QComboBox()
+        safety_combo.addItems(["Standard", "Strict", "Paranoid"])
+        current_safety = self.config.get("safety_level", "standard")
+        safety_combo.setCurrentText(current_safety.capitalize())
+        safety_combo.setStyleSheet(f"""
+            QComboBox {{
+                padding: 8px;
+                border: 1px solid {BootForgeTheme.COLORS['border']};
+                border-radius: 6px;
+                background-color: {BootForgeTheme.COLORS['background_secondary']};
+                color: {BootForgeTheme.COLORS['text_primary']};
+            }}
+        """)
+        safety_layout.addRow("Safety Level:", safety_combo)
+        
+        main_layout.addWidget(safety_group)
+        
+        # Info text
+        info_label = QLabel("""
+<b>Monitoring Level:</b> Controls system health monitoring intensity<br>
+<b>Guidance Level:</b> Controls how much help you get during operations<br>
+<b>Safety Level:</b> Controls validation strictness for disk operations
+        """)
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet(f"""
+            color: {BootForgeTheme.COLORS['text_secondary']};
+            font-size: {BootForgeTheme.FONTS['sizes']['sm']}px;
+            padding: 10px;
+            background-color: {BootForgeTheme.COLORS['background_tertiary']};
+            border-radius: 6px;
+        """)
+        main_layout.addWidget(info_label)
+        
+        main_layout.addStretch()
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        cancel_button = QPushButton("Cancel")
+        cancel_button.setMinimumSize(100, 35)
+        cancel_button.clicked.connect(dialog.reject)
+        button_layout.addWidget(cancel_button)
+        
+        save_button = QPushButton("Save Settings")
+        save_button.setMinimumSize(120, 35)
+        save_button.setProperty("class", "primary")
+        save_button.clicked.connect(dialog.accept)
+        button_layout.addWidget(save_button)
+        
+        main_layout.addLayout(button_layout)
+        
+        # Show dialog and save settings if accepted
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Update monitoring level
+            new_monitoring = monitoring_combo.currentText().lower()
+            if new_monitoring == "basic":
+                self.health_manager.monitoring_level = MonitoringLevel.BASIC
+            elif new_monitoring == "standard":
+                self.health_manager.monitoring_level = MonitoringLevel.STANDARD
+            elif new_monitoring == "intensive":
+                self.health_manager.monitoring_level = MonitoringLevel.INTENSIVE
+            elif new_monitoring == "diagnostic":
+                self.health_manager.monitoring_level = MonitoringLevel.DIAGNOSTIC
+            
+            # Update guidance level
+            new_guidance = guidance_combo.currentText().lower()
+            if new_guidance == "minimal":
+                self.guidance_manager.guidance_level = GuidanceLevel.MINIMAL
+            elif new_guidance == "standard":
+                self.guidance_manager.guidance_level = GuidanceLevel.STANDARD
+            elif new_guidance == "comprehensive":
+                self.guidance_manager.guidance_level = GuidanceLevel.COMPREHENSIVE
+            elif new_guidance == "expert":
+                self.guidance_manager.guidance_level = GuidanceLevel.EXPERT
+            
+            # Update safety level
+            new_safety = safety_combo.currentText().lower()
+            
+            # Save all settings to config for persistence
+            self.config.set("monitoring_level", new_monitoring)
+            self.config.set("guidance_level", new_guidance)
+            self.config.set("safety_level", new_safety)
+            self.config.save()
+            
+            self.logger.info(f"Settings updated and saved: monitoring={new_monitoring}, guidance={new_guidance}, safety={new_safety}")
+            QMessageBox.information(self, "Settings Saved", "✅ Your settings have been saved successfully!")
     
     def _show_about(self):
         """Show about dialog"""
