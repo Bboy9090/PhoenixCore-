@@ -1,28 +1,25 @@
 #!/usr/bin/env python3
 """
-Simple BootForge Build - Create executable for current platform
+BootForge Debug Build - Shows console for troubleshooting
 """
 
 import sys
 import subprocess
 from pathlib import Path
 
-def build_simple():
-    """Build BootForge executable with minimal configuration"""
+def build_debug():
+    """Build BootForge with console window to see errors"""
     root_dir = Path(__file__).parent.parent
     
-    print("Building BootForge executable...")
+    print("Building BootForge DEBUG executable (shows console/errors)...")
     
-    # Windows uses ; for path separator, Unix uses :
-    path_sep = ";" if sys.platform.startswith("win") else ":"
-    
-    # Simple PyInstaller command
+    # Debug PyInstaller command - WITH console window
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
-        "--windowed",
-        "--name", "BootForge",
-        "--add-data", f"src{path_sep}src",
+        "--console",  # Shows console window with errors!
+        "--name", "BootForge-Debug",
+        "--add-data", "src;src" if sys.platform.startswith("win") else "--add-data", "src:src",
         "--hidden-import", "PyQt6.QtCore",
         "--hidden-import", "PyQt6.QtWidgets",
         "--hidden-import", "PyQt6.QtGui",
@@ -38,12 +35,13 @@ def build_simple():
     result = subprocess.run(cmd, cwd=root_dir)
     
     if result.returncode == 0:
-        print("✅ Build successful!")
-        print(f"Executable: {root_dir}/dist/BootForge")
+        print("\n✅ Debug build successful!")
+        print(f"\n📁 Executable: {root_dir}/dist/BootForge-Debug.exe")
+        print("\n🔍 Run this to see what errors are happening!")
         return True
     else:
-        print("❌ Build failed")
+        print("\n❌ Build failed")
         return False
 
 if __name__ == "__main__":
-    build_simple()
+    build_debug()
