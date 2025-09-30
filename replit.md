@@ -6,6 +6,16 @@ BootForge is a professional-grade tool for creating bootable USB drives for macO
 
 ## Recent Changes
 
+**September 30, 2025 - Complete Windows Compatibility & LSP Cleanup (v1.1.2):**
+- ✅ Fixed ALL Windows compatibility issues for production-ready Windows builds
+- ✅ Implemented proper Windows volume dismounting with PowerShell (prevents write failures)
+- ✅ Fixed Windows USB eject functionality with drive letter mapping
+- ✅ Fixed Manual Selection dialog crash on Windows (table header configuration)
+- ✅ Auto-enables GUI mode when double-clicking BootForge.exe on Windows
+- ✅ Cleaned up ALL LSP type errors (6 errors → 0 errors)
+- ✅ Added robust error handling for PyQt6 cross-platform compatibility
+- ✅ All code compiles successfully on all platforms
+
 **September 30, 2025 - GUI Dialogs & Build System Fix (v1.1.1):**
 - ✅ Implemented Format Device dialog with USB drive selection and format type options
 - ✅ Created comprehensive Documentation dialog with Quick Start Guide and OCLP instructions

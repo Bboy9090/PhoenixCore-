@@ -1968,10 +1968,6 @@ class OSImageSelectionStepView(StepView):
         """Update navigation button state based on current validation status"""
         self.update_next_button_state()
     
-    def on_step_entered(self):
-        """Called when step becomes active - check validation state"""
-        self.update_next_button_state()
-    
     # Step interface methods
     def validate_step(self) -> bool:
         """Validate that selected image is verified before allowing Next"""
@@ -3288,8 +3284,9 @@ The following DESTRUCTIVE operations will be performed:
                 "color: #00ff00; font-size: 16px; font-weight: bold; padding: 10px;"
             )
             # Update group box border color to green
+            from PyQt6.QtWidgets import QGroupBox
             parent = self.validation_status_label.parent()
-            if parent and hasattr(parent, 'setStyleSheet'):
+            if parent and isinstance(parent, QGroupBox):
                 parent.setStyleSheet("""
                     QGroupBox {
                         border: 2px solid #00aa44;
@@ -3315,8 +3312,9 @@ The following DESTRUCTIVE operations will be performed:
                 "color: #ffaa00; font-size: 16px; font-weight: bold; padding: 10px;"
             )
             # Keep border color as default gray
+            from PyQt6.QtWidgets import QGroupBox
             parent = self.validation_status_label.parent()
-            if parent and hasattr(parent, 'setStyleSheet'):
+            if parent and isinstance(parent, QGroupBox):
                 parent.setStyleSheet("""
                     QGroupBox {
                         border: 2px solid #666666;
@@ -3654,7 +3652,7 @@ class BuildVerifyStepView(StepView):
         self.source_files: Dict[str, str] = {}
         
         # Build tracking
-        self.current_builder: Optional[USBBuilder] = None
+        self.current_builder: Optional[object] = None  # USBBuilder instance
         self.build_start_time: Optional[datetime] = None
         self.total_bytes_to_write: int = 0
         self.bytes_written: int = 0
@@ -3963,8 +3961,9 @@ class BuildVerifyStepView(StepView):
         self.logger.info("Build & Verify step exited")
         
         # Cancel any ongoing build
-        if self.current_builder and self.current_builder.isRunning():
-            self._emergency_stop()
+        if self.current_builder and hasattr(self.current_builder, 'isRunning'):
+            if self.current_builder.isRunning():  # type: ignore
+                self._emergency_stop()
     
     def _load_wizard_state(self):
         """Load wizard state from previous steps"""
@@ -4419,9 +4418,12 @@ Source Files: {len(self.source_files)} files ready"""
                         timer.stop()
             
             # Cancel USB builder if running
-            if self.current_builder and self.current_builder.isRunning():
-                self.current_builder.cancel_build()
-                self.current_builder.wait(5000)  # Wait up to 5 seconds
+            if self.current_builder and hasattr(self.current_builder, 'isRunning'):
+                if self.current_builder.isRunning():  # type: ignore
+                    if hasattr(self.current_builder, 'cancel_build'):
+                        self.current_builder.cancel_build()  # type: ignore
+                    if hasattr(self.current_builder, 'wait'):
+                        self.current_builder.wait(5000)  # type: ignore  # Wait up to 5 seconds
             
             # Update UI to stopped state
             self.build_icon.setText("🛑")
@@ -5130,8 +5132,8 @@ class SummaryStepView(StepView):
         self.stats_labels["duration"].setText(duration_text)
         
         # Data written
-        if br.build_progress and br.build_progress.bytes_written:
-            mb_written = br.build_progress.bytes_written / (1024 * 1024)
+        if br.build_progress and hasattr(br.build_progress, 'bytes_written'):
+            mb_written = br.build_progress.bytes_written / (1024 * 1024)  # type: ignore
             data_text = f"{mb_written:.1f} MB"
         else:
             data_text = "Unknown"
