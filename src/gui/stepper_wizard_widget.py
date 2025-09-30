@@ -4767,8 +4767,24 @@ class SummaryStepView(StepView):
                     result = subprocess.run(['diskutil', 'eject', self.target_device_path], check=False, capture_output=True)
                     success = result.returncode == 0
                 elif system == "Windows":
-                    # Windows doesn't have a direct eject command for paths like this
-                    success = True  # Assume success on Windows for now
+                    # Windows: Use PowerShell RemovableStorage cmdlet or notify user
+                    # For PhysicalDrive paths, we can't directly eject, so inform user
+                    try:
+                        # Try to get the drive letter and eject it
+                        drive_letter = self._get_windows_drive_letter(self.target_device_path)
+                        if drive_letter:
+                            result = subprocess.run(
+                                ['powershell', '-Command', f'(New-Object -comObject Shell.Application).Namespace(17).ParseName("{drive_letter}").InvokeVerb("Eject")'],
+                                check=False, 
+                                capture_output=True,
+                                timeout=10
+                            )
+                            success = result.returncode == 0
+                        else:
+                            # No drive letter found, can't eject programmatically
+                            success = False
+                    except Exception:
+                        success = False
                 else:
                     success = False
             except Exception:
@@ -4797,6 +4813,28 @@ class SummaryStepView(StepView):
                 "Ejection Error", 
                 f"An error occurred while ejecting the USB drive:\n\n{str(e)}"
             )
+    
+    def _get_windows_drive_letter(self, device_path: str) -> str:
+        """Get Windows drive letter from PhysicalDrive path"""
+        try:
+            import subprocess
+            # Use PowerShell to find the drive letter for the physical drive
+            # Extract drive number from path like \\.\PhysicalDrive1
+            if 'PhysicalDrive' in device_path:
+                drive_num = device_path.split('PhysicalDrive')[-1]
+                ps_command = f'(Get-Partition -DiskNumber {drive_num} | Where-Object {{$_.DriveLetter}}).DriveLetter'
+                result = subprocess.run(
+                    ['powershell', '-Command', ps_command],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    drive_letter = result.stdout.strip()
+                    return f"{drive_letter}:"
+            return ""
+        except Exception:
+            return ""
     
     def _export_report(self):
         """Export comprehensive build report"""

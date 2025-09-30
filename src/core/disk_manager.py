@@ -159,6 +159,37 @@ class DiskWriter(QThread):
                              capture_output=True, check=False)
                 self.logger.info(f"Unmounted {self.target_device}")
                 
+            elif system == "Windows":
+                # Windows requires dismounting volumes before raw disk access
+                # Extract disk number from \\.\PhysicalDriveN path
+                try:
+                    if 'PhysicalDrive' in self.target_device:
+                        disk_num_str = self.target_device.split('PhysicalDrive')[-1]
+                        # Validate disk number is numeric
+                        try:
+                            disk_num = int(disk_num_str)
+                        except ValueError:
+                            self.logger.error(f"Invalid disk number: {disk_num_str}")
+                            return
+                        
+                        # Dismount all volumes on this disk using correct PowerShell cmdlet pipeline
+                        ps_command = f"$ErrorActionPreference='Stop'; Get-Partition -DiskNumber {disk_num} | Get-Volume | Dismount-Volume -Force -Confirm:$false"
+                        result = subprocess.run(
+                            ['powershell', '-NoProfile', '-NonInteractive', '-Command', ps_command],
+                            capture_output=True,
+                            text=True,
+                            timeout=30
+                        )
+                        if result.returncode == 0:
+                            self.logger.info(f"Successfully dismounted all volumes on disk {disk_num}")
+                        else:
+                            self.logger.error(f"Failed to dismount volumes on disk {disk_num}: {result.stderr}")
+                            # Don't continue if dismount fails - this will cause write failures
+                            raise RuntimeError(f"Windows volume dismount failed: {result.stderr}")
+                except Exception as e:
+                    self.logger.error(f"Error dismounting Windows volumes: {e}")
+                    raise
+                
         except Exception as e:
             self.logger.warning(f"Could not unmount device: {e}")
     
@@ -422,8 +453,11 @@ class DiskManager:
             elif system == "Windows":
                 try:
                     import ctypes
-                    drive_type = ctypes.windll.kernel32.GetDriveTypeW(device_path)
-                    return drive_type == 2  # DRIVE_REMOVABLE
+                    # Only access windll on Windows
+                    if hasattr(ctypes, 'windll'):
+                        drive_type = ctypes.windll.kernel32.GetDriveTypeW(device_path)  # type: ignore
+                        return drive_type == 2  # DRIVE_REMOVABLE
+                    return False
                 except (AttributeError, OSError):
                     return False
                 
