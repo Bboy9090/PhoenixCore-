@@ -13,13 +13,16 @@ def build_debug():
     
     print("Building BootForge DEBUG executable (shows console/errors)...")
     
+    # Windows uses ; for path separator, Unix uses :
+    path_sep = ";" if sys.platform.startswith("win") else ":"
+    
     # Debug PyInstaller command - WITH console window
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
         "--console",  # Shows console window with errors!
         "--name", "BootForge-Debug",
-        "--add-data", "src;src" if sys.platform.startswith("win") else "--add-data", "src:src",
+        "--add-data", f"src{path_sep}src",
         "--hidden-import", "PyQt6.QtCore",
         "--hidden-import", "PyQt6.QtWidgets",
         "--hidden-import", "PyQt6.QtGui",

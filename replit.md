@@ -6,6 +6,12 @@ BootForge is a professional-grade tool for creating bootable USB drives for macO
 
 ## Recent Changes
 
+**September 30, 2025 - GUI Dialogs & Build System Fix (v1.1.1):**
+- ✅ Implemented Format Device dialog with USB drive selection and format type options
+- ✅ Created comprehensive Documentation dialog with Quick Start Guide and OCLP instructions
+- ✅ Fixed debug_build.py syntax error for proper Windows path separator handling
+- ✅ All placeholder features now fully functional
+
 **September 30, 2025 - Manual Hardware Profile Selection (v1.1):**
 - ✅ Added "Manual Selection" feature to Hardware Detection step
 - ✅ Users can now select hardware profiles for OTHER computers (not just current one)
