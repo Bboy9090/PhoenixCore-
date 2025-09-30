@@ -437,8 +437,125 @@ class BootForgeMainWindow(QMainWindow):
     
     def _format_device(self):
         """Format selected device"""
-        # This would open a format dialog
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QLabel
+        
         self.logger.info("Format device requested")
+        
+        # Get available devices from disk manager
+        try:
+            devices = self.disk_manager.get_removable_drives()
+            if not devices:
+                QMessageBox.information(self, "No Devices", "No USB devices found. Please connect a USB drive and try again.")
+                return
+            
+            # Create format dialog
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Format USB Device")
+            dialog.setMinimumWidth(500)
+            dialog.setModal(True)
+            dialog.setStyleSheet(BootForgeTheme.get_stylesheet())
+            
+            layout = QVBoxLayout(dialog)
+            layout.setContentsMargins(20, 20, 20, 20)
+            layout.setSpacing(15)
+            
+            # Warning label
+            warning_label = QLabel("⚠️ WARNING: Formatting will PERMANENTLY ERASE ALL DATA on the selected device!")
+            warning_label.setWordWrap(True)
+            warning_label.setStyleSheet(f"""
+                color: {BootForgeTheme.COLORS['error']};
+                font-size: {BootForgeTheme.FONTS['sizes']['lg']}px;
+                font-weight: 600;
+                padding: 15px;
+                background-color: rgba(239, 68, 68, 0.1);
+                border: 2px solid {BootForgeTheme.COLORS['error']};
+                border-radius: 8px;
+            """)
+            layout.addWidget(warning_label)
+            
+            # Device selection
+            device_label = QLabel("Select Device:")
+            device_label.setStyleSheet(f"color: {BootForgeTheme.COLORS['text_primary']}; font-weight: 600;")
+            layout.addWidget(device_label)
+            
+            device_combo = QComboBox()
+            for device in devices:
+                size_gb = device.size_bytes / (1024 ** 3)
+                device_info = f"{device.name} - {size_gb:.1f} GB ({device.path})"
+                device_combo.addItem(device_info, device)
+            device_combo.setStyleSheet(f"""
+                QComboBox {{
+                    padding: 8px;
+                    border: 1px solid {BootForgeTheme.COLORS['border']};
+                    border-radius: 6px;
+                    background-color: {BootForgeTheme.COLORS['background_secondary']};
+                    color: {BootForgeTheme.COLORS['text_primary']};
+                }}
+            """)
+            layout.addWidget(device_combo)
+            
+            # Format type
+            format_label = QLabel("Format Type:")
+            format_label.setStyleSheet(f"color: {BootForgeTheme.COLORS['text_primary']}; font-weight: 600;")
+            layout.addWidget(format_label)
+            
+            format_combo = QComboBox()
+            format_combo.addItems(["FAT32 (Compatible)", "exFAT (Large files)", "NTFS (Windows)"])
+            format_combo.setStyleSheet(f"""
+                QComboBox {{
+                    padding: 8px;
+                    border: 1px solid {BootForgeTheme.COLORS['border']};
+                    border-radius: 6px;
+                    background-color: {BootForgeTheme.COLORS['background_secondary']};
+                    color: {BootForgeTheme.COLORS['text_primary']};
+                }}
+            """)
+            layout.addWidget(format_combo)
+            
+            layout.addStretch()
+            
+            # Buttons
+            button_layout = QHBoxLayout()
+            button_layout.addStretch()
+            
+            cancel_button = QPushButton("Cancel")
+            cancel_button.setMinimumSize(100, 35)
+            cancel_button.clicked.connect(dialog.reject)
+            button_layout.addWidget(cancel_button)
+            
+            format_button = QPushButton("Format Device")
+            format_button.setMinimumSize(120, 35)
+            format_button.setProperty("class", "danger")
+            format_button.clicked.connect(dialog.accept)
+            button_layout.addWidget(format_button)
+            
+            layout.addLayout(button_layout)
+            
+            # Show dialog
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                selected_device = device_combo.currentData()
+                selected_format = format_combo.currentText().split()[0]  # Get FAT32, exFAT, or NTFS
+                
+                # Confirm again
+                confirm = QMessageBox.warning(
+                    self,
+                    "Confirm Format",
+                    f"Are you absolutely sure you want to format:\n\n{device_combo.currentText()}\n\nThis action CANNOT be undone!",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                
+                if confirm == QMessageBox.StandardButton.Yes:
+                    QMessageBox.information(
+                        self,
+                        "Format Requested",
+                        f"Format operation would be performed on:\n{device_combo.currentText()}\n\nFormat type: {selected_format}\n\nNote: For actual formatting, use the USB Builder wizard which includes proper safety checks."
+                    )
+                    self.logger.info(f"Format requested for device: {selected_device.path}, format: {selected_format}")
+        
+        except Exception as e:
+            self.logger.error(f"Error in format device dialog: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to open format dialog: {str(e)}")
     
     def _start_operation(self):
         """Start disk operation"""
@@ -726,8 +843,135 @@ class BootForgeMainWindow(QMainWindow):
     
     def _show_documentation(self):
         """Show documentation"""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextBrowser, QPushButton, QHBoxLayout
+        import webbrowser
+        from pathlib import Path
+        
         self.logger.info("Documentation requested")
-        # This would open documentation
+        
+        # Create documentation dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("BootForge Documentation")
+        dialog.setMinimumSize(800, 600)
+        dialog.setModal(False)  # Non-modal so user can reference while using app
+        dialog.setStyleSheet(BootForgeTheme.get_stylesheet())
+        
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Text browser for documentation
+        doc_browser = QTextBrowser()
+        doc_browser.setOpenExternalLinks(False)
+        doc_browser.setStyleSheet(f"""
+            QTextBrowser {{
+                background-color: {BootForgeTheme.COLORS['background_primary']};
+                color: {BootForgeTheme.COLORS['text_primary']};
+                border: none;
+                padding: 20px;
+                font-size: {BootForgeTheme.FONTS['sizes']['base']}px;
+            }}
+        """)
+        
+        # Load documentation content
+        readme_path = Path(__file__).parent.parent.parent / "README.md"
+        replit_md_path = Path(__file__).parent.parent.parent / "replit.md"
+        
+        doc_content = f"""
+        <h1 style="color: {BootForgeTheme.COLORS['primary']};">🔥 BootForge Documentation</h1>
+        <p style="font-size: 16px; line-height: 1.6;">Professional Cross-Platform OS Deployment Tool</p>
+        
+        <h2 style="color: {BootForgeTheme.COLORS['accent']};">Quick Start Guide</h2>
+        <ol style="line-height: 1.8;">
+            <li><b>Hardware Detection:</b> Auto-detect your hardware or manually select a profile for another computer</li>
+            <li><b>Select USB Drive:</b> Choose the target USB device for your bootable installer</li>
+            <li><b>Choose OS Image:</b> Select from macOS, Windows, or Linux distributions</li>
+            <li><b>Select Recipe:</b> Choose deployment method (OCLP for macOS, Unattended for Windows, etc.)</li>
+            <li><b>Review & Build:</b> Confirm settings and create your bootable USB</li>
+        </ol>
+        
+        <h2 style="color: {BootForgeTheme.COLORS['accent']};">Key Features</h2>
+        <ul style="line-height: 1.8;">
+            <li><b>Manual Hardware Selection:</b> Create bootable USBs for other computers (not just the current one)</li>
+            <li><b>OpenCore Legacy Patcher (OCLP) Integration:</b> Full support for macOS on unsupported Macs</li>
+            <li><b>Smart Hardware Detection:</b> Automatic detection with 66 hardware profiles</li>
+            <li><b>Multiple OS Support:</b> macOS, Windows, Linux all in one tool</li>
+            <li><b>Safety Validation:</b> Built-in checks to prevent data loss</li>
+            <li><b>Deployment Recipes:</b> Pre-configured workflows for common scenarios</li>
+        </ul>
+        
+        <h2 style="color: {BootForgeTheme.COLORS['accent']};">macOS OCLP Instructions</h2>
+        <p style="line-height: 1.6;">
+        To create a bootable macOS installer with OpenCore Legacy Patcher:
+        </p>
+        <ol style="line-height: 1.8;">
+            <li>Select your target Mac model (e.g., iMac 18,1) in Hardware Detection</li>
+            <li>Choose your USB drive (16GB+ recommended)</li>
+            <li>Select a macOS version compatible with your hardware</li>
+            <li>Choose the "macOS OCLP" recipe</li>
+            <li>BootForge will create an Option-key bootable USB installer</li>
+        </ol>
+        
+        <h2 style="color: {BootForgeTheme.COLORS['accent']};">Settings</h2>
+        <p style="line-height: 1.6;">
+        Access Settings from the toolbar to configure:
+        </p>
+        <ul style="line-height: 1.8;">
+            <li><b>Monitoring Level:</b> Basic, Standard, Intensive, or Diagnostic system monitoring</li>
+            <li><b>Guidance Level:</b> Minimal, Standard, Comprehensive, or Expert assistance</li>
+            <li><b>Safety Level:</b> Standard, Strict, or Paranoid validation</li>
+        </ul>
+        
+        <h2 style="color: {BootForgeTheme.COLORS['accent']};">Troubleshooting</h2>
+        <ul style="line-height: 1.8;">
+            <li><b>USB not detected:</b> Check USB connection, try a different port</li>
+            <li><b>Build fails:</b> Ensure sufficient disk space and proper permissions</li>
+            <li><b>macOS won't boot:</b> Verify OCLP compatibility with your Mac model</li>
+            <li><b>Settings not saving:</b> Check file permissions in ~/.bootforge/</li>
+        </ul>
+        
+        <h2 style="color: {BootForgeTheme.COLORS['accent']};">Additional Resources</h2>
+        <p style="line-height: 1.6;">
+        • Project documentation: <a href="file:///{readme_path}" style="color: {BootForgeTheme.COLORS['primary']};">README.md</a><br>
+        • Configuration guide: <a href="file:///{replit_md_path}" style="color: {BootForgeTheme.COLORS['primary']};">replit.md</a><br>
+        • OpenCore Legacy Patcher: <a href="https://dortania.github.io/OpenCore-Legacy-Patcher/" style="color: {BootForgeTheme.COLORS['primary']};">dortania.github.io</a>
+        </p>
+        
+        <hr style="border: 1px solid {BootForgeTheme.COLORS['border']}; margin: 20px 0;">
+        <p style="color: {BootForgeTheme.COLORS['text_secondary']}; font-size: 14px;">
+        <i>Version 1.1 - September 2025</i>
+        </p>
+        """
+        
+        doc_browser.setHtml(doc_content)
+        
+        # Handle link clicks
+        def on_anchor_clicked(url):
+            url_str = url.toString()
+            if url_str.startswith('http'):
+                webbrowser.open(url_str)
+            elif url_str.startswith('file:///'):
+                file_path = url_str.replace('file:///', '')
+                if Path(file_path).exists():
+                    webbrowser.open(f'file:///{file_path}')
+        
+        doc_browser.anchorClicked.connect(on_anchor_clicked)
+        
+        layout.addWidget(doc_browser)
+        
+        # Close button
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(20, 10, 20, 20)
+        button_layout.addStretch()
+        
+        close_button = QPushButton("Close")
+        close_button.setMinimumSize(100, 35)
+        close_button.setProperty("class", "primary")
+        close_button.clicked.connect(dialog.close)
+        button_layout.addWidget(close_button)
+        
+        layout.addLayout(button_layout)
+        
+        dialog.show()
     
     def _on_health_alert(self, severity, message, data):
         """Handle health alerts from monitoring system"""
