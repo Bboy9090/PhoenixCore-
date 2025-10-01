@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QSplitter, QTableWidget, QTableWidgetItem,
     QHeaderView, QDialog, QDialogButtonBox, QFormLayout
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QMutex
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QMutex, QMetaObject, Q_ARG
 from PyQt6.QtGui import QFont, QPixmap, QIcon, QColor
 
 from src.gui.stepper_header import StepperHeader, StepState
@@ -402,33 +402,9 @@ class HardwareDetectionStepView(StepView):
         self.detect_button.clicked.connect(self._start_detection)
         button_layout.addWidget(self.detect_button)
         
-        # Manual Selection button (for selecting other computers)
-        self.manual_button = QPushButton("🧭 Manual Selection")
-        self.manual_button.setMinimumSize(220, 50)
-        self.manual_button.setStyleSheet("""
-            QPushButton {
-                background-color: #ff6b35;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: bold;
-                padding: 12px 24px;
-            }
-            QPushButton:hover {
-                background-color: #ff5722;
-            }
-            QPushButton:pressed {
-                background-color: #e64a19;
-            }
-            QPushButton:disabled {
-                background-color: #4a4a4a;
-                color: #888888;
-            }
-        """)
-        self.manual_button.clicked.connect(self._open_manual_selection)
-        self.manual_button.setToolTip("Choose hardware profile for a different computer")
-        button_layout.addWidget(self.manual_button)
+        # Manual Selection button (DISABLED - under development)
+        # self.manual_button = QPushButton("🧭 Manual Selection")
+        # Temporarily disabled until threading issues are resolved
         
         # Cancel button (hidden initially)
         self.cancel_button = QPushButton("Cancel Detection")

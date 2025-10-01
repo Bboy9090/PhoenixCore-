@@ -203,15 +203,16 @@ class BootForgeMainWindow(QMainWindow):
         refresh_devices.triggered.connect(self._refresh_devices)
         tools_menu.addAction(refresh_devices)
         
-        format_device = QAction("&Format Device", self)
-        format_device.triggered.connect(self._format_device)
-        tools_menu.addAction(format_device)
+        # DISABLED - Format Device is a placeholder (use USB Builder wizard instead)
+        # format_device = QAction("&Format Device", self)
+        # format_device.triggered.connect(self._format_device)
+        # tools_menu.addAction(format_device)
         
-        tools_menu.addSeparator()
-        
-        preferences = QAction("&Preferences", self)
-        preferences.triggered.connect(self._show_preferences)
-        tools_menu.addAction(preferences)
+        # DISABLED - Preferences dialog not yet implemented  
+        # tools_menu.addSeparator()
+        # preferences = QAction("&Preferences", self)
+        # preferences.triggered.connect(self._show_preferences)
+        # tools_menu.addAction(preferences)
         
         # Help menu
         help_menu = menubar.addMenu("&Help")
@@ -254,14 +255,13 @@ class BootForgeMainWindow(QMainWindow):
         stop_action.triggered.connect(self._stop_operation)
         toolbar.addAction(stop_action)
         
-        toolbar.addSeparator()
-        
-        # Settings action
-        settings_action = QAction("Settings", self)
-        settings_action.setIcon(self._create_icon("settings"))
-        settings_action.setToolTip("Application settings")
-        settings_action.triggered.connect(self._show_preferences)
-        toolbar.addAction(settings_action)
+        # DISABLED - Settings action (Preferences dialog not yet implemented)
+        # toolbar.addSeparator()
+        # settings_action = QAction("Settings", self)
+        # settings_action.setIcon(self._create_icon("settings"))
+        # settings_action.setToolTip("Application settings")
+        # settings_action.triggered.connect(self._show_preferences)
+        # toolbar.addAction(settings_action)
     
     def _create_status_bar(self):
         """Create application status bar"""
