@@ -3,13 +3,19 @@
 
 block_cipher = None
 
-# Data files to include
-added_files = [
-    ('/home/runner/workspace/src/core/data', 'src/core/data'),
-    ('/home/runner/workspace/src/gui/icons', 'src/gui/icons'),
-    ('/home/runner/workspace/src/core/patches', 'src/core/patches'),
-    ('/home/runner/workspace/config', 'config'),
+# Data files to include (only existing directories)
+added_files = []
+data_dirs = [
+    ('src/core/data', 'src/core/data'),
+    ('src/gui/icons', 'src/gui/icons'), 
+    ('src/core/patches', 'src/core/patches'),
+    ('config', 'config'),
 ]
+
+for src_path, dest_path in data_dirs:
+    full_path = self.root_dir / src_path
+    if full_path.exists():
+        added_files.append((str(full_path), dest_path))
 
 # Hidden imports
 hiddenimports = [
