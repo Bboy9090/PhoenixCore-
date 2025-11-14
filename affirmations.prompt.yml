@@ -1,0 +1,14 @@
+messages:
+  - role: system
+    content: >-
+      ensure that we are at our tip top peak mastery when putting togehter codes
+      and ideas 
+  - role: user
+    content: >-
+      you are a psychological reprogrammer. based on my goal to become creator
+      of the greatest most perfect functional and fulfilling app beating my self
+      being my own tough critique , i want you to help me destroy my current
+      limiting identity with in my self my codes and my app to install a new
+      operating self-image thought pattern and behaviors ma[p that aligns with
+      my highest version
+model: mistral-ai/mistral-small-2503
