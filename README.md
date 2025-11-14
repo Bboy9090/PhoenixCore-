@@ -86,6 +86,15 @@ For desktop environments with OpenGL support:
 python main.py --gui
 ```
 
+### PhoenixDocs Offline Library
+Generate the themed PhoenixDocs knowledge base for offline use and the Phoenix Web GUI:
+
+```bash
+python main.py build-phoenix-docs --output dist/phoenix_docs_html
+```
+
+The command renders every Markdown guide in `docs/phoenix_docs/`, produces HTML artefacts, and writes a manifest (`phoenix_docs_manifest.json`) consumed by the Phoenix Key web interface.
+
 ## Plugin System
 
 BootForge features a modular plugin architecture with built-in plugins:
