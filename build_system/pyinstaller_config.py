@@ -9,291 +9,334 @@ import sys
 import shutil
 import subprocess
 from pathlib import Path
+from string import Template
+from textwrap import dedent
+
 
 class BootForgeBuildSystem:
     """Build system for creating portable BootForge executables"""
-    
+
     def __init__(self):
         self.root_dir = Path(__file__).parent.parent
         self.build_dir = self.root_dir / "dist"
         self.spec_dir = self.root_dir / "build_system" / "specs"
-        
+
         # Ensure directories exist
         self.build_dir.mkdir(exist_ok=True)
         self.spec_dir.mkdir(exist_ok=True)
-        
+
     def create_windows_spec(self):
         """Create PyInstaller spec for Windows executable"""
-        spec_content = f'''
-# -*- mode: python ; coding: utf-8 -*-
+        spec_content = Template(
+            dedent(
+                '''
+        # -*- mode: python ; coding: utf-8 -*-
 
-block_cipher = None
+        from pathlib import Path
+        import shutil
+        from PyInstaller.building.datastruct import Tree
 
-# Data files to include (only existing directories)
-added_files = []
-data_dirs = [
-    ('src/core/data', 'src/core/data'),
-    ('src/gui/icons', 'src/gui/icons'), 
-    ('src/core/patches', 'src/core/patches'),
-    ('config', 'config'),
-]
+        block_cipher = None
 
-for src_path, dest_path in data_dirs:
-    full_path = self.root_dir / src_path
-    if full_path.exists():
-        added_files.append((str(full_path), dest_path))
+        root_dir = Path(r"$root_dir")
 
-# Hidden imports (modules not automatically detected)
-hiddenimports = [
-    'PyQt6.QtCore',
-    'PyQt6.QtWidgets', 
-    'PyQt6.QtGui',
-    'requests',
-    'psutil',
-    'cryptography',
-    'yaml',
-    'click',
-    'colorama',
-    'src.core.hardware_detector',
-    'src.core.os_image_manager.macos_provider',
-    'src.core.os_image_manager.windows_provider',
-    'src.core.os_image_manager.linux_provider',
-    'src.gui.modern_theme',
-    'src.gui.stepper_wizard_widget',
-]
+        # Data files to include (only existing directories)
+        added_files = []
+        data_dirs = [
+            ('src/core/data', 'src/core/data'),
+            ('src/gui/icons', 'src/gui/icons'),
+            ('src/core/patches', 'src/core/patches'),
+            ('config', 'config'),
+        ]
 
-a = Analysis(
-    ['{self.root_dir}/main.py'],
-    pathex=['{self.root_dir}'],
-    binaries=[],
-    datas=added_files,
-    hiddenimports=hiddenimports,
-    hookspath=[],
-    hooksconfig={{}},
-    runtime_hooks=[],
-    excludes=['matplotlib', 'numpy', 'pandas', 'scipy'],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
-    noarchive=False,
-)
+        for src_path, dest_path in data_dirs:
+            full_path = root_dir / src_path
+            if full_path.exists():
+                added_files.append(Tree(str(full_path), prefix=dest_path))
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+        # Hidden imports (modules not automatically detected)
+        hiddenimports = [
+            'PyQt6.QtCore',
+            'PyQt6.QtWidgets',
+            'PyQt6.QtGui',
+            'requests',
+            'psutil',
+            'cryptography',
+            'yaml',
+            'click',
+            'colorama',
+            'src.core.hardware_detector',
+            'src.core.os_image_manager.macos_provider',
+            'src.core.os_image_manager.windows_provider',
+            'src.core.os_image_manager.linux_provider',
+            'src.gui.modern_theme',
+            'src.gui.stepper_wizard_widget',
+        ]
 
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-    name='BootForge',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon='{self.root_dir}/src/gui/icons/bootforge.ico'
-)
-'''
+        a = Analysis(
+            [str(root_dir / 'main.py')],
+            pathex=[str(root_dir)],
+            binaries=[],
+            datas=added_files,
+            hiddenimports=hiddenimports,
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=['matplotlib', 'numpy', 'pandas', 'scipy'],
+            win_no_prefer_redirects=False,
+            win_private_assemblies=False,
+            cipher=block_cipher,
+            noarchive=False,
+        )
+
+        pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+        use_upx = shutil.which('upx') is not None
+        win_icon = root_dir / 'src/gui/icons/bootforge.ico'
+        icon_arg = str(win_icon) if win_icon.exists() else None
+
+        exe = EXE(
+            pyz,
+            a.scripts,
+            a.binaries,
+            a.zipfiles,
+            a.datas,
+            [],
+            name='BootForge',
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=use_upx,
+            upx_exclude=[],
+            runtime_tmpdir=None,
+            console=False,
+            disable_windowed_traceback=False,
+            argv_emulation=False,
+            target_arch=None,
+            codesign_identity=None,
+            entitlements_file=None,
+            icon=icon_arg,
+        )
+        '''
+            )
+        ).substitute(root_dir=self.root_dir)
         spec_path = self.spec_dir / "bootforge_windows.spec"
-        with open(spec_path, 'w') as f:
+        with open(spec_path, "w", encoding="utf-8") as f:
             f.write(spec_content)
         return spec_path
 
     def create_macos_spec(self):
         """Create PyInstaller spec for macOS application bundle"""
-        spec_content = f'''
-# -*- mode: python ; coding: utf-8 -*-
+        spec_content = Template(
+            dedent(
+                '''
+        # -*- mode: python ; coding: utf-8 -*-
 
-block_cipher = None
+        from pathlib import Path
+        import shutil
+        from PyInstaller.building.datastruct import Tree
 
-# Data files to include (only existing directories)
-added_files = []
-data_dirs = [
-    ('src/core/data', 'src/core/data'),
-    ('src/gui/icons', 'src/gui/icons'), 
-    ('src/core/patches', 'src/core/patches'),
-    ('config', 'config'),
-]
+        block_cipher = None
 
-for src_path, dest_path in data_dirs:
-    full_path = self.root_dir / src_path
-    if full_path.exists():
-        added_files.append((str(full_path), dest_path))
+        root_dir = Path(r"$root_dir")
 
-# Hidden imports
-hiddenimports = [
-    'PyQt6.QtCore',
-    'PyQt6.QtWidgets', 
-    'PyQt6.QtGui',
-    'requests',
-    'psutil',
-    'cryptography',
-    'yaml',
-    'click',
-    'colorama',
-    'src.core.hardware_detector',
-    'src.core.os_image_manager.macos_provider',
-    'src.core.os_image_manager.windows_provider',
-    'src.core.os_image_manager.linux_provider',
-    'src.gui.modern_theme',
-    'src.gui.stepper_wizard_widget',
-]
+        # Data files to include (only existing directories)
+        added_files = []
+        data_dirs = [
+            ('src/core/data', 'src/core/data'),
+            ('src/gui/icons', 'src/gui/icons'),
+            ('src/core/patches', 'src/core/patches'),
+            ('config', 'config'),
+        ]
 
-a = Analysis(
-    ['{self.root_dir}/main.py'],
-    pathex=['{self.root_dir}'],
-    binaries=[],
-    datas=added_files,
-    hiddenimports=hiddenimports,
-    hookspath=[],
-    hooksconfig={{}},
-    runtime_hooks=[],
-    excludes=['matplotlib', 'numpy', 'pandas', 'scipy'],
-    cipher=block_cipher,
-    noarchive=False,
-)
+        for src_path, dest_path in data_dirs:
+            full_path = root_dir / src_path
+            if full_path.exists():
+                added_files.append(Tree(str(full_path), prefix=dest_path))
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+        # Hidden imports
+        hiddenimports = [
+            'PyQt6.QtCore',
+            'PyQt6.QtWidgets',
+            'PyQt6.QtGui',
+            'requests',
+            'psutil',
+            'cryptography',
+            'yaml',
+            'click',
+            'colorama',
+            'src.core.hardware_detector',
+            'src.core.os_image_manager.macos_provider',
+            'src.core.os_image_manager.windows_provider',
+            'src.core.os_image_manager.linux_provider',
+            'src.gui.modern_theme',
+            'src.gui.stepper_wizard_widget',
+        ]
 
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-    name='BootForge',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
+        a = Analysis(
+            [str(root_dir / 'main.py')],
+            pathex=[str(root_dir)],
+            binaries=[],
+            datas=added_files,
+            hiddenimports=hiddenimports,
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=['matplotlib', 'numpy', 'pandas', 'scipy'],
+            cipher=block_cipher,
+            noarchive=False,
+        )
 
-app = BUNDLE(
-    exe,
-    name='BootForge.app',
-    icon='{self.root_dir}/src/gui/icons/bootforge.icns',
-    bundle_identifier='com.bootforge.app',
-    info_plist={{
-        'CFBundleName': 'BootForge',
-        'CFBundleDisplayName': 'BootForge',
-        'CFBundleVersion': '1.0.0',
-        'CFBundleShortVersionString': '1.0.0',
-        'LSMinimumSystemVersion': '10.13.0',
-        'NSHighResolutionCapable': 'True',
-        'NSRequiresAquaSystemAppearance': 'False'
-    }},
-)
-'''
+        pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+        use_upx = shutil.which('upx') is not None
+        mac_icon = root_dir / 'src/gui/icons/bootforge.icns'
+        icon_arg = str(mac_icon) if mac_icon.exists() else None
+
+        exe = EXE(
+            pyz,
+            a.scripts,
+            a.binaries,
+            a.zipfiles,
+            a.datas,
+            [],
+            name='BootForge',
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=use_upx,
+            upx_exclude=[],
+            runtime_tmpdir=None,
+            console=False,
+            disable_windowed_traceback=False,
+            argv_emulation=False,
+            target_arch=None,
+            codesign_identity=None,
+            entitlements_file=None,
+        )
+
+        app = BUNDLE(
+            exe,
+            name='BootForge.app',
+            icon=icon_arg,
+            bundle_identifier='com.bootforge.app',
+            info_plist={
+                'CFBundleName': 'BootForge',
+                'CFBundleDisplayName': 'BootForge',
+                'CFBundleVersion': '1.0.0',
+                'CFBundleShortVersionString': '1.0.0',
+                'LSMinimumSystemVersion': '10.13.0',
+                'NSHighResolutionCapable': 'True',
+                'NSRequiresAquaSystemAppearance': 'False'
+            },
+        )
+        '''
+            )
+        ).substitute(root_dir=self.root_dir)
         spec_path = self.spec_dir / "bootforge_macos.spec"
-        with open(spec_path, 'w') as f:
+        with open(spec_path, "w", encoding="utf-8") as f:
             f.write(spec_content)
         return spec_path
 
     def create_linux_spec(self):
         """Create PyInstaller spec for Linux executable"""
-        spec_content = f'''
-# -*- mode: python ; coding: utf-8 -*-
+        spec_content = Template(
+            dedent(
+                '''
+        # -*- mode: python ; coding: utf-8 -*-
 
-block_cipher = None
+        from pathlib import Path
+        import shutil
+        from PyInstaller.building.datastruct import Tree
 
-# Data files to include (only existing directories)
-added_files = []
-data_dirs = [
-    ('src/core/data', 'src/core/data'),
-    ('src/gui/icons', 'src/gui/icons'), 
-    ('src/core/patches', 'src/core/patches'),
-    ('config', 'config'),
-]
+        block_cipher = None
 
-for src_path, dest_path in data_dirs:
-    full_path = self.root_dir / src_path
-    if full_path.exists():
-        added_files.append((str(full_path), dest_path))
+        root_dir = Path(r"$root_dir")
 
-# Hidden imports
-hiddenimports = [
-    'PyQt6.QtCore',
-    'PyQt6.QtWidgets', 
-    'PyQt6.QtGui',
-    'requests',
-    'psutil',
-    'cryptography',
-    'yaml',
-    'click',
-    'colorama',
-    'src.core.hardware_detector',
-    'src.core.os_image_manager.macos_provider',
-    'src.core.os_image_manager.windows_provider',
-    'src.core.os_image_manager.linux_provider',
-    'src.gui.modern_theme',
-    'src.gui.stepper_wizard_widget',
-]
+        # Data files to include (only existing directories)
+        added_files = []
+        data_dirs = [
+            ('src/core/data', 'src/core/data'),
+            ('src/gui/icons', 'src/gui/icons'),
+            ('src/core/patches', 'src/core/patches'),
+            ('config', 'config'),
+        ]
 
-a = Analysis(
-    ['{self.root_dir}/main.py'],
-    pathex=['{self.root_dir}'],
-    binaries=[],
-    datas=added_files,
-    hiddenimports=hiddenimports,
-    hookspath=[],
-    hooksconfig={{}},
-    runtime_hooks=[],
-    excludes=['matplotlib', 'numpy', 'pandas', 'scipy'],
-    cipher=block_cipher,
-    noarchive=False,
-)
+        for src_path, dest_path in data_dirs:
+            full_path = root_dir / src_path
+            if full_path.exists():
+                added_files.append(Tree(str(full_path), prefix=dest_path))
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+        # Hidden imports
+        hiddenimports = [
+            'PyQt6.QtCore',
+            'PyQt6.QtWidgets',
+            'PyQt6.QtGui',
+            'requests',
+            'psutil',
+            'cryptography',
+            'yaml',
+            'click',
+            'colorama',
+            'src.core.hardware_detector',
+            'src.core.os_image_manager.macos_provider',
+            'src.core.os_image_manager.windows_provider',
+            'src.core.os_image_manager.linux_provider',
+            'src.gui.modern_theme',
+            'src.gui.stepper_wizard_widget',
+        ]
 
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-    name='BootForge',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-'''
+        a = Analysis(
+            [str(root_dir / 'main.py')],
+            pathex=[str(root_dir)],
+            binaries=[],
+            datas=added_files,
+            hiddenimports=hiddenimports,
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=['matplotlib', 'numpy', 'pandas', 'scipy'],
+            cipher=block_cipher,
+            noarchive=False,
+        )
+
+        pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+        use_upx = shutil.which('upx') is not None
+
+        exe = EXE(
+            pyz,
+            a.scripts,
+            a.binaries,
+            a.zipfiles,
+            a.datas,
+            [],
+            name='BootForge',
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=use_upx,
+            upx_exclude=[],
+            runtime_tmpdir=None,
+            console=False,
+            disable_windowed_traceback=False,
+            argv_emulation=False,
+            target_arch=None,
+            codesign_identity=None,
+            entitlements_file=None,
+        )
+        '''
+            )
+        ).substitute(root_dir=self.root_dir)
         spec_path = self.spec_dir / "bootforge_linux.spec"
-        with open(spec_path, 'w') as f:
+        with open(spec_path, "w", encoding="utf-8") as f:
             f.write(spec_content)
         return spec_path
 
     def build_platform(self, platform):
         """Build executable for specified platform"""
         print(f"Building BootForge for {platform}...")
-        
+
         if platform == "windows":
             spec_path = self.create_windows_spec()
             output_name = "BootForge.exe"
@@ -305,22 +348,37 @@ exe = EXE(
             output_name = "BootForge"
         else:
             raise ValueError(f"Unsupported platform: {platform}")
-        
+
         # Run PyInstaller
         cmd = [sys.executable, "-m", "PyInstaller", "--clean", str(spec_path)]
         result = subprocess.run(cmd, cwd=self.root_dir, capture_output=True, text=True)
-        
+
+        log_path = self.build_dir / f"pyinstaller_{platform}.log"
+        with open(log_path, "w", encoding="utf-8") as log_file:
+            log_file.write(result.stdout or "")
+            log_file.write("\n--- STDERR ---\n")
+            log_file.write(result.stderr or "")
+        print(f"PyInstaller log saved to {log_path}")
+
         if result.returncode != 0:
             print(f"Build failed for {platform}:")
             print(result.stderr)
             return False
-            
-        print(f"Successfully built {platform} executable: {output_name}")
+
+        produced_artifact = self.build_dir / output_name
+        if produced_artifact.exists():
+            print(f"Successfully built {platform} executable: {produced_artifact}")
+        else:
+            print(
+                "Build succeeded, but could not locate expected artifact at"
+                f" {produced_artifact}"
+            )
         return True
+
 
 if __name__ == "__main__":
     builder = BootForgeBuildSystem()
-    
+
     # Detect current platform and build
     if sys.platform.startswith("win"):
         builder.build_platform("windows")
