@@ -142,3 +142,27 @@ class Config:
         extras = data.pop("extras", {})
         data.update(extras)
         return data
+
+
+# Recovery defaults
+APP_NAME = "bootforge"
+LOG_NAME = "bootforge.log"
+
+
+def default_log_dir() -> Path:
+    for cand in (Path("/var/log"), Path("/tmp/bootforge"), Path.cwd() / "bootforge_logs"):
+        try:
+            cand.mkdir(parents=True, exist_ok=True)
+            test = cand / ".bf_write_test"
+            test.write_text("ok")
+            test.unlink(missing_ok=True)
+            return cand
+        except (OSError, PermissionError):
+            continue
+    return Path.cwd()
+
+
+_env_log_dir = os.getenv("BOOTFORGE_LOG_DIR")
+LOG_DIR = Path(_env_log_dir) if _env_log_dir else default_log_dir()
+LOG_FILE = LOG_DIR / LOG_NAME
+MOUNT_BASE = Path(os.getenv("BOOTFORGE_MOUNT_BASE", "/mnt/bootforge"))

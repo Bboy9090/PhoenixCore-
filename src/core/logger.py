@@ -124,6 +124,13 @@ def setup_logging(log_dir: Optional[Path] = None, level: str = "INFO") -> BootFo
 
 
 # Convenience function for getting logger
-def get_logger(name: str) -> logging.Logger:
-    """Get a logger instance"""
-    return logging.getLogger(name)
+def get_logger(name: str, level: str | int | None = None) -> logging.Logger:
+    """Get a logger instance, attaching a basic console handler if none exist."""
+    logger = logging.getLogger(name)
+    if level is not None:
+        logger.setLevel(level if isinstance(level, int) else getattr(logging, str(level).upper(), logging.INFO))
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s'))
+        logger.addHandler(handler)
+    return logger
