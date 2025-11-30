@@ -27,6 +27,10 @@ def _write(dst: str, offset: int, data: bytes) -> None:
 
 def cold_fuse_clone(src_path: str, dst_path: str, dry_run: bool = False, chunk_size: int = DEFAULT_CHUNK):
     total = os.path.getsize(src_path)
+    # For regular files, ensure the destination is truncated before writing.
+    if not dry_run and os.path.isfile(dst_path):
+        with open(dst_path, "wb"):
+            pass
     bad_map: List[Tuple[int, int]] = []
     offset = 0
 
