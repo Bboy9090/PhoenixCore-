@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator, Optional
 from pathlib import Path
+import ctypes
 import os
 import string
 import sys
@@ -20,7 +21,16 @@ def _ensure_base() -> Path:
 
 
 def _free_drive_letter(prefer: str = "W") -> Optional[str]:
-    used = {p.path[:2].upper() for p in list(os.scandir("/")) if sys.platform.startswith("win")}
+    if not sys.platform.startswith("win"):
+        return None
+    used: set[str] = set()
+    try:
+        drives = ctypes.windll.kernel32.GetLogicalDrives()
+        for idx, letter in enumerate(string.ascii_uppercase):
+            if drives & (1 << idx):
+                used.add(f"{letter}:")
+    except Exception:
+        used = {f"{c}:" for c in string.ascii_uppercase if os.path.exists(f"{c}:\\")}
     for c in [prefer] + [x for x in string.ascii_uppercase if x not in (prefer, "A", "B", "C")]:
         if f"{c}:" not in used:
             return c

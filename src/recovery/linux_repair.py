@@ -1,5 +1,6 @@
 """Linux repair routines."""
 from __future__ import annotations
+import re
 from .validators import run
 from .mount import mounted
 
@@ -25,12 +26,11 @@ def repair(probe, fsck_all: bool = True, grub: bool = True, dry_run: bool = Fals
 def _disk_from_part(part: str) -> str:
     if "nvme" in part:
         import re
-        m = re.match(r"(.+n\d+)p\d+$", part)
-        if m:
-            return m.group(1)
+        match = re.match(r"(.+n\d+)p\d+$", part)
+        if match:
+            return match.group(1)
     return _strip_digits(part)
 
 
 def _strip_digits(dev: str) -> str:
-    import re
     return re.sub(r"\d+$", "", dev)

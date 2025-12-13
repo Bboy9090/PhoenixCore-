@@ -142,7 +142,11 @@ def probe_disks() -> List[DiskOSProbe]:
     code, out, _ = run_capture(["lsblk", "-J", "-b", "-o", "NAME,PATH,TYPE,FSTYPE,LABEL,MOUNTPOINT,SIZE"])
     if code != 0:
         return [DiskOSProbe("unknown", None, None, {})]
-    data = json.loads(out)
+    try:
+        data = json.loads(out)
+    except (json.JSONDecodeError, ValueError):
+        log.warning("Failed to parse lsblk JSON output")
+        return [DiskOSProbe("unknown", None, None, {})]
     parts: list[Partition] = []
 
     def walk(node):

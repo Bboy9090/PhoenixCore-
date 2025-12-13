@@ -58,7 +58,7 @@ class BootForgeBuildSystem:
                     ]
                     for _cand in _cands:
                         if _cand.exists():
-                            added_files.append(Tree(str(_cand), prefix='qt_plugins'))
+                            added_files += Tree(str(_cand), prefix='qt_plugins')
                             break
                 except Exception:
                     pass
@@ -128,7 +128,7 @@ class BootForgeBuildSystem:
                 for src_path, dest_path in data_dirs:
                     full_path = root_dir / src_path
                     if full_path.exists():
-                        added_files.append(Tree(str(full_path), prefix=dest_path))
+                        added_files += Tree(str(full_path), prefix=dest_path)
 
                 $qt_plugins
 
@@ -222,7 +222,7 @@ class BootForgeBuildSystem:
                 for src_path, dest_path in data_dirs:
                     full_path = root_dir / src_path
                     if full_path.exists():
-                        added_files.append(Tree(str(full_path), prefix=dest_path))
+                        added_files += Tree(str(full_path), prefix=dest_path)
 
                 $qt_plugins
 
@@ -327,7 +327,7 @@ class BootForgeBuildSystem:
                 for src_path, dest_path in data_dirs:
                     full_path = root_dir / src_path
                     if full_path.exists():
-                        added_files.append(Tree(str(full_path), prefix=dest_path))
+                        added_files += Tree(str(full_path), prefix=dest_path)
 
                 $qt_plugins
 
