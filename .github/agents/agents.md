@@ -31,5 +31,5 @@ Make changes that build and test cleanly, with honest validation.
 Reject your own PR if:
 - It adds “fake success”
 - It breaks platform separation
-- It introduces secrets
+- It introduces secrets 
 - It changes release/build without explicit need
