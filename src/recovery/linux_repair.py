@@ -23,8 +23,11 @@ def repair(probe, fsck_all: bool = True, grub: bool = True, dry_run: bool = Fals
 
 
 def _disk_from_part(part: str) -> str:
-    if "nvme" in part and "p" in part:
-        return part.split("p")[0]
+    if "nvme" in part:
+        import re
+        m = re.match(r"(.+n\d+)p\d+$", part)
+        if m:
+            return m.group(1)
     return _strip_digits(part)
 
 
