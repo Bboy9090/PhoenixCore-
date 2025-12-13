@@ -9,6 +9,8 @@ def auto_repair(probe, dry_run: bool = False):
 
 
 def repair(probe, offline: bool = True, rebuild_boot: bool = True, dry_run: bool = False):
+    if not probe.root_part:
+        raise RuntimeError("Cannot repair: no Windows root partition detected")
     with mounted(probe.root_part.device) as winroot:
         if offline:
             sfc_offline(winroot, dry_run)
