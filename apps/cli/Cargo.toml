@@ -1,9 +1,9 @@
 [package]
-name = "bootforge-cli"
+name = "phoenix-cli"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = "1"
 serde_json = "1"
-bootforge-host-windows = { path = "../../crates/host-windows" }
+phoenix-host-windows = { path = "../../crates/host-windows" }
