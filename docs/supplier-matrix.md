@@ -13,3 +13,6 @@ Goal: every capability Phoenix provides is native.
 | Safety gates | Python SafetyValidator + psutil in `src/core/safety_validator.py` | Hard to audit; no formal token flow | phoenix-safety | M0 |
 | Evidence reports | Ad-hoc JSON/logging in `src/core/safety_validator.py` | Inconsistent format; no signing | phoenix-report | M0 |
 | USB build workflow | Python StorageBuilder in `src/core/usb_builder.py` | Orchestrates external tools; brittle | phoenix-packs/winpe + phoenix-workflow-engine | M1 |
+
+## References
+- docs/cursor-issues/epic-001-replace-third-party-tooling.md

@@ -17,3 +17,6 @@ Rules:
    - imaging + hashing + verification
    - safety gates
    - evidence reports
+
+## References
+- docs/cursor-issues/epic-001-replace-third-party-tooling.md
