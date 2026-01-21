@@ -1,52 +1,39 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use phoenix_core::DeviceGraph;
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use time::format_description::well_known::Rfc3339;
-use time::OffsetDateTime;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RunReport {
+pub struct ReportPaths {
     pub run_id: String,
-    pub generated_at_utc: String,
-    pub notes: Option<String>,
+    pub root: PathBuf,
+    pub device_graph_json: PathBuf,
+    pub run_json: PathBuf,
 }
 
-impl RunReport {
-    pub fn new() -> Self {
-        Self {
-            run_id: Uuid::new_v4().to_string(),
-            generated_at_utc: now_utc_rfc3339(),
-            notes: None,
-        }
-    }
-}
+pub fn create_report_bundle(base: impl AsRef<Path>, graph: &DeviceGraph) -> Result<ReportPaths> {
+    let run_id = Uuid::new_v4().to_string();
+    let root = base.as_ref().join("reports").join(&run_id);
+    fs::create_dir_all(&root)?;
 
-pub fn write_report(
-    output_dir: &Path,
-    device_graph: &DeviceGraph,
-    run: &RunReport,
-) -> Result<PathBuf> {
-    let run_dir = output_dir.join(&run.run_id);
-    fs::create_dir_all(&run_dir)
-        .with_context(|| format!("create report dir {}", run_dir.display()))?;
+    let device_graph_json = root.join("device_graph.json");
+    let run_json = root.join("run.json");
 
-    let graph_path = run_dir.join("device_graph.json");
-    let graph_json = serde_json::to_vec_pretty(device_graph).context("serialize device graph")?;
-    fs::write(&graph_path, graph_json)
-        .with_context(|| format!("write {}", graph_path.display()))?;
+    fs::write(&device_graph_json, serde_json::to_vec_pretty(graph)?)?;
 
-    let run_path = run_dir.join("run.json");
-    let run_json = serde_json::to_vec_pretty(run).context("serialize run report")?;
-    fs::write(&run_path, run_json).with_context(|| format!("write {}", run_path.display()))?;
+    let meta = serde_json::json!({
+        "run_id": run_id,
+        "schema_version": graph.schema_version,
+        "generated_at_utc": graph.generated_at_utc,
+        "host": graph.host,
+        "disk_count": graph.disks.len()
+    });
+    fs::write(&run_json, serde_json::to_vec_pretty(&meta)?)?;
 
-    Ok(run_dir)
-}
-
-fn now_utc_rfc3339() -> String {
-    OffsetDateTime::now_utc()
-        .format(&Rfc3339)
-        .unwrap_or_else(|_| "unknown".to_string())
+    Ok(ReportPaths {
+        run_id,
+        root,
+        device_graph_json,
+        run_json,
+    })
 }
