@@ -434,7 +434,10 @@ fn main() -> Result<()> {
                 )?;
                 println!("workflow: {}", definition.name);
                 for step in results {
-                    println!("step {}: {}", step.id, step.action);
+                    println!(
+                        "step {}: {} ({} ms)",
+                        step.id, step.action, step.duration_ms
+                    );
                     if let Some(root) = step.report_root {
                         println!("  report: {}", root.display());
                     }

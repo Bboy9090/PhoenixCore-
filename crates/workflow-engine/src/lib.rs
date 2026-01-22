@@ -5,6 +5,7 @@ use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::WorkflowDefinition;
+use std::time::Instant;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -85,7 +86,22 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     }
 
     let mut target_mount = if let Some(path) = &params.target_mount {
-        normalize_mount_path(path)
+        let normalized = normalize_mount_path(path);
+        let normalized_str = normalized.display().to_string();
+        let belongs = disk.partitions.iter().any(|partition| {
+            partition
+                .mount_points
+                .iter()
+                .any(|mount| mount.eq_ignore_ascii_case(&normalized_str))
+        });
+        if !belongs {
+            return Err(anyhow!(
+                "target_mount {} does not belong to disk {}",
+                normalized.display(),
+                disk.id
+            ));
+        }
+        normalized
     } else {
         disk.partitions
             .iter()
@@ -250,6 +266,7 @@ pub struct WorkflowStepResult {
     pub id: String,
     pub action: String,
     pub report_root: Option<PathBuf>,
+    pub duration_ms: u128,
 }
 
 pub fn run_workflow_definition(
@@ -260,6 +277,7 @@ pub fn run_workflow_definition(
     let mut results = Vec::new();
 
     for step in &definition.steps {
+        let start = Instant::now();
         match step.action.as_str() {
             "windows_installer_usb" => {
                 let params = build_usb_params(&step.params, &base)?;
@@ -268,6 +286,7 @@ pub fn run_workflow_definition(
                     id: step.id.clone(),
                     action: step.action.clone(),
                     report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
                 });
             }
             "windows_apply_image" => {
@@ -277,6 +296,7 @@ pub fn run_workflow_definition(
                     id: step.id.clone(),
                     action: step.action.clone(),
                     report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
                 });
             }
             "report_verify" => {
@@ -289,6 +309,7 @@ pub fn run_workflow_definition(
                     id: step.id.clone(),
                     action: step.action.clone(),
                     report_root: None,
+                    duration_ms: start.elapsed().as_millis(),
                 });
             }
             other => {
