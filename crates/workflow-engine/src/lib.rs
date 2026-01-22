@@ -4,6 +4,7 @@ use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
 use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
+use phoenix_core::WorkflowDefinition;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -129,6 +130,7 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     }
 
     let files = collect_files(&source_root)?;
+    ensure_boot_files(&files)?;
     let total_bytes = files.iter().map(|entry| entry.size).sum::<u64>();
 
     let mut logs = Vec::new();
@@ -139,9 +141,20 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     logs.push(format!("source_kind={:?}", source_kind));
     logs.push(format!("file_count={}", files.len()));
     logs.push(format!("total_bytes={}", total_bytes));
+    logs.push(format!("filesystem={}", params.filesystem.as_str()));
 
     let mut copied_files = 0usize;
     let mut copied_bytes = 0u64;
+
+    if params.filesystem.as_str().eq_ignore_ascii_case("FAT32") {
+        let max = max_file_size(&files);
+        if max > FAT32_MAX_FILE {
+            return Err(anyhow!(
+                "FAT32 cannot store files > 4GB (max file {} bytes). Use NTFS/exFAT.",
+                max
+            ));
+        }
+    }
 
     if !params.dry_run {
         let ctx = SafetyContext {
@@ -230,6 +243,61 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         copied_bytes,
         dry_run: params.dry_run,
     })
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkflowStepResult {
+    pub id: String,
+    pub action: String,
+    pub report_root: Option<PathBuf>,
+}
+
+pub fn run_workflow_definition(
+    definition: &WorkflowDefinition,
+    default_report_base: Option<PathBuf>,
+) -> Result<Vec<WorkflowStepResult>> {
+    let base = default_report_base.unwrap_or_else(|| PathBuf::from("."));
+    let mut results = Vec::new();
+
+    for step in &definition.steps {
+        match step.action.as_str() {
+            "windows_installer_usb" => {
+                let params = build_usb_params(&step.params, &base)?;
+                let result = run_windows_installer_usb(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                });
+            }
+            "windows_apply_image" => {
+                let params = build_apply_params(&step.params, &base)?;
+                let result = run_windows_apply_image(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                });
+            }
+            "report_verify" => {
+                let (path, key) = build_verify_params(&step.params)?;
+                let verification = phoenix_report::verify_report_bundle(path, key.as_deref())?;
+                if !verification.ok {
+                    return Err(anyhow!("report verification failed"));
+                }
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: None,
+                });
+            }
+            other => {
+                return Err(anyhow!("unknown workflow action {}", other));
+            }
+        }
+    }
+
+    Ok(results)
 }
 
 #[derive(Debug, Clone)]
@@ -493,4 +561,114 @@ fn dir_stats_inner(path: &Path, stats: &mut DirStats) -> Result<()> {
 
 fn signing_key_from_env() -> Option<String> {
     std::env::var("PHOENIX_SIGNING_KEY").ok()
+}
+
+const FAT32_MAX_FILE: u64 = 4_294_967_295;
+
+fn max_file_size(entries: &[FileEntry]) -> u64 {
+    entries.iter().map(|entry| entry.size).max().unwrap_or(0)
+}
+
+fn ensure_boot_files(entries: &[FileEntry]) -> Result<()> {
+    let mut has_boot_wim = false;
+    let mut has_efi = false;
+    for entry in entries {
+        let rel = entry.relative_path.to_string_lossy().replace('\\', "/");
+        let rel_lower = rel.to_ascii_lowercase();
+        if rel_lower == "sources/boot.wim" {
+            has_boot_wim = true;
+        }
+        if rel_lower.starts_with("efi/boot/") && rel_lower.ends_with(".efi") {
+            has_efi = true;
+        }
+    }
+    if !has_boot_wim {
+        return Err(anyhow!("missing sources/boot.wim in installer source"));
+    }
+    if !has_efi {
+        return Err(anyhow!("missing EFI bootloader in installer source"));
+    }
+    Ok(())
+}
+
+fn build_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<WindowsInstallerUsbParams> {
+    let target_disk_id = require_string(value, "target_disk_id")?;
+    let source_path = PathBuf::from(require_string(value, "source_path")?);
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+    let filesystem = parse_filesystem_value(optional_string(value, "filesystem").unwrap_or("fat32"))?;
+    let label = optional_string(value, "label").map(str::to_string);
+
+    Ok(WindowsInstallerUsbParams {
+        target_disk_id: target_disk_id.to_string(),
+        source_path,
+        target_mount: optional_string(value, "target_mount").map(PathBuf::from),
+        report_base,
+        force: optional_bool(value, "force", false),
+        confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
+        dry_run: optional_bool(value, "dry_run", true),
+        repartition: optional_bool(value, "repartition", false),
+        format: optional_bool(value, "format", false),
+        filesystem,
+        label,
+    })
+}
+
+fn build_apply_params(value: &serde_json::Value, default_report: &Path) -> Result<WindowsApplyImageParams> {
+    let source_path = PathBuf::from(require_string(value, "source_path")?);
+    let target_dir = PathBuf::from(require_string(value, "target_dir")?);
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+    let image_index = require_u32(value, "image_index")?;
+
+    Ok(WindowsApplyImageParams {
+        source_path,
+        image_index,
+        target_dir,
+        report_base,
+        force: optional_bool(value, "force", false),
+        confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
+        dry_run: optional_bool(value, "dry_run", true),
+        verify: optional_bool(value, "verify", false),
+    })
+}
+
+fn build_verify_params(value: &serde_json::Value) -> Result<(PathBuf, Option<String>)> {
+    let path = PathBuf::from(require_string(value, "path")?);
+    let key = optional_string(value, "signing_key").map(str::to_string);
+    Ok((path, key))
+}
+
+fn require_string<'a>(value: &'a serde_json::Value, key: &str) -> Result<&'a str> {
+    value
+        .get(key)
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow!("missing string field {}", key))
+}
+
+fn optional_string<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a str> {
+    value.get(key).and_then(|v| v.as_str())
+}
+
+fn require_u32(value: &serde_json::Value, key: &str) -> Result<u32> {
+    value
+        .get(key)
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32)
+        .ok_or_else(|| anyhow!("missing number field {}", key))
+}
+
+fn optional_bool(value: &serde_json::Value, key: &str, default: bool) -> bool {
+    value.get(key).and_then(|v| v.as_bool()).unwrap_or(default)
+}
+
+fn parse_filesystem_value(value: &str) -> Result<FileSystem> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "fat32" => Ok(FileSystem::Fat32),
+        "ntfs" => Ok(FileSystem::Ntfs),
+        "exfat" => Ok(FileSystem::ExFat),
+        other => Err(anyhow!("unsupported filesystem {}", other)),
+    }
 }

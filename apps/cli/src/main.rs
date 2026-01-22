@@ -8,6 +8,7 @@ use phoenix_workflow_engine::{
 use phoenix_host_windows::format::parse_filesystem;
 use phoenix_content::resolve_windows_image;
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
+use phoenix_core::WorkflowDefinition;
 
 #[derive(Parser)]
 #[command(name = "phoenix-cli", version, about = "Phoenix Core CLI (Windows-first)")]
@@ -168,6 +169,17 @@ enum Commands {
         /// Verify byte totals after apply
         #[arg(long)]
         verify: bool,
+    },
+
+    /// Run a workflow definition JSON file
+    WorkflowRun {
+        /// Path to workflow JSON file
+        #[arg(long)]
+        file: String,
+
+        /// Default report base for steps without report_base
+        #[arg(long, default_value = ".")]
+        report_base: String,
     },
 }
 
@@ -402,6 +414,30 @@ fn main() -> Result<()> {
                 println!("  manifest: {}", result.report.manifest_path.display());
                 if let Some(sig) = result.report.signature_path.as_ref() {
                     println!("  signature: {}", sig.display());
+                }
+                Ok(())
+            }
+            #[cfg(not(windows))]
+            {
+                Err(anyhow!("Windows-first in M0"))
+            }
+        }
+
+        Commands::WorkflowRun { file, report_base } => {
+            #[cfg(windows)]
+            {
+                let contents = std::fs::read_to_string(&file)?;
+                let definition: WorkflowDefinition = serde_json::from_str(&contents)?;
+                let results = phoenix_workflow_engine::run_workflow_definition(
+                    &definition,
+                    Some(report_base.into()),
+                )?;
+                println!("workflow: {}", definition.name);
+                for step in results {
+                    println!("step {}: {}", step.id, step.action);
+                    if let Some(root) = step.report_root {
+                        println!("  report: {}", root.display());
+                    }
                 }
                 Ok(())
             }

@@ -8,6 +8,12 @@ Windows-first core engine that supplies the product capabilities:
 
 No-wrapper policy: UI never touches OS APIs. Host providers do.
 
+## Workflow Runner
+Run JSON workflow definitions:
+```
+phoenix-cli workflow-run --file workflow.json --report-base .
+```
+
 ## Phoenix Core Layout (current)
 ```
 .

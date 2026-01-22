@@ -37,17 +37,29 @@ pub trait ImagingProvider {
   "steps": [
     {
       "id": "select-target",
-      "action": "select_disk",
-      "params": { "removable_only": true }
+      "action": "windows_installer_usb",
+      "params": {
+        "target_disk_id": "PhysicalDrive1",
+        "source_path": "D:/Win11.iso",
+        "repartition": true,
+        "filesystem": "fat32",
+        "force": true,
+        "confirmation_token": "PHX-..."
+      }
     },
     {
       "id": "stage-files",
-      "action": "stage_installer",
-      "params": { "source_path": "D:/Win11" }
+      "action": "report_verify",
+      "params": { "path": "reports/<run_id>" }
     }
   ]
 }
 ```
+
+Supported actions:
+- `windows_installer_usb`
+- `windows_apply_image`
+- `report_verify`
 
 ## References
 - docs/device-graph.md

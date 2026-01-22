@@ -8,7 +8,12 @@ pub enum FileSystem {
 }
 
 pub fn parse_filesystem(_value: &str) -> Option<FileSystem> {
-    None
+    match _value.trim().to_ascii_lowercase().as_str() {
+        "fat32" => Some(FileSystem::Fat32),
+        "ntfs" => Some(FileSystem::Ntfs),
+        "exfat" => Some(FileSystem::ExFat),
+        _ => None,
+    }
 }
 
 pub fn logical_drive_letters() -> Vec<char> {
