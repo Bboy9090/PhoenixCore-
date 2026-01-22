@@ -1,3 +1,28 @@
+# Device Graph (schema v1.0.0)
+
+Phoenix outputs a stable JSON contract.
+
+Top-level:
+- schema_version: "1.0.0"
+- graph_id: UUID
+- generated_at_utc: RFC3339 string
+- host: OS info
+- disks: physical disks
+
+Disk:
+- id: stable id (Windows: "PhysicalDriveN")
+- friendly_name: best-effort
+- size_bytes
+- removable: best-effort
+- is_system_disk: true if contains system volume
+- volumes: mapped logical volumes / mount points
+
+Volume:
+- id: stable volume id (Windows: volume GUID path or drive id)
+- label: filesystem label
+- fs: filesystem name
+- size_bytes: total volume bytes
+- mount_points: e.g. ["C:\\", "E:\\"]
 # Device Graph Schema
 
 **Version:** 1.0.0
