@@ -411,6 +411,8 @@ pub fn run_unix_installer_usb(params: &UnixInstallerUsbParams) -> Result<UnixIns
     let files = collect_files(&source_root)?;
     let total_bytes = files.iter().map(|entry| entry.size).sum::<u64>();
 
+    ensure_unix_boot_files(&files, current_os())?;
+
     if let Some(free_bytes) = free_space_bytes(&target_mount)? {
         if free_bytes < total_bytes {
             return Err(anyhow!(
@@ -1194,6 +1196,48 @@ fn ensure_boot_files(entries: &[FileEntry]) -> Result<()> {
     }
     if !has_efi {
         return Err(anyhow!("missing EFI bootloader in installer source"));
+    }
+    Ok(())
+}
+
+fn ensure_unix_boot_files(entries: &[FileEntry], os: &str) -> Result<()> {
+    let mut has_efi = false;
+    let mut has_grub = false;
+    let mut has_isolinux = false;
+    let mut has_macos_boot = false;
+    for entry in entries {
+        let rel = entry.relative_path.to_string_lossy().replace('\\', "/");
+        let rel_lower = rel.to_ascii_lowercase();
+        if rel_lower.starts_with("efi/boot/") {
+            has_efi = true;
+        }
+        if rel_lower.starts_with("boot/grub") {
+            has_grub = true;
+        }
+        if rel_lower.starts_with("isolinux/") {
+            has_isolinux = true;
+        }
+        if rel_lower == "system/library/coreservices/boot.efi" {
+            has_macos_boot = true;
+        }
+    }
+
+    match os {
+        "linux" => {
+            if !has_efi && !has_grub && !has_isolinux {
+                return Err(anyhow!(
+                    "linux source missing EFI/BOOT, boot/grub, or isolinux"
+                ));
+            }
+        }
+        "macos" => {
+            if !has_macos_boot && !has_efi {
+                return Err(anyhow!(
+                    "macos source missing System/Library/CoreServices/boot.efi or EFI/BOOT"
+                ));
+            }
+        }
+        _ => {}
     }
     Ok(())
 }
