@@ -106,6 +106,7 @@ Validate:
 
 Run:
 - `phoenix-cli pack-run --manifest pack.json --report-base .`
+  - emits pack_report bundle with workflow report paths
 
 Sign:
 - `phoenix-cli pack-sign --manifest pack.json --key <hex>`

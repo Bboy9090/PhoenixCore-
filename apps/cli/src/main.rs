@@ -753,6 +753,7 @@ fn main() -> Result<()> {
                 }
             }
             let workflows = resolve_pack_workflows(&manifest)?;
+            let mut workflow_reports = Vec::new();
             for (path, workflow) in workflows {
                 println!("running workflow: {} ({})", workflow.name, path.display());
                 let result = phoenix_workflow_engine::run_workflow_definition_with_report(
@@ -760,7 +761,28 @@ fn main() -> Result<()> {
                     report_base.clone().into(),
                 )?;
                 println!("  report: {}", result.report.root.display());
+                workflow_reports.push(serde_json::json!({
+                    "workflow": workflow.name,
+                    "report_root": result.report.root.display().to_string()
+                }));
             }
+            let graph = build_device_graph()?;
+            let key = std::env::var("PHOENIX_SIGNING_KEY").ok();
+            let meta = serde_json::json!({
+                "pack": {
+                    "name": manifest_data.name,
+                    "version": manifest_data.version
+                },
+                "workflow_reports": workflow_reports
+            });
+            let pack_report = phoenix_report::create_report_bundle_with_meta_and_signing(
+                report_base,
+                &graph,
+                Some(meta),
+                None,
+                key.as_deref(),
+            )?;
+            println!("pack_report: {}", pack_report.root.display());
             Ok(())
         }
 
