@@ -2,8 +2,8 @@ use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use phoenix_imaging::{HashProgress, ProgressObserver};
 use phoenix_workflow_engine::{
-    run_windows_apply_image, run_windows_installer_usb, WindowsApplyImageParams,
-    WindowsInstallerUsbParams,
+    run_disk_hash_report, run_windows_apply_image, run_windows_installer_usb,
+    DiskHashReportParams, WindowsApplyImageParams, WindowsInstallerUsbParams,
 };
 use phoenix_host_windows::format::parse_filesystem;
 use phoenix_content::resolve_windows_image;
@@ -190,6 +190,25 @@ enum Commands {
         file: String,
 
         /// Default report base for steps without report_base
+        #[arg(long, default_value = ".")]
+        report_base: String,
+    },
+
+    /// Hash a disk and emit a report bundle
+    DiskHashReport {
+        /// Disk id like: PhysicalDrive0
+        #[arg(long)]
+        disk: String,
+
+        /// Chunk size in bytes (default: 8MB)
+        #[arg(long, default_value_t = 8 * 1024 * 1024)]
+        chunk_size: u64,
+
+        /// Max chunks to hash
+        #[arg(long)]
+        max_chunks: Option<u64>,
+
+        /// Base path for reports (default: current directory)
         #[arg(long, default_value = ".")]
         report_base: String,
     },
@@ -463,6 +482,37 @@ fn main() -> Result<()> {
                     }
                 }
                 println!("workflow_report: {}", result.report.root.display());
+                Ok(())
+            }
+            #[cfg(not(windows))]
+            {
+                Err(anyhow!("Windows-first in M0"))
+            }
+        }
+
+        Commands::DiskHashReport {
+            disk,
+            chunk_size,
+            max_chunks,
+            report_base,
+        } => {
+            #[cfg(windows)]
+            {
+                let params = DiskHashReportParams {
+                    disk_id: disk,
+                    chunk_size,
+                    max_chunks,
+                    report_base: report_base.into(),
+                };
+                let result = run_disk_hash_report(&params)?;
+                println!("Disk hash report:");
+                println!("  disk_id: {}", result.disk_id);
+                println!("  chunk_count: {}", result.chunk_count);
+                println!("  report_root: {}", result.report.root.display());
+                println!("  manifest: {}", result.report.manifest_path.display());
+                if let Some(sig) = result.report.signature_path.as_ref() {
+                    println!("  signature: {}", sig.display());
+                }
                 Ok(())
             }
             #[cfg(not(windows))]

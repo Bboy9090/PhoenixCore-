@@ -6,6 +6,7 @@ use phoenix_report::{
 use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
 use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
+use phoenix_imaging::{hash_disk_readonly_physicaldrive, make_chunk_plan};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::WorkflowDefinition;
 use sha2::{Digest, Sha256};
@@ -411,6 +412,16 @@ pub fn run_workflow_definition(
                     duration_ms: start.elapsed().as_millis(),
                 });
             }
+            "disk_hash_report" => {
+                let params = build_hash_params(&step.params, &base)?;
+                let result = run_disk_hash_report(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
             other => {
                 return Err(anyhow!("unknown workflow action {}", other));
             }
@@ -600,6 +611,78 @@ pub fn run_windows_apply_image(params: &WindowsApplyImageParams) -> Result<Windo
     })
 }
 
+#[derive(Debug, Clone)]
+pub struct DiskHashReportParams {
+    pub disk_id: String,
+    pub chunk_size: u64,
+    pub max_chunks: Option<u64>,
+    pub report_base: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct DiskHashReportResult {
+    pub report: ReportPaths,
+    pub disk_id: String,
+    pub chunk_count: usize,
+}
+
+pub fn run_disk_hash_report(params: &DiskHashReportParams) -> Result<DiskHashReportResult> {
+    let graph = phoenix_host_windows::build_device_graph()?;
+    let disk = graph
+        .disks
+        .iter()
+        .find(|disk| disk.id.eq_ignore_ascii_case(&params.disk_id))
+        .ok_or_else(|| anyhow!("disk not found: {}", params.disk_id))?;
+
+    let plan = make_chunk_plan(disk.size_bytes, params.chunk_size);
+    let hashes = hash_disk_readonly_physicaldrive(
+        &disk.id,
+        disk.size_bytes,
+        params.chunk_size,
+        params.max_chunks,
+    )?;
+
+    let entries: Vec<DiskHashEntry> = hashes
+        .into_iter()
+        .filter_map(|(index, sha256)| {
+            let chunk = plan.get(index as usize)?;
+            Some(DiskHashEntry {
+                index,
+                offset: chunk.offset,
+                length: chunk.size,
+                sha256,
+            })
+        })
+        .collect();
+
+    let artifact = ReportArtifact {
+        name: "disk_hashes.json".to_string(),
+        bytes: serde_json::to_vec_pretty(&entries)?,
+    };
+
+    let meta = serde_json::json!({
+        "workflow": "disk-hash-report",
+        "disk_id": disk.id,
+        "chunk_size": params.chunk_size,
+        "chunk_count": entries.len()
+    });
+
+    let report = create_report_bundle_with_meta_signing_and_artifacts(
+        &params.report_base,
+        &graph,
+        Some(meta),
+        None,
+        signing_key_from_env().as_deref(),
+        &[artifact],
+    )?;
+
+    Ok(DiskHashReportResult {
+        report,
+        disk_id: disk.id.clone(),
+        chunk_count: entries.len(),
+    })
+}
+
 #[derive(Debug)]
 struct FileEntry {
     absolute_path: PathBuf,
@@ -741,6 +824,14 @@ struct CopyManifestEntry {
     sha256: String,
 }
 
+#[derive(serde::Serialize)]
+struct DiskHashEntry {
+    index: u64,
+    offset: u64,
+    length: u64,
+    sha256: String,
+}
+
 fn ensure_boot_files(entries: &[FileEntry]) -> Result<()> {
     let mut has_boot_wim = false;
     let mut has_efi = false;
@@ -841,6 +932,25 @@ fn build_verify_params(value: &serde_json::Value) -> Result<(PathBuf, Option<Str
     let path = PathBuf::from(require_string(value, "path")?);
     let key = optional_string(value, "signing_key").map(str::to_string);
     Ok((path, key))
+}
+
+fn build_hash_params(value: &serde_json::Value, default_report: &Path) -> Result<DiskHashReportParams> {
+    let disk_id = require_string(value, "disk_id")?;
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+    let chunk_size = value
+        .get("chunk_size")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(8 * 1024 * 1024);
+    let max_chunks = value.get("max_chunks").and_then(|v| v.as_u64());
+
+    Ok(DiskHashReportParams {
+        disk_id: disk_id.to_string(),
+        chunk_size,
+        max_chunks,
+        report_base,
+    })
 }
 
 fn require_string<'a>(value: &'a serde_json::Value, key: &str) -> Result<&'a str> {

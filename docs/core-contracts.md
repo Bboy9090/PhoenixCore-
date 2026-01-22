@@ -63,6 +63,7 @@ Supported actions:
 - `windows_installer_usb`
 - `windows_apply_image`
 - `report_verify`
+- `disk_hash_report`
 
 Workflow runner:
 - `phoenix-cli workflow-run --file workflow.json --report-base .`
