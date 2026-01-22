@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use phoenix_report::{create_report_bundle_with_meta, ReportPaths};
 use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
+use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -22,6 +23,10 @@ pub struct WindowsInstallerUsbParams {
     pub force: bool,
     pub confirmation_token: Option<String>,
     pub dry_run: bool,
+    pub repartition: bool,
+    pub format: bool,
+    pub filesystem: FileSystem,
+    pub label: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -76,7 +81,7 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         ));
     }
 
-    let target_mount = if let Some(path) = &params.target_mount {
+    let mut target_mount = if let Some(path) = &params.target_mount {
         normalize_mount_path(path)
     } else {
         disk.partitions
@@ -84,7 +89,7 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
             .flat_map(|partition| partition.mount_points.iter())
             .next()
             .map(|mount| normalize_mount_path(&PathBuf::from(mount)))
-            .ok_or_else(|| anyhow!("no mounted volume found for {}", disk.id))?
+            .unwrap_or_else(|| PathBuf::new())
     };
 
     let mut fs_label = None;
@@ -130,7 +135,6 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     logs.push(format!("source_path={}", source_root.display()));
     logs.push(format!("file_count={}", files.len()));
     logs.push(format!("total_bytes={}", total_bytes));
-    logs.push("partition_format=preformatted".to_string());
 
     let mut copied_files = 0usize;
     let mut copied_bytes = 0u64;
@@ -144,6 +148,30 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         match can_write_to_disk(&ctx, disk.is_system_disk) {
             SafetyDecision::Allow => {}
             SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
+        }
+
+        if params.repartition {
+            let disk_number = parse_disk_number(&disk.id)
+                .ok_or_else(|| anyhow!("invalid disk id {}", disk.id))?;
+            let letter = prepare_usb_disk(
+                disk_number,
+                disk.size_bytes,
+                params.filesystem,
+                params.label.as_deref(),
+            )?;
+            target_mount = normalize_mount_path(&PathBuf::from(format!("{}:\\", letter)));
+            logs.push("partition_format=completed".to_string());
+        } else if params.format {
+            let letter = extract_drive_letter(&target_mount)
+                .ok_or_else(|| anyhow!("unable to parse drive letter from mount path"))?;
+            format_existing_volume(letter, params.filesystem, params.label.as_deref())?;
+            logs.push("partition_format=formatted".to_string());
+        } else {
+            logs.push("partition_format=skipped".to_string());
+        }
+
+        if target_mount.as_os_str().is_empty() {
+            return Err(anyhow!("no mounted volume found for {}", disk.id));
         }
 
         logs.push("copy_start".to_string());
@@ -263,4 +291,20 @@ fn normalize_mount_path(path: &Path) -> PathBuf {
         value.push('\\');
     }
     PathBuf::from(value)
+}
+
+fn parse_disk_number(id: &str) -> Option<u32> {
+    let suffix = id.strip_prefix("PhysicalDrive")?;
+    suffix.parse().ok()
+}
+
+fn extract_drive_letter(path: &Path) -> Option<char> {
+    let value = path.display().to_string();
+    let mut chars = value.chars();
+    let first = chars.next()?;
+    if chars.next() == Some(':') {
+        Some(first.to_ascii_uppercase())
+    } else {
+        None
+    }
 }

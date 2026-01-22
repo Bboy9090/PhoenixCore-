@@ -5,7 +5,7 @@ imaging providers, and workflow definitions.
 
 ## Versioning
 - `CONTRACTS_VERSION`: 1.0.0 (crate constant)
-- `DEVICE_GRAPH_SCHEMA_VERSION`: 1.1.0
+- `DEVICE_GRAPH_SCHEMA_VERSION`: 1.1.0 (partitions)
 - `WORKFLOW_SCHEMA_VERSION`: 1.0.0
 
 ## Host Provider (Rust trait)

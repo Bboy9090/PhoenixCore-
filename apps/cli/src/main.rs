@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use phoenix_imaging::{HashProgress, ProgressObserver};
 use phoenix_workflow_engine::{run_windows_installer_usb, WindowsInstallerUsbParams};
+use phoenix_host_windows::format::parse_filesystem;
 
 #[derive(Parser)]
 #[command(name = "phoenix-cli", version, about = "Phoenix Core CLI (Windows-first)")]
@@ -78,6 +79,22 @@ enum Commands {
         /// Execute copy (omit for dry-run)
         #[arg(long)]
         execute: bool,
+
+        /// Repartition disk (single GPT partition)
+        #[arg(long)]
+        repartition: bool,
+
+        /// Format existing volume before staging
+        #[arg(long)]
+        format: bool,
+
+        /// Filesystem for formatting (fat32|ntfs|exfat)
+        #[arg(long, default_value = "fat32")]
+        fs: String,
+
+        /// Volume label for formatting
+        #[arg(long)]
+        label: Option<String>,
     },
 }
 
@@ -164,9 +181,15 @@ fn main() -> Result<()> {
             force,
             token,
             execute,
+            repartition,
+            format,
+            fs,
+            label,
         } => {
             #[cfg(windows)]
             {
+                let filesystem = parse_filesystem(&fs)
+                    .ok_or_else(|| anyhow!("unsupported filesystem: {}", fs))?;
                 let params = WindowsInstallerUsbParams {
                     target_disk_id: disk,
                     source_path: source.into(),
@@ -175,6 +198,10 @@ fn main() -> Result<()> {
                     force,
                     confirmation_token: token,
                     dry_run: !execute,
+                    repartition,
+                    format,
+                    filesystem,
+                    label,
                 };
                 let result = run_windows_installer_usb(&params)?;
                 println!("Workflow complete:");
