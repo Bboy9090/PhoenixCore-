@@ -66,6 +66,8 @@ Supported actions:
 - `macos_installer_usb`
 - `linux_write_image`
 - `macos_write_image`
+- `linux_boot_prep`
+- `macos_boot_prep`
 - `report_verify`
 - `disk_hash_report`
 
@@ -98,6 +100,20 @@ Example Linux write-image step:
     "force": true,
     "confirmation_token": "PHX-...",
     "verify": true
+  }
+}
+```
+
+Example Linux boot prep step:
+```json
+{
+  "id": "linux-boot",
+  "action": "linux_boot_prep",
+  "params": {
+    "source_path": "/path/to/linux/files",
+    "target_mount": "/media/usb",
+    "force": true,
+    "confirmation_token": "PHX-..."
   }
 }
 ```

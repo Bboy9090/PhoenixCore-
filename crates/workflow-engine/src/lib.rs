@@ -93,6 +93,25 @@ pub struct UnixWriteImageResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct UnixBootPrepParams {
+    pub source_path: PathBuf,
+    pub target_mount: PathBuf,
+    pub report_base: PathBuf,
+    pub force: bool,
+    pub confirmation_token: Option<String>,
+    pub dry_run: bool,
+    pub hash_manifest: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnixBootPrepResult {
+    pub report: ReportPaths,
+    pub copied_files: usize,
+    pub copied_bytes: u64,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct UnixInstallerUsbResult {
     pub report: ReportPaths,
     pub target_mount: PathBuf,
@@ -660,6 +679,142 @@ pub fn run_unix_write_image(params: &UnixWriteImageParams) -> Result<UnixWriteIm
     })
 }
 
+pub fn run_unix_boot_prep(params: &UnixBootPrepParams) -> Result<UnixBootPrepResult> {
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        return Err(anyhow!("unix boot prep requires linux or macos"));
+    }
+
+    let graph = build_device_graph()?;
+    let target_mount = normalize_mount_for_unix(&params.target_mount);
+    if !target_mount.exists() || !target_mount.is_dir() {
+        return Err(anyhow!("target mount is invalid"));
+    }
+
+    let disk = find_disk_by_mount(&graph, &target_mount)
+        .ok_or_else(|| anyhow!("target mount not found in device graph"))?;
+
+    if disk.is_system_disk {
+        return Err(anyhow!("refusing to target system disk: {}", disk.id));
+    }
+    if !disk.removable {
+        return Err(anyhow!(
+            "target disk is not marked removable: {}",
+            disk.id
+        ));
+    }
+
+    let prepared = prepare_source(&params.source_path)?;
+    let source_root = prepared.root.clone();
+    if !source_root.is_dir() {
+        return Err(anyhow!("source root is not a directory"));
+    }
+
+    let candidates = boot_prep_candidates(current_os(), &source_root)?;
+    if candidates.is_empty() {
+        return Err(anyhow!("no boot prep candidates found in source"));
+    }
+
+    let mut logs = Vec::new();
+    logs.push("workflow=unix-boot-prep".to_string());
+    logs.push(format!("target_disk={}", disk.id));
+    logs.push(format!("target_mount={}", target_mount.display()));
+    logs.push(format!("source_path={}", source_root.display()));
+
+    let mut copied_files = 0usize;
+    let mut copied_bytes = 0u64;
+    let mut artifacts = Vec::new();
+    let mut artifact_names = Vec::new();
+
+    if !params.dry_run {
+        let ctx = SafetyContext {
+            force_mode: params.force,
+            confirmation_token: params.confirmation_token.clone(),
+        };
+        match can_write_to_disk(&ctx, disk.is_system_disk) {
+            SafetyDecision::Allow => {}
+            SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
+        }
+
+        let test_path = target_mount.join(".phoenix_write_test");
+        fs::write(&test_path, b"")?;
+        fs::remove_file(&test_path).ok();
+        logs.push("write_test=ok".to_string());
+
+        let mut copy_manifest = Vec::new();
+        for candidate in candidates {
+            let target_path = target_mount.join(&candidate.relative);
+            if target_path.exists() {
+                logs.push(format!("skip_existing={}", candidate.relative));
+                continue;
+            }
+
+            if candidate.is_dir {
+                let stats = copy_dir_recursive(&candidate.source, &target_path, params.hash_manifest)?;
+                copied_files += stats.files;
+                copied_bytes += stats.bytes;
+                copy_manifest.extend(stats.manifest);
+            } else {
+                if let Some(parent) = target_path.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                fs::copy(&candidate.source, &target_path)?;
+                copied_files += 1;
+                let size = fs::metadata(&candidate.source)?.len();
+                copied_bytes = copied_bytes.saturating_add(size);
+                if params.hash_manifest {
+                    let hash = hash_file(&candidate.source)?;
+                    copy_manifest.push(CopyManifestEntry {
+                        path: candidate.relative.to_string(),
+                        bytes: size,
+                        sha256: hash,
+                    });
+                }
+            }
+            logs.push(format!("copied={}", candidate.relative));
+        }
+
+        if params.hash_manifest && !copy_manifest.is_empty() {
+            let bytes = serde_json::to_vec_pretty(&copy_manifest)?;
+            artifacts.push(ReportArtifact {
+                name: "bootprep_manifest.json".to_string(),
+                bytes,
+            });
+            artifact_names.push("bootprep_manifest.json".to_string());
+        }
+    } else {
+        logs.push("dry_run=true".to_string());
+    }
+
+    let meta = serde_json::json!({
+        "workflow": "unix-boot-prep",
+        "status": if params.dry_run { "dry_run" } else { "completed" },
+        "target_disk_id": disk.id,
+        "target_mount": target_mount.display().to_string(),
+        "source_path": source_root.display().to_string(),
+        "copied_files": copied_files,
+        "copied_bytes": copied_bytes,
+        "artifacts": artifact_names,
+        "dry_run": params.dry_run
+    });
+
+    let report = create_report_bundle_with_meta_signing_and_artifacts(
+        &params.report_base,
+        &graph,
+        Some(meta),
+        Some(&logs.join("\n")),
+        signing_key_from_env().as_deref(),
+        &artifacts,
+    )?;
+
+    Ok(UnixBootPrepResult {
+        report,
+        copied_files,
+        copied_bytes,
+        dry_run: params.dry_run,
+    })
+}
+
 #[derive(Debug, Clone)]
 pub struct WorkflowStepResult {
     pub id: String,
@@ -738,6 +893,26 @@ pub fn run_workflow_definition(
             "macos_write_image" => {
                 let params = build_unix_write_params(&step.params, &base)?;
                 let result = run_unix_write_image(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
+            "linux_boot_prep" => {
+                let params = build_unix_boot_params(&step.params, &base)?;
+                let result = run_unix_boot_prep(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
+            "macos_boot_prep" => {
+                let params = build_unix_boot_params(&step.params, &base)?;
+                let result = run_unix_boot_prep(&params)?;
                 results.push(WorkflowStepResult {
                     id: step.id.clone(),
                     action: step.action.clone(),
@@ -879,6 +1054,16 @@ fn validate_step(step: &phoenix_core::WorkflowStep) -> Result<()> {
             ensure_os("macos")?;
             require_string(&step.params, "source_image")?;
             require_string(&step.params, "target_device")?;
+        }
+        "linux_boot_prep" => {
+            ensure_os("linux")?;
+            require_string(&step.params, "source_path")?;
+            require_string(&step.params, "target_mount")?;
+        }
+        "macos_boot_prep" => {
+            ensure_os("macos")?;
+            require_string(&step.params, "source_path")?;
+            require_string(&step.params, "target_mount")?;
         }
         "report_verify" => {
             require_string(&step.params, "path")?;
@@ -1446,6 +1631,113 @@ fn ensure_unix_boot_files(entries: &[FileEntry], os: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+struct BootCandidate {
+    source: PathBuf,
+    relative: String,
+    is_dir: bool,
+}
+
+fn boot_prep_candidates(os: &str, source_root: &Path) -> Result<Vec<BootCandidate>> {
+    let mut candidates = Vec::new();
+    match os {
+        "linux" => {
+            add_candidate_dir(&mut candidates, source_root, "EFI/BOOT");
+            add_candidate_dir(&mut candidates, source_root, "boot/grub");
+            add_candidate_dir(&mut candidates, source_root, "isolinux");
+        }
+        "macos" => {
+            add_candidate_file(
+                &mut candidates,
+                source_root,
+                "System/Library/CoreServices/boot.efi",
+            );
+            add_candidate_dir(&mut candidates, source_root, "EFI/BOOT");
+        }
+        _ => {}
+    }
+    Ok(candidates)
+}
+
+fn add_candidate_dir(candidates: &mut Vec<BootCandidate>, root: &Path, rel: &str) {
+    let path = root.join(rel);
+    if path.is_dir() {
+        candidates.push(BootCandidate {
+            source: path,
+            relative: rel.replace('\\', "/"),
+            is_dir: true,
+        });
+    }
+}
+
+fn add_candidate_file(candidates: &mut Vec<BootCandidate>, root: &Path, rel: &str) {
+    let path = root.join(rel);
+    if path.is_file() {
+        candidates.push(BootCandidate {
+            source: path,
+            relative: rel.replace('\\', "/"),
+            is_dir: false,
+        });
+    }
+}
+
+#[derive(Default)]
+struct CopyStats {
+    files: usize,
+    bytes: u64,
+    manifest: Vec<CopyManifestEntry>,
+}
+
+fn copy_dir_recursive(
+    source: &Path,
+    dest: &Path,
+    hash_manifest: bool,
+) -> Result<CopyStats> {
+    let mut stats = CopyStats::default();
+    copy_dir_recursive_inner(source, dest, source, hash_manifest, &mut stats)?;
+    Ok(stats)
+}
+
+fn copy_dir_recursive_inner(
+    source_root: &Path,
+    dest_root: &Path,
+    current: &Path,
+    hash_manifest: bool,
+    stats: &mut CopyStats,
+) -> Result<()> {
+    for entry in fs::read_dir(current)? {
+        let entry = entry?;
+        let path = entry.path();
+        let metadata = entry.metadata()?;
+        let relative = path
+            .strip_prefix(source_root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let dest_path = dest_root.join(&relative);
+        if metadata.is_dir() {
+            fs::create_dir_all(&dest_path)?;
+            copy_dir_recursive_inner(source_root, dest_root, &path, hash_manifest, stats)?;
+        } else if metadata.is_file() {
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(&path, &dest_path)?;
+            stats.files += 1;
+            stats.bytes = stats.bytes.saturating_add(metadata.len());
+            if hash_manifest {
+                let hash = hash_file(&path)?;
+                stats.manifest.push(CopyManifestEntry {
+                    path: relative,
+                    bytes: metadata.len(),
+                    sha256: hash,
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
 fn hash_file(path: &Path) -> Result<String> {
     use std::io::Read;
     let mut file = fs::File::open(path).with_context(|| format!("open {}", path.display()))?;
@@ -1589,6 +1881,27 @@ fn build_unix_write_params(
         dry_run: optional_bool(value, "dry_run", true),
         verify: optional_bool(value, "verify", false),
         chunk_size,
+    })
+}
+
+fn build_unix_boot_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<UnixBootPrepParams> {
+    let source_path = PathBuf::from(require_string(value, "source_path")?);
+    let target_mount = PathBuf::from(require_string(value, "target_mount")?);
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+
+    Ok(UnixBootPrepParams {
+        source_path,
+        target_mount,
+        report_base,
+        force: optional_bool(value, "force", false),
+        confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
+        dry_run: optional_bool(value, "dry_run", true),
+        hash_manifest: optional_bool(value, "hash_manifest", false),
     })
 }
 
