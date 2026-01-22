@@ -457,6 +457,11 @@ pub fn run_unix_installer_usb(params: &UnixInstallerUsbParams) -> Result<UnixIns
             SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
         }
 
+        let test_path = target_mount.join(".phoenix_write_test");
+        fs::write(&test_path, b"")?;
+        fs::remove_file(&test_path).ok();
+        logs.push("write_test=ok".to_string());
+
         logs.push("copy_start".to_string());
         let mut copy_manifest = Vec::new();
         for entry in &files {
