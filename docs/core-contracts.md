@@ -69,6 +69,21 @@ Workflow runner:
 - `phoenix-cli workflow-run --file workflow.json --report-base .`
 - Emits a workflow report bundle with step timings + references.
 
+## Pack Manifest (JSON)
+```json
+{
+  "schema_version": "1.0.0",
+  "name": "win11-usb-pack",
+  "version": "0.1.0",
+  "description": "Windows installer workflows",
+  "workflows": ["workflows/installer.json"],
+  "assets": "assets/"
+}
+```
+
+Validate:
+- `phoenix-cli pack-validate --manifest pack.json`
+
 ## References
 - docs/device-graph.md
 - docs/no-wrapper-policy.md

@@ -6,7 +6,7 @@ use phoenix_workflow_engine::{
     DiskHashReportParams, WindowsApplyImageParams, WindowsInstallerUsbParams,
 };
 use phoenix_host_windows::format::parse_filesystem;
-use phoenix_content::resolve_windows_image;
+use phoenix_content::{resolve_pack_workflows, resolve_windows_image, load_pack_manifest};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::WorkflowDefinition;
 
@@ -211,6 +211,13 @@ enum Commands {
         /// Base path for reports (default: current directory)
         #[arg(long, default_value = ".")]
         report_base: String,
+    },
+
+    /// Validate a Phoenix pack manifest and workflows
+    PackValidate {
+        /// Path to pack manifest JSON
+        #[arg(long)]
+        manifest: String,
     },
 }
 
@@ -519,6 +526,21 @@ fn main() -> Result<()> {
             {
                 Err(anyhow!("Windows-first in M0"))
             }
+        }
+
+        Commands::PackValidate { manifest } => {
+            let manifest_path = manifest;
+            let manifest_data = load_pack_manifest(&manifest_path)?;
+            println!("pack: {} {}", manifest_data.name, manifest_data.version);
+            if let Some(desc) = manifest_data.description {
+                println!("description: {}", desc);
+            }
+            let workflows = resolve_pack_workflows(&manifest_path)?;
+            println!("workflows: {}", workflows.len());
+            for (path, workflow) in workflows {
+                println!("  {} ({})", workflow.name, path.display());
+            }
+            Ok(())
         }
     }
 }

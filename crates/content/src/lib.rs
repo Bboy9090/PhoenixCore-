@@ -1,5 +1,41 @@
 use anyhow::{anyhow, Result};
+use phoenix_core::WorkflowDefinition;
 use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PackManifest {
+    pub schema_version: String,
+    pub name: String,
+    pub version: String,
+    pub description: Option<String>,
+    pub workflows: Vec<String>,
+    pub assets: Option<String>,
+}
+
+pub fn load_pack_manifest(path: impl AsRef<Path>) -> Result<PackManifest> {
+    let path = path.as_ref();
+    let data = std::fs::read_to_string(path)?;
+    let manifest: PackManifest = serde_json::from_str(&data)?;
+    Ok(manifest)
+}
+
+pub fn resolve_pack_workflows(
+    manifest_path: impl AsRef<Path>,
+) -> Result<Vec<(PathBuf, WorkflowDefinition)>> {
+    let manifest_path = manifest_path.as_ref();
+    let manifest = load_pack_manifest(manifest_path)?;
+    let base = manifest_path
+        .parent()
+        .ok_or_else(|| anyhow!("pack manifest has no parent directory"))?;
+    let mut workflows = Vec::new();
+    for workflow_path in &manifest.workflows {
+        let path = base.join(workflow_path);
+        let data = std::fs::read_to_string(&path)?;
+        let workflow: WorkflowDefinition = serde_json::from_str(&data)?;
+        workflows.push((path, workflow));
+    }
+    Ok(workflows)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceKind {
