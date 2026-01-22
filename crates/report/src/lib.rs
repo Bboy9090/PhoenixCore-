@@ -142,8 +142,11 @@ pub struct ManifestEntry {
     sha256: String,
 }
 
+pub const MANIFEST_SCHEMA_VERSION: &str = "1.0.0";
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Manifest {
+    schema_version: String,
     run_id: String,
     entries: Vec<ManifestEntry>,
 }
@@ -183,6 +186,7 @@ fn build_manifest(
         });
     }
     Ok(Manifest {
+        schema_version: MANIFEST_SCHEMA_VERSION.to_string(),
         run_id: run_id.to_string(),
         entries,
     })
@@ -254,6 +258,12 @@ pub fn verify_report_bundle(
 
     let manifest_bytes = fs::read(&manifest_path)?;
     let manifest: Manifest = serde_json::from_slice(&manifest_bytes)?;
+    if manifest.schema_version != MANIFEST_SCHEMA_VERSION {
+        return Err(anyhow!(
+            "unsupported manifest schema {}",
+            manifest.schema_version
+        ));
+    }
 
     let mut mismatches = Vec::new();
     let mut entries_checked = 0usize;

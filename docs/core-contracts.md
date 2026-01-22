@@ -124,6 +124,9 @@ Reports emit `manifest.json` (SHA-256 for key files). When the environment
 variable `PHOENIX_SIGNING_KEY` (hex) is present, a `manifest.sig` HMAC-SHA256
 signature is produced.
 
+Manifest schema:
+- `schema_version`: "1.0.0"
+
 Verification:
 - `phoenix-cli report-verify --path reports/<run_id> --key <hex>`
 
