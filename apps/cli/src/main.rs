@@ -428,12 +428,12 @@ fn main() -> Result<()> {
             {
                 let contents = std::fs::read_to_string(&file)?;
                 let definition: WorkflowDefinition = serde_json::from_str(&contents)?;
-                let results = phoenix_workflow_engine::run_workflow_definition(
+                let result = phoenix_workflow_engine::run_workflow_definition_with_report(
                     &definition,
-                    Some(report_base.into()),
+                    report_base.into(),
                 )?;
                 println!("workflow: {}", definition.name);
-                for step in results {
+                for step in &result.steps {
                     println!(
                         "step {}: {} ({} ms)",
                         step.id, step.action, step.duration_ms
@@ -442,6 +442,7 @@ fn main() -> Result<()> {
                         println!("  report: {}", root.display());
                     }
                 }
+                println!("workflow_report: {}", result.report.root.display());
                 Ok(())
             }
             #[cfg(not(windows))]

@@ -61,6 +61,10 @@ Supported actions:
 - `windows_apply_image`
 - `report_verify`
 
+Workflow runner:
+- `phoenix-cli workflow-run --file workflow.json --report-base .`
+- Emits a workflow report bundle with step timings + references.
+
 ## References
 - docs/device-graph.md
 - docs/no-wrapper-policy.md

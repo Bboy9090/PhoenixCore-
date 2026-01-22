@@ -269,6 +269,12 @@ pub struct WorkflowStepResult {
     pub duration_ms: u128,
 }
 
+#[derive(Debug, Clone)]
+pub struct WorkflowRunResult {
+    pub report: ReportPaths,
+    pub steps: Vec<WorkflowStepResult>,
+}
+
 pub fn run_workflow_definition(
     definition: &WorkflowDefinition,
     default_report_base: Option<PathBuf>,
@@ -319,6 +325,51 @@ pub fn run_workflow_definition(
     }
 
     Ok(results)
+}
+
+pub fn run_workflow_definition_with_report(
+    definition: &WorkflowDefinition,
+    report_base: PathBuf,
+) -> Result<WorkflowRunResult> {
+    let steps = run_workflow_definition(definition, Some(report_base.clone()))?;
+    let graph = phoenix_host_windows::build_device_graph()?;
+
+    let step_meta: Vec<serde_json::Value> = steps
+        .iter()
+        .map(|step| {
+            serde_json::json!({
+                "id": step.id,
+                "action": step.action,
+                "duration_ms": step.duration_ms,
+                "report_root": step.report_root.as_ref().map(|p| p.display().to_string())
+            })
+        })
+        .collect();
+
+    let mut logs = Vec::new();
+    logs.push(format!("workflow={}", definition.name));
+    for step in &steps {
+        logs.push(format!(
+            "step={} action={} duration_ms={}",
+            step.id, step.action, step.duration_ms
+        ));
+    }
+
+    let meta = serde_json::json!({
+        "workflow": definition.name,
+        "schema_version": definition.schema_version,
+        "steps": step_meta
+    });
+
+    let report = create_report_bundle_with_meta_and_signing(
+        &report_base,
+        &graph,
+        Some(meta),
+        Some(&logs.join("\n")),
+        signing_key_from_env().as_deref(),
+    )?;
+
+    Ok(WorkflowRunResult { report, steps })
 }
 
 #[derive(Debug, Clone)]
