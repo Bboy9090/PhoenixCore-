@@ -6,7 +6,7 @@ use phoenix_report::{
 use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
 use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
-use phoenix_imaging::{hash_disk_readonly_physicaldrive, make_chunk_plan};
+use phoenix_imaging::{hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::WorkflowDefinition;
 use sha2::{Digest, Sha256};
@@ -635,12 +635,27 @@ pub fn run_disk_hash_report(params: &DiskHashReportParams) -> Result<DiskHashRep
         .ok_or_else(|| anyhow!("disk not found: {}", params.disk_id))?;
 
     let plan = make_chunk_plan(disk.size_bytes, params.chunk_size);
-    let hashes = hash_disk_readonly_physicaldrive(
-        &disk.id,
-        disk.size_bytes,
-        params.chunk_size,
-        params.max_chunks,
-    )?;
+    let hashes = {
+        #[cfg(target_os = "windows")]
+        {
+            hash_disk_readonly_physicaldrive(
+                &disk.id,
+                disk.size_bytes,
+                params.chunk_size,
+                params.max_chunks,
+            )?
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let device_path = format!("/dev/{}", disk.id);
+            hash_device_readonly(
+                &device_path,
+                disk.size_bytes,
+                params.chunk_size,
+                params.max_chunks,
+            )?
+        }
+    };
 
     let entries: Vec<DiskHashEntry> = hashes
         .into_iter()

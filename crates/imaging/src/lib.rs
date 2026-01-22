@@ -201,6 +201,56 @@ pub fn hash_disk_readonly_physicaldrive_with_progress(
     Err(anyhow!("Windows-only in M0"))
 }
 
+#[cfg(unix)]
+pub fn hash_device_readonly(
+    device_path: &str,
+    total_size: u64,
+    chunk_size: u64,
+    max_chunks: Option<u64>,
+) -> Result<Vec<(u64, String)>> {
+    use std::fs::File;
+    use std::io::{Read, Seek, SeekFrom};
+
+    if chunk_size == 0 {
+        return Err(anyhow!("chunk_size must be greater than zero"));
+    }
+    let mut file = File::open(device_path)
+        .map_err(|err| anyhow!("open {} failed: {}", device_path, err))?;
+    let plan = make_chunk_plan(total_size, chunk_size);
+    let limit = max_chunks.unwrap_or(u64::MAX) as usize;
+    let mut results = Vec::new();
+    let mut buffer = vec![0u8; chunk_size as usize];
+
+    for chunk in plan.chunks.iter().take(limit) {
+        file.seek(SeekFrom::Start(chunk.offset))?;
+        let mut remaining = chunk.size as usize;
+        let mut hasher = Sha256::new();
+        while remaining > 0 {
+            let read_len = remaining.min(buffer.len());
+            let read = file.read(&mut buffer[..read_len])?;
+            if read == 0 {
+                return Err(anyhow!("unexpected EOF while hashing device"));
+            }
+            hasher.update(&buffer[..read]);
+            remaining -= read;
+        }
+        let hash = hasher.finalize();
+        results.push((chunk.index, to_hex(&hash)));
+    }
+
+    Ok(results)
+}
+
+#[cfg(not(unix))]
+pub fn hash_device_readonly(
+    _device_path: &str,
+    _total_size: u64,
+    _chunk_size: u64,
+    _max_chunks: Option<u64>,
+) -> Result<Vec<(u64, String)>> {
+    Err(anyhow!("device hashing requires Unix-like OS"))
+}
+
 struct NoopObserver;
 
 impl ProgressObserver for NoopObserver {
