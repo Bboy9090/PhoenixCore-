@@ -10,6 +10,7 @@ use phoenix_host_windows::space::free_space_bytes;
 use phoenix_imaging::{hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::{DeviceGraph, WorkflowDefinition, WORKFLOW_SCHEMA_VERSION};
+use phoenix_fs_fat32::format_fat32;
 use sha2::{Digest, Sha256};
 use std::time::Instant;
 use std::fs;
@@ -62,6 +63,9 @@ pub struct UnixInstallerUsbParams {
     pub confirmation_token: Option<String>,
     pub dry_run: bool,
     pub hash_manifest: bool,
+    pub format_device: Option<PathBuf>,
+    pub format_size_bytes: Option<u64>,
+    pub format_label: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -455,6 +459,14 @@ pub fn run_unix_installer_usb(params: &UnixInstallerUsbParams) -> Result<UnixIns
         match can_write_to_disk(&ctx, disk.is_system_disk) {
             SafetyDecision::Allow => {}
             SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
+        }
+
+        if let Some(device_path) = &params.format_device {
+            let size_bytes = params
+                .format_size_bytes
+                .ok_or_else(|| anyhow!("format_size_bytes required when format_device set"))?;
+            format_fat32(device_path, size_bytes, params.format_label.as_deref())?;
+            logs.push(format!("format_fat32={}", device_path.display()));
         }
 
         let test_path = target_mount.join(".phoenix_write_test");
@@ -1383,6 +1395,9 @@ fn build_unix_usb_params(value: &serde_json::Value, default_report: &Path) -> Re
         confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
         dry_run: optional_bool(value, "dry_run", true),
         hash_manifest: optional_bool(value, "hash_manifest", false),
+        format_device: optional_string(value, "format_device").map(PathBuf::from),
+        format_size_bytes: value.get("format_size_bytes").and_then(|v| v.as_u64()),
+        format_label: optional_string(value, "format_label").map(str::to_string),
     })
 }
 

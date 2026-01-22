@@ -239,6 +239,18 @@ enum Commands {
         /// Emit SHA-256 copy manifest into report
         #[arg(long)]
         hash_manifest: bool,
+
+        /// Optional device path to format as FAT32 before staging
+        #[arg(long)]
+        format_device: Option<String>,
+
+        /// Device size in bytes (required if format_device set)
+        #[arg(long)]
+        format_size_bytes: Option<u64>,
+
+        /// Volume label for FAT32 formatting
+        #[arg(long)]
+        format_label: Option<String>,
     },
 
     /// Create a macOS installer USB (copy-only, preformatted)
@@ -270,6 +282,18 @@ enum Commands {
         /// Emit SHA-256 copy manifest into report
         #[arg(long)]
         hash_manifest: bool,
+
+        /// Optional device path to format as FAT32 before staging
+        #[arg(long)]
+        format_device: Option<String>,
+
+        /// Device size in bytes (required if format_device set)
+        #[arg(long)]
+        format_size_bytes: Option<u64>,
+
+        /// Volume label for FAT32 formatting
+        #[arg(long)]
+        format_label: Option<String>,
     },
 
     /// Run a workflow definition JSON file
@@ -620,6 +644,9 @@ fn main() -> Result<()> {
             token,
             execute,
             hash_manifest,
+            format_device,
+            format_size_bytes,
+            format_label,
         } => {
             #[cfg(target_os = "linux")]
             {
@@ -631,6 +658,9 @@ fn main() -> Result<()> {
                     confirmation_token: token,
                     dry_run: !execute,
                     hash_manifest,
+                    format_device: format_device.map(Into::into),
+                    format_size_bytes,
+                    format_label,
                 };
                 let result = run_unix_installer_usb(&params)?;
                 println!("Linux USB staging complete:");
@@ -655,6 +685,9 @@ fn main() -> Result<()> {
             token,
             execute,
             hash_manifest,
+            format_device,
+            format_size_bytes,
+            format_label,
         } => {
             #[cfg(target_os = "macos")]
             {
@@ -666,6 +699,9 @@ fn main() -> Result<()> {
                     confirmation_token: token,
                     dry_run: !execute,
                     hash_manifest,
+                    format_device: format_device.map(Into::into),
+                    format_size_bytes,
+                    format_label,
                 };
                 let result = run_unix_installer_usb(&params)?;
                 println!("macOS USB staging complete:");

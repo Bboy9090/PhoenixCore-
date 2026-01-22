@@ -77,7 +77,10 @@ Example Linux installer step:
     "target_mount": "/media/usb",
     "force": true,
     "confirmation_token": "PHX-...",
-    "hash_manifest": true
+    "hash_manifest": true,
+    "format_device": "/dev/sdb",
+    "format_size_bytes": 16008609792,
+    "format_label": "PHOENIX"
   }
 }
 ```

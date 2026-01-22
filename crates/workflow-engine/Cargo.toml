@@ -11,6 +11,7 @@ phoenix-host-windows = { path = "../host-windows" }
 phoenix-imaging = { path = "../imaging" }
 phoenix-host-linux = { path = "../host-linux" }
 phoenix-host-macos = { path = "../host-macos" }
+phoenix-fs-fat32 = { path = "../fs-fat32" }
 phoenix-report = { path = "../report" }
 phoenix-safety = { path = "../safety" }
 phoenix-wim = { path = "../wim" }
