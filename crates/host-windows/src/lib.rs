@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use phoenix_core::{now_utc_rfc3339, DeviceGraph, HostInfo};
+use phoenix_core::{now_utc_rfc3339, DeviceGraph, HostInfo, Partition};
 
 #[cfg(windows)]
 mod volumes;
@@ -17,14 +17,45 @@ pub fn build_device_graph() -> Result<DeviceGraph> {
 
         let mut disks = win::enumerate_physical_disks()?;
         let sys_drive = volumes::system_drive_letter()?;
-        let vol_map = volumes::map_volumes_to_disks()?;
+        let mounts = volumes::enumerate_volume_mounts()?;
 
         for disk in disks.iter_mut() {
-            if let Some(volumes) = vol_map.get(&disk.id) {
-                disk.volumes = volumes.clone();
+            let Some(disk_number) = parse_disk_number(&disk.id) else {
+                continue;
+            };
+
+            let partition_entries = win::enumerate_partitions(disk_number)?;
+            let mut partitions = Vec::new();
+            for entry in partition_entries {
+                let mut label = None;
+                let mut fs = None;
+                let mut mount_points = Vec::new();
+                for mount in mounts.iter().filter(|m| m.disk_number == disk_number) {
+                    if mount.offset_bytes >= entry.offset_bytes
+                        && mount.offset_bytes < entry.offset_bytes + entry.length_bytes
+                    {
+                        mount_points.extend(mount.mount_points.clone());
+                        if label.is_none() {
+                            label = mount.label.clone();
+                        }
+                        if fs.is_none() {
+                            fs = mount.fs.clone();
+                        }
+                    }
+                }
+
+                partitions.push(Partition {
+                    id: format!("Disk{}Partition{}", disk_number, entry.number),
+                    label,
+                    fs,
+                    size_bytes: entry.length_bytes,
+                    mount_points,
+                });
             }
-            disk.is_system_disk = disk.volumes.iter().any(|volume| {
-                volume
+
+            disk.partitions = partitions;
+            disk.is_system_disk = disk.partitions.iter().any(|partition| {
+                partition
                     .mount_points
                     .iter()
                     .any(|mount| mount.to_ascii_uppercase().starts_with(&sys_drive))
@@ -39,4 +70,9 @@ pub fn build_device_graph() -> Result<DeviceGraph> {
     {
         Err(anyhow!("phoenix-host-windows requires Windows"))
     }
+}
+
+fn parse_disk_number(id: &str) -> Option<u32> {
+    let suffix = id.strip_prefix("PhysicalDrive")?;
+    suffix.parse().ok()
 }

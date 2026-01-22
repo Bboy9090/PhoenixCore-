@@ -1,4 +1,4 @@
-# Device Graph (schema v1.0.0)
+# Device Graph (schema v1.1.0)
 
 Phoenix outputs a stable JSON contract.
 
@@ -15,13 +15,13 @@ Disk:
 - size_bytes
 - removable: best-effort
 - is_system_disk: true if contains system volume
-- volumes: mapped logical volumes / mount points
+- partitions: mapped partitions / mount points
 
-Volume:
-- id: stable volume id (Windows: volume GUID path or drive id)
+Partition:
+- id: stable partition id (Windows: DiskNPartitionM)
 - label: filesystem label
 - fs: filesystem name
-- size_bytes: total volume bytes
+- size_bytes: partition bytes
 - mount_points: e.g. ["C:\\", "E:\\"]
 # Device Graph Schema
 

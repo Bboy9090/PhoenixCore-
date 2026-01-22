@@ -65,6 +65,10 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         .find(|disk| disk.id.eq_ignore_ascii_case(&params.target_disk_id))
         .ok_or_else(|| anyhow!("disk not found: {}", params.target_disk_id))?;
 
+    if disk.is_system_disk {
+        return Err(anyhow!("refusing to target system disk: {}", disk.id));
+    }
+
     if !disk.removable {
         return Err(anyhow!(
             "target disk is not marked removable: {}",
@@ -73,15 +77,35 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     }
 
     let target_mount = if let Some(path) = &params.target_mount {
-        path.clone()
+        normalize_mount_path(path)
     } else {
-        disk.volumes
+        disk.partitions
             .iter()
-            .flat_map(|vol| vol.mount_points.iter())
+            .flat_map(|partition| partition.mount_points.iter())
             .next()
-            .map(PathBuf::from)
+            .map(|mount| normalize_mount_path(&PathBuf::from(mount)))
             .ok_or_else(|| anyhow!("no mounted volume found for {}", disk.id))?
     };
+
+    let mut fs_label = None;
+    let target_mount_string = target_mount.display().to_string();
+    for partition in &disk.partitions {
+        if partition
+            .mount_points
+            .iter()
+            .any(|mount| mount.eq_ignore_ascii_case(&target_mount_string))
+        {
+            fs_label = partition.fs.clone();
+            break;
+        }
+    }
+
+    if let Some(fs) = fs_label.as_deref() {
+        let fs_upper = fs.to_ascii_uppercase();
+        if fs_upper != "FAT32" && fs_upper != "NTFS" && fs_upper != "EXFAT" {
+            return Err(anyhow!("unsupported filesystem for staging: {}", fs));
+        }
+    }
 
     let source_root =
         fs::canonicalize(&params.source_path).context("resolve source path")?;
@@ -106,6 +130,7 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     logs.push(format!("source_path={}", source_root.display()));
     logs.push(format!("file_count={}", files.len()));
     logs.push(format!("total_bytes={}", total_bytes));
+    logs.push("partition_format=preformatted".to_string());
 
     let mut copied_files = 0usize;
     let mut copied_bytes = 0u64;
@@ -224,4 +249,18 @@ fn verify_copy(target_root: &Path, entries: &[FileEntry]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn normalize_mount_path(path: &Path) -> PathBuf {
+    let mut value = path.display().to_string();
+    if value.len() == 2 && value.ends_with(':') {
+        value.push('\\');
+    }
+    if value.len() == 3 && value.ends_with(":\\") {
+        return PathBuf::from(value);
+    }
+    if !value.ends_with('\\') && value.ends_with(':') {
+        value.push('\\');
+    }
+    PathBuf::from(value)
 }

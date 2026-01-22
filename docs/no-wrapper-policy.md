@@ -20,3 +20,5 @@ Rules:
 
 ## References
 - docs/cursor-issues/epic-001-replace-third-party-tooling.md
+- docs/contribution-rules.md
+- docs/core-contracts.md

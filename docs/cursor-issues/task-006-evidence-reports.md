@@ -1,7 +1,7 @@
 # [TASK-006] Evidence reports: reports/<run_id>/ bundle
 
 Cursor tags: type:feature, area:report, P2-medium, M0-spine  
-Status: Backlog
+Status: Done
 
 ## Acceptance Criteria
 - [ ] device_graph.json saved

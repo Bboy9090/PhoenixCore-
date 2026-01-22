@@ -1,7 +1,7 @@
 # [TASK-008] CI: Windows build + tests
 
 Cursor tags: type:chore, area:ci, P1-high, M0-spine  
-Status: Backlog
+Status: Done
 
 ## Acceptance Criteria
 - [ ] Builds on push + PR
