@@ -60,6 +60,17 @@ enum Commands {
         out: String,
     },
 
+    /// Verify all report bundles under a root directory
+    ReportVerifyTree {
+        /// Root directory containing report subfolders
+        #[arg(long)]
+        root: String,
+
+        /// Signing key hex for signature verification
+        #[arg(long)]
+        key: Option<String>,
+    },
+
     /// Read-only hash chunks from a PhysicalDrive (Windows)
     HashDisk {
         /// Disk id like: PhysicalDrive0
@@ -408,6 +419,23 @@ fn main() -> Result<()> {
             let output = phoenix_report::export_report_zip(path, out)?;
             println!("exported: {}", output.display());
             Ok(())
+        }
+
+        Commands::ReportVerifyTree { root, key } => {
+            let result = phoenix_report::verify_report_tree(root, key.as_deref())?;
+            println!("total_reports: {}", result.total_reports);
+            println!("ok_reports: {}", result.ok_reports);
+            if !result.failed_reports.is_empty() {
+                println!("failed_reports:");
+                for report in &result.failed_reports {
+                    println!("  - {}", report);
+                }
+            }
+            if result.failed_reports.is_empty() {
+                Ok(())
+            } else {
+                Err(anyhow!("one or more reports failed verification"))
+            }
         }
         Commands::HashDisk {
             disk,

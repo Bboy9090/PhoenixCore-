@@ -133,3 +133,6 @@ Verification:
 
 Export:
 - `phoenix-cli report-export --path reports/<run_id> --out report.zip`
+
+Verify all reports:
+- `phoenix-cli report-verify-tree --root reports --key <hex>`

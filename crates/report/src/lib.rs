@@ -159,6 +159,13 @@ pub struct ReportVerification {
     pub signature_valid: Option<bool>,
 }
 
+#[derive(Debug)]
+pub struct ReportTreeVerification {
+    pub total_reports: usize,
+    pub ok_reports: usize,
+    pub failed_reports: Vec<String>,
+}
+
 fn build_manifest(
     run_id: &str,
     device_graph: &Path,
@@ -302,6 +309,43 @@ pub fn verify_report_bundle(
         entries_checked,
         mismatches,
         signature_valid,
+    })
+}
+
+pub fn verify_report_tree(
+    root: impl AsRef<Path>,
+    signing_key_hex: Option<&str>,
+) -> Result<ReportTreeVerification> {
+    let root = root.as_ref();
+    let mut total = 0usize;
+    let mut ok = 0usize;
+    let mut failed = Vec::new();
+
+    if !root.exists() {
+        return Err(anyhow!("root path does not exist"));
+    }
+
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let manifest = path.join("manifest.json");
+        if !manifest.exists() {
+            continue;
+        }
+        total += 1;
+        match verify_report_bundle(&path, signing_key_hex) {
+            Ok(result) if result.ok => ok += 1,
+            _ => failed.push(path.display().to_string()),
+        }
+    }
+
+    Ok(ReportTreeVerification {
+        total_reports: total,
+        ok_reports: ok,
+        failed_reports: failed,
     })
 }
 
