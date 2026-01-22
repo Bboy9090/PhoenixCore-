@@ -10,4 +10,5 @@ phoenix-content = { path = "../content" }
 phoenix-host-windows = { path = "../host-windows" }
 phoenix-report = { path = "../report" }
 phoenix-safety = { path = "../safety" }
+phoenix-wim = { path = "../wim" }
 serde_json = "1"

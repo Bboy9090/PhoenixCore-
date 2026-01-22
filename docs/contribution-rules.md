@@ -13,6 +13,7 @@ These rules enforce the no-wrapper doctrine and safety guarantees.
 - Default deny on destructive disk writes.
 - System disks are blocked unless force-mode + confirmation token are supplied.
 - New workflows must emit evidence reports.
+- Evidence reports should include a signed manifest when a signing key is available.
 
 ## Windows-First (M0)
 - Use Windows APIs via the `windows` crate for core capabilities.

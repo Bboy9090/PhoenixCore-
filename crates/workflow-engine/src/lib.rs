@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Context, Result};
-use phoenix_report::{create_report_bundle_with_meta, ReportPaths};
+use phoenix_report::{create_report_bundle_with_meta_and_signing, ReportPaths};
 use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
-use phoenix_content::{prepare_source, SourceKind};
+use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
+use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -214,11 +215,12 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         "dry_run": params.dry_run
     });
 
-    let report = create_report_bundle_with_meta(
+    let report = create_report_bundle_with_meta_and_signing(
         &params.report_base,
         &graph,
         Some(meta),
         Some(&logs.join("\n")),
+        signing_key_from_env().as_deref(),
     )?;
 
     Ok(WindowsInstallerUsbResult {
@@ -226,6 +228,141 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         target_mount,
         copied_files,
         copied_bytes,
+        dry_run: params.dry_run,
+    })
+}
+
+#[derive(Debug, Clone)]
+pub struct WindowsApplyImageParams {
+    pub source_path: PathBuf,
+    pub image_index: u32,
+    pub target_dir: PathBuf,
+    pub report_base: PathBuf,
+    pub force: bool,
+    pub confirmation_token: Option<String>,
+    pub dry_run: bool,
+    pub verify: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct WindowsApplyImageResult {
+    pub report: ReportPaths,
+    pub target_dir: PathBuf,
+    pub file_count: usize,
+    pub total_bytes: u64,
+    pub dry_run: bool,
+}
+
+pub struct WindowsApplyImageWorkflow {
+    params: WindowsApplyImageParams,
+}
+
+impl WindowsApplyImageWorkflow {
+    pub fn new(params: WindowsApplyImageParams) -> Self {
+        Self { params }
+    }
+
+    pub fn execute(&self) -> Result<WindowsApplyImageResult> {
+        run_windows_apply_image(&self.params)
+    }
+}
+
+impl Workflow for WindowsApplyImageWorkflow {
+    fn name(&self) -> &'static str {
+        "windows-apply-image"
+    }
+
+    fn run(&self) -> Result<()> {
+        self.execute().map(|_| ())
+    }
+}
+
+pub fn run_windows_apply_image(params: &WindowsApplyImageParams) -> Result<WindowsApplyImageResult> {
+    let graph = phoenix_host_windows::build_device_graph()?;
+    let is_system_target = is_system_mount_path(&params.target_dir, &graph);
+
+    let (image_path, _prepared) = resolve_windows_image(&params.source_path)?;
+    let images = wim_list_images(&image_path)?;
+    let image_info = images
+        .iter()
+        .find(|image| image.index == params.image_index)
+        .ok_or_else(|| anyhow!("image index not found"))?;
+
+    let mut logs = Vec::new();
+    logs.push("workflow=windows-apply-image".to_string());
+    logs.push(format!("image_path={}", image_path.display()));
+    logs.push(format!("image_index={}", params.image_index));
+    logs.push(format!("target_dir={}", params.target_dir.display()));
+    logs.push(format!("dry_run={}", params.dry_run));
+
+    if !params.dry_run {
+        let ctx = SafetyContext {
+            force_mode: params.force,
+            confirmation_token: params.confirmation_token.clone(),
+        };
+        match can_write_to_disk(&ctx, is_system_target) {
+            SafetyDecision::Allow => {}
+            SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
+        }
+
+        if !params.target_dir.exists() {
+            fs::create_dir_all(&params.target_dir).context("create target dir")?;
+        }
+        wim_apply_image(&image_path, params.image_index, &params.target_dir)?;
+        logs.push("apply_complete".to_string());
+    } else {
+        logs.push("apply_skipped_dry_run".to_string());
+    }
+
+    let stats = if params.verify && !params.dry_run {
+        let stats = dir_stats(&params.target_dir)?;
+        if let Some(expected) = image_info.total_bytes {
+            let tolerance = expected / 100;
+            if stats.total_bytes + tolerance < expected {
+                return Err(anyhow!(
+                    "verification failed: bytes {} < expected {}",
+                    stats.total_bytes,
+                    expected
+                ));
+            }
+        }
+        logs.push(format!("verified_files={}", stats.file_count));
+        logs.push(format!("verified_bytes={}", stats.total_bytes));
+        stats
+    } else {
+        DirStats {
+            file_count: 0,
+            total_bytes: 0,
+        }
+    };
+
+    let meta = serde_json::json!({
+        "workflow": "windows-apply-image",
+        "status": if params.dry_run { "dry_run" } else { "completed" },
+        "image_path": image_path.display().to_string(),
+        "image_index": params.image_index,
+        "image_name": image_info.name,
+        "image_description": image_info.description,
+        "target_dir": params.target_dir.display().to_string(),
+        "verify": params.verify,
+        "file_count": stats.file_count,
+        "total_bytes": stats.total_bytes,
+        "dry_run": params.dry_run
+    });
+
+    let report = create_report_bundle_with_meta_and_signing(
+        &params.report_base,
+        &graph,
+        Some(meta),
+        Some(&logs.join("\n")),
+        signing_key_from_env().as_deref(),
+    )?;
+
+    Ok(WindowsApplyImageResult {
+        report,
+        target_dir: params.target_dir.clone(),
+        file_count: stats.file_count,
+        total_bytes: stats.total_bytes,
         dry_run: params.dry_run,
     })
 }
@@ -311,4 +448,49 @@ fn extract_drive_letter(path: &Path) -> Option<char> {
     } else {
         None
     }
+}
+
+fn is_system_mount_path(path: &Path, graph: &phoenix_core::DeviceGraph) -> bool {
+    let value = normalize_mount_path(path).display().to_string();
+    graph.disks.iter().any(|disk| {
+        disk.is_system_disk
+            && disk
+                .partitions
+                .iter()
+                .flat_map(|partition| partition.mount_points.iter())
+                .any(|mount| mount.eq_ignore_ascii_case(&value))
+    })
+}
+
+#[derive(Debug)]
+struct DirStats {
+    file_count: usize,
+    total_bytes: u64,
+}
+
+fn dir_stats(root: &Path) -> Result<DirStats> {
+    let mut stats = DirStats {
+        file_count: 0,
+        total_bytes: 0,
+    };
+    dir_stats_inner(root, &mut stats)?;
+    Ok(stats)
+}
+
+fn dir_stats_inner(path: &Path, stats: &mut DirStats) -> Result<()> {
+    for entry in fs::read_dir(path).with_context(|| format!("read {}", path.display()))? {
+        let entry = entry?;
+        let meta = entry.metadata()?;
+        if meta.is_dir() {
+            dir_stats_inner(&entry.path(), stats)?;
+        } else if meta.is_file() {
+            stats.file_count += 1;
+            stats.total_bytes = stats.total_bytes.saturating_add(meta.len());
+        }
+    }
+    Ok(())
+}
+
+fn signing_key_from_env() -> Option<String> {
+    std::env::var("PHOENIX_SIGNING_KEY").ok()
 }

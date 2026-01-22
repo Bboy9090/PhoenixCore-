@@ -8,3 +8,5 @@ Status: Done
 - [ ] run.json metadata saved
 - [ ] logs saved
 - [ ] stable folder layout
+- [ ] manifest.json includes SHA-256 hashes
+- [ ] manifest.sig emitted when signing key present

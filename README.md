@@ -28,6 +28,7 @@ No-wrapper policy: UI never touches OS APIs. Host providers do.
 │   ├── content/
 │   ├── host-windows/
 │   ├── imaging/
+│   ├── wim/
 │   ├── report/
 │   ├── safety/
 │   └── workflow-engine/

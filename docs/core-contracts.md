@@ -52,3 +52,8 @@ pub trait ImagingProvider {
 ## References
 - docs/device-graph.md
 - docs/no-wrapper-policy.md
+
+## Evidence Report Signing
+Reports emit `manifest.json` (SHA-256 for key files). When the environment
+variable `PHOENIX_SIGNING_KEY` (hex) is present, a `manifest.sig` HMAC-SHA256
+signature is produced.

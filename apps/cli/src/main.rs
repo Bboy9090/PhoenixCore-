@@ -1,8 +1,12 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use phoenix_imaging::{HashProgress, ProgressObserver};
-use phoenix_workflow_engine::{run_windows_installer_usb, WindowsInstallerUsbParams};
+use phoenix_workflow_engine::{
+    run_windows_apply_image, run_windows_installer_usb, WindowsApplyImageParams,
+    WindowsInstallerUsbParams,
+};
 use phoenix_host_windows::format::parse_filesystem;
+use phoenix_content::resolve_windows_image;
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 
 #[derive(Parser)]
@@ -119,6 +123,41 @@ enum Commands {
         #[arg(long)]
         target: String,
     },
+
+    /// Apply a Windows image with reports + safety gates
+    WindowsApplyImage {
+        /// ISO, directory, or WIM/ESD path
+        #[arg(long)]
+        source: String,
+
+        /// Image index (1-based)
+        #[arg(long)]
+        index: u32,
+
+        /// Target directory (will be created)
+        #[arg(long)]
+        target: String,
+
+        /// Base path for reports (default: current directory)
+        #[arg(long, default_value = ".")]
+        report_base: String,
+
+        /// Force destructive operations
+        #[arg(long)]
+        force: bool,
+
+        /// Confirmation token (PHX-...)
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Execute apply (omit for dry-run)
+        #[arg(long)]
+        execute: bool,
+
+        /// Verify byte totals after apply
+        #[arg(long)]
+        verify: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -145,13 +184,24 @@ fn main() -> Result<()> {
             #[cfg(windows)]
             {
                 let graph = phoenix_host_windows::build_device_graph()?;
-                let paths = phoenix_report::create_report_bundle(base, &graph)?;
+                let key = std::env::var("PHOENIX_SIGNING_KEY").ok();
+                let paths = phoenix_report::create_report_bundle_with_meta_and_signing(
+                    base,
+                    &graph,
+                    None,
+                    None,
+                    key.as_deref(),
+                )?;
                 println!("Report created:");
                 println!("  run_id: {}", paths.run_id);
                 println!("  root:   {}", paths.root.display());
                 println!("  device_graph: {}", paths.device_graph_json.display());
                 println!("  run.json:     {}", paths.run_json.display());
                 println!("  logs:         {}", paths.logs_path.display());
+                println!("  manifest:     {}", paths.manifest_path.display());
+                if let Some(sig) = paths.signature_path.as_ref() {
+                    println!("  signature:    {}", sig.display());
+                }
                 Ok(())
             }
             #[cfg(not(windows))]
@@ -234,6 +284,10 @@ fn main() -> Result<()> {
                 println!("  copied_bytes: {}", result.copied_bytes);
                 println!("  report_root: {}", result.report.root.display());
                 println!("  logs: {}", result.report.logs_path.display());
+                println!("  manifest: {}", result.report.manifest_path.display());
+                if let Some(sig) = result.report.signature_path.as_ref() {
+                    println!("  signature: {}", sig.display());
+                }
                 Ok(())
             }
             #[cfg(not(windows))]
@@ -245,7 +299,8 @@ fn main() -> Result<()> {
         Commands::WimInfo { path } => {
             #[cfg(windows)]
             {
-                let images = wim_list_images(path)?;
+                let (image_path, _prepared) = resolve_windows_image(path)?;
+                let images = wim_list_images(image_path)?;
                 for image in images {
                     println!("Image {}", image.index);
                     if let Some(name) = image.name {
@@ -269,8 +324,50 @@ fn main() -> Result<()> {
         Commands::WimApply { path, index, target } => {
             #[cfg(windows)]
             {
-                wim_apply_image(path, index, target)?;
+                let (image_path, _prepared) = resolve_windows_image(path)?;
+                wim_apply_image(image_path, index, target)?;
                 println!("WIM apply complete.");
+                Ok(())
+            }
+            #[cfg(not(windows))]
+            {
+                Err(anyhow!("Windows-first in M0"))
+            }
+        }
+
+        Commands::WindowsApplyImage {
+            source,
+            index,
+            target,
+            report_base,
+            force,
+            token,
+            execute,
+            verify,
+        } => {
+            #[cfg(windows)]
+            {
+                let params = WindowsApplyImageParams {
+                    source_path: source.into(),
+                    image_index: index,
+                    target_dir: target.into(),
+                    report_base: report_base.into(),
+                    force,
+                    confirmation_token: token,
+                    dry_run: !execute,
+                    verify,
+                };
+                let result = run_windows_apply_image(&params)?;
+                println!("Apply complete:");
+                println!("  dry_run: {}", result.dry_run);
+                println!("  target_dir: {}", result.target_dir.display());
+                println!("  file_count: {}", result.file_count);
+                println!("  total_bytes: {}", result.total_bytes);
+                println!("  report_root: {}", result.report.root.display());
+                println!("  manifest: {}", result.report.manifest_path.display());
+                if let Some(sig) = result.report.signature_path.as_ref() {
+                    println!("  signature: {}", sig.display());
+                }
                 Ok(())
             }
             #[cfg(not(windows))]

@@ -31,6 +31,38 @@ pub fn prepare_source(path: impl AsRef<Path>) -> Result<PreparedSource> {
     Err(anyhow!("unsupported source path"))
 }
 
+pub fn find_windows_image(root: impl AsRef<Path>) -> Result<PathBuf> {
+    let root = root.as_ref();
+    let candidates = [
+        root.join("sources").join("install.wim"),
+        root.join("sources").join("install.esd"),
+        root.join("install.wim"),
+        root.join("install.esd"),
+    ];
+
+    for candidate in candidates {
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+
+    Err(anyhow!("install.wim or install.esd not found in source"))
+}
+
+pub fn resolve_windows_image(path: impl AsRef<Path>) -> Result<(PathBuf, Option<PreparedSource>)> {
+    let path = path.as_ref();
+    if path.is_file() {
+        if is_wim(path) {
+            return Ok((path.to_path_buf(), None));
+        }
+        return Err(anyhow!("unsupported image file type"));
+    }
+
+    let prepared = prepare_source(path)?;
+    let wim_path = find_windows_image(&prepared.root)?;
+    Ok((wim_path, Some(prepared)))
+}
+
 fn is_iso(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
@@ -46,6 +78,15 @@ fn mount_iso(path: &Path) -> Result<PreparedSource> {
 #[cfg(not(windows))]
 fn mount_iso(_path: &Path) -> Result<PreparedSource> {
     Err(anyhow!("ISO mounting requires Windows"))
+}
+
+fn is_wim(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| {
+            ext.eq_ignore_ascii_case("wim") || ext.eq_ignore_ascii_case("esd")
+        })
+        .unwrap_or(false)
 }
 
 #[cfg(windows)]
