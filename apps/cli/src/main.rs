@@ -3,8 +3,8 @@ use clap::{Parser, Subcommand};
 use phoenix_imaging::{HashProgress, ProgressObserver};
 use phoenix_workflow_engine::{
     run_disk_hash_report, run_unix_installer_usb, run_windows_apply_image,
-    run_windows_installer_usb, DiskHashReportParams, UnixInstallerUsbParams,
-    WindowsApplyImageParams, WindowsInstallerUsbParams,
+    run_windows_installer_usb, validate_workflow_definition, DiskHashReportParams,
+    UnixInstallerUsbParams, WindowsApplyImageParams, WindowsInstallerUsbParams,
 };
 use phoenix_host_windows::format::parse_filesystem;
 use phoenix_content::{
@@ -270,6 +270,13 @@ enum Commands {
         /// Default report base for steps without report_base
         #[arg(long, default_value = ".")]
         report_base: String,
+    },
+
+    /// Validate a workflow definition file
+    WorkflowValidate {
+        /// Path to workflow JSON/YAML file
+        #[arg(long)]
+        file: String,
     },
 
     /// Hash a disk and emit a report bundle
@@ -648,30 +655,31 @@ fn main() -> Result<()> {
         }
 
         Commands::WorkflowRun { file, report_base } => {
-            #[cfg(windows)]
-            {
-                let definition: WorkflowDefinition = load_workflow_definition(&file)?;
-                let result = phoenix_workflow_engine::run_workflow_definition_with_report(
-                    &definition,
-                    report_base.into(),
-                )?;
-                println!("workflow: {}", definition.name);
-                for step in &result.steps {
-                    println!(
-                        "step {}: {} ({} ms)",
-                        step.id, step.action, step.duration_ms
-                    );
-                    if let Some(root) = step.report_root {
-                        println!("  report: {}", root.display());
-                    }
+            let definition: WorkflowDefinition = load_workflow_definition(&file)?;
+            validate_workflow_definition(&definition)?;
+            let result = phoenix_workflow_engine::run_workflow_definition_with_report(
+                &definition,
+                report_base.into(),
+            )?;
+            println!("workflow: {}", definition.name);
+            for step in &result.steps {
+                println!(
+                    "step {}: {} ({} ms)",
+                    step.id, step.action, step.duration_ms
+                );
+                if let Some(root) = step.report_root {
+                    println!("  report: {}", root.display());
                 }
-                println!("workflow_report: {}", result.report.root.display());
-                Ok(())
             }
-            #[cfg(not(windows))]
-            {
-                Err(anyhow!("Windows-first in M0"))
-            }
+            println!("workflow_report: {}", result.report.root.display());
+            Ok(())
+        }
+
+        Commands::WorkflowValidate { file } => {
+            let definition: WorkflowDefinition = load_workflow_definition(&file)?;
+            validate_workflow_definition(&definition)?;
+            println!("workflow valid: {}", definition.name);
+            Ok(())
         }
 
         Commands::DiskHashReport {
@@ -680,29 +688,22 @@ fn main() -> Result<()> {
             max_chunks,
             report_base,
         } => {
-            #[cfg(windows)]
-            {
-                let params = DiskHashReportParams {
-                    disk_id: disk,
-                    chunk_size,
-                    max_chunks,
-                    report_base: report_base.into(),
-                };
-                let result = run_disk_hash_report(&params)?;
-                println!("Disk hash report:");
-                println!("  disk_id: {}", result.disk_id);
-                println!("  chunk_count: {}", result.chunk_count);
-                println!("  report_root: {}", result.report.root.display());
-                println!("  manifest: {}", result.report.manifest_path.display());
-                if let Some(sig) = result.report.signature_path.as_ref() {
-                    println!("  signature: {}", sig.display());
-                }
-                Ok(())
+            let params = DiskHashReportParams {
+                disk_id: disk,
+                chunk_size,
+                max_chunks,
+                report_base: report_base.into(),
+            };
+            let result = run_disk_hash_report(&params)?;
+            println!("Disk hash report:");
+            println!("  disk_id: {}", result.disk_id);
+            println!("  chunk_count: {}", result.chunk_count);
+            println!("  report_root: {}", result.report.root.display());
+            println!("  manifest: {}", result.report.manifest_path.display());
+            if let Some(sig) = result.report.signature_path.as_ref() {
+                println!("  signature: {}", sig.display());
             }
-            #[cfg(not(windows))]
-            {
-                Err(anyhow!("Windows-first in M0"))
-            }
+            Ok(())
         }
 
         Commands::PackValidate { manifest, key } => {

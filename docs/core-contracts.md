@@ -86,6 +86,9 @@ Workflow runner:
 - `phoenix-cli workflow-run --file workflow.json --report-base .`
 - Emits a workflow report bundle with step timings + references.
 
+Validate:
+- `phoenix-cli workflow-validate --file workflow.yaml`
+
 ## Pack Manifest (JSON)
 ```json
 {

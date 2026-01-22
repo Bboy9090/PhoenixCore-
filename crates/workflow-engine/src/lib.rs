@@ -8,7 +8,7 @@ use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
 use phoenix_imaging::{hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
-use phoenix_core::{DeviceGraph, WorkflowDefinition};
+use phoenix_core::{DeviceGraph, WorkflowDefinition, WORKFLOW_SCHEMA_VERSION};
 use sha2::{Digest, Sha256};
 use std::time::Instant;
 use std::fs;
@@ -383,6 +383,12 @@ pub fn run_unix_installer_usb(params: &UnixInstallerUsbParams) -> Result<UnixIns
 
     let graph = build_device_graph()?;
     let target_mount = normalize_mount_for_unix(&params.target_mount);
+    if !target_mount.exists() {
+        return Err(anyhow!("target mount does not exist"));
+    }
+    if !target_mount.is_dir() {
+        return Err(anyhow!("target mount is not a directory"));
+    }
     let disk = find_disk_by_mount(&graph, &target_mount)
         .ok_or_else(|| anyhow!("target mount not found in device graph"))?;
 
@@ -518,6 +524,7 @@ pub fn run_workflow_definition(
     definition: &WorkflowDefinition,
     default_report_base: Option<PathBuf>,
 ) -> Result<Vec<WorkflowStepResult>> {
+    validate_workflow_definition(definition)?;
     let base = default_report_base.unwrap_or_else(|| PathBuf::from("."));
     let mut results = Vec::new();
 
@@ -600,6 +607,7 @@ pub fn run_workflow_definition_with_report(
     definition: &WorkflowDefinition,
     report_base: PathBuf,
 ) -> Result<WorkflowRunResult> {
+    validate_workflow_definition(definition)?;
     let steps = run_workflow_definition(definition, Some(report_base.clone()))?;
     let graph = build_device_graph()?;
 
@@ -639,6 +647,86 @@ pub fn run_workflow_definition_with_report(
     )?;
 
     Ok(WorkflowRunResult { report, steps })
+}
+
+pub fn validate_workflow_definition(definition: &WorkflowDefinition) -> Result<()> {
+    if definition.schema_version != WORKFLOW_SCHEMA_VERSION {
+        return Err(anyhow!(
+            "unsupported workflow schema version {}",
+            definition.schema_version
+        ));
+    }
+    if definition.steps.is_empty() {
+        return Err(anyhow!("workflow has no steps"));
+    }
+
+    let mut seen = std::collections::HashSet::new();
+    for step in &definition.steps {
+        if step.id.trim().is_empty() {
+            return Err(anyhow!("workflow step id is empty"));
+        }
+        if !seen.insert(step.id.clone()) {
+            return Err(anyhow!("duplicate step id {}", step.id));
+        }
+        validate_step(step)?;
+    }
+    Ok(())
+}
+
+fn validate_step(step: &phoenix_core::WorkflowStep) -> Result<()> {
+    match step.action.as_str() {
+        "windows_installer_usb" => {
+            ensure_os("windows")?;
+            require_string(&step.params, "target_disk_id")?;
+            require_string(&step.params, "source_path")?;
+        }
+        "windows_apply_image" => {
+            ensure_os("windows")?;
+            require_string(&step.params, "source_path")?;
+            require_u32(&step.params, "image_index")?;
+            require_string(&step.params, "target_dir")?;
+        }
+        "linux_installer_usb" => {
+            ensure_os("linux")?;
+            require_string(&step.params, "source_path")?;
+            require_string(&step.params, "target_mount")?;
+        }
+        "macos_installer_usb" => {
+            ensure_os("macos")?;
+            require_string(&step.params, "source_path")?;
+            require_string(&step.params, "target_mount")?;
+        }
+        "report_verify" => {
+            require_string(&step.params, "path")?;
+        }
+        "disk_hash_report" => {
+            require_string(&step.params, "disk_id")?;
+        }
+        other => {
+            return Err(anyhow!("unknown workflow action {}", other));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_os(required: &str) -> Result<()> {
+    let current = current_os();
+    if current != required {
+        return Err(anyhow!("action requires {}, current {}", required, current));
+    }
+    Ok(())
+}
+
+fn current_os() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else {
+        "unknown"
+    }
 }
 
 #[derive(Debug, Clone)]
