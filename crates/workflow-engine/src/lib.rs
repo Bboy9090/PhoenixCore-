@@ -8,7 +8,7 @@ use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
 use phoenix_imaging::{hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
-use phoenix_core::WorkflowDefinition;
+use phoenix_core::{DeviceGraph, WorkflowDefinition};
 use sha2::{Digest, Sha256};
 use std::time::Instant;
 use std::fs;
@@ -77,7 +77,7 @@ impl Workflow for WindowsInstallerUsbWorkflow {
 }
 
 pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<WindowsInstallerUsbResult> {
-    let graph = phoenix_host_windows::build_device_graph()?;
+    let graph = build_device_graph()?;
     let disk = graph
         .disks
         .iter()
@@ -436,7 +436,7 @@ pub fn run_workflow_definition_with_report(
     report_base: PathBuf,
 ) -> Result<WorkflowRunResult> {
     let steps = run_workflow_definition(definition, Some(report_base.clone()))?;
-    let graph = phoenix_host_windows::build_device_graph()?;
+    let graph = build_device_graph()?;
 
     let step_meta: Vec<serde_json::Value> = steps
         .iter()
@@ -522,7 +522,7 @@ impl Workflow for WindowsApplyImageWorkflow {
 }
 
 pub fn run_windows_apply_image(params: &WindowsApplyImageParams) -> Result<WindowsApplyImageResult> {
-    let graph = phoenix_host_windows::build_device_graph()?;
+    let graph = build_device_graph()?;
     let is_system_target = is_system_mount_path(&params.target_dir, &graph);
 
     let (image_path, _prepared) = resolve_windows_image(&params.source_path)?;
@@ -627,7 +627,7 @@ pub struct DiskHashReportResult {
 }
 
 pub fn run_disk_hash_report(params: &DiskHashReportParams) -> Result<DiskHashReportResult> {
-    let graph = phoenix_host_windows::build_device_graph()?;
+    let graph = build_device_graph()?;
     let disk = graph
         .disks
         .iter()
@@ -824,6 +824,25 @@ fn dir_stats_inner(path: &Path, stats: &mut DirStats) -> Result<()> {
 
 fn signing_key_from_env() -> Option<String> {
     std::env::var("PHOENIX_SIGNING_KEY").ok()
+}
+
+fn build_device_graph() -> Result<DeviceGraph> {
+    #[cfg(target_os = "windows")]
+    {
+        return phoenix_host_windows::build_device_graph();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        return phoenix_host_linux::build_device_graph();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        return phoenix_host_macos::build_device_graph();
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+    {
+        Err(anyhow!("unsupported OS"))
+    }
 }
 
 const FAT32_MAX_FILE: u64 = 4_294_967_295;

@@ -9,6 +9,8 @@ phoenix-core = { path = "../core" }
 phoenix-content = { path = "../content" }
 phoenix-host-windows = { path = "../host-windows" }
 phoenix-imaging = { path = "../imaging" }
+phoenix-host-linux = { path = "../host-linux" }
+phoenix-host-macos = { path = "../host-macos" }
 phoenix-report = { path = "../report" }
 phoenix-safety = { path = "../safety" }
 phoenix-wim = { path = "../wim" }
