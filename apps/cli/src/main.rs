@@ -112,6 +112,14 @@ enum Commands {
         /// Volume label for formatting
         #[arg(long)]
         label: Option<String>,
+
+        /// Driver source directory to stage into $OEM$
+        #[arg(long)]
+        drivers: Option<String>,
+
+        /// Driver target subdirectory (relative to USB root)
+        #[arg(long)]
+        drivers_target: Option<String>,
     },
 
     /// List images in a WIM/ESD file
@@ -305,6 +313,8 @@ fn main() -> Result<()> {
             format,
             fs,
             label,
+            drivers,
+            drivers_target,
         } => {
             #[cfg(windows)]
             {
@@ -322,6 +332,8 @@ fn main() -> Result<()> {
                     format,
                     filesystem,
                     label,
+                    driver_source: drivers.map(Into::into),
+                    driver_target: drivers_target.map(Into::into),
                 };
                 let result = run_windows_installer_usb(&params)?;
                 println!("Workflow complete:");
@@ -329,6 +341,8 @@ fn main() -> Result<()> {
                 println!("  target_mount: {}", result.target_mount.display());
                 println!("  copied_files: {}", result.copied_files);
                 println!("  copied_bytes: {}", result.copied_bytes);
+                println!("  driver_files: {}", result.driver_files);
+                println!("  driver_bytes: {}", result.driver_bytes);
                 println!("  report_root: {}", result.report.root.display());
                 println!("  logs: {}", result.report.logs_path.display());
                 println!("  manifest: {}", result.report.manifest_path.display());

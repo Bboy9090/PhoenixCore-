@@ -31,6 +31,8 @@ pub struct WindowsInstallerUsbParams {
     pub format: bool,
     pub filesystem: FileSystem,
     pub label: Option<String>,
+    pub driver_source: Option<PathBuf>,
+    pub driver_target: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +41,8 @@ pub struct WindowsInstallerUsbResult {
     pub target_mount: PathBuf,
     pub copied_files: usize,
     pub copied_bytes: u64,
+    pub driver_files: usize,
+    pub driver_bytes: u64,
     pub dry_run: bool,
 }
 
@@ -161,6 +165,8 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
 
     let mut copied_files = 0usize;
     let mut copied_bytes = 0u64;
+    let mut driver_files = 0usize;
+    let mut driver_bytes = 0u64;
 
     if params.filesystem.as_str().eq_ignore_ascii_case("FAT32") {
         let max = max_file_size(&files);
@@ -228,6 +234,43 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
 
         verify_copy(&target_mount, &files)?;
         logs.push("verify_complete".to_string());
+
+        if let Some(driver_source) = &params.driver_source {
+            let driver_source = fs::canonicalize(driver_source)
+                .unwrap_or_else(|_| driver_source.clone());
+            if !driver_source.is_dir() {
+                return Err(anyhow!("driver_source is not a directory"));
+            }
+            let driver_target = params
+                .driver_target
+                .clone()
+                .unwrap_or_else(default_driver_target);
+            let driver_target = target_mount.join(driver_target);
+            let driver_entries = collect_files(&driver_source)?;
+
+            logs.push(format!("driver_source={}", driver_source.display()));
+            logs.push(format!("driver_target={}", driver_target.display()));
+            logs.push(format!("driver_file_count={}", driver_entries.len()));
+
+            for entry in &driver_entries {
+                let dest_path = driver_target.join(&entry.relative_path);
+                if let Some(parent) = dest_path.parent() {
+                    fs::create_dir_all(parent).with_context(|| {
+                        format!("create dir {}", parent.display())
+                    })?;
+                }
+                fs::copy(&entry.absolute_path, &dest_path).with_context(|| {
+                    format!(
+                        "copy driver {} to {}",
+                        entry.absolute_path.display(),
+                        dest_path.display()
+                    )
+                })?;
+                driver_files += 1;
+                driver_bytes = driver_bytes.saturating_add(entry.size);
+            }
+            logs.push("driver_copy_complete".to_string());
+        }
     } else {
         logs.push("dry_run=true".to_string());
     }
@@ -241,6 +284,8 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         "source_kind": format!("{:?}", source_kind),
         "copied_files": copied_files,
         "copied_bytes": copied_bytes,
+        "driver_files": driver_files,
+        "driver_bytes": driver_bytes,
         "dry_run": params.dry_run
     });
 
@@ -257,6 +302,8 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         target_mount,
         copied_files,
         copied_bytes,
+        driver_files,
+        driver_bytes,
         dry_run: params.dry_run,
     })
 }
@@ -663,6 +710,10 @@ fn ensure_boot_files(entries: &[FileEntry]) -> Result<()> {
     Ok(())
 }
 
+fn default_driver_target() -> PathBuf {
+    PathBuf::from(r"sources\$OEM$\$1\Drivers")
+}
+
 fn build_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<WindowsInstallerUsbParams> {
     let target_disk_id = require_string(value, "target_disk_id")?;
     let source_path = PathBuf::from(require_string(value, "source_path")?);
@@ -684,6 +735,8 @@ fn build_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<
         format: optional_bool(value, "format", false),
         filesystem,
         label,
+        driver_source: optional_string(value, "driver_source").map(PathBuf::from),
+        driver_target: optional_string(value, "driver_target").map(PathBuf::from),
     })
 }
 

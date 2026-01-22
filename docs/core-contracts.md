@@ -43,6 +43,8 @@ pub trait ImagingProvider {
         "source_path": "D:/Win11.iso",
         "repartition": true,
         "filesystem": "fat32",
+        "driver_source": "D:/Drivers",
+        "driver_target": "sources/$OEM$/$1/Drivers",
         "force": true,
         "confirmation_token": "PHX-..."
       }
