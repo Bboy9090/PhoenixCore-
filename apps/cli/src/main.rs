@@ -2,8 +2,9 @@ use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use phoenix_imaging::{HashProgress, ProgressObserver};
 use phoenix_workflow_engine::{
-    run_disk_hash_report, run_windows_apply_image, run_windows_installer_usb,
-    DiskHashReportParams, WindowsApplyImageParams, WindowsInstallerUsbParams,
+    run_disk_hash_report, run_unix_installer_usb, run_windows_apply_image,
+    run_windows_installer_usb, DiskHashReportParams, UnixInstallerUsbParams,
+    WindowsApplyImageParams, WindowsInstallerUsbParams,
 };
 use phoenix_host_windows::format::parse_filesystem;
 use phoenix_content::{
@@ -195,6 +196,68 @@ enum Commands {
         /// Verify byte totals after apply
         #[arg(long)]
         verify: bool,
+    },
+
+    /// Create a Linux installer USB (copy-only, preformatted)
+    LinuxInstallerUsb {
+        /// Path to extracted Linux installer files
+        #[arg(long)]
+        source: String,
+
+        /// Target mount path (preformatted)
+        #[arg(long)]
+        target_mount: String,
+
+        /// Base path for reports (default: current directory)
+        #[arg(long, default_value = ".")]
+        report_base: String,
+
+        /// Force destructive operations
+        #[arg(long)]
+        force: bool,
+
+        /// Confirmation token (PHX-...)
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Execute copy (omit for dry-run)
+        #[arg(long)]
+        execute: bool,
+
+        /// Emit SHA-256 copy manifest into report
+        #[arg(long)]
+        hash_manifest: bool,
+    },
+
+    /// Create a macOS installer USB (copy-only, preformatted)
+    MacosInstallerUsb {
+        /// Path to extracted macOS installer files
+        #[arg(long)]
+        source: String,
+
+        /// Target mount path (preformatted)
+        #[arg(long)]
+        target_mount: String,
+
+        /// Base path for reports (default: current directory)
+        #[arg(long, default_value = ".")]
+        report_base: String,
+
+        /// Force destructive operations
+        #[arg(long)]
+        force: bool,
+
+        /// Confirmation token (PHX-...)
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Execute copy (omit for dry-run)
+        #[arg(long)]
+        execute: bool,
+
+        /// Emit SHA-256 copy manifest into report
+        #[arg(long)]
+        hash_manifest: bool,
     },
 
     /// Run a workflow definition JSON file
@@ -498,6 +561,76 @@ fn main() -> Result<()> {
             #[cfg(not(windows))]
             {
                 Err(anyhow!("Windows-first in M0"))
+            }
+        }
+
+        Commands::LinuxInstallerUsb {
+            source,
+            target_mount,
+            report_base,
+            force,
+            token,
+            execute,
+            hash_manifest,
+        } => {
+            #[cfg(target_os = "linux")]
+            {
+                let params = UnixInstallerUsbParams {
+                    source_path: source.into(),
+                    target_mount: target_mount.into(),
+                    report_base: report_base.into(),
+                    force,
+                    confirmation_token: token,
+                    dry_run: !execute,
+                    hash_manifest,
+                };
+                let result = run_unix_installer_usb(&params)?;
+                println!("Linux USB staging complete:");
+                println!("  dry_run: {}", result.dry_run);
+                println!("  target_mount: {}", result.target_mount.display());
+                println!("  copied_files: {}", result.copied_files);
+                println!("  copied_bytes: {}", result.copied_bytes);
+                println!("  report_root: {}", result.report.root.display());
+                Ok(())
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                Err(anyhow!("linux-only command"))
+            }
+        }
+
+        Commands::MacosInstallerUsb {
+            source,
+            target_mount,
+            report_base,
+            force,
+            token,
+            execute,
+            hash_manifest,
+        } => {
+            #[cfg(target_os = "macos")]
+            {
+                let params = UnixInstallerUsbParams {
+                    source_path: source.into(),
+                    target_mount: target_mount.into(),
+                    report_base: report_base.into(),
+                    force,
+                    confirmation_token: token,
+                    dry_run: !execute,
+                    hash_manifest,
+                };
+                let result = run_unix_installer_usb(&params)?;
+                println!("macOS USB staging complete:");
+                println!("  dry_run: {}", result.dry_run);
+                println!("  target_mount: {}", result.target_mount.display());
+                println!("  copied_files: {}", result.copied_files);
+                println!("  copied_bytes: {}", result.copied_bytes);
+                println!("  report_root: {}", result.report.root.display());
+                Ok(())
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                Err(anyhow!("macos-only command"))
             }
         }
 

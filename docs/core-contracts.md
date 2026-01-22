@@ -62,8 +62,25 @@ pub trait ImagingProvider {
 Supported actions:
 - `windows_installer_usb`
 - `windows_apply_image`
+- `linux_installer_usb`
+- `macos_installer_usb`
 - `report_verify`
 - `disk_hash_report`
+
+Example Linux installer step:
+```json
+{
+  "id": "linux-usb",
+  "action": "linux_installer_usb",
+  "params": {
+    "source_path": "/path/to/linux/files",
+    "target_mount": "/media/usb",
+    "force": true,
+    "confirmation_token": "PHX-...",
+    "hash_manifest": true
+  }
+}
+```
 
 Workflow runner:
 - `phoenix-cli workflow-run --file workflow.json --report-base .`

@@ -52,6 +52,26 @@ pub struct WindowsInstallerUsbResult {
     pub dry_run: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct UnixInstallerUsbParams {
+    pub source_path: PathBuf,
+    pub target_mount: PathBuf,
+    pub report_base: PathBuf,
+    pub force: bool,
+    pub confirmation_token: Option<String>,
+    pub dry_run: bool,
+    pub hash_manifest: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnixInstallerUsbResult {
+    pub report: ReportPaths,
+    pub target_mount: PathBuf,
+    pub copied_files: usize,
+    pub copied_bytes: u64,
+    pub dry_run: bool,
+}
+
 pub struct WindowsInstallerUsbWorkflow {
     params: WindowsInstallerUsbParams,
 }
@@ -355,6 +375,131 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     })
 }
 
+pub fn run_unix_installer_usb(params: &UnixInstallerUsbParams) -> Result<UnixInstallerUsbResult> {
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        return Err(anyhow!("unix installer workflow requires linux or macos"));
+    }
+
+    let graph = build_device_graph()?;
+    let target_mount = normalize_mount_for_unix(&params.target_mount);
+    let disk = find_disk_by_mount(&graph, &target_mount)
+        .ok_or_else(|| anyhow!("target mount not found in device graph"))?;
+
+    if disk.is_system_disk {
+        return Err(anyhow!("refusing to target system disk: {}", disk.id));
+    }
+    if !disk.removable {
+        return Err(anyhow!(
+            "target disk is not marked removable: {}",
+            disk.id
+        ));
+    }
+
+    let prepared = prepare_source(&params.source_path)?;
+    let source_root = prepared.root.clone();
+    if !source_root.is_dir() {
+        return Err(anyhow!("source root is not a directory"));
+    }
+
+    let files = collect_files(&source_root)?;
+    let total_bytes = files.iter().map(|entry| entry.size).sum::<u64>();
+
+    let mut logs = Vec::new();
+    logs.push("workflow=unix-installer-usb".to_string());
+    logs.push(format!("target_disk={}", disk.id));
+    logs.push(format!("target_mount={}", target_mount.display()));
+    logs.push(format!("source_path={}", source_root.display()));
+    logs.push(format!("file_count={}", files.len()));
+    logs.push(format!("total_bytes={}", total_bytes));
+
+    let mut copied_files = 0usize;
+    let mut copied_bytes = 0u64;
+    let mut artifacts = Vec::new();
+    let mut artifact_names = Vec::new();
+
+    if !params.dry_run {
+        let ctx = SafetyContext {
+            force_mode: params.force,
+            confirmation_token: params.confirmation_token.clone(),
+        };
+        match can_write_to_disk(&ctx, disk.is_system_disk) {
+            SafetyDecision::Allow => {}
+            SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
+        }
+
+        logs.push("copy_start".to_string());
+        let mut copy_manifest = Vec::new();
+        for entry in &files {
+            let dest_path = target_mount.join(&entry.relative_path);
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("create dir {}", parent.display()))?;
+            }
+            fs::copy(&entry.absolute_path, &dest_path).with_context(|| {
+                format!(
+                    "copy {} to {}",
+                    entry.absolute_path.display(),
+                    dest_path.display()
+                )
+            })?;
+            copied_files += 1;
+            copied_bytes = copied_bytes.saturating_add(entry.size);
+            if params.hash_manifest {
+                let hash = hash_file(&entry.absolute_path)?;
+                copy_manifest.push(CopyManifestEntry {
+                    path: entry.relative_path.to_string_lossy().to_string(),
+                    bytes: entry.size,
+                    sha256: hash,
+                });
+            }
+        }
+        logs.push("copy_complete".to_string());
+        verify_copy(&target_mount, &files)?;
+        logs.push("verify_complete".to_string());
+
+        if params.hash_manifest && !copy_manifest.is_empty() {
+            let bytes = serde_json::to_vec_pretty(&copy_manifest)?;
+            artifacts.push(ReportArtifact {
+                name: "copy_manifest.json".to_string(),
+                bytes,
+            });
+            artifact_names.push("copy_manifest.json".to_string());
+        }
+    } else {
+        logs.push("dry_run=true".to_string());
+    }
+
+    let meta = serde_json::json!({
+        "workflow": "unix-installer-usb",
+        "status": if params.dry_run { "dry_run" } else { "completed" },
+        "target_disk_id": disk.id,
+        "target_mount": target_mount.display().to_string(),
+        "source_path": source_root.display().to_string(),
+        "copied_files": copied_files,
+        "copied_bytes": copied_bytes,
+        "artifacts": artifact_names,
+        "dry_run": params.dry_run
+    });
+
+    let report = create_report_bundle_with_meta_signing_and_artifacts(
+        &params.report_base,
+        &graph,
+        Some(meta),
+        Some(&logs.join("\n")),
+        signing_key_from_env().as_deref(),
+        &artifacts,
+    )?;
+
+    Ok(UnixInstallerUsbResult {
+        report,
+        target_mount,
+        copied_files,
+        copied_bytes,
+        dry_run: params.dry_run,
+    })
+}
+
 #[derive(Debug, Clone)]
 pub struct WorkflowStepResult {
     pub id: String,
@@ -392,6 +537,26 @@ pub fn run_workflow_definition(
             "windows_apply_image" => {
                 let params = build_apply_params(&step.params, &base)?;
                 let result = run_windows_apply_image(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
+            "linux_installer_usb" => {
+                let params = build_unix_usb_params(&step.params, &base)?;
+                let result = run_unix_installer_usb(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
+            "macos_installer_usb" => {
+                let params = build_unix_usb_params(&step.params, &base)?;
+                let result = run_unix_installer_usb(&params)?;
                 results.push(WorkflowStepResult {
                     id: step.id.clone(),
                     action: step.action.clone(),
@@ -826,6 +991,28 @@ fn signing_key_from_env() -> Option<String> {
     std::env::var("PHOENIX_SIGNING_KEY").ok()
 }
 
+fn normalize_mount_for_unix(path: &Path) -> PathBuf {
+    let mut value = path.display().to_string();
+    if value != "/" {
+        while value.ends_with('/') {
+            value.pop();
+        }
+    }
+    PathBuf::from(value)
+}
+
+fn find_disk_by_mount<'a>(graph: &'a DeviceGraph, mount: &Path) -> Option<&'a phoenix_core::Disk> {
+    let mount_str = normalize_mount_for_unix(mount).display().to_string();
+    graph.disks.iter().find(|disk| {
+        disk.partitions.iter().any(|partition| {
+            partition.mount_points.iter().any(|mp| {
+                let candidate = normalize_mount_for_unix(&PathBuf::from(mp)).display().to_string();
+                candidate == mount_str
+            })
+        })
+    })
+}
+
 fn build_device_graph() -> Result<DeviceGraph> {
     #[cfg(target_os = "windows")]
     {
@@ -984,6 +1171,24 @@ fn build_hash_params(value: &serde_json::Value, default_report: &Path) -> Result
         chunk_size,
         max_chunks,
         report_base,
+    })
+}
+
+fn build_unix_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<UnixInstallerUsbParams> {
+    let source_path = PathBuf::from(require_string(value, "source_path")?);
+    let target_mount = PathBuf::from(require_string(value, "target_mount")?);
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+
+    Ok(UnixInstallerUsbParams {
+        source_path,
+        target_mount,
+        report_base,
+        force: optional_bool(value, "force", false),
+        confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
+        dry_run: optional_bool(value, "dry_run", true),
+        hash_manifest: optional_bool(value, "hash_manifest", false),
     })
 }
 
