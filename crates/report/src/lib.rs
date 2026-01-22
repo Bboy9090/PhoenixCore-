@@ -92,17 +92,25 @@ pub fn create_report_bundle_with_meta_and_signing(
     })
 }
 
-#[derive(serde::Serialize)]
-struct ManifestEntry {
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct ManifestEntry {
     path: String,
     bytes: u64,
     sha256: String,
 }
 
-#[derive(serde::Serialize)]
-struct Manifest {
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct Manifest {
     run_id: String,
     entries: Vec<ManifestEntry>,
+}
+
+#[derive(Debug)]
+pub struct ReportVerification {
+    pub ok: bool,
+    pub entries_checked: usize,
+    pub mismatches: Vec<String>,
+    pub signature_valid: Option<bool>,
 }
 
 fn build_manifest(
@@ -179,4 +187,57 @@ fn to_hex(bytes: &[u8]) -> String {
         out.push_str(&format!("{:02x}", byte));
     }
     out
+}
+
+pub fn verify_report_bundle(
+    report_root: impl AsRef<Path>,
+    signing_key_hex: Option<&str>,
+) -> Result<ReportVerification> {
+    let root = report_root.as_ref();
+    let manifest_path = root.join("manifest.json");
+    if !manifest_path.exists() {
+        return Err(anyhow!("manifest.json not found"));
+    }
+
+    let manifest_bytes = fs::read(&manifest_path)?;
+    let manifest: Manifest = serde_json::from_slice(&manifest_bytes)?;
+
+    let mut mismatches = Vec::new();
+    let mut entries_checked = 0usize;
+    for entry in &manifest.entries {
+        let path = root.join(&entry.path);
+        if !path.exists() {
+            mismatches.push(format!("missing {}", entry.path));
+            continue;
+        }
+        let data = fs::read(&path)?;
+        let hash = Sha256::digest(&data);
+        let sha = to_hex(&hash);
+        if sha != entry.sha256 {
+            mismatches.push(format!("hash mismatch {}", entry.path));
+        }
+        if data.len() as u64 != entry.bytes {
+            mismatches.push(format!("size mismatch {}", entry.path));
+        }
+        entries_checked += 1;
+    }
+
+    let sig_path = root.join("manifest.sig");
+    let signature_valid = if sig_path.exists() {
+        let key_hex = signing_key_hex.ok_or_else(|| anyhow!("signing key required"))?;
+        let key = decode_hex(key_hex)?;
+        let expected = hmac_sha256(&key, &manifest_bytes);
+        let actual = fs::read_to_string(&sig_path)?;
+        Some(actual.trim().eq_ignore_ascii_case(&to_hex(&expected)))
+    } else {
+        None
+    };
+
+    let ok = mismatches.is_empty() && signature_valid.unwrap_or(true);
+    Ok(ReportVerification {
+        ok,
+        entries_checked,
+        mismatches,
+        signature_valid,
+    })
 }

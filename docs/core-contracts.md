@@ -57,3 +57,6 @@ pub trait ImagingProvider {
 Reports emit `manifest.json` (SHA-256 for key files). When the environment
 variable `PHOENIX_SIGNING_KEY` (hex) is present, a `manifest.sig` HMAC-SHA256
 signature is produced.
+
+Verification:
+- `phoenix-cli report-verify --path reports/<run_id> --key <hex>`

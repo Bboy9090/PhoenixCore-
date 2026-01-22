@@ -32,6 +32,17 @@ enum Commands {
         base: String,
     },
 
+    /// Verify a report bundle (manifest + optional signature)
+    ReportVerify {
+        /// Path to reports/<run_id> directory
+        #[arg(long)]
+        path: String,
+
+        /// Signing key hex for signature verification
+        #[arg(long)]
+        key: Option<String>,
+    },
+
     /// Read-only hash chunks from a PhysicalDrive (Windows)
     HashDisk {
         /// Disk id like: PhysicalDrive0
@@ -203,6 +214,30 @@ fn main() -> Result<()> {
                     println!("  signature:    {}", sig.display());
                 }
                 Ok(())
+            }
+            #[cfg(not(windows))]
+            {
+                Err(anyhow!("Windows-first in M0"))
+            }
+        }
+
+        Commands::ReportVerify { path, key } => {
+            #[cfg(windows)]
+            {
+                let result = phoenix_report::verify_report_bundle(path, key.as_deref())?;
+                println!("verified_entries: {}", result.entries_checked);
+                println!("signature_valid: {:?}", result.signature_valid);
+                if !result.mismatches.is_empty() {
+                    println!("mismatches:");
+                    for mismatch in &result.mismatches {
+                        println!("  - {}", mismatch);
+                    }
+                }
+                if result.ok {
+                    Ok(())
+                } else {
+                    Err(anyhow!("report verification failed"))
+                }
             }
             #[cfg(not(windows))]
             {

@@ -97,7 +97,7 @@ mod windows_impl {
     use std::path::{Path, PathBuf};
     use std::time::{Duration, Instant};
 
-    use windows::core::{PCWSTR, GUID};
+    use windows::core::PCWSTR;
     use windows::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
     use windows::Win32::Storage::FileSystem::GetLogicalDrives;
     use windows::Win32::Storage::Vhd::{
