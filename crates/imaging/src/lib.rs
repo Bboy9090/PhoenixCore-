@@ -15,6 +15,18 @@ pub struct Chunk {
     pub size: u64,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct HashProgress {
+    pub chunk_index: u64,
+    pub total_chunks: u64,
+    pub bytes_hashed: u64,
+    pub total_bytes: u64,
+}
+
+pub trait ProgressObserver {
+    fn on_progress(&mut self, progress: HashProgress) -> bool;
+}
+
 pub fn make_chunk_plan(total_size: u64, chunk_size_bytes: u64) -> ChunkPlan {
     let mut chunks = Vec::new();
     if chunk_size_bytes == 0 {
@@ -56,6 +68,24 @@ pub fn hash_disk_readonly_physicaldrive(
     chunk_size: u64,
     max_chunks: Option<u64>,
 ) -> Result<Vec<(u64, String)>> {
+    let mut observer = NoopObserver;
+    hash_disk_readonly_physicaldrive_with_progress(
+        disk_id,
+        total_size,
+        chunk_size,
+        max_chunks,
+        &mut observer,
+    )
+}
+
+#[cfg(windows)]
+pub fn hash_disk_readonly_physicaldrive_with_progress(
+    disk_id: &str,
+    total_size: u64,
+    chunk_size: u64,
+    max_chunks: Option<u64>,
+    observer: &mut dyn ProgressObserver,
+) -> Result<Vec<(u64, String)>> {
     use windows::core::PCWSTR;
     use windows::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows::Win32::Storage::FileSystem::{
@@ -91,6 +121,8 @@ pub fn hash_disk_readonly_physicaldrive(
         let limit = max_chunks.unwrap_or(u64::MAX) as usize;
         let mut results = Vec::new();
         let mut buffer = vec![0u8; chunk_size as usize];
+        let total_chunks = plan.chunks.len() as u64;
+        let mut bytes_hashed = 0u64;
 
         for chunk in plan.chunks.iter().take(limit) {
             let mut new_pos = 0i64;
@@ -129,6 +161,18 @@ pub fn hash_disk_readonly_physicaldrive(
             hasher.update(&buffer[..read as usize]);
             let hash = hasher.finalize();
             results.push((chunk.index, to_hex(&hash)));
+
+            bytes_hashed = bytes_hashed.saturating_add(read as u64);
+            let progress = HashProgress {
+                chunk_index: chunk.index,
+                total_chunks,
+                bytes_hashed,
+                total_bytes: total_size,
+            };
+            if !observer.on_progress(progress) {
+                CloseHandle(handle);
+                return Err(anyhow!("hash operation cancelled"));
+            }
         }
 
         CloseHandle(handle);
@@ -144,6 +188,25 @@ pub fn hash_disk_readonly_physicaldrive(
     _max_chunks: Option<u64>,
 ) -> Result<Vec<(u64, String)>> {
     Err(anyhow!("Windows-only in M0"))
+}
+
+#[cfg(not(windows))]
+pub fn hash_disk_readonly_physicaldrive_with_progress(
+    _disk_id: &str,
+    _total_size: u64,
+    _chunk_size: u64,
+    _max_chunks: Option<u64>,
+    _observer: &mut dyn ProgressObserver,
+) -> Result<Vec<(u64, String)>> {
+    Err(anyhow!("Windows-only in M0"))
+}
+
+struct NoopObserver;
+
+impl ProgressObserver for NoopObserver {
+    fn on_progress(&mut self, _progress: HashProgress) -> bool {
+        true
+    }
 }
 
 fn to_hex(bytes: &[u8]) -> String {
