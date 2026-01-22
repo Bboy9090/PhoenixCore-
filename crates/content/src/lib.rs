@@ -14,10 +14,19 @@ pub struct PackManifest {
     pub assets: Option<String>,
 }
 
+pub const PACK_SCHEMA_VERSION: &str = "1.0.0";
+
 pub fn load_pack_manifest(path: impl AsRef<Path>) -> Result<PackManifest> {
     let path = path.as_ref();
     let data = std::fs::read_to_string(path)?;
-    parse_by_extension(path, &data)
+    let manifest: PackManifest = parse_by_extension(path, &data)?;
+    if manifest.schema_version != PACK_SCHEMA_VERSION {
+        return Err(anyhow!(
+            "unsupported pack schema version {}",
+            manifest.schema_version
+        ));
+    }
+    Ok(manifest)
 }
 
 pub fn resolve_pack_workflows(
@@ -64,6 +73,12 @@ pub fn verify_pack_manifest(path: impl AsRef<Path>, signing_key_hex: &str) -> Re
     }
     let sig = std::fs::read_to_string(sig_path)?;
     Ok(sig.trim().eq_ignore_ascii_case(&to_hex(&expected)))
+}
+
+pub fn pack_signature_exists(path: impl AsRef<Path>) -> bool {
+    let path = path.as_ref();
+    let sig_path = path.with_extension("sig");
+    sig_path.exists()
 }
 
 fn parse_by_extension<T: DeserializeOwned>(path: &Path, data: &str) -> Result<T> {

@@ -8,8 +8,9 @@ use phoenix_workflow_engine::{
 };
 use phoenix_host_windows::format::parse_filesystem;
 use phoenix_content::{
-    load_pack_manifest, load_workflow_definition, resolve_pack_workflows,
-    resolve_windows_image, sign_pack_manifest, verify_pack_manifest,
+    load_pack_manifest, load_workflow_definition, pack_signature_exists,
+    resolve_pack_workflows, resolve_windows_image, sign_pack_manifest,
+    verify_pack_manifest, PACK_SCHEMA_VERSION,
 };
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::{DeviceGraph, WorkflowDefinition};
@@ -295,6 +296,10 @@ enum Commands {
         /// Path to pack manifest JSON
         #[arg(long)]
         manifest: String,
+
+        /// Optional signing key hex (verifies signature if present)
+        #[arg(long)]
+        key: Option<String>,
     },
 
     /// Run all workflows listed in a pack manifest
@@ -306,6 +311,14 @@ enum Commands {
         /// Default report base for workflow runs
         #[arg(long, default_value = ".")]
         report_base: String,
+
+        /// Require pack signature verification
+        #[arg(long)]
+        require_signed: bool,
+
+        /// Signing key hex (overrides env PHOENIX_PACK_KEY)
+        #[arg(long)]
+        key: Option<String>,
     },
 
     /// Sign a pack manifest (writes .sig)
@@ -692,9 +705,10 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::PackValidate { manifest } => {
+        Commands::PackValidate { manifest, key } => {
             let manifest_path = manifest;
             let manifest_data = load_pack_manifest(&manifest_path)?;
+            println!("schema: {}", PACK_SCHEMA_VERSION);
             println!("pack: {} {}", manifest_data.name, manifest_data.version);
             if let Some(desc) = manifest_data.description {
                 println!("description: {}", desc);
@@ -704,32 +718,49 @@ fn main() -> Result<()> {
             for (path, workflow) in workflows {
                 println!("  {} ({})", workflow.name, path.display());
             }
+            let sig_present = pack_signature_exists(&manifest_path);
+            println!("signature_present: {}", sig_present);
+            if let Some(key) = resolve_pack_key(key) {
+                if sig_present {
+                    let ok = verify_pack_manifest(&manifest_path, &key)?;
+                    println!("signature_valid: {}", ok);
+                } else {
+                    println!("signature_valid: false");
+                }
+            }
             Ok(())
         }
 
         Commands::PackRun {
             manifest,
             report_base,
+            require_signed,
+            key,
         } => {
-            #[cfg(windows)]
-            {
-                let manifest_data = load_pack_manifest(&manifest)?;
-                println!("pack: {} {}", manifest_data.name, manifest_data.version);
-                let workflows = resolve_pack_workflows(&manifest)?;
-                for (path, workflow) in workflows {
-                    println!("running workflow: {} ({})", workflow.name, path.display());
-                    let result = phoenix_workflow_engine::run_workflow_definition_with_report(
-                        &workflow,
-                        report_base.clone().into(),
-                    )?;
-                    println!("  report: {}", result.report.root.display());
+            let manifest_data = load_pack_manifest(&manifest)?;
+            println!("pack: {} {}", manifest_data.name, manifest_data.version);
+            if require_signed {
+                let sig_present = pack_signature_exists(&manifest);
+                if !sig_present {
+                    return Err(anyhow!("pack signature missing"));
                 }
-                Ok(())
+                let key = resolve_pack_key(key)
+                    .ok_or_else(|| anyhow!("pack key required for signature verification"))?;
+                let ok = verify_pack_manifest(&manifest, &key)?;
+                if !ok {
+                    return Err(anyhow!("pack signature invalid"));
+                }
             }
-            #[cfg(not(windows))]
-            {
-                Err(anyhow!("Windows-first in M0"))
+            let workflows = resolve_pack_workflows(&manifest)?;
+            for (path, workflow) in workflows {
+                println!("running workflow: {} ({})", workflow.name, path.display());
+                let result = phoenix_workflow_engine::run_workflow_definition_with_report(
+                    &workflow,
+                    report_base.clone().into(),
+                )?;
+                println!("  report: {}", result.report.root.display());
             }
+            Ok(())
         }
 
         Commands::PackSign { manifest, key } => {
@@ -794,4 +825,11 @@ fn build_device_graph() -> Result<DeviceGraph> {
     {
         Err(anyhow!("unsupported OS"))
     }
+}
+
+fn resolve_pack_key(key: Option<String>) -> Option<String> {
+    if let Some(key) = key {
+        return Some(key);
+    }
+    std::env::var("PHOENIX_PACK_KEY").ok()
 }
