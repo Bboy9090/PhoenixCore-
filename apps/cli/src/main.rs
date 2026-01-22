@@ -11,7 +11,7 @@ use phoenix_content::{
     resolve_windows_image, sign_pack_manifest, verify_pack_manifest,
 };
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
-use phoenix_core::WorkflowDefinition;
+use phoenix_core::{DeviceGraph, WorkflowDefinition};
 
 #[derive(Parser)]
 #[command(name = "phoenix-cli", version, about = "Phoenix Core CLI (Windows-first)")]
@@ -273,86 +273,58 @@ fn main() -> Result<()> {
 
     match cli.cmd {
         Commands::DeviceGraph { pretty } => {
-            #[cfg(windows)]
-            {
-                let graph = phoenix_host_windows::build_device_graph()?;
-                if pretty {
-                    println!("{}", serde_json::to_string_pretty(&graph)?);
-                } else {
-                    println!("{}", serde_json::to_string(&graph)?);
-                }
-                Ok(())
+            let graph = build_device_graph()?;
+            if pretty {
+                println!("{}", serde_json::to_string_pretty(&graph)?);
+            } else {
+                println!("{}", serde_json::to_string(&graph)?);
             }
-            #[cfg(not(windows))]
-            {
-                Err(anyhow!("Windows-first in M0"))
-            }
+            Ok(())
         }
         Commands::Report { base } => {
-            #[cfg(windows)]
-            {
-                let graph = phoenix_host_windows::build_device_graph()?;
-                let key = std::env::var("PHOENIX_SIGNING_KEY").ok();
-                let paths = phoenix_report::create_report_bundle_with_meta_and_signing(
-                    base,
-                    &graph,
-                    None,
-                    None,
-                    key.as_deref(),
-                )?;
-                println!("Report created:");
-                println!("  run_id: {}", paths.run_id);
-                println!("  root:   {}", paths.root.display());
-                println!("  device_graph: {}", paths.device_graph_json.display());
-                println!("  run.json:     {}", paths.run_json.display());
-                println!("  logs:         {}", paths.logs_path.display());
-                println!("  manifest:     {}", paths.manifest_path.display());
-                if let Some(sig) = paths.signature_path.as_ref() {
-                    println!("  signature:    {}", sig.display());
-                }
-                Ok(())
+            let graph = build_device_graph()?;
+            let key = std::env::var("PHOENIX_SIGNING_KEY").ok();
+            let paths = phoenix_report::create_report_bundle_with_meta_and_signing(
+                base,
+                &graph,
+                None,
+                None,
+                key.as_deref(),
+            )?;
+            println!("Report created:");
+            println!("  run_id: {}", paths.run_id);
+            println!("  root:   {}", paths.root.display());
+            println!("  device_graph: {}", paths.device_graph_json.display());
+            println!("  run.json:     {}", paths.run_json.display());
+            println!("  logs:         {}", paths.logs_path.display());
+            println!("  manifest:     {}", paths.manifest_path.display());
+            if let Some(sig) = paths.signature_path.as_ref() {
+                println!("  signature:    {}", sig.display());
             }
-            #[cfg(not(windows))]
-            {
-                Err(anyhow!("Windows-first in M0"))
-            }
+            Ok(())
         }
 
         Commands::ReportVerify { path, key } => {
-            #[cfg(windows)]
-            {
-                let result = phoenix_report::verify_report_bundle(path, key.as_deref())?;
-                println!("verified_entries: {}", result.entries_checked);
-                println!("signature_valid: {:?}", result.signature_valid);
-                if !result.mismatches.is_empty() {
-                    println!("mismatches:");
-                    for mismatch in &result.mismatches {
-                        println!("  - {}", mismatch);
-                    }
-                }
-                if result.ok {
-                    Ok(())
-                } else {
-                    Err(anyhow!("report verification failed"))
+            let result = phoenix_report::verify_report_bundle(path, key.as_deref())?;
+            println!("verified_entries: {}", result.entries_checked);
+            println!("signature_valid: {:?}", result.signature_valid);
+            if !result.mismatches.is_empty() {
+                println!("mismatches:");
+                for mismatch in &result.mismatches {
+                    println!("  - {}", mismatch);
                 }
             }
-            #[cfg(not(windows))]
-            {
-                Err(anyhow!("Windows-first in M0"))
+            if result.ok {
+                Ok(())
+            } else {
+                Err(anyhow!("report verification failed"))
             }
         }
 
         Commands::ReportExport { path, out } => {
-            #[cfg(windows)]
-            {
-                let output = phoenix_report::export_report_zip(path, out)?;
-                println!("exported: {}", output.display());
-                Ok(())
-            }
-            #[cfg(not(windows))]
-            {
-                Err(anyhow!("Windows-first in M0"))
-            }
+            let output = phoenix_report::export_report_zip(path, out)?;
+            println!("exported: {}", output.display());
+            Ok(())
         }
         Commands::HashDisk {
             disk,
@@ -669,5 +641,24 @@ impl ProgressObserver for CliProgress {
             self.last_percent = percent;
         }
         true
+    }
+}
+
+fn build_device_graph() -> Result<DeviceGraph> {
+    #[cfg(target_os = "windows")]
+    {
+        return phoenix_host_windows::build_device_graph();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        return phoenix_host_linux::build_device_graph();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        return phoenix_host_macos::build_device_graph();
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+    {
+        Err(anyhow!("unsupported OS"))
     }
 }

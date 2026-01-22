@@ -5,6 +5,8 @@ Goal: every capability Phoenix provides is native.
 | Capability | Current implementation (3rd-party name) | Dependency type | Risk (license / reliability / security) | Replacement module | Replacement milestone (date / version) |
 |---|---|---|---|---|---|
 | Disk enumeration + removable detection | PowerShell CIM (Get-CimInstance) + psutil in `src/core/hardware_detector.py` | Runtime | Shell dependency; brittle output parsing; elevated privileges | phoenix-host-windows | M0 |
+| Disk enumeration (Linux) | /sys + /proc mounts | Runtime | Needs hardened parsing | phoenix-host-linux | M0 |
+| Disk enumeration (macOS) | getfsstat + sysctl | Runtime | Limited removable detection | phoenix-host-macos | M0 |
 | Partitioning + formatting | diskpart.exe / format.com in `src/core/usb_builder.py` | Runtime | Destructive; external tooling; OS-version coupling | phoenix-packs/winpe | M1 |
 | Volume mounting | mountvol (Windows), diskutil (macOS), mount/umount (Linux) in `src/recovery/mount.py` | Runtime | Shell dependency; privilege risk; inconsistent behaviors | phoenix-host-windows (Windows), future providers | M0 (Windows), M2 (cross-platform) |
 | Imaging read-only probe + hashing | Python file I/O + PowerShell Dismount-Volume in `src/core/disk_manager.py` | Runtime | Shell dependency; limited verification; handle conflicts | phoenix-imaging | M0 |

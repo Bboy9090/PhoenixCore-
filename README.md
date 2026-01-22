@@ -32,6 +32,8 @@ phoenix-cli workflow-run --file workflow.json --report-base .
 ├── crates/
 │   ├── core/
 │   ├── content/
+│   ├── host-linux/
+│   ├── host-macos/
 │   ├── host-windows/
 │   ├── imaging/
 │   ├── wim/

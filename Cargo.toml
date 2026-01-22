@@ -2,6 +2,8 @@
 members = [
     "crates/core",
     "crates/content",
+    "crates/host-linux",
+    "crates/host-macos",
     "crates/host-windows",
     "crates/imaging",
     "crates/wim",

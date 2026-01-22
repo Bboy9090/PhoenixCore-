@@ -17,6 +17,10 @@ Disk:
 - is_system_disk: true if contains system volume
 - partitions: mapped partitions / mount points
 
+Platform notes:
+- Linux: disk id like "sda" or "nvme0n1", partition id like "sda1" or "nvme0n1p1".
+- macOS: disk id like "disk1", partition id like "disk1s1".
+
 Partition:
 - id: stable partition id (Windows: DiskNPartitionM)
 - label: filesystem label
