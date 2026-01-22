@@ -84,6 +84,9 @@ Workflow runner:
 Validate:
 - `phoenix-cli pack-validate --manifest pack.json`
 
+Run:
+- `phoenix-cli pack-run --manifest pack.json --report-base .`
+
 ## References
 - docs/device-graph.md
 - docs/no-wrapper-policy.md

@@ -219,6 +219,17 @@ enum Commands {
         #[arg(long)]
         manifest: String,
     },
+
+    /// Run all workflows listed in a pack manifest
+    PackRun {
+        /// Path to pack manifest JSON
+        #[arg(long)]
+        manifest: String,
+
+        /// Default report base for workflow runs
+        #[arg(long, default_value = ".")]
+        report_base: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -541,6 +552,31 @@ fn main() -> Result<()> {
                 println!("  {} ({})", workflow.name, path.display());
             }
             Ok(())
+        }
+
+        Commands::PackRun {
+            manifest,
+            report_base,
+        } => {
+            #[cfg(windows)]
+            {
+                let manifest_data = load_pack_manifest(&manifest)?;
+                println!("pack: {} {}", manifest_data.name, manifest_data.version);
+                let workflows = resolve_pack_workflows(&manifest)?;
+                for (path, workflow) in workflows {
+                    println!("running workflow: {} ({})", workflow.name, path.display());
+                    let result = phoenix_workflow_engine::run_workflow_definition_with_report(
+                        &workflow,
+                        report_base.clone().into(),
+                    )?;
+                    println!("  report: {}", result.report.root.display());
+                }
+                Ok(())
+            }
+            #[cfg(not(windows))]
+            {
+                Err(anyhow!("Windows-first in M0"))
+            }
         }
     }
 }
