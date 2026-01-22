@@ -296,6 +296,76 @@ enum Commands {
         format_label: Option<String>,
     },
 
+    /// Write a raw Linux image to a device (destructive)
+    LinuxWriteImage {
+        /// Source image file (iso/img)
+        #[arg(long)]
+        source: String,
+
+        /// Target block device (e.g. /dev/sdb)
+        #[arg(long)]
+        device: String,
+
+        /// Base path for reports (default: current directory)
+        #[arg(long, default_value = ".")]
+        report_base: String,
+
+        /// Force destructive operations
+        #[arg(long)]
+        force: bool,
+
+        /// Confirmation token (PHX-...)
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Execute write (omit for dry-run)
+        #[arg(long)]
+        execute: bool,
+
+        /// Verify by hashing device after write
+        #[arg(long)]
+        verify: bool,
+
+        /// Chunk size (default 8MB)
+        #[arg(long, default_value_t = 8 * 1024 * 1024)]
+        chunk_size: u64,
+    },
+
+    /// Write a raw macOS image to a device (destructive)
+    MacosWriteImage {
+        /// Source image file (iso/img)
+        #[arg(long)]
+        source: String,
+
+        /// Target block device (e.g. /dev/disk2)
+        #[arg(long)]
+        device: String,
+
+        /// Base path for reports (default: current directory)
+        #[arg(long, default_value = ".")]
+        report_base: String,
+
+        /// Force destructive operations
+        #[arg(long)]
+        force: bool,
+
+        /// Confirmation token (PHX-...)
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Execute write (omit for dry-run)
+        #[arg(long)]
+        execute: bool,
+
+        /// Verify by hashing device after write
+        #[arg(long)]
+        verify: bool,
+
+        /// Chunk size (default 8MB)
+        #[arg(long, default_value_t = 8 * 1024 * 1024)]
+        chunk_size: u64,
+    },
+
     /// Run a workflow definition JSON file
     WorkflowRun {
         /// Path to workflow JSON file
@@ -709,6 +779,80 @@ fn main() -> Result<()> {
                 println!("  target_mount: {}", result.target_mount.display());
                 println!("  copied_files: {}", result.copied_files);
                 println!("  copied_bytes: {}", result.copied_bytes);
+                println!("  report_root: {}", result.report.root.display());
+                Ok(())
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                Err(anyhow!("macos-only command"))
+            }
+        }
+
+        Commands::LinuxWriteImage {
+            source,
+            device,
+            report_base,
+            force,
+            token,
+            execute,
+            verify,
+            chunk_size,
+        } => {
+            #[cfg(target_os = "linux")]
+            {
+                let params = phoenix_workflow_engine::UnixWriteImageParams {
+                    source_image: source.into(),
+                    target_device: device.into(),
+                    report_base: report_base.into(),
+                    force,
+                    confirmation_token: token,
+                    dry_run: !execute,
+                    verify,
+                    chunk_size,
+                };
+                let result = phoenix_workflow_engine::run_unix_write_image(&params)?;
+                println!("Linux image write complete:");
+                println!("  dry_run: {}", result.dry_run);
+                println!("  bytes_written: {}", result.bytes_written);
+                println!("  sha256: {}", result.sha256);
+                println!("  verify_ok: {:?}", result.verify_ok);
+                println!("  report_root: {}", result.report.root.display());
+                Ok(())
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                Err(anyhow!("linux-only command"))
+            }
+        }
+
+        Commands::MacosWriteImage {
+            source,
+            device,
+            report_base,
+            force,
+            token,
+            execute,
+            verify,
+            chunk_size,
+        } => {
+            #[cfg(target_os = "macos")]
+            {
+                let params = phoenix_workflow_engine::UnixWriteImageParams {
+                    source_image: source.into(),
+                    target_device: device.into(),
+                    report_base: report_base.into(),
+                    force,
+                    confirmation_token: token,
+                    dry_run: !execute,
+                    verify,
+                    chunk_size,
+                };
+                let result = phoenix_workflow_engine::run_unix_write_image(&params)?;
+                println!("macOS image write complete:");
+                println!("  dry_run: {}", result.dry_run);
+                println!("  bytes_written: {}", result.bytes_written);
+                println!("  sha256: {}", result.sha256);
+                println!("  verify_ok: {:?}", result.verify_ok);
                 println!("  report_root: {}", result.report.root.display());
                 Ok(())
             }

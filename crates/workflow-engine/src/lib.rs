@@ -7,7 +7,10 @@ use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
 use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
 use phoenix_host_windows::space::free_space_bytes;
-use phoenix_imaging::{hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan};
+use phoenix_imaging::{
+    hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan,
+    write_image_to_device,
+};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::{DeviceGraph, WorkflowDefinition, WORKFLOW_SCHEMA_VERSION};
 use phoenix_fs_fat32::format_fat32;
@@ -66,6 +69,27 @@ pub struct UnixInstallerUsbParams {
     pub format_device: Option<PathBuf>,
     pub format_size_bytes: Option<u64>,
     pub format_label: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnixWriteImageParams {
+    pub source_image: PathBuf,
+    pub target_device: PathBuf,
+    pub report_base: PathBuf,
+    pub force: bool,
+    pub confirmation_token: Option<String>,
+    pub dry_run: bool,
+    pub verify: bool,
+    pub chunk_size: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnixWriteImageResult {
+    pub report: ReportPaths,
+    pub bytes_written: u64,
+    pub sha256: String,
+    pub verify_ok: Option<bool>,
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -546,6 +570,96 @@ pub fn run_unix_installer_usb(params: &UnixInstallerUsbParams) -> Result<UnixIns
     })
 }
 
+pub fn run_unix_write_image(params: &UnixWriteImageParams) -> Result<UnixWriteImageResult> {
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        return Err(anyhow!("unix image writer requires linux or macos"));
+    }
+
+    let graph = build_device_graph()?;
+    let disk_id = disk_id_from_device_path(&params.target_device)
+        .ok_or_else(|| anyhow!("unsupported device path"))?;
+    let disk = graph
+        .disks
+        .iter()
+        .find(|disk| disk.id.eq_ignore_ascii_case(&disk_id))
+        .ok_or_else(|| anyhow!("disk not found: {}", disk_id))?;
+
+    if disk.is_system_disk {
+        return Err(anyhow!("refusing to target system disk: {}", disk.id));
+    }
+    if !disk.removable {
+        return Err(anyhow!(
+            "target disk is not marked removable: {}",
+            disk.id
+        ));
+    }
+
+    let mut logs = Vec::new();
+    logs.push("workflow=unix-write-image".to_string());
+    logs.push(format!("target_device={}", params.target_device.display()));
+    logs.push(format!("source_image={}", params.source_image.display()));
+    logs.push(format!("verify={}", params.verify));
+    logs.push(format!("dry_run={}", params.dry_run));
+
+    let mut bytes_written = 0u64;
+    let mut sha256 = String::new();
+    let mut verify_ok = None;
+
+    if !params.dry_run {
+        let ctx = SafetyContext {
+            force_mode: params.force,
+            confirmation_token: params.confirmation_token.clone(),
+        };
+        match can_write_to_disk(&ctx, disk.is_system_disk) {
+            SafetyDecision::Allow => {}
+            SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
+        }
+
+        let result = write_image_to_device(
+            &params.source_image,
+            &params.target_device,
+            params.chunk_size,
+            params.verify,
+        )?;
+        bytes_written = result.bytes_written;
+        sha256 = result.sha256;
+        verify_ok = result.verify_ok;
+        logs.push(format!("bytes_written={}", bytes_written));
+        logs.push(format!("sha256={}", sha256));
+        if let Some(ok) = verify_ok {
+            logs.push(format!("verify_ok={}", ok));
+        }
+    }
+
+    let meta = serde_json::json!({
+        "workflow": "unix-write-image",
+        "target_device": params.target_device.display().to_string(),
+        "source_image": params.source_image.display().to_string(),
+        "bytes_written": bytes_written,
+        "sha256": sha256,
+        "verify": params.verify,
+        "verify_ok": verify_ok,
+        "dry_run": params.dry_run
+    });
+
+    let report = create_report_bundle_with_meta_and_signing(
+        &params.report_base,
+        &graph,
+        Some(meta),
+        Some(&logs.join("\n")),
+        signing_key_from_env().as_deref(),
+    )?;
+
+    Ok(UnixWriteImageResult {
+        report,
+        bytes_written,
+        sha256,
+        verify_ok,
+        dry_run: params.dry_run,
+    })
+}
+
 #[derive(Debug, Clone)]
 pub struct WorkflowStepResult {
     pub id: String,
@@ -604,6 +718,26 @@ pub fn run_workflow_definition(
             "macos_installer_usb" => {
                 let params = build_unix_usb_params(&step.params, &base)?;
                 let result = run_unix_installer_usb(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
+            "linux_write_image" => {
+                let params = build_unix_write_params(&step.params, &base)?;
+                let result = run_unix_write_image(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
+            "macos_write_image" => {
+                let params = build_unix_write_params(&step.params, &base)?;
+                let result = run_unix_write_image(&params)?;
                 results.push(WorkflowStepResult {
                     id: step.id.clone(),
                     action: step.action.clone(),
@@ -735,6 +869,16 @@ fn validate_step(step: &phoenix_core::WorkflowStep) -> Result<()> {
             ensure_os("macos")?;
             require_string(&step.params, "source_path")?;
             require_string(&step.params, "target_mount")?;
+        }
+        "linux_write_image" => {
+            ensure_os("linux")?;
+            require_string(&step.params, "source_image")?;
+            require_string(&step.params, "target_device")?;
+        }
+        "macos_write_image" => {
+            ensure_os("macos")?;
+            require_string(&step.params, "source_image")?;
+            require_string(&step.params, "target_device")?;
         }
         "report_verify" => {
             require_string(&step.params, "path")?;
@@ -1152,6 +1296,27 @@ fn find_disk_by_mount<'a>(graph: &'a DeviceGraph, mount: &Path) -> Option<&'a ph
     })
 }
 
+fn disk_id_from_device_path(path: &Path) -> Option<String> {
+    let name = path.file_name()?.to_string_lossy().to_string();
+    if name.starts_with("disk") {
+        if let Some(idx) = name.find('s') {
+            return Some(name[..idx].to_string());
+        }
+        return Some(name);
+    }
+    if name.starts_with("nvme") && name.contains('p') {
+        if let Some(idx) = name.rfind('p') {
+            return Some(name[..idx].to_string());
+        }
+    }
+    let trimmed = name.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
+
 fn free_space_bytes(path: &Path) -> Result<Option<u64>> {
     #[cfg(unix)]
     {
@@ -1398,6 +1563,32 @@ fn build_unix_usb_params(value: &serde_json::Value, default_report: &Path) -> Re
         format_device: optional_string(value, "format_device").map(PathBuf::from),
         format_size_bytes: value.get("format_size_bytes").and_then(|v| v.as_u64()),
         format_label: optional_string(value, "format_label").map(str::to_string),
+    })
+}
+
+fn build_unix_write_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<UnixWriteImageParams> {
+    let source_image = PathBuf::from(require_string(value, "source_image")?);
+    let target_device = PathBuf::from(require_string(value, "target_device")?);
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+    let chunk_size = value
+        .get("chunk_size")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(8 * 1024 * 1024);
+
+    Ok(UnixWriteImageParams {
+        source_image,
+        target_device,
+        report_base,
+        force: optional_bool(value, "force", false),
+        confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
+        dry_run: optional_bool(value, "dry_run", true),
+        verify: optional_bool(value, "verify", false),
+        chunk_size,
     })
 }
 

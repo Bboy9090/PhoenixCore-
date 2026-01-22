@@ -64,6 +64,8 @@ Supported actions:
 - `windows_apply_image`
 - `linux_installer_usb`
 - `macos_installer_usb`
+- `linux_write_image`
+- `macos_write_image`
 - `report_verify`
 - `disk_hash_report`
 
@@ -81,6 +83,21 @@ Example Linux installer step:
     "format_device": "/dev/sdb",
     "format_size_bytes": 16008609792,
     "format_label": "PHOENIX"
+  }
+}
+```
+
+Example Linux write-image step:
+```json
+{
+  "id": "linux-write",
+  "action": "linux_write_image",
+  "params": {
+    "source_image": "/path/to/image.iso",
+    "target_device": "/dev/sdb",
+    "force": true,
+    "confirmation_token": "PHX-...",
+    "verify": true
   }
 }
 ```
