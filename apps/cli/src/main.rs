@@ -120,6 +120,10 @@ enum Commands {
         /// Driver target subdirectory (relative to USB root)
         #[arg(long)]
         drivers_target: Option<String>,
+
+        /// Emit SHA-256 copy manifest into report
+        #[arg(long)]
+        hash_manifest: bool,
     },
 
     /// List images in a WIM/ESD file
@@ -315,6 +319,7 @@ fn main() -> Result<()> {
             label,
             drivers,
             drivers_target,
+            hash_manifest,
         } => {
             #[cfg(windows)]
             {
@@ -334,6 +339,7 @@ fn main() -> Result<()> {
                     label,
                     driver_source: drivers.map(Into::into),
                     driver_target: drivers_target.map(Into::into),
+                    hash_manifest,
                 };
                 let result = run_windows_installer_usb(&params)?;
                 println!("Workflow complete:");

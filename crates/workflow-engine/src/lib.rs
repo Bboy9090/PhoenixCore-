@@ -1,10 +1,14 @@
 use anyhow::{anyhow, Context, Result};
-use phoenix_report::{create_report_bundle_with_meta_and_signing, ReportPaths};
+use phoenix_report::{
+    create_report_bundle_with_meta_and_signing, create_report_bundle_with_meta_signing_and_artifacts,
+    ReportArtifact, ReportPaths,
+};
 use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
 use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::WorkflowDefinition;
+use sha2::{Digest, Sha256};
 use std::time::Instant;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -33,6 +37,7 @@ pub struct WindowsInstallerUsbParams {
     pub label: Option<String>,
     pub driver_source: Option<PathBuf>,
     pub driver_target: Option<PathBuf>,
+    pub hash_manifest: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -167,6 +172,10 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     let mut copied_bytes = 0u64;
     let mut driver_files = 0usize;
     let mut driver_bytes = 0u64;
+    let mut copy_manifest = Vec::new();
+    let mut driver_manifest = Vec::new();
+    let mut artifacts = Vec::new();
+    let mut artifact_names = Vec::new();
 
     if params.filesystem.as_str().eq_ignore_ascii_case("FAT32") {
         let max = max_file_size(&files);
@@ -229,6 +238,14 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
             })?;
             copied_files += 1;
             copied_bytes = copied_bytes.saturating_add(entry.size);
+            if params.hash_manifest {
+                let hash = hash_file(&entry.absolute_path)?;
+                copy_manifest.push(CopyManifestEntry {
+                    path: entry.relative_path.to_string_lossy().to_string(),
+                    bytes: entry.size,
+                    sha256: hash,
+                });
+            }
         }
         logs.push("copy_complete".to_string());
 
@@ -268,8 +285,35 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
                 })?;
                 driver_files += 1;
                 driver_bytes = driver_bytes.saturating_add(entry.size);
+                if params.hash_manifest {
+                    let hash = hash_file(&entry.absolute_path)?;
+                    driver_manifest.push(CopyManifestEntry {
+                        path: entry.relative_path.to_string_lossy().to_string(),
+                        bytes: entry.size,
+                        sha256: hash,
+                    });
+                }
             }
             logs.push("driver_copy_complete".to_string());
+        }
+
+        if params.hash_manifest {
+            if !copy_manifest.is_empty() {
+                let bytes = serde_json::to_vec_pretty(&copy_manifest)?;
+                artifacts.push(ReportArtifact {
+                    name: "copy_manifest.json".to_string(),
+                    bytes,
+                });
+                artifact_names.push("copy_manifest.json".to_string());
+            }
+            if !driver_manifest.is_empty() {
+                let bytes = serde_json::to_vec_pretty(&driver_manifest)?;
+                artifacts.push(ReportArtifact {
+                    name: "driver_manifest.json".to_string(),
+                    bytes,
+                });
+                artifact_names.push("driver_manifest.json".to_string());
+            }
         }
     } else {
         logs.push("dry_run=true".to_string());
@@ -286,15 +330,17 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         "copied_bytes": copied_bytes,
         "driver_files": driver_files,
         "driver_bytes": driver_bytes,
+        "artifacts": artifact_names,
         "dry_run": params.dry_run
     });
 
-    let report = create_report_bundle_with_meta_and_signing(
+    let report = create_report_bundle_with_meta_signing_and_artifacts(
         &params.report_base,
         &graph,
         Some(meta),
         Some(&logs.join("\n")),
         signing_key_from_env().as_deref(),
+        &artifacts,
     )?;
 
     Ok(WindowsInstallerUsbResult {
@@ -688,6 +734,13 @@ fn max_file_size(entries: &[FileEntry]) -> u64 {
     entries.iter().map(|entry| entry.size).max().unwrap_or(0)
 }
 
+#[derive(serde::Serialize)]
+struct CopyManifestEntry {
+    path: String,
+    bytes: u64,
+    sha256: String,
+}
+
 fn ensure_boot_files(entries: &[FileEntry]) -> Result<()> {
     let mut has_boot_wim = false;
     let mut has_efi = false;
@@ -708,6 +761,29 @@ fn ensure_boot_files(entries: &[FileEntry]) -> Result<()> {
         return Err(anyhow!("missing EFI bootloader in installer source"));
     }
     Ok(())
+}
+
+fn hash_file(path: &Path) -> Result<String> {
+    use std::io::Read;
+    let mut file = fs::File::open(path).with_context(|| format!("open {}", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0u8; 1024 * 1024];
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(to_hex(&hasher.finalize()))
+}
+
+fn to_hex(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push_str(&format!("{:02x}", byte));
+    }
+    out
 }
 
 fn default_driver_target() -> PathBuf {
@@ -737,6 +813,7 @@ fn build_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<
         label,
         driver_source: optional_string(value, "driver_source").map(PathBuf::from),
         driver_target: optional_string(value, "driver_target").map(PathBuf::from),
+        hash_manifest: optional_bool(value, "hash_manifest", false),
     })
 }
 

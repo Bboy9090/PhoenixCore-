@@ -16,6 +16,12 @@ pub struct ReportPaths {
     pub signature_path: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ReportArtifact {
+    pub name: String,
+    pub bytes: Vec<u8>,
+}
+
 pub fn create_report_bundle(base: impl AsRef<Path>, graph: &DeviceGraph) -> Result<ReportPaths> {
     create_report_bundle_with_meta(base, graph, None, None)
 }
@@ -35,6 +41,24 @@ pub fn create_report_bundle_with_meta_and_signing(
     extra_meta: Option<Value>,
     logs: Option<&str>,
     signing_key_hex: Option<&str>,
+) -> Result<ReportPaths> {
+    create_report_bundle_with_meta_signing_and_artifacts(
+        base,
+        graph,
+        extra_meta,
+        logs,
+        signing_key_hex,
+        &[],
+    )
+}
+
+pub fn create_report_bundle_with_meta_signing_and_artifacts(
+    base: impl AsRef<Path>,
+    graph: &DeviceGraph,
+    extra_meta: Option<Value>,
+    logs: Option<&str>,
+    signing_key_hex: Option<&str>,
+    artifacts: &[ReportArtifact],
 ) -> Result<ReportPaths> {
     let run_id = Uuid::new_v4().to_string();
     let root = base.as_ref().join("reports").join(&run_id);
@@ -69,7 +93,23 @@ pub fn create_report_bundle_with_meta_and_signing(
     fs::write(&run_json, serde_json::to_vec_pretty(&meta)?)?;
     fs::write(&logs_path, logs.unwrap_or_default())?;
 
-    let manifest = build_manifest(&run_id, &device_graph_json, &run_json, &logs_path)?;
+    let mut artifact_paths = Vec::new();
+    for artifact in artifacts {
+        if artifact.name.contains('/') || artifact.name.contains('\\') {
+            return Err(anyhow!("artifact name must be a filename only"));
+        }
+        let path = root.join(&artifact.name);
+        fs::write(&path, &artifact.bytes)?;
+        artifact_paths.push(path);
+    }
+
+    let manifest = build_manifest(
+        &run_id,
+        &device_graph_json,
+        &run_json,
+        &logs_path,
+        &artifact_paths,
+    )?;
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)?;
     fs::write(&manifest_path, &manifest_bytes)?;
 
@@ -118,9 +158,19 @@ fn build_manifest(
     device_graph: &Path,
     run_json: &Path,
     logs: &Path,
+    artifacts: &[PathBuf],
 ) -> Result<Manifest> {
     let mut entries = Vec::new();
     for path in [device_graph, run_json, logs] {
+        let data = fs::read(path)?;
+        let hash = Sha256::digest(&data);
+        entries.push(ManifestEntry {
+            path: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            bytes: data.len() as u64,
+            sha256: to_hex(&hash),
+        });
+    }
+    for path in artifacts {
         let data = fs::read(path)?;
         let hash = Sha256::digest(&data);
         entries.push(ManifestEntry {

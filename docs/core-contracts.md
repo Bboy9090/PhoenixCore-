@@ -45,6 +45,7 @@ pub trait ImagingProvider {
         "filesystem": "fat32",
         "driver_source": "D:/Drivers",
         "driver_target": "sources/$OEM$/$1/Drivers",
+        "hash_manifest": true,
         "force": true,
         "confirmation_token": "PHX-..."
       }
