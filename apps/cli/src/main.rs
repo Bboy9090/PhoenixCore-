@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use phoenix_imaging::{HashProgress, ProgressObserver};
 use phoenix_workflow_engine::{run_windows_installer_usb, WindowsInstallerUsbParams};
 use phoenix_host_windows::format::parse_filesystem;
+use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 
 #[derive(Parser)]
 #[command(name = "phoenix-cli", version, about = "Phoenix Core CLI (Windows-first)")]
@@ -95,6 +96,28 @@ enum Commands {
         /// Volume label for formatting
         #[arg(long)]
         label: Option<String>,
+    },
+
+    /// List images in a WIM/ESD file
+    WimInfo {
+        /// Path to .wim or .esd file
+        #[arg(long)]
+        path: String,
+    },
+
+    /// Apply a WIM/ESD image to a target directory
+    WimApply {
+        /// Path to .wim or .esd file
+        #[arg(long)]
+        path: String,
+
+        /// Image index (1-based)
+        #[arg(long)]
+        index: u32,
+
+        /// Target directory (must exist)
+        #[arg(long)]
+        target: String,
     },
 }
 
@@ -211,6 +234,43 @@ fn main() -> Result<()> {
                 println!("  copied_bytes: {}", result.copied_bytes);
                 println!("  report_root: {}", result.report.root.display());
                 println!("  logs: {}", result.report.logs_path.display());
+                Ok(())
+            }
+            #[cfg(not(windows))]
+            {
+                Err(anyhow!("Windows-first in M0"))
+            }
+        }
+
+        Commands::WimInfo { path } => {
+            #[cfg(windows)]
+            {
+                let images = wim_list_images(path)?;
+                for image in images {
+                    println!("Image {}", image.index);
+                    if let Some(name) = image.name {
+                        println!("  name: {}", name);
+                    }
+                    if let Some(desc) = image.description {
+                        println!("  description: {}", desc);
+                    }
+                    if let Some(bytes) = image.total_bytes {
+                        println!("  total_bytes: {}", bytes);
+                    }
+                }
+                Ok(())
+            }
+            #[cfg(not(windows))]
+            {
+                Err(anyhow!("Windows-first in M0"))
+            }
+        }
+
+        Commands::WimApply { path, index, target } => {
+            #[cfg(windows)]
+            {
+                wim_apply_image(path, index, target)?;
+                println!("WIM apply complete.");
                 Ok(())
             }
             #[cfg(not(windows))]

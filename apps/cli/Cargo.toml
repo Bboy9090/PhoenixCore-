@@ -11,3 +11,4 @@ phoenix-host-windows = { path = "../../crates/host-windows" }
 phoenix-report = { path = "../../crates/report" }
 phoenix-imaging = { path = "../../crates/imaging" }
 phoenix-workflow-engine = { path = "../../crates/workflow-engine" }
+phoenix-wim = { path = "../../crates/wim" }
