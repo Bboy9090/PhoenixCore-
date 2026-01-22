@@ -87,6 +87,14 @@ Validate:
 Run:
 - `phoenix-cli pack-run --manifest pack.json --report-base .`
 
+Sign:
+- `phoenix-cli pack-sign --manifest pack.json --key <hex>`
+
+Verify:
+- `phoenix-cli pack-verify --manifest pack.json --key <hex>`
+
+Workflow files can be JSON or YAML.
+
 ## References
 - docs/device-graph.md
 - docs/no-wrapper-policy.md
@@ -98,3 +106,6 @@ signature is produced.
 
 Verification:
 - `phoenix-cli report-verify --path reports/<run_id> --key <hex>`
+
+Export:
+- `phoenix-cli report-export --path reports/<run_id> --out report.zip`

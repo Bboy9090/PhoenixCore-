@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Result};
 use phoenix_core::WorkflowDefinition;
+use serde::de::DeserializeOwned;
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -15,8 +17,7 @@ pub struct PackManifest {
 pub fn load_pack_manifest(path: impl AsRef<Path>) -> Result<PackManifest> {
     let path = path.as_ref();
     let data = std::fs::read_to_string(path)?;
-    let manifest: PackManifest = serde_json::from_str(&data)?;
-    Ok(manifest)
+    parse_by_extension(path, &data)
 }
 
 pub fn resolve_pack_workflows(
@@ -30,11 +31,104 @@ pub fn resolve_pack_workflows(
     let mut workflows = Vec::new();
     for workflow_path in &manifest.workflows {
         let path = base.join(workflow_path);
-        let data = std::fs::read_to_string(&path)?;
-        let workflow: WorkflowDefinition = serde_json::from_str(&data)?;
+        let workflow = load_workflow_definition(&path)?;
         workflows.push((path, workflow));
     }
     Ok(workflows)
+}
+
+pub fn load_workflow_definition(path: impl AsRef<Path>) -> Result<WorkflowDefinition> {
+    let path = path.as_ref();
+    let data = std::fs::read_to_string(path)?;
+    parse_by_extension(path, &data)
+}
+
+pub fn sign_pack_manifest(path: impl AsRef<Path>, signing_key_hex: &str) -> Result<PathBuf> {
+    let path = path.as_ref();
+    let data = std::fs::read(path)?;
+    let key = decode_hex(signing_key_hex)?;
+    let signature = hmac_sha256(&key, &data);
+    let sig_path = path.with_extension("sig");
+    std::fs::write(&sig_path, to_hex(&signature))?;
+    Ok(sig_path)
+}
+
+pub fn verify_pack_manifest(path: impl AsRef<Path>, signing_key_hex: &str) -> Result<bool> {
+    let path = path.as_ref();
+    let data = std::fs::read(path)?;
+    let key = decode_hex(signing_key_hex)?;
+    let expected = hmac_sha256(&key, &data);
+    let sig_path = path.with_extension("sig");
+    if !sig_path.exists() {
+        return Err(anyhow!("pack signature not found"));
+    }
+    let sig = std::fs::read_to_string(sig_path)?;
+    Ok(sig.trim().eq_ignore_ascii_case(&to_hex(&expected)))
+}
+
+fn parse_by_extension<T: DeserializeOwned>(path: &Path, data: &str) -> Result<T> {
+    let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+    if ext.eq_ignore_ascii_case("yaml") || ext.eq_ignore_ascii_case("yml") {
+        let value = serde_yaml::from_str(data)?;
+        Ok(value)
+    } else {
+        let value = serde_json::from_str(data)?;
+        Ok(value)
+    }
+}
+
+fn decode_hex(value: &str) -> Result<Vec<u8>> {
+    let value = value.trim();
+    if value.len() % 2 != 0 {
+        return Err(anyhow!("signing key hex must be even length"));
+    }
+    let raw = value.as_bytes();
+    let mut bytes = Vec::with_capacity(raw.len() / 2);
+    for idx in (0..raw.len()).step_by(2) {
+        let hex = std::str::from_utf8(&raw[idx..idx + 2]).map_err(|_| anyhow!("invalid hex"))?;
+        let byte = u8::from_str_radix(hex, 16).map_err(|_| anyhow!("invalid hex"))?;
+        bytes.push(byte);
+    }
+    Ok(bytes)
+}
+
+fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+    let mut key_block = [0u8; 64];
+    if key.len() > key_block.len() {
+        let hash = Sha256::digest(key);
+        key_block[..hash.len()].copy_from_slice(&hash);
+    } else {
+        key_block[..key.len()].copy_from_slice(key);
+    }
+
+    let mut o_key = [0u8; 64];
+    let mut i_key = [0u8; 64];
+    for i in 0..64 {
+        o_key[i] = key_block[i] ^ 0x5c;
+        i_key[i] = key_block[i] ^ 0x36;
+    }
+
+    let mut inner = Sha256::new();
+    inner.update(&i_key);
+    inner.update(message);
+    let inner_hash = inner.finalize();
+
+    let mut outer = Sha256::new();
+    outer.update(&o_key);
+    outer.update(inner_hash);
+    let digest = outer.finalize();
+
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&digest);
+    out
+}
+
+fn to_hex(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push_str(&format!("{:02x}", byte));
+    }
+    out
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

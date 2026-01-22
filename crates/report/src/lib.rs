@@ -3,8 +3,11 @@ use phoenix_core::DeviceGraph;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
+use zip::write::FileOptions;
+use zip::ZipWriter;
 
 pub struct ReportPaths {
     pub run_id: String,
@@ -290,4 +293,44 @@ pub fn verify_report_bundle(
         mismatches,
         signature_valid,
     })
+}
+
+pub fn export_report_zip(
+    report_root: impl AsRef<Path>,
+    output_path: impl AsRef<Path>,
+) -> Result<PathBuf> {
+    let root = report_root.as_ref();
+    let output_path = output_path.as_ref().to_path_buf();
+    let file = fs::File::create(&output_path)?;
+    let mut zip = ZipWriter::new(file);
+    let options = FileOptions::default();
+    add_dir_to_zip(root, root, &mut zip, options)?;
+    zip.finish()?;
+    Ok(output_path)
+}
+
+fn add_dir_to_zip(
+    base: &Path,
+    current: &Path,
+    zip: &mut ZipWriter<fs::File>,
+    options: FileOptions,
+) -> Result<()> {
+    for entry in fs::read_dir(current)? {
+        let entry = entry?;
+        let path = entry.path();
+        let meta = entry.metadata()?;
+        if meta.is_dir() {
+            add_dir_to_zip(base, &path, zip, options)?;
+        } else if meta.is_file() {
+            let rel = path
+                .strip_prefix(base)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            zip.start_file(rel, options)?;
+            let data = fs::read(&path)?;
+            zip.write_all(&data)?;
+        }
+    }
+    Ok(())
 }

@@ -6,7 +6,10 @@ use phoenix_workflow_engine::{
     DiskHashReportParams, WindowsApplyImageParams, WindowsInstallerUsbParams,
 };
 use phoenix_host_windows::format::parse_filesystem;
-use phoenix_content::{resolve_pack_workflows, resolve_windows_image, load_pack_manifest};
+use phoenix_content::{
+    load_pack_manifest, load_workflow_definition, resolve_pack_workflows,
+    resolve_windows_image, sign_pack_manifest, verify_pack_manifest,
+};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::WorkflowDefinition;
 
@@ -42,6 +45,17 @@ enum Commands {
         /// Signing key hex for signature verification
         #[arg(long)]
         key: Option<String>,
+    },
+
+    /// Export a report bundle as zip
+    ReportExport {
+        /// Path to reports/<run_id> directory
+        #[arg(long)]
+        path: String,
+
+        /// Output zip file path
+        #[arg(long)]
+        out: String,
     },
 
     /// Read-only hash chunks from a PhysicalDrive (Windows)
@@ -230,6 +244,28 @@ enum Commands {
         #[arg(long, default_value = ".")]
         report_base: String,
     },
+
+    /// Sign a pack manifest (writes .sig)
+    PackSign {
+        /// Path to pack manifest JSON/YAML
+        #[arg(long)]
+        manifest: String,
+
+        /// Signing key hex
+        #[arg(long)]
+        key: String,
+    },
+
+    /// Verify a pack manifest signature
+    PackVerify {
+        /// Path to pack manifest JSON/YAML
+        #[arg(long)]
+        manifest: String,
+
+        /// Signing key hex
+        #[arg(long)]
+        key: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -299,6 +335,19 @@ fn main() -> Result<()> {
                 } else {
                     Err(anyhow!("report verification failed"))
                 }
+            }
+            #[cfg(not(windows))]
+            {
+                Err(anyhow!("Windows-first in M0"))
+            }
+        }
+
+        Commands::ReportExport { path, out } => {
+            #[cfg(windows)]
+            {
+                let output = phoenix_report::export_report_zip(path, out)?;
+                println!("exported: {}", output.display());
+                Ok(())
             }
             #[cfg(not(windows))]
             {
@@ -483,8 +532,7 @@ fn main() -> Result<()> {
         Commands::WorkflowRun { file, report_base } => {
             #[cfg(windows)]
             {
-                let contents = std::fs::read_to_string(&file)?;
-                let definition: WorkflowDefinition = serde_json::from_str(&contents)?;
+                let definition: WorkflowDefinition = load_workflow_definition(&file)?;
                 let result = phoenix_workflow_engine::run_workflow_definition_with_report(
                     &definition,
                     report_base.into(),
@@ -576,6 +624,22 @@ fn main() -> Result<()> {
             #[cfg(not(windows))]
             {
                 Err(anyhow!("Windows-first in M0"))
+            }
+        }
+
+        Commands::PackSign { manifest, key } => {
+            let sig_path = sign_pack_manifest(&manifest, &key)?;
+            println!("signature: {}", sig_path.display());
+            Ok(())
+        }
+
+        Commands::PackVerify { manifest, key } => {
+            let ok = verify_pack_manifest(&manifest, &key)?;
+            if ok {
+                println!("pack signature valid");
+                Ok(())
+            } else {
+                Err(anyhow!("pack signature invalid"))
             }
         }
     }
