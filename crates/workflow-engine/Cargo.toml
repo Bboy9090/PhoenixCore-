@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 phoenix-core = { path = "../core" }
+phoenix-content = { path = "../content" }
 phoenix-host-windows = { path = "../host-windows" }
 phoenix-report = { path = "../report" }
 phoenix-safety = { path = "../safety" }

@@ -7,8 +7,9 @@ use windows::Win32::Storage::FileSystem::{
     CreateFileW, GetDiskFreeSpaceExW, GetLogicalDrives, GetVolumeInformationW,
     FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
-use windows::Win32::Storage::Ioctl::{IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, VOLUME_DISK_EXTENTS};
-use windows::Win32::System::Ioctl::DeviceIoControl;
+use windows::Win32::System::Ioctl::{
+    DeviceIoControl, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, VOLUME_DISK_EXTENTS,
+};
 use windows::Win32::System::SystemInformation::GetWindowsDirectoryW;
 
 #[derive(Debug, Clone)]

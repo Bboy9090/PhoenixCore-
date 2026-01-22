@@ -25,6 +25,7 @@ No-wrapper policy: UI never touches OS APIs. Host providers do.
 │   └── cursor-issues/
 ├── crates/
 │   ├── core/
+│   ├── content/
 │   ├── host-windows/
 │   ├── imaging/
 │   ├── report/

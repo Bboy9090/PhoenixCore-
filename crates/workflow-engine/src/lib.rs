@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use phoenix_report::{create_report_bundle_with_meta, ReportPaths};
 use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
+use phoenix_content::{prepare_source, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -112,10 +113,11 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         }
     }
 
-    let source_root =
-        fs::canonicalize(&params.source_path).context("resolve source path")?;
+    let prepared = prepare_source(&params.source_path)?;
+    let source_root = prepared.root.clone();
+    let source_kind = prepared.kind;
     if !source_root.is_dir() {
-        return Err(anyhow!("source path is not a directory"));
+        return Err(anyhow!("source root is not a directory"));
     }
 
     let setup_exe = source_root.join("setup.exe");
@@ -133,6 +135,7 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     logs.push(format!("target_disk={}", disk.id));
     logs.push(format!("target_mount={}", target_mount.display()));
     logs.push(format!("source_path={}", source_root.display()));
+    logs.push(format!("source_kind={:?}", source_kind));
     logs.push(format!("file_count={}", files.len()));
     logs.push(format!("total_bytes={}", total_bytes));
 
@@ -205,6 +208,7 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         "target_disk_id": disk.id,
         "target_mount": target_mount.display().to_string(),
         "source_path": source_root.display().to_string(),
+        "source_kind": format!("{:?}", source_kind),
         "copied_files": copied_files,
         "copied_bytes": copied_bytes,
         "dry_run": params.dry_run

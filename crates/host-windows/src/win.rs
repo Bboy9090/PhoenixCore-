@@ -9,12 +9,11 @@ use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_SHARE_READ, FILE_SHARE_WRITE,
     OPEN_EXISTING,
 };
-use windows::Win32::Storage::Ioctl::{
-    DRIVE_LAYOUT_INFORMATION_EX, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
+use windows::Win32::System::Ioctl::{
+    DeviceIoControl, DRIVE_LAYOUT_INFORMATION_EX, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
     IOCTL_DISK_GET_DRIVE_LAYOUT_EX, IOCTL_STORAGE_QUERY_PROPERTY, PARTITION_INFORMATION_EX,
     STORAGE_PROPERTY_QUERY, StorageDeviceProperty, STORAGE_QUERY_TYPE,
 };
-use windows::Win32::System::Ioctl::DeviceIoControl;
 use windows::Win32::System::SystemInformation::{GetComputerNameW, GetVersionExW, OSVERSIONINFOW};
 
 fn wide(s: &str) -> Vec<u16> {
