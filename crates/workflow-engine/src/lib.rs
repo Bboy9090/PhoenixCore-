@@ -411,6 +411,16 @@ pub fn run_unix_installer_usb(params: &UnixInstallerUsbParams) -> Result<UnixIns
     let files = collect_files(&source_root)?;
     let total_bytes = files.iter().map(|entry| entry.size).sum::<u64>();
 
+    if let Some(free_bytes) = free_space_bytes(&target_mount)? {
+        if free_bytes < total_bytes {
+            return Err(anyhow!(
+                "insufficient free space: required {}, available {}",
+                total_bytes,
+                free_bytes
+            ));
+        }
+    }
+
     let mut logs = Vec::new();
     logs.push("workflow=unix-installer-usb".to_string());
     logs.push(format!("target_disk={}", disk.id));
@@ -1099,6 +1109,31 @@ fn find_disk_by_mount<'a>(graph: &'a DeviceGraph, mount: &Path) -> Option<&'a ph
             })
         })
     })
+}
+
+fn free_space_bytes(path: &Path) -> Result<Option<u64>> {
+    #[cfg(unix)]
+    {
+        use libc::statvfs;
+        use std::ffi::CString;
+        use std::mem::MaybeUninit;
+
+        let c_path = CString::new(path.display().to_string())
+            .map_err(|_| anyhow!("invalid path"))?;
+        let mut stats = MaybeUninit::zeroed();
+        let result = unsafe { statvfs(c_path.as_ptr(), stats.as_mut_ptr()) };
+        if result != 0 {
+            return Ok(None);
+        }
+        let stats = unsafe { stats.assume_init() };
+        let free = (stats.f_bavail as u64).saturating_mul(stats.f_frsize as u64);
+        Ok(Some(free))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(None)
+    }
 }
 
 fn build_device_graph() -> Result<DeviceGraph> {
