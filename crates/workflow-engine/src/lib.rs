@@ -6,6 +6,7 @@ use phoenix_report::{
 use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
 use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
+use phoenix_host_windows::space::free_space_bytes;
 use phoenix_imaging::{hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan};
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::{DeviceGraph, WorkflowDefinition, WORKFLOW_SCHEMA_VERSION};
@@ -241,6 +242,16 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
 
         if target_mount.as_os_str().is_empty() {
             return Err(anyhow!("no mounted volume found for {}", disk.id));
+        }
+
+        if let Ok(free_bytes) = free_space_bytes(&target_mount.display().to_string()) {
+            if free_bytes < total_bytes {
+                return Err(anyhow!(
+                    "insufficient free space: required {}, available {}",
+                    total_bytes,
+                    free_bytes
+                ));
+            }
         }
 
         logs.push("copy_start".to_string());
@@ -816,6 +827,17 @@ pub fn run_windows_apply_image(params: &WindowsApplyImageParams) -> Result<Windo
 
         if !params.target_dir.exists() {
             fs::create_dir_all(&params.target_dir).context("create target dir")?;
+        }
+        if let Some(expected) = image_info.total_bytes {
+            if let Ok(free_bytes) = free_space_bytes(&params.target_dir.display().to_string()) {
+                if free_bytes < expected {
+                    return Err(anyhow!(
+                        "insufficient free space: required {}, available {}",
+                        expected,
+                        free_bytes
+                    ));
+                }
+            }
         }
         wim_apply_image(&image_path, params.image_index, &params.target_dir)?;
         logs.push("apply_complete".to_string());

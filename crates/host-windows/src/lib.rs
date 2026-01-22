@@ -4,6 +4,8 @@ use phoenix_core::{now_utc_rfc3339, DeviceGraph, HostInfo, Partition};
 #[cfg(windows)]
 pub mod format;
 #[cfg(windows)]
+pub mod space;
+#[cfg(windows)]
 mod volumes;
 #[cfg(windows)]
 mod win;
@@ -11,6 +13,10 @@ mod win;
 mod format_stub;
 #[cfg(not(windows))]
 pub use format_stub as format;
+#[cfg(not(windows))]
+mod space_stub;
+#[cfg(not(windows))]
+pub use space_stub as space;
 
 pub fn build_device_graph() -> Result<DeviceGraph> {
     #[cfg(windows)]
