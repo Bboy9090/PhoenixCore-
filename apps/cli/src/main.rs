@@ -15,6 +15,7 @@ use phoenix_content::{
 };
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::{DeviceGraph, WorkflowDefinition};
+use phoenix_legacy_patcher::{LegacyPatchParams, run_legacy_patch};
 
 #[derive(Parser)]
 #[command(name = "phoenix-cli", version, about = "Phoenix Core CLI (Windows-first)")]
@@ -464,6 +465,37 @@ enum Commands {
         token: Option<String>,
 
         /// Execute creation (omit for dry-run)
+        #[arg(long)]
+        execute: bool,
+    },
+
+    /// Patch macOS installer for unsupported Macs (Legacy Patcher)
+    MacosLegacyPatch {
+        /// Source path (Install macOS.app or mounted DMG)
+        #[arg(long)]
+        source: String,
+
+        /// Override model identifier
+        #[arg(long)]
+        model: Option<String>,
+
+        /// Override board-id
+        #[arg(long)]
+        board_id: Option<String>,
+
+        /// Base path for reports (default: current directory)
+        #[arg(long, default_value = ".")]
+        report_base: String,
+
+        /// Force destructive operations
+        #[arg(long)]
+        force: bool,
+
+        /// Confirmation token (PHX-...)
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Execute patch (omit for dry-run)
         #[arg(long)]
         execute: bool,
     },
@@ -1103,6 +1135,35 @@ fn main() -> Result<()> {
             {
                 Err(anyhow!("macos-only command"))
             }
+        }
+
+        Commands::MacosLegacyPatch {
+            source,
+            model,
+            board_id,
+            report_base,
+            force,
+            token,
+            execute,
+        } => {
+            let params = LegacyPatchParams {
+                source_path: source.into(),
+                report_base: report_base.into(),
+                model,
+                board_id,
+                force,
+                confirmation_token: token,
+                dry_run: !execute,
+            };
+            let result = run_legacy_patch(&params)?;
+            println!("Legacy patch complete:");
+            println!("  dry_run: {}", result.dry_run);
+            println!("  patched_files: {}", result.patched_files.len());
+            for file in &result.patched_files {
+                println!("  patched: {}", file);
+            }
+            println!("  report_root: {}", result.report.root.display());
+            Ok(())
         }
 
         Commands::StageBootloader {

@@ -1,0 +1,15 @@
+[package]
+name = "phoenix-legacy-patcher"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+plist = "1.8.0"
+phoenix-content = { path = "../content" }
+phoenix-report = { path = "../report" }
+phoenix-safety = { path = "../safety" }
+phoenix-core = { path = "../core" }
+phoenix-host-windows = { path = "../host-windows" }
+phoenix-host-linux = { path = "../host-linux" }
+phoenix-host-macos = { path = "../host-macos" }

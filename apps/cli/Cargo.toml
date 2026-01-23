@@ -16,3 +16,4 @@ phoenix-content = { path = "../../crates/content" }
 phoenix-core = { path = "../../crates/core" }
 phoenix-host-linux = { path = "../../crates/host-linux" }
 phoenix-host-macos = { path = "../../crates/host-macos" }
+phoenix-legacy-patcher = { path = "../../crates/legacy-patcher" }

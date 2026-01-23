@@ -1178,6 +1178,16 @@ pub fn run_workflow_definition(
                     duration_ms: start.elapsed().as_millis(),
                 });
             }
+            "macos_legacy_patch" => {
+                let params = build_legacy_patch_params(&step.params, &base)?;
+                let result = phoenix_legacy_patcher::run_legacy_patch(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
             "report_verify" => {
                 let (path, key) = build_verify_params(&step.params)?;
                 let verification = phoenix_report::verify_report_bundle(path, key.as_deref())?;
@@ -1331,6 +1341,10 @@ fn validate_step(step: &phoenix_core::WorkflowStep) -> Result<()> {
             ensure_os("macos")?;
             require_string(&step.params, "source_path")?;
             require_string(&step.params, "target_device")?;
+        }
+        "macos_legacy_patch" => {
+            ensure_os("macos")?;
+            require_string(&step.params, "source_path")?;
         }
         "report_verify" => {
             require_string(&step.params, "path")?;
@@ -2399,6 +2413,25 @@ fn build_stage_bootloader_params(
         confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
         dry_run: optional_bool(value, "dry_run", true),
         hash_manifest: optional_bool(value, "hash_manifest", false),
+    })
+}
+
+fn build_legacy_patch_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<phoenix_legacy_patcher::LegacyPatchParams> {
+    let source_path = PathBuf::from(require_string(value, "source_path")?);
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+    Ok(phoenix_legacy_patcher::LegacyPatchParams {
+        source_path,
+        report_base,
+        model: optional_string(value, "model").map(str::to_string),
+        board_id: optional_string(value, "board_id").map(str::to_string),
+        force: optional_bool(value, "force", false),
+        confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
+        dry_run: optional_bool(value, "dry_run", true),
     })
 }
 

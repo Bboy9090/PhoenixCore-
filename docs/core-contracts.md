@@ -69,6 +69,7 @@ Supported actions:
 - `linux_boot_prep`
 - `macos_boot_prep`
 - `stage_bootloader`
+- `macos_legacy_patch`
 - `report_verify`
 - `disk_hash_report`
 
@@ -129,6 +130,21 @@ Example macOS installer step:
     "target_device": "/dev/disk2",
     "volume_name": "PHOENIX-MACOS",
     "macos_version": "tahoe",
+    "force": true,
+    "confirmation_token": "PHX-..."
+  }
+}
+```
+
+Example macOS legacy patch step:
+```json
+{
+  "id": "macos-legacy",
+  "action": "macos_legacy_patch",
+  "params": {
+    "source_path": "/Applications/Install macOS.app",
+    "model": "MacBookPro6,2",
+    "board_id": "Mac-F22589C8",
     "force": true,
     "confirmation_token": "PHX-..."
   }
