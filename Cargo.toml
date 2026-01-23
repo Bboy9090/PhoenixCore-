@@ -2,6 +2,7 @@
 members = [
     "crates/core",
     "crates/content",
+    "crates/bootloader-core",
     "crates/fs-fat32",
     "crates/host-linux",
     "crates/host-macos",

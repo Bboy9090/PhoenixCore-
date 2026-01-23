@@ -14,6 +14,7 @@ use phoenix_imaging::{
 use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::{DeviceGraph, WorkflowDefinition, WORKFLOW_SCHEMA_VERSION};
 use phoenix_fs_fat32::format_fat32;
+use phoenix_bootloader_core::validate_bootloader_package;
 use sha2::{Digest, Sha256};
 use std::time::Instant;
 use std::fs;
@@ -126,6 +127,26 @@ pub struct UnixBootPrepParams {
 
 #[derive(Debug, Clone)]
 pub struct UnixBootPrepResult {
+    pub report: ReportPaths,
+    pub copied_files: usize,
+    pub copied_bytes: u64,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct BootloaderStageParams {
+    pub source_path: PathBuf,
+    pub target_mount: PathBuf,
+    pub target_subdir: Option<PathBuf>,
+    pub report_base: PathBuf,
+    pub force: bool,
+    pub confirmation_token: Option<String>,
+    pub dry_run: bool,
+    pub hash_manifest: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct BootloaderStageResult {
     pub report: ReportPaths,
     pub copied_files: usize,
     pub copied_bytes: u64,
@@ -801,6 +822,101 @@ pub fn run_macos_installer_usb(params: &MacosInstallerUsbParams) -> Result<Macos
     })
 }
 
+pub fn run_stage_bootloader(params: &BootloaderStageParams) -> Result<BootloaderStageResult> {
+    let graph = build_device_graph()?;
+    let target_mount = normalize_mount_for_unix(&params.target_mount);
+    if !target_mount.exists() || !target_mount.is_dir() {
+        return Err(anyhow!("target mount is invalid"));
+    }
+
+    let disk = find_disk_by_mount(&graph, &target_mount)
+        .ok_or_else(|| anyhow!("target mount not found in device graph"))?;
+    if disk.is_system_disk {
+        return Err(anyhow!("refusing to target system disk: {}", disk.id));
+    }
+    if !disk.removable {
+        return Err(anyhow!(
+            "target disk is not marked removable: {}",
+            disk.id
+        ));
+    }
+
+    let package = validate_bootloader_package(&params.source_path)?;
+    let staging_root = if let Some(subdir) = &params.target_subdir {
+        target_mount.join(subdir)
+    } else {
+        target_mount.clone()
+    };
+
+    let mut logs = Vec::new();
+    logs.push("workflow=stage-bootloader".to_string());
+    logs.push(format!("target_mount={}", target_mount.display()));
+    logs.push(format!("source_path={}", package.root.display()));
+    logs.push(format!("entries={}", package.boot_entries.len()));
+
+    let mut copied_files = 0usize;
+    let mut copied_bytes = 0u64;
+    let mut artifacts = Vec::new();
+    let mut artifact_names = Vec::new();
+
+    if !params.dry_run {
+        let ctx = SafetyContext {
+            force_mode: params.force,
+            confirmation_token: params.confirmation_token.clone(),
+        };
+        match can_write_to_disk(&ctx, disk.is_system_disk) {
+            SafetyDecision::Allow => {}
+            SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
+        }
+
+        let test_path = target_mount.join(".phoenix_write_test");
+        fs::write(&test_path, b"")?;
+        fs::remove_file(&test_path).ok();
+
+        let stats = copy_dir_recursive(&package.root, &staging_root, params.hash_manifest)?;
+        copied_files = stats.files;
+        copied_bytes = stats.bytes;
+        if params.hash_manifest && !stats.manifest.is_empty() {
+            let bytes = serde_json::to_vec_pretty(&stats.manifest)?;
+            artifacts.push(ReportArtifact {
+                name: "bootloader_manifest.json".to_string(),
+                bytes,
+            });
+            artifact_names.push("bootloader_manifest.json".to_string());
+        }
+        logs.push(format!("staged_to={}", staging_root.display()));
+    } else {
+        logs.push("dry_run=true".to_string());
+    }
+
+    let meta = serde_json::json!({
+        "workflow": "stage-bootloader",
+        "status": if params.dry_run { "dry_run" } else { "completed" },
+        "target_mount": target_mount.display().to_string(),
+        "staging_root": staging_root.display().to_string(),
+        "copied_files": copied_files,
+        "copied_bytes": copied_bytes,
+        "artifacts": artifact_names,
+        "dry_run": params.dry_run
+    });
+
+    let report = create_report_bundle_with_meta_signing_and_artifacts(
+        &params.report_base,
+        &graph,
+        Some(meta),
+        Some(&logs.join("\n")),
+        signing_key_from_env().as_deref(),
+        &artifacts,
+    )?;
+
+    Ok(BootloaderStageResult {
+        report,
+        copied_files,
+        copied_bytes,
+        dry_run: params.dry_run,
+    })
+}
+
 pub fn run_unix_boot_prep(params: &UnixBootPrepParams) -> Result<UnixBootPrepResult> {
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
@@ -1052,6 +1168,16 @@ pub fn run_workflow_definition(
                     duration_ms: start.elapsed().as_millis(),
                 });
             }
+            "stage_bootloader" => {
+                let params = build_stage_bootloader_params(&step.params, &base)?;
+                let result = run_stage_bootloader(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
             "report_verify" => {
                 let (path, key) = build_verify_params(&step.params)?;
                 let verification = phoenix_report::verify_report_bundle(path, key.as_deref())?;
@@ -1194,6 +1320,10 @@ fn validate_step(step: &phoenix_core::WorkflowStep) -> Result<()> {
         }
         "macos_boot_prep" => {
             ensure_os("macos")?;
+            require_string(&step.params, "source_path")?;
+            require_string(&step.params, "target_mount")?;
+        }
+        "stage_bootloader" => {
             require_string(&step.params, "source_path")?;
             require_string(&step.params, "target_mount")?;
         }
@@ -2246,6 +2376,29 @@ fn build_macos_installer_params(
         force: optional_bool(value, "force", false),
         confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
         dry_run: optional_bool(value, "dry_run", true),
+    })
+}
+
+fn build_stage_bootloader_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<BootloaderStageParams> {
+    let source_path = PathBuf::from(require_string(value, "source_path")?);
+    let target_mount = PathBuf::from(require_string(value, "target_mount")?);
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+    let target_subdir = optional_string(value, "target_subdir").map(PathBuf::from);
+
+    Ok(BootloaderStageParams {
+        source_path,
+        target_mount,
+        target_subdir,
+        report_base,
+        force: optional_bool(value, "force", false),
+        confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
+        dry_run: optional_bool(value, "dry_run", true),
+        hash_manifest: optional_bool(value, "hash_manifest", false),
     })
 }
 

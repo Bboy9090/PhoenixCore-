@@ -68,6 +68,7 @@ Supported actions:
 - `macos_write_image`
 - `linux_boot_prep`
 - `macos_boot_prep`
+- `stage_bootloader`
 - `report_verify`
 - `disk_hash_report`
 
@@ -130,6 +131,22 @@ Example macOS installer step:
     "macos_version": "tahoe",
     "force": true,
     "confirmation_token": "PHX-..."
+  }
+}
+```
+
+Example bootloader staging step:
+```json
+{
+  "id": "bootloader",
+  "action": "stage_bootloader",
+  "params": {
+    "source_path": "/path/to/bootloader",
+    "target_mount": "/Volumes/USB",
+    "target_subdir": "",
+    "force": true,
+    "confirmation_token": "PHX-...",
+    "hash_manifest": true
   }
 }
 ```

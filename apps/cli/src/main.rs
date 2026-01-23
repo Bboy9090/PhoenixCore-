@@ -5,6 +5,7 @@ use phoenix_workflow_engine::{
     run_disk_hash_report, run_unix_installer_usb, run_windows_apply_image,
     run_windows_installer_usb, validate_workflow_definition, DiskHashReportParams,
     UnixInstallerUsbParams, WindowsApplyImageParams, WindowsInstallerUsbParams,
+    run_stage_bootloader, BootloaderStageParams,
 };
 use phoenix_host_windows::format::parse_filesystem;
 use phoenix_content::{
@@ -465,6 +466,41 @@ enum Commands {
         /// Execute creation (omit for dry-run)
         #[arg(long)]
         execute: bool,
+    },
+
+    /// Stage a custom bootloader package onto a target mount
+    StageBootloader {
+        /// Bootloader package root (must include EFI/BOOT/*.EFI)
+        #[arg(long)]
+        source: String,
+
+        /// Target mount path
+        #[arg(long)]
+        target_mount: String,
+
+        /// Optional target subdirectory (default: root)
+        #[arg(long)]
+        target_subdir: Option<String>,
+
+        /// Base path for reports (default: current directory)
+        #[arg(long, default_value = ".")]
+        report_base: String,
+
+        /// Force destructive operations
+        #[arg(long)]
+        force: bool,
+
+        /// Confirmation token (PHX-...)
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Execute staging (omit for dry-run)
+        #[arg(long)]
+        execute: bool,
+
+        /// Emit SHA-256 copy manifest into report
+        #[arg(long)]
+        hash_manifest: bool,
     },
 
     /// Run a workflow definition JSON file
@@ -1067,6 +1103,35 @@ fn main() -> Result<()> {
             {
                 Err(anyhow!("macos-only command"))
             }
+        }
+
+        Commands::StageBootloader {
+            source,
+            target_mount,
+            target_subdir,
+            report_base,
+            force,
+            token,
+            execute,
+            hash_manifest,
+        } => {
+            let params = BootloaderStageParams {
+                source_path: source.into(),
+                target_mount: target_mount.into(),
+                target_subdir: target_subdir.map(Into::into),
+                report_base: report_base.into(),
+                force,
+                confirmation_token: token,
+                dry_run: !execute,
+                hash_manifest,
+            };
+            let result = run_stage_bootloader(&params)?;
+            println!("Bootloader staging complete:");
+            println!("  dry_run: {}", result.dry_run);
+            println!("  copied_files: {}", result.copied_files);
+            println!("  copied_bytes: {}", result.copied_bytes);
+            println!("  report_root: {}", result.report.root.display());
+            Ok(())
         }
 
         Commands::WorkflowRun { file, report_base } => {
