@@ -154,6 +154,26 @@ pub struct BootloaderStageResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct MacosKextStageParams {
+    pub source_path: PathBuf,
+    pub target_mount: PathBuf,
+    pub target_subdir: Option<PathBuf>,
+    pub report_base: PathBuf,
+    pub force: bool,
+    pub confirmation_token: Option<String>,
+    pub dry_run: bool,
+    pub hash_manifest: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct MacosKextStageResult {
+    pub report: ReportPaths,
+    pub copied_files: usize,
+    pub copied_bytes: u64,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct UnixInstallerUsbResult {
     pub report: ReportPaths,
     pub target_mount: PathBuf,
@@ -917,6 +937,124 @@ pub fn run_stage_bootloader(params: &BootloaderStageParams) -> Result<Bootloader
     })
 }
 
+pub fn run_macos_kext_stage(params: &MacosKextStageParams) -> Result<MacosKextStageResult> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        return Err(anyhow!("macos kext staging requires macOS"));
+    }
+
+    let graph = build_device_graph()?;
+    let target_mount = normalize_mount_for_unix(&params.target_mount);
+    if !target_mount.exists() || !target_mount.is_dir() {
+        return Err(anyhow!("target mount is invalid"));
+    }
+
+    let disk = find_disk_by_mount(&graph, &target_mount)
+        .ok_or_else(|| anyhow!("target mount not found in device graph"))?;
+    if disk.is_system_disk {
+        return Err(anyhow!("refusing to target system disk: {}", disk.id));
+    }
+    if !disk.removable {
+        return Err(anyhow!(
+            "target disk is not marked removable: {}",
+            disk.id
+        ));
+    }
+
+    let source_root = params.source_path.clone();
+    if !source_root.is_dir() {
+        return Err(anyhow!("source path is not a directory"));
+    }
+
+    let kexts = collect_kexts(&source_root)?;
+    if kexts.is_empty() {
+        return Err(anyhow!("no .kext bundles found in source"));
+    }
+
+    let staging_root = if let Some(subdir) = &params.target_subdir {
+        target_mount.join(subdir)
+    } else {
+        target_mount.join("EFI/OC/Kexts")
+    };
+
+    let mut logs = Vec::new();
+    logs.push("workflow=macos-kext-stage".to_string());
+    logs.push(format!("target_mount={}", target_mount.display()));
+    logs.push(format!("source_path={}", source_root.display()));
+    logs.push(format!("kext_count={}", kexts.len()));
+
+    let mut copied_files = 0usize;
+    let mut copied_bytes = 0u64;
+    let mut artifacts = Vec::new();
+    let mut artifact_names = Vec::new();
+
+    if !params.dry_run {
+        let ctx = SafetyContext {
+            force_mode: params.force,
+            confirmation_token: params.confirmation_token.clone(),
+        };
+        match can_write_to_disk(&ctx, disk.is_system_disk) {
+            SafetyDecision::Allow => {}
+            SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
+        }
+
+        fs::create_dir_all(&staging_root)?;
+        let test_path = target_mount.join(".phoenix_write_test");
+        fs::write(&test_path, b"")?;
+        fs::remove_file(&test_path).ok();
+
+        let mut manifest = Vec::new();
+        for kext in kexts {
+            let dest = staging_root.join(kext.file_name().unwrap_or_default());
+            let stats = copy_dir_recursive(&kext, &dest, params.hash_manifest)?;
+            copied_files += stats.files;
+            copied_bytes += stats.bytes;
+            if params.hash_manifest {
+                manifest.extend(stats.manifest);
+            }
+            logs.push(format!("staged_kext={}", dest.display()));
+        }
+
+        if params.hash_manifest && !manifest.is_empty() {
+            let bytes = serde_json::to_vec_pretty(&manifest)?;
+            artifacts.push(ReportArtifact {
+                name: "kext_manifest.json".to_string(),
+                bytes,
+            });
+            artifact_names.push("kext_manifest.json".to_string());
+        }
+    } else {
+        logs.push("dry_run=true".to_string());
+    }
+
+    let meta = serde_json::json!({
+        "workflow": "macos-kext-stage",
+        "status": if params.dry_run { "dry_run" } else { "completed" },
+        "target_mount": target_mount.display().to_string(),
+        "staging_root": staging_root.display().to_string(),
+        "copied_files": copied_files,
+        "copied_bytes": copied_bytes,
+        "artifacts": artifact_names,
+        "dry_run": params.dry_run
+    });
+
+    let report = create_report_bundle_with_meta_signing_and_artifacts(
+        &params.report_base,
+        &graph,
+        Some(meta),
+        Some(&logs.join("\n")),
+        signing_key_from_env().as_deref(),
+        &artifacts,
+    )?;
+
+    Ok(MacosKextStageResult {
+        report,
+        copied_files,
+        copied_bytes,
+        dry_run: params.dry_run,
+    })
+}
+
 pub fn run_unix_boot_prep(params: &UnixBootPrepParams) -> Result<UnixBootPrepResult> {
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
@@ -1188,6 +1326,16 @@ pub fn run_workflow_definition(
                     duration_ms: start.elapsed().as_millis(),
                 });
             }
+            "macos_kext_stage" => {
+                let params = build_kext_stage_params(&step.params, &base)?;
+                let result = run_macos_kext_stage(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
             "report_verify" => {
                 let (path, key) = build_verify_params(&step.params)?;
                 let verification = phoenix_report::verify_report_bundle(path, key.as_deref())?;
@@ -1345,6 +1493,11 @@ fn validate_step(step: &phoenix_core::WorkflowStep) -> Result<()> {
         "macos_legacy_patch" => {
             ensure_os("macos")?;
             require_string(&step.params, "source_path")?;
+        }
+        "macos_kext_stage" => {
+            ensure_os("macos")?;
+            require_string(&step.params, "source_path")?;
+            require_string(&step.params, "target_mount")?;
         }
         "report_verify" => {
             require_string(&step.params, "path")?;
@@ -2198,6 +2351,23 @@ fn copy_dir_recursive_inner(
     Ok(())
 }
 
+fn collect_kexts(root: &Path) -> Result<Vec<PathBuf>> {
+    let mut kexts = Vec::new();
+    let entries = fs::read_dir(root)?;
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            if path.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("kext")).unwrap_or(false) {
+                kexts.push(path);
+            } else {
+                kexts.extend(collect_kexts(&path)?);
+            }
+        }
+    }
+    Ok(kexts)
+}
+
 fn hash_file(path: &Path) -> Result<String> {
     use std::io::Read;
     let mut file = fs::File::open(path).with_context(|| format!("open {}", path.display()))?;
@@ -2432,6 +2602,29 @@ fn build_legacy_patch_params(
         force: optional_bool(value, "force", false),
         confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
         dry_run: optional_bool(value, "dry_run", true),
+    })
+}
+
+fn build_kext_stage_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<MacosKextStageParams> {
+    let source_path = PathBuf::from(require_string(value, "source_path")?);
+    let target_mount = PathBuf::from(require_string(value, "target_mount")?);
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+    let target_subdir = optional_string(value, "target_subdir").map(PathBuf::from);
+
+    Ok(MacosKextStageParams {
+        source_path,
+        target_mount,
+        target_subdir,
+        report_base,
+        force: optional_bool(value, "force", false),
+        confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
+        dry_run: optional_bool(value, "dry_run", true),
+        hash_manifest: optional_bool(value, "hash_manifest", false),
     })
 }
 

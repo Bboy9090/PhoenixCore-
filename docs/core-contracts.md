@@ -70,6 +70,7 @@ Supported actions:
 - `macos_boot_prep`
 - `stage_bootloader`
 - `macos_legacy_patch`
+- `macos_kext_stage`
 - `report_verify`
 - `disk_hash_report`
 
@@ -160,6 +161,22 @@ Example bootloader staging step:
     "source_path": "/path/to/bootloader",
     "target_mount": "/Volumes/USB",
     "target_subdir": "",
+    "force": true,
+    "confirmation_token": "PHX-...",
+    "hash_manifest": true
+  }
+}
+```
+
+Example macOS kext staging step:
+```json
+{
+  "id": "kexts",
+  "action": "macos_kext_stage",
+  "params": {
+    "source_path": "/path/to/kexts",
+    "target_mount": "/Volumes/USB",
+    "target_subdir": "EFI/OC/Kexts",
     "force": true,
     "confirmation_token": "PHX-...",
     "hash_manifest": true
