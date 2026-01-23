@@ -2,7 +2,10 @@ use anyhow::{anyhow, Result};
 use phoenix_core::WorkflowDefinition;
 use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use zip::write::FileOptions;
+use zip::ZipWriter;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PackManifest {
@@ -44,6 +47,38 @@ pub fn resolve_pack_workflows(
         workflows.push((path, workflow));
     }
     Ok(workflows)
+}
+
+pub fn export_pack_zip(
+    manifest_path: impl AsRef<Path>,
+    output_path: impl AsRef<Path>,
+) -> Result<PathBuf> {
+    let manifest_path = manifest_path.as_ref();
+    let manifest = load_pack_manifest(manifest_path)?;
+    let base = manifest_path
+        .parent()
+        .ok_or_else(|| anyhow!("pack manifest has no parent directory"))?;
+    let output_path = output_path.as_ref().to_path_buf();
+
+    let file = std::fs::File::create(&output_path)?;
+    let mut zip = ZipWriter::new(file);
+    let options = FileOptions::default();
+
+    add_file_to_zip(&mut zip, base, manifest_path, options)?;
+    for workflow in &manifest.workflows {
+        add_file_to_zip(&mut zip, base, &base.join(workflow), options)?;
+    }
+    if let Some(assets) = manifest.assets.as_ref() {
+        let assets_path = base.join(assets);
+        add_dir_to_zip(&mut zip, base, &assets_path, options)?;
+    }
+    let sig_path = manifest_path.with_extension("sig");
+    if sig_path.exists() {
+        add_file_to_zip(&mut zip, base, &sig_path, options)?;
+    }
+
+    zip.finish()?;
+    Ok(output_path)
 }
 
 pub fn load_workflow_definition(path: impl AsRef<Path>) -> Result<WorkflowDefinition> {
@@ -90,6 +125,47 @@ fn parse_by_extension<T: DeserializeOwned>(path: &Path, data: &str) -> Result<T>
         let value = serde_json::from_str(data)?;
         Ok(value)
     }
+}
+
+fn add_file_to_zip(
+    zip: &mut ZipWriter<std::fs::File>,
+    base: &Path,
+    path: &Path,
+    options: FileOptions,
+) -> Result<()> {
+    if !path.exists() {
+        return Err(anyhow!("missing pack file {}", path.display()));
+    }
+    let rel = path
+        .strip_prefix(base)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/");
+    zip.start_file(rel, options)?;
+    let data = std::fs::read(path)?;
+    zip.write_all(&data)?;
+    Ok(())
+}
+
+fn add_dir_to_zip(
+    zip: &mut ZipWriter<std::fs::File>,
+    base: &Path,
+    dir: &Path,
+    options: FileOptions,
+) -> Result<()> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            add_dir_to_zip(zip, base, &path, options)?;
+        } else if path.is_file() {
+            add_file_to_zip(zip, base, &path, options)?;
+        }
+    }
+    Ok(())
 }
 
 fn decode_hex(value: &str) -> Result<Vec<u8>> {

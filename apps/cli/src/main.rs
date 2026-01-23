@@ -9,7 +9,7 @@ use phoenix_workflow_engine::{
 };
 use phoenix_host_windows::format::parse_filesystem;
 use phoenix_content::{
-    load_pack_manifest, load_workflow_definition, pack_signature_exists,
+    export_pack_zip, load_pack_manifest, load_workflow_definition, pack_signature_exists,
     resolve_pack_workflows, resolve_windows_image, sign_pack_manifest,
     verify_pack_manifest, PACK_SCHEMA_VERSION,
 };
@@ -657,6 +657,21 @@ enum Commands {
         /// Signing key hex
         #[arg(long)]
         key: String,
+    },
+
+    /// Export a pack as a zip archive
+    PackExport {
+        /// Path to pack manifest JSON/YAML
+        #[arg(long)]
+        manifest: String,
+
+        /// Output zip path
+        #[arg(long)]
+        out: String,
+
+        /// Optional signing key hex (writes .sig before export)
+        #[arg(long)]
+        key: Option<String>,
     },
 }
 
@@ -1412,6 +1427,16 @@ fn main() -> Result<()> {
             } else {
                 Err(anyhow!("pack signature invalid"))
             }
+        }
+
+        Commands::PackExport { manifest, out, key } => {
+            if let Some(key) = resolve_pack_key(key) {
+                let sig_path = sign_pack_manifest(&manifest, &key)?;
+                println!("signature: {}", sig_path.display());
+            }
+            let out_path = export_pack_zip(&manifest, &out)?;
+            println!("pack_zip: {}", out_path.display());
+            Ok(())
         }
     }
 }

@@ -8,6 +8,10 @@ imaging providers, and workflow definitions.
 - `DEVICE_GRAPH_SCHEMA_VERSION`: 1.1.0 (partitions)
 - `WORKFLOW_SCHEMA_VERSION`: 1.0.0
 
+Schema references:
+- `docs/schemas/workflow.schema.json`
+- `docs/schemas/pack.schema.json`
+
 ## Host Provider (Rust trait)
 ```rust
 pub trait HostProvider {
