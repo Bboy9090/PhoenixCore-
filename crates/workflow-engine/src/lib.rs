@@ -93,6 +93,27 @@ pub struct UnixWriteImageResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct MacosInstallerUsbParams {
+    pub source_path: PathBuf,
+    pub target_device: PathBuf,
+    pub report_base: PathBuf,
+    pub volume_name: String,
+    pub macos_version: Option<String>,
+    pub filesystem: Option<String>,
+    pub force: bool,
+    pub confirmation_token: Option<String>,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct MacosInstallerUsbResult {
+    pub report: ReportPaths,
+    pub mode: String,
+    pub target_volume: PathBuf,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct UnixBootPrepParams {
     pub source_path: PathBuf,
     pub target_mount: PathBuf,
@@ -679,6 +700,107 @@ pub fn run_unix_write_image(params: &UnixWriteImageParams) -> Result<UnixWriteIm
     })
 }
 
+pub fn run_macos_installer_usb(params: &MacosInstallerUsbParams) -> Result<MacosInstallerUsbResult> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        return Err(anyhow!("macos installer workflow requires macOS"));
+    }
+
+    let graph = build_device_graph()?;
+    let disk_id = disk_id_from_device_path(&params.target_device)
+        .ok_or_else(|| anyhow!("unsupported target device"))?;
+    let disk = graph
+        .disks
+        .iter()
+        .find(|disk| disk.id.eq_ignore_ascii_case(&disk_id))
+        .ok_or_else(|| anyhow!("disk not found: {}", disk_id))?;
+
+    if disk.is_system_disk {
+        return Err(anyhow!("refusing to target system disk: {}", disk.id));
+    }
+    if !disk.removable {
+        return Err(anyhow!(
+            "target disk is not marked removable: {}",
+            disk.id
+        ));
+    }
+
+    let fs = params
+        .filesystem
+        .clone()
+        .or_else(|| params.macos_version.as_deref().and_then(select_macos_fs))
+        .unwrap_or_else(|| "APFS".to_string());
+
+    let mut logs = Vec::new();
+    logs.push("workflow=macos-installer-usb".to_string());
+    logs.push(format!("target_device={}", params.target_device.display()));
+    logs.push(format!("volume_name={}", params.volume_name));
+    logs.push(format!("filesystem={}", fs));
+    logs.push(format!("dry_run={}", params.dry_run));
+
+    let mut mode = "unknown".to_string();
+    let mut target_volume = PathBuf::from(format!("/Volumes/{}", params.volume_name));
+
+    if !params.dry_run {
+        let ctx = SafetyContext {
+            force_mode: params.force,
+            confirmation_token: params.confirmation_token.clone(),
+        };
+        match can_write_to_disk(&ctx, disk.is_system_disk) {
+            SafetyDecision::Allow => {}
+            SafetyDecision::Deny(reason) => return Err(anyhow!(reason)),
+        }
+
+        let source_path = params.source_path.clone();
+        if source_path.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("dmg")).unwrap_or(false) {
+            let mounted = mount_dmg(&source_path)?;
+            if let Some(app) = find_install_app(&mounted.mount_point) {
+                mode = "createinstallmedia".to_string();
+                logs.push(format!("installer_app={}", app.display()));
+                erase_disk(&params.target_device, &fs, &params.volume_name)?;
+                target_volume = PathBuf::from(format!("/Volumes/{}", params.volume_name));
+                run_createinstallmedia(&app, &target_volume)?;
+            } else {
+                mode = "asr_restore".to_string();
+                run_asr_restore(&source_path, &params.target_device)?;
+            }
+            drop(mounted);
+        } else if is_macos_app(&source_path) {
+            mode = "createinstallmedia".to_string();
+            erase_disk(&params.target_device, &fs, &params.volume_name)?;
+            target_volume = PathBuf::from(format!("/Volumes/{}", params.volume_name));
+            run_createinstallmedia(&source_path, &target_volume)?;
+        } else {
+            return Err(anyhow!("unsupported macos source path"));
+        }
+    }
+
+    let meta = serde_json::json!({
+        "workflow": "macos-installer-usb",
+        "status": if params.dry_run { "dry_run" } else { "completed" },
+        "target_device": params.target_device.display().to_string(),
+        "volume_name": params.volume_name,
+        "filesystem": fs,
+        "mode": mode,
+        "dry_run": params.dry_run
+    });
+
+    let report = create_report_bundle_with_meta_and_signing(
+        &params.report_base,
+        &graph,
+        Some(meta),
+        Some(&logs.join("\n")),
+        signing_key_from_env().as_deref(),
+    )?;
+
+    Ok(MacosInstallerUsbResult {
+        report,
+        mode,
+        target_volume,
+        dry_run: params.dry_run,
+    })
+}
+
 pub fn run_unix_boot_prep(params: &UnixBootPrepParams) -> Result<UnixBootPrepResult> {
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
@@ -920,6 +1042,16 @@ pub fn run_workflow_definition(
                     duration_ms: start.elapsed().as_millis(),
                 });
             }
+            "macos_installer_usb" => {
+                let params = build_macos_installer_params(&step.params, &base)?;
+                let result = run_macos_installer_usb(&params)?;
+                results.push(WorkflowStepResult {
+                    id: step.id.clone(),
+                    action: step.action.clone(),
+                    report_root: Some(result.report.root),
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
             "report_verify" => {
                 let (path, key) = build_verify_params(&step.params)?;
                 let verification = phoenix_report::verify_report_bundle(path, key.as_deref())?;
@@ -1064,6 +1196,11 @@ fn validate_step(step: &phoenix_core::WorkflowStep) -> Result<()> {
             ensure_os("macos")?;
             require_string(&step.params, "source_path")?;
             require_string(&step.params, "target_mount")?;
+        }
+        "macos_installer_usb" => {
+            ensure_os("macos")?;
+            require_string(&step.params, "source_path")?;
+            require_string(&step.params, "target_device")?;
         }
         "report_verify" => {
             require_string(&step.params, "path")?;
@@ -1502,6 +1639,185 @@ fn disk_id_from_device_path(path: &Path) -> Option<String> {
     }
 }
 
+fn select_macos_fs(version: &str) -> Option<String> {
+    let normalized = version.trim().to_ascii_lowercase();
+    let (major, minor) = parse_macos_version(&normalized)?;
+    if major > 10 || (major == 10 && minor >= 13) {
+        Some("APFS".to_string())
+    } else {
+        Some("JHFS+".to_string())
+    }
+}
+
+fn parse_macos_version(value: &str) -> Option<(u32, u32)> {
+    if let Some((major, minor)) = parse_numeric_version(value) {
+        return Some((major, minor));
+    }
+
+    let name = value.replace('-', " ").trim().to_string();
+    let map = [
+        ("snow leopard", (10, 6)),
+        ("lion", (10, 7)),
+        ("mountain lion", (10, 8)),
+        ("mavericks", (10, 9)),
+        ("yosemite", (10, 10)),
+        ("el capitan", (10, 11)),
+        ("sierra", (10, 12)),
+        ("high sierra", (10, 13)),
+        ("mojave", (10, 14)),
+        ("catalina", (10, 15)),
+        ("big sur", (11, 0)),
+        ("monterey", (12, 0)),
+        ("ventura", (13, 0)),
+        ("sonoma", (14, 0)),
+        ("sequoia", (15, 0)),
+        ("tahoe", (26, 0)),
+    ];
+    for (label, version) in map {
+        if name.contains(label) {
+            return Some(version);
+        }
+    }
+    None
+}
+
+fn parse_numeric_version(value: &str) -> Option<(u32, u32)> {
+    let parts: Vec<&str> = value.split('.').collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let major = parts.get(0)?.parse::<u32>().ok()?;
+    let minor = parts.get(1).and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
+    Some((major, minor))
+}
+
+#[cfg(target_os = "macos")]
+fn is_macos_app(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("app"))
+        .unwrap_or(false)
+        && path.join("Contents/Resources/createinstallmedia").exists()
+}
+
+#[cfg(target_os = "macos")]
+struct MountedDmg {
+    mount_point: PathBuf,
+}
+
+#[cfg(target_os = "macos")]
+impl Drop for MountedDmg {
+    fn drop(&mut self) {
+        let _ = run_cmd(
+            "/usr/bin/hdiutil",
+            &["detach", self.mount_point.to_string_lossy().as_ref()],
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn mount_dmg(path: &Path) -> Result<MountedDmg> {
+    let mount_point = std::env::temp_dir().join(format!(
+        "phoenix_dmg_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    ));
+    fs::create_dir_all(&mount_point)?;
+    run_cmd(
+        "/usr/bin/hdiutil",
+        &[
+            "attach",
+            path.to_string_lossy().as_ref(),
+            "-nobrowse",
+            "-readonly",
+            "-mountpoint",
+            mount_point.to_string_lossy().as_ref(),
+        ],
+    )?;
+    Ok(MountedDmg { mount_point })
+}
+
+#[cfg(target_os = "macos")]
+fn find_install_app(root: &Path) -> Option<PathBuf> {
+    let entries = fs::read_dir(root).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if is_macos_app(&path) {
+            return Some(path);
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn erase_disk(target_device: &Path, fs: &str, name: &str) -> Result<()> {
+    run_cmd(
+        "/usr/sbin/diskutil",
+        &[
+            "eraseDisk",
+            fs,
+            name,
+            target_device.to_string_lossy().as_ref(),
+        ],
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn run_createinstallmedia(app: &Path, target_volume: &Path) -> Result<()> {
+    let tool = app.join("Contents/Resources/createinstallmedia");
+    if !tool.exists() {
+        return Err(anyhow!("createinstallmedia not found"));
+    }
+    run_cmd(
+        tool.to_string_lossy().as_ref(),
+        &[
+            "--volume",
+            target_volume.to_string_lossy().as_ref(),
+            "--nointeraction",
+        ],
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn run_asr_restore(source: &Path, target_device: &Path) -> Result<()> {
+    run_cmd(
+        "/usr/sbin/asr",
+        &[
+            "restore",
+            "--source",
+            source.to_string_lossy().as_ref(),
+            "--target",
+            target_device.to_string_lossy().as_ref(),
+            "--erase",
+            "--noprompt",
+        ],
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn run_cmd(cmd: &str, args: &[&str]) -> Result<()> {
+    let output = std::process::Command::new(cmd)
+        .args(args)
+        .output()
+        .with_context(|| format!("run {}", cmd))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{} failed: {}",
+            cmd,
+            String::from_utf8_lossy(&output.stderr)
+        ))
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn run_cmd(_cmd: &str, _args: &[&str]) -> Result<()> {
+    Err(anyhow!("macos tool requires macOS"))
+}
+
 fn free_space_bytes(path: &Path) -> Result<Option<u64>> {
     #[cfg(unix)]
     {
@@ -1902,6 +2218,34 @@ fn build_unix_boot_params(
         confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
         dry_run: optional_bool(value, "dry_run", true),
         hash_manifest: optional_bool(value, "hash_manifest", false),
+    })
+}
+
+fn build_macos_installer_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<MacosInstallerUsbParams> {
+    let source_path = PathBuf::from(require_string(value, "source_path")?);
+    let target_device = PathBuf::from(require_string(value, "target_device")?);
+    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
+        default_report.display().to_string()
+    }));
+    let volume_name = optional_string(value, "volume_name")
+        .unwrap_or("PHOENIX-MACOS")
+        .to_string();
+    let macos_version = optional_string(value, "macos_version").map(str::to_string);
+    let filesystem = optional_string(value, "filesystem").map(str::to_string);
+
+    Ok(MacosInstallerUsbParams {
+        source_path,
+        target_device,
+        report_base,
+        volume_name,
+        macos_version,
+        filesystem,
+        force: optional_bool(value, "force", false),
+        confirmation_token: optional_string(value, "confirmation_token").map(str::to_string),
+        dry_run: optional_bool(value, "dry_run", true),
     })
 }
 

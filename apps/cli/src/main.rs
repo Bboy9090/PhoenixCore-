@@ -428,6 +428,45 @@ enum Commands {
         hash_manifest: bool,
     },
 
+    /// Create a macOS installer USB (uses Apple tools)
+    MacosCreateInstaller {
+        /// Source path (Install macOS.app or .dmg)
+        #[arg(long)]
+        source: String,
+
+        /// Target device (e.g. /dev/disk2)
+        #[arg(long)]
+        target_device: String,
+
+        /// Volume name for createinstallmedia
+        #[arg(long, default_value = "PHOENIX-MACOS")]
+        volume_name: String,
+
+        /// macOS version or codename (e.g. 10.6, snow leopard, tahoe)
+        #[arg(long)]
+        macos_version: Option<String>,
+
+        /// Filesystem override (APFS or JHFS+)
+        #[arg(long)]
+        filesystem: Option<String>,
+
+        /// Base path for reports (default: current directory)
+        #[arg(long, default_value = ".")]
+        report_base: String,
+
+        /// Force destructive operations
+        #[arg(long)]
+        force: bool,
+
+        /// Confirmation token (PHX-...)
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Execute creation (omit for dry-run)
+        #[arg(long)]
+        execute: bool,
+    },
+
     /// Run a workflow definition JSON file
     WorkflowRun {
         /// Path to workflow JSON file
@@ -983,6 +1022,44 @@ fn main() -> Result<()> {
                 println!("  dry_run: {}", result.dry_run);
                 println!("  copied_files: {}", result.copied_files);
                 println!("  copied_bytes: {}", result.copied_bytes);
+                println!("  report_root: {}", result.report.root.display());
+                Ok(())
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                Err(anyhow!("macos-only command"))
+            }
+        }
+
+        Commands::MacosCreateInstaller {
+            source,
+            target_device,
+            volume_name,
+            macos_version,
+            filesystem,
+            report_base,
+            force,
+            token,
+            execute,
+        } => {
+            #[cfg(target_os = "macos")]
+            {
+                let params = phoenix_workflow_engine::MacosInstallerUsbParams {
+                    source_path: source.into(),
+                    target_device: target_device.into(),
+                    report_base: report_base.into(),
+                    volume_name,
+                    macos_version,
+                    filesystem,
+                    force,
+                    confirmation_token: token,
+                    dry_run: !execute,
+                };
+                let result = phoenix_workflow_engine::run_macos_installer_usb(&params)?;
+                println!("macOS installer complete:");
+                println!("  dry_run: {}", result.dry_run);
+                println!("  mode: {}", result.mode);
+                println!("  target_volume: {}", result.target_volume.display());
                 println!("  report_root: {}", result.report.root.display());
                 Ok(())
             }

@@ -118,6 +118,22 @@ Example Linux boot prep step:
 }
 ```
 
+Example macOS installer step:
+```json
+{
+  "id": "macos-installer",
+  "action": "macos_installer_usb",
+  "params": {
+    "source_path": "/Applications/Install macOS.app",
+    "target_device": "/dev/disk2",
+    "volume_name": "PHOENIX-MACOS",
+    "macos_version": "tahoe",
+    "force": true,
+    "confirmation_token": "PHX-..."
+  }
+}
+```
+
 Workflow runner:
 - `phoenix-cli workflow-run --file workflow.json --report-base .`
 - Emits a workflow report bundle with step timings + references.
