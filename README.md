@@ -14,6 +14,11 @@ Run JSON workflow definitions:
 phoenix-cli workflow-run --file workflow.json --report-base .
 ```
 
+## Phoenix Forge Brand
+Brand assets and usage guide:
+- docs/phoenix_brand/phoenix_forge.md
+- assets/brand/phoenix-forge/
+
 ## Phoenix Core Layout (current)
 ```
 .
