@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "crates/core",
+    "crates/host-windows",
+    "crates/imaging",
+    "crates/report",
+    "crates/safety",
+    "crates/workflow-engine",
+    "apps/cli"
+]
+resolver = "2"
