@@ -240,6 +240,10 @@ def index():
             </div>
         </div>
     </div>
+    <script>
+        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
 </body>
 </html>
 """
@@ -400,6 +404,10 @@ Examples:
             <a href="/">← Back to Main Page</a>
         </div>
     </div>
+    <script>
+        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
 </body>
 </html>
 """
@@ -725,6 +733,10 @@ def install_instructions():
             });
         }
     </script>
+    <script>
+        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
 </body>
 </html>
 """
