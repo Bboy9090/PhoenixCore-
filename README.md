@@ -1,3 +1,4 @@
+
 # Phoenix Core
 
 Windows-first core engine that supplies the product capabilities:
@@ -34,6 +35,5 @@ No-wrapper policy: UI never touches OS APIs. Host providers do.
     └── cli/
 ```
 
-## Legacy Notice
-Legacy BootForge/Phoenix Key assets still exist in this repo and will be
-removed or quarantined once the repo is fully renamed. See `LEGACY.md`.
+
+This repository has been renamed to indicate its archived status as part of its role as a donor repo in the Phoenix suite.
