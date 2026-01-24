@@ -1,8 +1,15 @@
 [workspace]
 members = [
     "crates/core",
+    "crates/content",
+    "crates/bootloader-core",
+    "crates/legacy-patcher",
+    "crates/fs-fat32",
+    "crates/host-linux",
+    "crates/host-macos",
     "crates/host-windows",
     "crates/imaging",
+    "crates/wim",
     "crates/report",
     "crates/safety",
     "crates/workflow-engine",

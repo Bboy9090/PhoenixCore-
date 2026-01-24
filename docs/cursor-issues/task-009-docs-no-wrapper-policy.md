@@ -1,7 +1,7 @@
 # [TASK-009] Docs: "No Wrapper" policy + contribution rules
 
 Cursor tags: type:feature, area:docs, P0-blocker, M0-spine  
-Status: Backlog
+Status: Done
 
 ## What
 Publish the No-Wrapper policy and contribution rules that enforce supplier-first architecture.

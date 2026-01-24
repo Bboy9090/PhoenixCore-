@@ -9,6 +9,27 @@ Windows-first core engine that supplies the product capabilities:
 
 No-wrapper policy: UI never touches OS APIs. Host providers do.
 
+## Workflow Runner
+Run JSON workflow definitions:
+```
+phoenix-cli workflow-run --file workflow.json --report-base .
+```
+
+## Schemas & Packs
+Schema references:
+- docs/schemas/workflow.schema.json
+- docs/schemas/pack.schema.json
+
+Export a pack zip bundle:
+```
+phoenix-cli pack-export --manifest pack.json --out phoenix-pack.zip
+```
+
+## Phoenix Forge Brand
+Brand assets and usage guide:
+- docs/phoenix_brand/phoenix_forge.md
+- assets/brand/phoenix-forge/
+
 ## Phoenix Core Layout (current)
 ```
 .
@@ -26,8 +47,12 @@ No-wrapper policy: UI never touches OS APIs. Host providers do.
 │   └── cursor-issues/
 ├── crates/
 │   ├── core/
+│   ├── content/
+│   ├── host-linux/
+│   ├── host-macos/
 │   ├── host-windows/
 │   ├── imaging/
+│   ├── wim/
 │   ├── report/
 │   ├── safety/
 │   └── workflow-engine/

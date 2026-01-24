@@ -5,3 +5,18 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+phoenix-core = { path = "../core" }
+phoenix-content = { path = "../content" }
+phoenix-host-windows = { path = "../host-windows" }
+phoenix-imaging = { path = "../imaging" }
+phoenix-host-linux = { path = "../host-linux" }
+phoenix-host-macos = { path = "../host-macos" }
+phoenix-fs-fat32 = { path = "../fs-fat32" }
+phoenix-report = { path = "../report" }
+phoenix-safety = { path = "../safety" }
+phoenix-wim = { path = "../wim" }
+serde_json = "1"
+sha2 = "0.11.0-rc.3"
+libc = "1.0.0-alpha.2"
+phoenix-bootloader-core = { path = "../bootloader-core" }
+phoenix-legacy-patcher = { path = "../legacy-patcher" }

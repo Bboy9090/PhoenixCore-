@@ -1,6 +1,4 @@
 use anyhow::{anyhow, Result};
-use phoenix_core::Volume;
-use std::collections::HashMap;
 use std::ffi::c_void;
 
 use windows::core::PCWSTR;
@@ -9,9 +7,22 @@ use windows::Win32::Storage::FileSystem::{
     CreateFileW, GetDiskFreeSpaceExW, GetLogicalDrives, GetVolumeInformationW,
     FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
-use windows::Win32::Storage::Ioctl::{IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, VOLUME_DISK_EXTENTS};
-use windows::Win32::System::Ioctl::DeviceIoControl;
+use windows::Win32::System::Ioctl::{
+    DeviceIoControl, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, VOLUME_DISK_EXTENTS,
+};
 use windows::Win32::System::SystemInformation::GetWindowsDirectoryW;
+
+#[derive(Debug, Clone)]
+pub struct VolumeMount {
+    pub id: String,
+    pub label: Option<String>,
+    pub fs: Option<String>,
+    pub size_bytes: u64,
+    pub mount_points: Vec<String>,
+    pub disk_number: u32,
+    pub offset_bytes: u64,
+    pub length_bytes: u64,
+}
 
 fn wide(s: &str) -> Vec<u16> {
     use std::os::windows::prelude::*;
@@ -123,7 +134,7 @@ fn get_volume_size(root: &str) -> Result<u64> {
     Ok(total)
 }
 
-fn disk_number_for_drive(drive_letter: char) -> Result<u32> {
+fn volume_extent_for_drive(drive_letter: char) -> Result<(u32, u64, u64)> {
     let handle = open_volume_handle(drive_letter)?;
     let mut out = [0u8; 1024];
     let mut returned = 0u32;
@@ -159,11 +170,14 @@ fn disk_number_for_drive(drive_letter: char) -> Result<u32> {
         return Err(anyhow!("No extents for {}:", drive_letter));
     }
 
-    Ok(extents.Extents[0].DiskNumber)
+    let extent = extents.Extents[0];
+    let offset = (extent.StartingOffset as i64).max(0) as u64;
+    let length = (extent.ExtentLength as i64).max(0) as u64;
+    Ok((extent.DiskNumber, offset, length))
 }
 
-pub fn map_volumes_to_disks() -> Result<HashMap<String, Vec<Volume>>> {
-    let mut map: HashMap<String, Vec<Volume>> = HashMap::new();
+pub fn enumerate_volume_mounts() -> Result<Vec<VolumeMount>> {
+    let mut mounts = Vec::new();
 
     for letter in list_logical_drive_letters() {
         let root = format!("{}:\\", letter);
@@ -175,24 +189,24 @@ pub fn map_volumes_to_disks() -> Result<HashMap<String, Vec<Volume>>> {
 
         let size_bytes = get_volume_size(&root).unwrap_or(0);
 
-        let disk_num = match disk_number_for_drive(letter) {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
+        let (disk_number, offset_bytes, length_bytes) =
+            match volume_extent_for_drive(letter) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
 
-        let disk_id = format!("PhysicalDrive{}", disk_num);
         let volume_id = format!("Drive{}", letter);
-
-        let volume = Volume {
+        mounts.push(VolumeMount {
             id: volume_id,
             label,
             fs,
             size_bytes,
-            mount_points: vec![root.clone()],
-        };
-
-        map.entry(disk_id).or_default().push(volume);
+            mount_points: vec![root],
+            disk_number,
+            offset_bytes,
+            length_bytes,
+        });
     }
 
-    Ok(map)
+    Ok(mounts)
 }

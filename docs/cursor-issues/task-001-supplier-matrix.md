@@ -1,7 +1,7 @@
 # [TASK-001] Create Supplier Matrix (inventory all dependencies)
 
 Cursor tags: type:feature, area:docs, P0-blocker, M0-spine  
-Status: Backlog
+Status: Done
 
 ## What
 Create docs/supplier-matrix.md listing every feature + what it currently depends on (tools, libraries, services).

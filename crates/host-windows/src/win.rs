@@ -9,11 +9,11 @@ use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_SHARE_READ, FILE_SHARE_WRITE,
     OPEN_EXISTING,
 };
-use windows::Win32::Storage::Ioctl::{
-    IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
-    StorageDeviceProperty, STORAGE_QUERY_TYPE,
+use windows::Win32::System::Ioctl::{
+    DeviceIoControl, DRIVE_LAYOUT_INFORMATION_EX, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
+    IOCTL_DISK_GET_DRIVE_LAYOUT_EX, IOCTL_STORAGE_QUERY_PROPERTY, PARTITION_INFORMATION_EX,
+    STORAGE_PROPERTY_QUERY, StorageDeviceProperty, STORAGE_QUERY_TYPE,
 };
-use windows::Win32::System::Ioctl::DeviceIoControl;
 use windows::Win32::System::SystemInformation::{GetComputerNameW, GetVersionExW, OSVERSIONINFOW};
 
 fn wide(s: &str) -> Vec<u16> {
@@ -175,7 +175,7 @@ pub fn enumerate_physical_disks() -> Result<Vec<Disk>> {
             size_bytes,
             removable,
             is_system_disk: false,
-            volumes: Vec::new(),
+            partitions: Vec::new(),
         });
     }
 
@@ -184,4 +184,66 @@ pub fn enumerate_physical_disks() -> Result<Vec<Disk>> {
     }
 
     Ok(disks)
+}
+
+#[derive(Debug, Clone)]
+pub struct PartitionEntry {
+    pub number: u32,
+    pub offset_bytes: u64,
+    pub length_bytes: u64,
+}
+
+pub fn enumerate_partitions(disk_number: u32) -> Result<Vec<PartitionEntry>> {
+    let handle = open_physical_drive(disk_number)?;
+    let mut buffer = vec![0u8; 64 * 1024];
+    let mut returned = 0u32;
+
+    unsafe {
+        let ok = DeviceIoControl(
+            handle,
+            IOCTL_DISK_GET_DRIVE_LAYOUT_EX,
+            None,
+            0,
+            Some(buffer.as_mut_ptr() as *mut c_void),
+            buffer.len() as u32,
+            Some(&mut returned),
+            None,
+        );
+        CloseHandle(handle);
+
+        if !ok.as_bool() {
+            return Err(anyhow!("IOCTL_DISK_GET_DRIVE_LAYOUT_EX failed"));
+        }
+    }
+
+    if buffer.len() < std::mem::size_of::<DRIVE_LAYOUT_INFORMATION_EX>() {
+        return Err(anyhow!("Drive layout buffer too small"));
+    }
+
+    let layout = unsafe { &*(buffer.as_ptr() as *const DRIVE_LAYOUT_INFORMATION_EX) };
+    let count = layout.PartitionCount as usize;
+    let first = layout.PartitionEntry.as_ptr();
+    let mut partitions = Vec::new();
+
+    for idx in 0..count {
+        let entry: PARTITION_INFORMATION_EX =
+            unsafe { *first.add(idx) };
+        if entry.PartitionNumber == 0 {
+            continue;
+        }
+
+        let offset = (entry.StartingOffset as i64).max(0) as u64;
+        let length = (entry.PartitionLength as i64).max(0) as u64;
+        if length == 0 {
+            continue;
+        }
+
+        partitions.push(PartitionEntry {
+            number: entry.PartitionNumber,
+            offset_bytes: offset,
+            length_bytes: length,
+        });
+    }
+
+    Ok(partitions)
 }

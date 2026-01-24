@@ -1,7 +1,7 @@
 # [EPIC-001] Replace 3rd-party tooling with BootForge Core (Windows First)
 
 Cursor tags: type:epic, area:core, P0-blocker, M0-spine  
-Status: Backlog
+Status: In Progress
 
 ## Goal
 Make BootForge/Phoenix Key the supplier of core capabilities (no runtime dependency on external imaging/usb tools).

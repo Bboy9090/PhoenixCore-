@@ -1,0 +1,12 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="320" fill="none"/>
+  <g transform="translate(40,40) scale(0.5)">
+    <circle cx="256" cy="256" r="208" fill="none" stroke="#0B0B0C" stroke-width="24"/>
+    <path d="M256 104 C220 156 224 196 256 230 C284 200 308 170 312 130 C336 174 360 216 344 264 C330 300 296 330 256 346 C216 330 182 300 168 264 C152 216 176 156 256 104 Z" fill="#0B0B0C"/>
+    <rect x="186" y="304" width="140" height="38" rx="6" fill="#0B0B0C"/>
+    <path d="M156 334 L356 334 L372 380 L140 380 Z" fill="#0B0B0C"/>
+    <rect x="210" y="286" width="92" height="16" rx="4" fill="#0B0B0C"/>
+  </g>
+  <text x="360" y="150" font-family="Orbitron, Eurostile, BankGothic, Arial Black, sans-serif" font-size="88" letter-spacing="6" fill="#0B0B0C">PHOENIX</text>
+  <text x="360" y="230" font-family="Orbitron, Eurostile, BankGothic, Arial Black, sans-serif" font-size="64" letter-spacing="10" fill="#0B0B0C">FORGE</text>
+</svg>
