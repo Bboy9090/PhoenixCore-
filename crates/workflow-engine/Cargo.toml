@@ -1,0 +1,17 @@
+[package]
+name = "bootforge-workflow-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+serde_json = "1"
+bootforge-core = { path = "../core" }
+bootforge-imaging = { path = "../imaging" }
+bootforge-report = { path = "../report" }
+
+[target.'cfg(windows)'.dependencies]
+bootforge-host-windows = { path = "../host-windows" }
+
+[target.'cfg(linux)'.dependencies]
+bootforge-host-linux = { path = "../host-linux" }

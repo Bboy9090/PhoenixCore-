@@ -7,3 +7,9 @@ edition = "2021"
 anyhow = "1"
 serde_json = "1"
 bootforge-host-windows = { path = "../../crates/host-windows" }
+bootforge-imaging = { path = "../../crates/imaging" }
+bootforge-report = { path = "../../crates/report" }
+bootforge-workflow-engine = { path = "../../crates/workflow-engine" }
+
+[target.'cfg(linux)'.dependencies]
+bootforge-host-linux = { path = "../../crates/host-linux" }

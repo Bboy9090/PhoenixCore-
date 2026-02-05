@@ -1,0 +1,8 @@
+[package]
+name = "bootforge-host-linux"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+bootforge-core = { path = "../core" }

@@ -4,6 +4,23 @@ Phoenix Key by BootForge is a comprehensive, professional-grade tool for creatin
 
 > **Looking for the Phoenix Key master plan?** Read the [BootForge Phoenix Key — Legendary Forge Blueprint](docs/phoenix_key_legendary_blueprint.md) for the full multi-platform recovery vision, product pillars, and implementation roadmap.
 
+## Rust Core (flagship in progress)
+Early Rust core crates are now checked in for the long-term replacement stack:
+- `crates/core` (DeviceGraph + workflow schema)
+- `crates/host-linux` / `crates/host-windows` (host providers)
+- `crates/imaging` (read-only hashing)
+- `crates/report` (evidence bundles)
+- `crates/workflow-engine` (workflow runner)
+- `apps/cli` (Rust CLI)
+
+Quick Rust CLI usage:
+```bash
+cargo run -p bootforge-cli -- device-graph --pretty
+cargo run -p bootforge-cli -- hash-file --path ./some.iso
+cargo run -p bootforge-cli -- report --base .
+cargo run -p bootforge-cli -- workflow-run --file ./workflow.json --report-base .
+```
+
 ### Phoenix Key Brand Assets
 
 * Explore the [Phoenix Key Brand Guide](docs/phoenix_brand/brand_guide.md) for color palettes, typography, and usage rules.
