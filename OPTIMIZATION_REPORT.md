@@ -89,3 +89,22 @@ This optimization wave focused on:
 4. **Maintainability:** Clearer defensive patterns in config and error handling.
 
 No gameplay mechanics, public APIs, design, or content were modified.
+
+---
+
+# Wave 2 Addendum (2025-02-19)
+
+## Wave 2 Changes
+
+| File | Changes |
+|------|---------|
+| `src/gui/status_widget.py` | Removed unused `QTimer` import; cached progress bar styles to reduce redundant `setStyleSheet`; null-safe `disk_io` access |
+| `src/core/system_monitor.py` | Removed unused `QTimer` import |
+| `src/recovery/validators.py` | Added `timeout` to `run()` (default 300s) and `run_capture()` (default 60s) to prevent subprocess hangs |
+| `src/plugins/diagnostics.py` | Added timeouts to all `subprocess.run` calls: blockdev/lsblk/diskutil (10–15s), blkid (10s), fsck tools (60s), diskutil verify (120s), smartctl (30s) |
+
+## Wave 2 Performance & Stability
+
+- **Subprocess timeouts:** Prevents indefinite hangs on stalled or missing tools.
+- **Style update caching:** Reduces Qt style recalculations when CPU/memory/temp values don't cross thresholds.
+- **Defensive disk_io:** Handles missing or malformed `disk_io` in `SystemInfo` without crashing.
