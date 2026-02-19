@@ -10,11 +10,16 @@ from PyQt6.QtWidgets import (
     QLabel, QProgressBar, QListWidget, QListWidgetItem,
     QGridLayout, QFrame
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QPalette
 
 from src.core.system_monitor import SystemInfo
 from src.core.disk_manager import DiskInfo
+
+
+_STYLE_CPU_HIGH = "QProgressBar::chunk { background-color: #ff6b6b; }"
+_STYLE_CPU_MED = "QProgressBar::chunk { background-color: #ffd43b; }"
+_STYLE_CPU_LOW = "QProgressBar::chunk { background-color: #51cf66; }"
 
 
 class SystemStatusWidget(QWidget):
@@ -22,6 +27,9 @@ class SystemStatusWidget(QWidget):
     
     def __init__(self):
         super().__init__()
+        self._last_cpu_style: Optional[str] = None
+        self._last_mem_style: Optional[str] = None
+        self._last_temp_style: Optional[str] = None
         self._setup_ui()
     
     def _setup_ui(self):
@@ -90,46 +98,41 @@ class SystemStatusWidget(QWidget):
         self.cpu_label.setText(f"{info.cpu_percent:.1f}%")
         self.cpu_progress.setValue(int(info.cpu_percent))
         
-        # Set CPU progress bar color based on usage
-        if info.cpu_percent > 80:
-            self.cpu_progress.setStyleSheet("QProgressBar::chunk { background-color: #ff6b6b; }")
-        elif info.cpu_percent > 60:
-            self.cpu_progress.setStyleSheet("QProgressBar::chunk { background-color: #ffd43b; }")
-        else:
-            self.cpu_progress.setStyleSheet("QProgressBar::chunk { background-color: #51cf66; }")
+        cpu_style = _STYLE_CPU_HIGH if info.cpu_percent > 80 else (_STYLE_CPU_MED if info.cpu_percent > 60 else _STYLE_CPU_LOW)
+        if cpu_style != self._last_cpu_style:
+            self.cpu_progress.setStyleSheet(cpu_style)
+            self._last_cpu_style = cpu_style
         
         # Memory
         self.memory_label.setText(f"{info.memory_percent:.1f}%")
         self.memory_progress.setValue(int(info.memory_percent))
         
-        # Set memory progress bar color
-        if info.memory_percent > 90:
-            self.memory_progress.setStyleSheet("QProgressBar::chunk { background-color: #ff6b6b; }")
-        elif info.memory_percent > 75:
-            self.memory_progress.setStyleSheet("QProgressBar::chunk { background-color: #ffd43b; }")
-        else:
-            self.memory_progress.setStyleSheet("QProgressBar::chunk { background-color: #51cf66; }")
+        mem_style = _STYLE_CPU_HIGH if info.memory_percent > 90 else (_STYLE_CPU_MED if info.memory_percent > 75 else _STYLE_CPU_LOW)
+        if mem_style != self._last_mem_style:
+            self.memory_progress.setStyleSheet(mem_style)
+            self._last_mem_style = mem_style
         
         # Temperature
-        if info.temperature:
+        if info.temperature is not None:
             self.temp_label.setText(f"{info.temperature:.1f}°C")
             temp_percent = min(100, (info.temperature / 100) * 100)  # Scale to 100%
             self.temp_progress.setValue(int(temp_percent))
             
-            # Set temperature progress bar color
-            if info.temperature > 85:
-                self.temp_progress.setStyleSheet("QProgressBar::chunk { background-color: #ff6b6b; }")
-            elif info.temperature > 70:
-                self.temp_progress.setStyleSheet("QProgressBar::chunk { background-color: #ffd43b; }")
-            else:
-                self.temp_progress.setStyleSheet("QProgressBar::chunk { background-color: #51cf66; }")
+            temp_style = _STYLE_CPU_HIGH if info.temperature > 85 else (_STYLE_CPU_MED if info.temperature > 70 else _STYLE_CPU_LOW)
+            if temp_style != self._last_temp_style:
+                self.temp_progress.setStyleSheet(temp_style)
+                self._last_temp_style = temp_style
         else:
             self.temp_label.setText("--")
             self.temp_progress.setValue(0)
+            if self._last_temp_style != _STYLE_CPU_LOW:
+                self.temp_progress.setStyleSheet(_STYLE_CPU_LOW)
+                self._last_temp_style = _STYLE_CPU_LOW
         
-        # Disk I/O
-        read_mbps = info.disk_io['read'] / (1024 * 1024)
-        write_mbps = info.disk_io['write'] / (1024 * 1024)
+        # Disk I/O (null-safe)
+        disk_io = getattr(info, "disk_io", None) or {}
+        read_mbps = disk_io.get("read", 0) / (1024 * 1024)
+        write_mbps = disk_io.get("write", 0) / (1024 * 1024)
         
         self.read_label.setText(f"Read: {read_mbps:.1f} MB/s")
         self.write_label.setText(f"Write: {write_mbps:.1f} MB/s")
