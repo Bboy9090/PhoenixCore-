@@ -141,7 +141,7 @@ class DiagnosticsPlugin(PluginBase):
                 try:
                     result = subprocess.run(
                         ['blockdev', '--getsize64', device_path],
-                        capture_output=True, text=True, check=True
+                        capture_output=True, text=True, check=True, timeout=10
                     )
                     return int(result.stdout.strip())
                 except subprocess.CalledProcessError:
@@ -150,7 +150,7 @@ class DiagnosticsPlugin(PluginBase):
                 try:
                     result = subprocess.run(
                         ['lsblk', '-b', '-d', '-o', 'SIZE', device_path],
-                        capture_output=True, text=True, check=True
+                        capture_output=True, text=True, check=True, timeout=10
                     )
                     lines = result.stdout.strip().splitlines()
                     if len(lines) > 1:
@@ -162,7 +162,7 @@ class DiagnosticsPlugin(PluginBase):
                 try:
                     result = subprocess.run(
                         ['diskutil', 'info', device_path],
-                        capture_output=True, text=True, check=True
+                        capture_output=True, text=True, check=True, timeout=15
                     )
                     for line in result.stdout.splitlines():
                         if 'Total Size:' in line:
@@ -349,7 +349,7 @@ class DiagnosticsPlugin(PluginBase):
             try:
                 result = subprocess.run(
                     ['blkid', '-o', 'value', '-s', 'TYPE', device_path],
-                    capture_output=True, text=True, check=True
+                    capture_output=True, text=True, check=True, timeout=10
                 )
                 results['filesystem_type'] = result.stdout.strip()
             except (subprocess.CalledProcessError, FileNotFoundError):
@@ -380,7 +380,7 @@ class DiagnosticsPlugin(PluginBase):
         try:
             result = subprocess.run(
                 ['e2fsck', '-n', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=60
             )
             
             if result.returncode == 0:
@@ -399,7 +399,7 @@ class DiagnosticsPlugin(PluginBase):
         try:
             result = subprocess.run(
                 ['fsck.fat', '-v', '-r', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=60
             )
             
             if result.returncode == 0:
@@ -418,7 +418,7 @@ class DiagnosticsPlugin(PluginBase):
         try:
             result = subprocess.run(
                 ['ntfsfix', '-n', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=60
             )
             
             if result.returncode == 0:
@@ -437,7 +437,7 @@ class DiagnosticsPlugin(PluginBase):
         try:
             result = subprocess.run(
                 ['diskutil', 'verifyVolume', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=120
             )
             
             if result.returncode == 0:
@@ -467,7 +467,7 @@ class DiagnosticsPlugin(PluginBase):
             # Try to get SMART data using smartctl
             result = subprocess.run(
                 ['smartctl', '-a', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=30
             )
             
             if result.returncode == 0:
