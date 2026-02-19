@@ -16,10 +16,8 @@ from src.core.oclp_automation_pipeline import (
 )
 from src.core.hardware_detector import HardwareDetector, DetectedHardware
 from src.core.disk_manager import DiskManager, DiskInfo
-import logging
 
-def get_logger(name):
-    return logging.getLogger(name)
+from src.core.logger import get_logger
 
 
 @dataclass
