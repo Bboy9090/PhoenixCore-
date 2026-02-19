@@ -55,7 +55,7 @@ class MacModelDetectionWorker(QThread):
                         capture_output=True, text=True, timeout=10
                     )
                     if result.returncode == 0:
-                        for line in result.stdout.split('\\n'):
+                        for line in result.stdout.split('\n'):
                             if "Model Identifier:" in line:
                                 model_id = line.split(":")[1].strip()
                                 detected_hardware.system_model = model_id
@@ -201,7 +201,7 @@ class OCLPConfigurationWidget(QWidget):
             notes_layout = QVBoxLayout()
             
             notes_text = QTextEdit()
-            notes_text.setPlainText("\\n".join(self.oclp_requirements["notes"]))
+            notes_text.setPlainText("\n".join(self.oclp_requirements["notes"]))
             notes_text.setReadOnly(True)
             notes_text.setMaximumHeight(100)
             notes_layout.addWidget(notes_text)
@@ -337,18 +337,18 @@ class OCLPWizard(QDialog):
             self.detection_label.setText(f"✅ Detected: {hardware.system_model}")
             
             # Show detection results
-            results_text = f"Mac Model: {hardware.system_model}\\n"
-            results_text += f"Architecture: {hardware.architecture}\\n"
-            results_text += f"CPU: {hardware.cpu_info.get('name', 'Unknown')}\\n"
-            results_text += f"Memory: {hardware.memory_total_gb:.1f} GB\\n"
+            results_text = f"Mac Model: {hardware.system_model}\n"
+            results_text += f"Architecture: {hardware.architecture}\n"
+            results_text += f"CPU: {hardware.cpu_info.get('name', 'Unknown')}\n"
+            results_text += f"Memory: {hardware.memory_total_gb:.1f} GB\n"
             
             # Check OCLP compatibility
             if is_mac_oclp_compatible(hardware.system_model):
-                results_text += "\\n✅ OCLP Compatible\\n"
+                results_text += "\n✅ OCLP Compatible\n"
                 self.next_button.setEnabled(True)
             else:
-                results_text += "\\n❌ Not OCLP Compatible\\n"
-                results_text += "This Mac may be natively supported by newer macOS versions.\\n"
+results_text += "\n❌ Not OCLP Compatible\n"
+            results_text += "This Mac may be natively supported by newer macOS versions.\n"
             
             self.detection_results.setPlainText(results_text)
             self.detection_results.setVisible(True)
@@ -501,7 +501,7 @@ class OCLPWizard(QDialog):
             "Do you want to proceed with this OCLP operation?"
         ])
         
-        dialog.setText("\\n".join(message_parts))
+        dialog.setText("\n".join(message_parts))
         dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         dialog.setDefaultButton(QMessageBox.StandardButton.No)
         

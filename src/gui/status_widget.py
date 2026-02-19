@@ -169,9 +169,9 @@ class DeviceListWidget(QWidget):
         
         for device in devices:
             size_gb = device.size_bytes / (1024**3)
-            text = f"{device.name}\\n"
-            text += f"Size: {size_gb:.1f} GB\\n"
-            text += f"Path: {device.path}\\n"
+            text = f"{device.name}\n"
+            text += f"Size: {size_gb:.1f} GB\n"
+            text += f"Path: {device.path}\n"
             text += f"Health: {device.health_status}"
             
             item = QListWidgetItem(text)

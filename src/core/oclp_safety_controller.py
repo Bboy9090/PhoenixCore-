@@ -212,7 +212,7 @@ class OCLPSafetyController(QObject):
                 "accept responsibility for any consequences of this operation."
             ])
             
-            message = "\\n".join(message_parts)
+            message = "\n".join(message_parts)
             
             # Store callback for response handling
             risk_id = f"{operation_name}_{hash(message)}"

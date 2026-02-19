@@ -841,7 +841,7 @@ class HardwareDetectionStepView(StepView):
         # Update hardware summary
         summary = self.detected_hardware.get_summary()
         confidence_text = self.detected_hardware.detection_confidence.value.replace("_", " ").title()
-        self.hardware_summary_label.setText(f"📱 {summary}\\n🎯 Detection Confidence: {confidence_text}")
+        self.hardware_summary_label.setText(f"📱 {summary}\n🎯 Detection Confidence: {confidence_text}")
         
         # Update detailed information
         details = self._format_hardware_details(self.detected_hardware)
@@ -904,7 +904,7 @@ class HardwareDetectionStepView(StepView):
         elif hardware.platform:
             details.append(f"🔧 Platform: {hardware.platform.title()}")
         
-        return "\\n".join(details) if details else "No detailed hardware information available"
+        return "\n".join(details) if details else "No detailed hardware information available"
     
     def _populate_profile_matches(self):
         """Populate the profile selection combo box with matches"""
@@ -2244,11 +2244,11 @@ class StorageConfigurationStepView(StepView):
         
         # Device info
         size_gb = device.size_bytes / (1024**3)
-        device_text = f"{safety_icon} {device.vendor} {device.model}\\n"
+        device_text = f"{safety_icon} {device.vendor} {device.model}\n"
         device_text += f"    📦 {size_gb:.1f} GB • {device.filesystem} • {device.path}"
         
         if device_risk.mount_points:
-            device_text += f"\\n    📁 Mounted: {', '.join(device_risk.mount_points)}"
+            device_text += f"\n    📁 Mounted: {', '.join(device_risk.mount_points)}"
         
         item.setText(device_text)
         item.setData(Qt.ItemDataRole.UserRole, device)
@@ -2287,8 +2287,8 @@ class StorageConfigurationStepView(StepView):
             QMessageBox.warning(
                 self,
                 "Device Blocked",
-                f"This device cannot be used for safety reasons:\\n\\n"
-                f"• {chr(10).join(device_risk.risk_factors)}\\n\\n"
+                f"This device cannot be used for safety reasons:\n\n"
+                f"• {chr(10).join(device_risk.risk_factors)}\n\n"
                 f"Please select a different USB device."
             )
             return
@@ -2608,8 +2608,8 @@ class StorageConfigurationStepView(StepView):
             QMessageBox.warning(
                 self,
                 "Insufficient Storage",
-                f"The selected USB device ({device_size_gb:.1f} GB) is too small for {self.selected_recipe.name}.\\n\\n"
-                f"Minimum required: {min_required} GB\\n"
+                f"The selected USB device ({device_size_gb:.1f} GB) is too small for {self.selected_recipe.name}.\n\n"
+                f"Minimum required: {min_required} GB\n"
                 f"Please select a larger USB device."
             )
             return False
@@ -2694,14 +2694,14 @@ class StorageConfigurationStepView(StepView):
             hw_info = getattr(self.detected_hardware, 'get_summary', lambda: "Hardware detected")()
             os_info = getattr(self.selected_os_image, 'name', 'OS image selected')
             
-            context_text = f"🔧 Hardware: {hw_info}\\n📀 OS Image: {os_info}\\n\\nSelect a compatible deployment recipe:"
+            context_text = f"🔧 Hardware: {hw_info}\n📀 OS Image: {os_info}\n\nSelect a compatible deployment recipe:"
             self.context_label.setText(context_text)
         elif self.detected_hardware:
             hw_info = getattr(self.detected_hardware, 'get_summary', lambda: "Hardware detected")()
-            self.context_label.setText(f"🔧 Hardware: {hw_info}\\n⚠️ Please select an OS image first")
+            self.context_label.setText(f"🔧 Hardware: {hw_info}\n⚠️ Please select an OS image first")
         elif self.selected_os_image:
             os_info = getattr(self.selected_os_image, 'name', 'OS image selected')
-            self.context_label.setText(f"📀 OS Image: {os_info}\\n⚠️ Please detect hardware first")
+            self.context_label.setText(f"📀 OS Image: {os_info}\n⚠️ Please detect hardware first")
         else:
             self.context_label.setText("⚠️ Please complete hardware detection and OS selection first")
     
@@ -4875,7 +4875,7 @@ class SummaryStepView(StepView):
         """)
         
         # Format and display logs
-        log_content = "\\n".join(self.wizard_state.build_result.build_log)
+        log_content = "\n".join(self.wizard_state.build_result.build_log)
         log_text.setPlainText(log_content)
         layout.addWidget(log_text)
         
@@ -5014,7 +5014,7 @@ class SummaryStepView(StepView):
             for log_line in logs[-50:]:
                 lines.append(f"  {log_line}")
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
     def _update_status_display(self):
         """Update the main status display based on build results"""
@@ -5108,7 +5108,7 @@ class SummaryStepView(StepView):
 🔧 Vendor: {device.vendor}"""
             
             if device.serial:
-                usb_info += f"\\n🆔 Serial: {device.serial}"
+                usb_info += f"\n🆔 Serial: {device.serial}"
                 
             self.usb_details_label.setText(usb_info)
             self.target_device_path = device.path
@@ -5228,7 +5228,7 @@ class SummaryStepView(StepView):
                 ])
         
         if recommendations:
-            self.recommendations_label.setText("\\n".join(recommendations))
+            self.recommendations_label.setText("\n".join(recommendations))
         else:
             self.recommendations_label.setText("No specific recommendations available at this time.")
     

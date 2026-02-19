@@ -152,7 +152,7 @@ class DiagnosticsPlugin(PluginBase):
                         ['lsblk', '-b', '-d', '-o', 'SIZE', device_path],
                         capture_output=True, text=True, check=True
                     )
-                    lines = result.stdout.strip().split('\\n')
+                    lines = result.stdout.strip().splitlines()
                     if len(lines) > 1:
                         return int(lines[1].strip())
                 except subprocess.CalledProcessError:
@@ -164,7 +164,7 @@ class DiagnosticsPlugin(PluginBase):
                         ['diskutil', 'info', device_path],
                         capture_output=True, text=True, check=True
                     )
-                    for line in result.stdout.split('\\n'):
+                    for line in result.stdout.splitlines():
                         if 'Total Size:' in line:
                             # Extract size in bytes
                             parts = line.split('(')
@@ -311,7 +311,7 @@ class DiagnosticsPlugin(PluginBase):
                     # Parse badblocks output
                     if "bad blocks" in result.stderr:
                         # Extract bad block count
-                        for line in result.stderr.split('\\n'):
+                        for line in result.stderr.splitlines():
                             if "bad blocks" in line:
                                 parts = line.split()
                                 if parts:
@@ -474,7 +474,7 @@ class DiagnosticsPlugin(PluginBase):
                 results['smart_available'] = True
                 
                 # Parse SMART output
-                for line in result.stdout.split('\\n'):
+                for line in result.stdout.splitlines():
                     if 'overall-health' in line.lower():
                         if 'PASSED' in line:
                             results['health_status'] = 'Good'

@@ -208,11 +208,11 @@ class LogViewer(QWidget):
         """Export logs to file"""
         try:
             with open(filename, 'w') as f:
-                f.write("BootForge Log Export\\n")
-                f.write("=" * 50 + "\\n\\n")
+                f.write("BootForge Log Export\n")
+                f.write("=" * 50 + "\n\n")
                 
                 for entry in self.log_entries:
-                    f.write(f"{entry['timestamp']} [{entry['level']}] {entry['message']}\\n")
+                    f.write(f"{entry['timestamp']} [{entry['level']}] {entry['message']}\n")
             
             self.logger.info(f"Logs exported to {filename}")
             return True
