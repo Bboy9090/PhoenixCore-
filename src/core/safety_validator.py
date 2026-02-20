@@ -931,9 +931,19 @@ class SafetyValidator:
                     self.logger.warning(f"User declined consent for {operation_type}")
                     return None
             else:
-                # Non-interactive mode - log warning and simulate
-                self.logger.warning(f"Non-interactive mode: simulating consent for {operation_type}")
-                user_confirmation = f"Simulated: User acknowledged {len(risk_factors)} risk factors"
+                # Non-interactive mode: block destructive operations unless explicitly allowed
+                allow_env = os.environ.get("BOOTFORGE_ALLOW_NONINTERACTIVE_DESTRUCTIVE", "").strip().lower()
+                if allow_env in ("1", "true", "yes"):
+                    self.logger.warning(
+                        f"Non-interactive mode: consent allowed via BOOTFORGE_ALLOW_NONINTERACTIVE_DESTRUCTIVE for {operation_type}"
+                    )
+                    user_confirmation = f"Non-interactive override: {len(risk_factors)} risk factors acknowledged"
+                else:
+                    self.logger.warning(
+                        f"Non-interactive mode: BLOCKED {operation_type}. "
+                        "Set BOOTFORGE_ALLOW_NONINTERACTIVE_DESTRUCTIVE=1 to allow destructive ops in scripts."
+                    )
+                    return None
             
             # Create consent record
             consent = UserConsent(
