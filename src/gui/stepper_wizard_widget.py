@@ -4712,10 +4712,10 @@ class SummaryStepView(StepView):
                 import platform
                 system = platform.system()
                 if system == "Linux":
-                    result = subprocess.run(['umount', self.target_device_path], check=False, capture_output=True)
+                    result = subprocess.run(['umount', self.target_device_path], check=False, capture_output=True, timeout=30)
                     success = result.returncode == 0
                 elif system == "Darwin":  # macOS
-                    result = subprocess.run(['diskutil', 'eject', self.target_device_path], check=False, capture_output=True)
+                    result = subprocess.run(['diskutil', 'eject', self.target_device_path], check=False, capture_output=True, timeout=30)
                     success = result.returncode == 0
                 elif system == "Windows":
                     # Windows: Use PowerShell RemovableStorage cmdlet or notify user
@@ -4778,7 +4778,7 @@ class SummaryStepView(StepView):
                     ['powershell', '-Command', ps_command],
                     capture_output=True,
                     text=True,
-                    timeout=5
+                    timeout=10
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     drive_letter = result.stdout.strip()

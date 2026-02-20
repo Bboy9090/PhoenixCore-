@@ -127,3 +127,21 @@ No gameplay mechanics, public APIs, design, or content were modified.
 - **Log filter debounce:** Typing in filter field no longer triggers full re-filter on every keystroke.
 - **Empty filter fix:** When filters match nothing, display clears and count shows 0.
 - **Checksum I/O:** Larger read buffer reduces syscalls during file verification.
+
+---
+
+# Wave 4 Addendum (2025-02-19) — Real-Life Robustness
+
+## Wave 4 Changes
+
+| File | Changes |
+|------|---------|
+| `src/core/safety_validator.py` | Subprocess timeouts (5–15s) on all diskutil, lsblk, which, sudo; replaced bare `except:` with specific `(OSError, subprocess.SubprocessError, subprocess.TimeoutExpired)`; removed duplicate `return False` |
+| `src/gui/stepper_wizard_widget.py` | Timeouts (30s) on umount, diskutil eject; timeout (10s) on PowerShell Get-Partition |
+| `src/core/usb_builder.py` | Timeout (5s) on sysctl hw.model in detect_hardware_profile |
+
+## Wave 4 — No Hangs, No False Positives
+
+- **Subprocess timeouts:** All safety validator and stepper eject subprocess calls now have timeouts to avoid indefinite hangs.
+- **Exception handling:** Bare `except:` replaced with specific exception types so `KeyboardInterrupt` is no longer swallowed.
+- **Dead code:** Removed duplicate `return False` in device removable check.

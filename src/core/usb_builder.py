@@ -2032,7 +2032,7 @@ class StorageBuilderEngine:
                 # Get Mac model identifier
                 result = subprocess.run(
                     ['sysctl', '-n', 'hw.model'],
-                    capture_output=True, text=True
+                    capture_output=True, text=True, timeout=5
                 )
                 
                 if result.returncode == 0:
