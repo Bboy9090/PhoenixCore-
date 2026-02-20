@@ -145,3 +145,21 @@ No gameplay mechanics, public APIs, design, or content were modified.
 - **Subprocess timeouts:** All safety validator and stepper eject subprocess calls now have timeouts to avoid indefinite hangs.
 - **Exception handling:** Bare `except:` replaced with specific exception types so `KeyboardInterrupt` is no longer swallowed.
 - **Dead code:** Removed duplicate `return False` in device removable check.
+
+---
+
+# Wave 5 Addendum (2025-02-19) — Flagship Implementation
+
+## Wave 5 Changes
+
+| File | Changes |
+|------|---------|
+| `src/gui/stepper_wizard_widget.py` | **Real USB build**: Replaced simulated build with actual StorageBuilder; wizard state flow from previous steps to Build step; BuildVerifyStepView.load_step_data; source_files from OS image |
+
+## Wave 5 — Flagship USB Build
+
+- **Wizard state flow:** Stepper now collects get_step_data from all previous steps and passes to each step via load_step_data when entering.
+- **Storage Config & Safety Review:** get_step_data now includes selected_device, selected_recipe, hardware_profile, detected_hardware, selected_image for downstream Build step.
+- **Build step load_step_data:** Receives and stores device, recipe, hardware_profile, builds source_files from OS image path.
+- **Real StorageBuilder:** Start Build triggers actual StorageBuilder.start_build(); progress_updated, operation_completed, log_message drive UI.
+- **No simulation:** Removed all QTimer-based simulated stages (safety, prep, image, bootloader, verify).
