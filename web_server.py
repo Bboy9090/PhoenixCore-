@@ -42,7 +42,7 @@ def verify_file_integrity(file_path, expected_checksum=None):
     try:
         with open(file_path, 'rb') as f:
             sha256_hash = hashlib.sha256()
-            for chunk in iter(lambda: f.read(4096), b""):
+            for chunk in iter(lambda: f.read(65536), b""):
                 sha256_hash.update(chunk)
             actual_checksum = sha256_hash.hexdigest()
             
