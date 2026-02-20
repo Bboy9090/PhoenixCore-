@@ -22,6 +22,7 @@ from src.core.hardware_profiles import (
     create_mac_hardware_profile, get_mac_oclp_requirements
 )
 from src.core.providers.macos_provider import MacOSProvider
+from src.gui.oclp_target_config import OCLPTargetKextConfigWidget
 
 
 class MacModelDetectionWorker(QThread):
@@ -347,8 +348,8 @@ class OCLPWizard(QDialog):
                 results_text += "\n✅ OCLP Compatible\n"
                 self.next_button.setEnabled(True)
             else:
-results_text += "\n❌ Not OCLP Compatible\n"
-            results_text += "This Mac may be natively supported by newer macOS versions.\n"
+                results_text += "\n❌ Not OCLP Compatible\n"
+                results_text += "This Mac may be natively supported by newer macOS versions.\n"
             
             self.detection_results.setPlainText(results_text)
             self.detection_results.setVisible(True)
@@ -363,8 +364,12 @@ results_text += "\n❌ Not OCLP Compatible\n"
         self.detection_progress.setValue(0)
         self.detection_label.setText(f"❌ Detection failed: {error}")
         
-        self.detection_results.setPlainText(f"Hardware detection failed: {error}")
+        self.detection_results.setPlainText(
+            f"Hardware detection failed: {error}\n\n"
+            "You can still configure manually - click Next to select target Mac model and kexts."
+        )
         self.detection_results.setVisible(True)
+        self.next_button.setEnabled(True)
     
     def next_page(self):
         """Navigate to next wizard page"""
@@ -384,9 +389,9 @@ results_text += "\n❌ Not OCLP Compatible\n"
             self.update_button_states()
     
     def show_configuration_page(self):
-        """Show OCLP configuration page"""
-        if not self.config_page and self.detected_hardware:
-            self.config_page = OCLPConfigurationWidget(self.detected_hardware)
+        """Show OCLP target, kext, and settings configuration page"""
+        if not self.config_page:
+            self.config_page = OCLPTargetKextConfigWidget(detected_hardware=self.detected_hardware)
             self.stacked_widget.addWidget(self.config_page)
         
         if self.config_page:
@@ -397,14 +402,25 @@ results_text += "\n❌ Not OCLP Compatible\n"
     
     def start_oclp_build(self):
         """Start OCLP build process with safety checks"""
-        if not self.detected_hardware or not self.detected_hardware.system_model:
-            QMessageBox.warning(self, "Error", "No Mac hardware detected for OCLP build")
+        model_id = None
+        macos_version = "13.0"
+        if isinstance(self.config_page, OCLPTargetKextConfigWidget):
+            cfg = self.config_page.get_config()
+            model_id = cfg.get("model_id")
+            macos_version = cfg.get("target_macos", "13.0")
+        if not model_id and self.detected_hardware:
+            model_id = self.detected_hardware.system_model
+        if not model_id:
+            QMessageBox.warning(
+                self, "Error",
+                "Select a target Mac model in the configuration step before building."
+            )
             return
-        
+
         # Perform safety assessment
         risk_assessment = self.safety_controller.assess_oclp_risks(
-            model_id=self.detected_hardware.system_model,
-            macos_version="13.0",  # Default version
+            model_id=model_id,
+            macos_version=macos_version,
             requested_patches=[]
         )
         
@@ -435,14 +451,20 @@ results_text += "\n❌ Not OCLP Compatible\n"
         self.next_button.setEnabled(False)
         self.back_button.setEnabled(False)
         
-        # Configure and start OCLP build
+        model_id = self.detected_hardware.system_model if self.detected_hardware else ""
+        macos_version = "13.0"
+        if isinstance(self.config_page, OCLPTargetKextConfigWidget):
+            cfg = self.config_page.get_config()
+            model_id = cfg.get("model_id") or model_id
+            macos_version = cfg.get("target_macos", "13.0")
+        
         if self.oclp_integration.configure_for_hardware(
-            model=self.detected_hardware.system_model,
-            macos_version="13.0"
+            model=model_id,
+            macos_version=macos_version
         ):
             self.oclp_integration.build_oclp_for_hardware()
         else:
-            QMessageBox.critical(self, "Error", "Failed to configure OCLP for detected hardware")
+            QMessageBox.critical(self, "Error", "Failed to configure OCLP for selected hardware")
     
     def create_build_page(self) -> QWidget:
         """Create OCLP build progress page"""
@@ -520,7 +542,7 @@ results_text += "\n❌ Not OCLP Compatible\n"
                 self.detected_hardware.system_model and 
                 is_mac_oclp_compatible(self.detected_hardware.system_model)
             ))
-        elif current_index == 1:  # Configuration page
+        elif current_index == 1:  # Target & Kext config page
             self.back_button.setEnabled(True)
             self.next_button.setEnabled(True)
             self.next_button.setText("Build OCLP")

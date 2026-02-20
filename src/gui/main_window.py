@@ -202,6 +202,11 @@ class BootForgeMainWindow(QMainWindow):
         oclp_action.setStatusTip("Launch OpenCore Legacy Patcher (macOS only)")
         oclp_action.triggered.connect(self._launch_oclp)
         tools_menu.addAction(oclp_action)
+
+        oclp_config_action = QAction("OCLP Target & Kext Config...", self)
+        oclp_config_action.setStatusTip("Configure target Mac model, kexts, and OpenCore settings")
+        oclp_config_action.triggered.connect(self._show_oclp_target_config)
+        tools_menu.addAction(oclp_config_action)
         
         tools_menu.addSeparator()
         
@@ -625,6 +630,28 @@ class BootForgeMainWindow(QMainWindow):
             self.wizard.stop_operation()
         self.logger.info("Operation stopped by user")
     
+    def _show_oclp_target_config(self):
+        """Show OCLP target host, kext, and settings configuration dialog."""
+        from PyQt6.QtWidgets import QDialog, QDialogButtonBox
+        from src.gui.oclp_target_config import OCLPTargetKextConfigWidget
+        from src.core.hardware_detector import HardwareDetector
+
+        detector = HardwareDetector()
+        detected = detector.detect_hardware()
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("OCLP Target & Kext Configuration")
+        dialog.resize(600, 550)
+        layout = QVBoxLayout()
+        config_widget = OCLPTargetKextConfigWidget(detected_hardware=detected)
+        layout.addWidget(config_widget)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.setLayout(layout)
+        dialog.exec()
+
     def _launch_oclp(self):
         """Launch embedded OpenCore Legacy Patcher (macOS only)."""
         from src.oclp_launcher import is_oclp_available, is_macos, launch_oclp

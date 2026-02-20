@@ -16,8 +16,12 @@ BootForge embeds [OpenCore Legacy Patcher (OCLP)](https://github.com/dortania/Op
 
 ## Usage
 
-- **From BootForge:** Tools → OpenCore Legacy Patcher
-- Launches the full OCLP GUI in a separate window
+- **From BootForge:** Tools → OpenCore Legacy Patcher (launches full OCLP GUI)
+- **Target & Kext Config:** Tools → OCLP Target & Kext Config
+  - Choose target Mac model (searchable list)
+  - Select target macOS version (11.0–15.0)
+  - Toggle kexts: Graphics, Audio, WiFi/Bluetooth, USB
+  - Configure SIP, SecureBootModel, verbose boot
 - OCLP is macOS-only; on other platforms the menu shows an explanatory message
 
 ## What's Included
