@@ -5,6 +5,7 @@ USB drive diagnostics and health checking
 
 import os
 import logging
+import platform
 import subprocess
 import time
 import tempfile
@@ -133,9 +134,6 @@ class DiagnosticsPlugin(PluginBase):
     def _get_block_device_size(self, device_path: str) -> int:
         """Get block device size"""
         try:
-            # Try different methods based on platform
-            import platform
-            
             if platform.system() == "Linux":
                 # Use lsblk or blockdev
                 try:
@@ -185,8 +183,6 @@ class DiagnosticsPlugin(PluginBase):
         info = {'model': 'Unknown', 'vendor': 'Unknown', 'serial': 'Unknown'}
         
         try:
-            import platform
-            
             if platform.system() == "Linux":
                 # Extract device name for sysfs lookup
                 device_name = device_path.split('/')[-1].rstrip('0123456789')
