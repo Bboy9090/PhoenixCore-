@@ -108,3 +108,22 @@ No gameplay mechanics, public APIs, design, or content were modified.
 - **Subprocess timeouts:** Prevents indefinite hangs on stalled or missing tools.
 - **Style update caching:** Reduces Qt style recalculations when CPU/memory/temp values don't cross thresholds.
 - **Defensive disk_io:** Handles missing or malformed `disk_io` in `SystemInfo` without crashing.
+
+---
+
+# Wave 3 Addendum (2025-02-19)
+
+## Wave 3 Changes
+
+| File | Changes |
+|------|---------|
+| `src/plugins/diagnostics.py` | Moved `import platform` to module top-level; removed redundant inline imports |
+| `src/gui/log_viewer.py` | Debounced text filter (250ms) to reduce updates during typing; fixed empty-filter display (clear + count) |
+| `web_server.py` | Increased file integrity read chunk from 4KB to 64KB |
+
+## Wave 3 Performance & UX
+
+- **Platform import:** Single top-level import avoids repeated import cost in hot paths.
+- **Log filter debounce:** Typing in filter field no longer triggers full re-filter on every keystroke.
+- **Empty filter fix:** When filters match nothing, display clears and count shows 0.
+- **Checksum I/O:** Larger read buffer reduces syscalls during file verification.
