@@ -26,6 +26,9 @@ zeroconf>=0.132.0
 # macOS: diskutil (built-in)
 # Windows: format (built-in)
 
+# Optional: OpenCore Legacy Patcher (macOS only, for Tools > OpenCore Legacy Patcher)
+# wxpython  # Uncomment to launch embedded OCLP from BootForge
+
 # Optional Apple platform support
 # libimobiledevice (system package for device detection, optional)
 grpcio

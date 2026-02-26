@@ -33,6 +33,7 @@ class LogViewer(QWidget):
         
         self._setup_ui()
         self._setup_timer()
+        self._setup_filter_debounce()
     
     def _setup_ui(self):
         """Setup log viewer UI"""
@@ -53,7 +54,7 @@ class LogViewer(QWidget):
         filter_layout.addWidget(QLabel("Filter:"))
         self.text_filter_edit = QLineEdit()
         self.text_filter_edit.setPlaceholderText("Filter by text...")
-        self.text_filter_edit.textChanged.connect(self._update_filters)
+        self.text_filter_edit.textChanged.connect(self._on_text_filter_changed)
         filter_layout.addWidget(self.text_filter_edit)
         
         # Clear button
@@ -100,6 +101,17 @@ class LogViewer(QWidget):
         self.update_timer.timeout.connect(self._update_display)
         self.update_timer.start(500)  # Update every 500ms
     
+    def _setup_filter_debounce(self):
+        """Setup debounce timer for text filter to reduce updates during typing"""
+        self._filter_debounce_timer = QTimer(self)
+        self._filter_debounce_timer.setSingleShot(True)
+        self._filter_debounce_timer.timeout.connect(self._update_filters)
+    
+    def _on_text_filter_changed(self):
+        """Debounce text filter updates (restart timer on each keystroke)"""
+        self._filter_debounce_timer.stop()
+        self._filter_debounce_timer.start(250)
+    
     def _update_filters(self):
         """Update filter settings and refresh display"""
         self.level_filter = self.level_combo.currentText()
@@ -124,7 +136,9 @@ class LogViewer(QWidget):
     
     def _update_display(self):
         """Update log display"""
+        self.entry_count_label.setText(f"Entries: {len(self.filtered_entries)}")
         if not self.filtered_entries:
+            self.log_display.clear()
             return
         
         # Get current scroll position
@@ -136,9 +150,6 @@ class LogViewer(QWidget):
         
         for entry in self.filtered_entries[-500:]:  # Show last 500 entries
             self._add_entry_to_display(entry)
-        
-        # Update entry count
-        self.entry_count_label.setText(f"Entries: {len(self.filtered_entries)}")
         
         # Auto-scroll if enabled and was at bottom
         if self.auto_scroll and was_at_bottom:
@@ -208,11 +219,11 @@ class LogViewer(QWidget):
         """Export logs to file"""
         try:
             with open(filename, 'w') as f:
-                f.write("BootForge Log Export\\n")
-                f.write("=" * 50 + "\\n\\n")
+                f.write("BootForge Log Export\n")
+                f.write("=" * 50 + "\n\n")
                 
                 for entry in self.log_entries:
-                    f.write(f"{entry['timestamp']} [{entry['level']}] {entry['message']}\\n")
+                    f.write(f"{entry['timestamp']} [{entry['level']}] {entry['message']}\n")
             
             self.logger.info(f"Logs exported to {filename}")
             return True

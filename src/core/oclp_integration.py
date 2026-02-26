@@ -950,14 +950,17 @@ class OCLPIntegration(QThread if HAS_PYQT6 else object):
             template_efi = self.build_output_dir / "EFI"
             template_efi.mkdir(exist_ok=True)
             
-            # Create BOOT folder with placeholder bootloader
+            # Create BOOT folder - no fake bootloader; require real OCLP build for bootability
             boot_folder = template_efi / "BOOT"
             boot_folder.mkdir(exist_ok=True)
             
-            # Create placeholder BOOTx64.efi (for development)
-            bootx64_placeholder = boot_folder / "BOOTx64.efi"
-            with open(bootx64_placeholder, 'wb') as f:
-                f.write(b'OCLP_TEMPLATE_BOOTLOADER')  # Placeholder content
+            # Write README explaining OCLP is required (no fake BOOTx64.efi)
+            readme_path = boot_folder / "README.txt"
+            readme_path.write_text(
+                "OpenCore Legacy Patcher (OCLP) build required for bootable USB.\n"
+                "Run OCLP on macOS to generate BOOTx64.efi and copy it here.\n"
+                "This template has config structure only - not bootable until OCLP completes."
+            )
             
             # Create OC folder structure
             oc_folder = template_efi / "OC"
@@ -973,13 +976,13 @@ class OCLPIntegration(QThread if HAS_PYQT6 else object):
             with open(config_plist, 'w') as f:
                 f.write(config_content)
             
-            # Update build result
+            # Update build result (no opencore_efi_path - template has no bootloader)
             self.current_build.efi_folder_path = template_efi
             self.current_build.config_plist_path = config_plist
-            self.current_build.opencore_efi_path = bootx64_placeholder
+            self.current_build.opencore_efi_path = None  # No bootloader until OCLP runs on macOS
             
-            self.emit_log("INFO", "Template configuration generated successfully")
-            self.emit_log("WARNING", "Using template config - actual OCLP build requires macOS platform")
+            self.emit_log("INFO", "Template EFI structure and config.plist generated")
+            self.emit_log("WARNING", "No bootloader - USB will not boot until OCLP is run on macOS to produce BOOTx64.efi")
             
             return True
             

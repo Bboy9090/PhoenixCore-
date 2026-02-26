@@ -23,11 +23,11 @@ def guard_destructive(preserve: bool) -> None:
         raise DestructiveActionRejected("Non-interactive destructive action without confirmation.")
 
 
-def run(cmd: Sequence[str], dry_run: bool = False, check: bool = True, env: dict | None = None, cwd: str | None = None) -> int:
+def run(cmd: Sequence[str], dry_run: bool = False, check: bool = True, env: dict | None = None, cwd: str | None = None, timeout: int = 300) -> int:
     log.info("RUN: %s%s", "(dry-run) " if dry_run else "", " ".join(cmd))
     if dry_run:
         return 0
-    proc = subprocess.run(cmd, text=True, capture_output=True, env=env, cwd=cwd)
+    proc = subprocess.run(cmd, text=True, capture_output=True, env=env, cwd=cwd, timeout=timeout)
     if proc.stdout:
         log.debug("stdout: %s", proc.stdout.strip())
     if proc.stderr:
@@ -38,11 +38,11 @@ def run(cmd: Sequence[str], dry_run: bool = False, check: bool = True, env: dict
     return proc.returncode
 
 
-def run_capture(cmd: Sequence[str], dry_run: bool = False) -> tuple[int, str, str]:
+def run_capture(cmd: Sequence[str], dry_run: bool = False, timeout: int = 60) -> tuple[int, str, str]:
     log.info("RUN(CAP): %s%s", "(dry-run) " if dry_run else "", " ".join(cmd))
     if dry_run:
         return (0, "", "")
-    proc = subprocess.run(cmd, text=True, capture_output=True)
+    proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout)
     return (proc.returncode, proc.stdout, proc.stderr)
 
 
