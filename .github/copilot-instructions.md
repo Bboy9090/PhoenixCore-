@@ -2,6 +2,7 @@
 
 ## Bootstrap
 - **Python:** `pip install -r requirements.txt`【F:README.md†L43-L53】
+- **OCLP (optional):** `git submodule update --init third_party/OpenCore-Legacy-Patcher`【F:docs/oclp_integration.md】
 - **Rust:** Install Rust (e.g. rustup); no separate bootstrap step for Phoenix Core crates.
 
 ## Build

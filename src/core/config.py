@@ -48,17 +48,22 @@ class Config:
     
     def _ensure_directories(self):
         """Create necessary application directories"""
+        if self._config is None:
+            return
+        temp_dir = getattr(self._config, "temp_dir", None) or str(Path.home() / ".bootforge" / "temp")
         directories = [
             self.app_dir,
-            Path(self._config.temp_dir),
+            Path(temp_dir),
             self.app_dir / "logs",
             self.app_dir / "plugins",
             self.app_dir / "cache"
         ]
-        
         for directory in directories:
-            directory.mkdir(parents=True, exist_ok=True)
-            self.logger.debug(f"Ensured directory exists: {directory}")
+            try:
+                directory.mkdir(parents=True, exist_ok=True)
+                self.logger.debug(f"Ensured directory exists: {directory}")
+            except OSError as e:
+                self.logger.warning(f"Could not create directory {directory}: {e}")
     
     def load(self) -> bool:
         """Load configuration from file"""
@@ -99,6 +104,10 @@ class Config:
     
     def get(self, key: str, default: Any = None) -> Any:
         """Get configuration value"""
+        if not key:
+            return default
+        if self._config is None:
+            return default
         if hasattr(self._config, key):
             return getattr(self._config, key, default)
         return self._config.extras.get(key, default)
@@ -124,6 +133,8 @@ class Config:
     
     def get_temp_dir(self) -> Path:
         """Get temporary directory path"""
+        if self._config is None:
+            return Path.home() / ".bootforge" / "temp"
         return Path(self._config.temp_dir)
     
     def get_log_dir(self) -> Path:

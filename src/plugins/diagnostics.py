@@ -5,6 +5,7 @@ USB drive diagnostics and health checking
 
 import os
 import logging
+import platform
 import subprocess
 import time
 import tempfile
@@ -133,15 +134,12 @@ class DiagnosticsPlugin(PluginBase):
     def _get_block_device_size(self, device_path: str) -> int:
         """Get block device size"""
         try:
-            # Try different methods based on platform
-            import platform
-            
             if platform.system() == "Linux":
                 # Use lsblk or blockdev
                 try:
                     result = subprocess.run(
                         ['blockdev', '--getsize64', device_path],
-                        capture_output=True, text=True, check=True
+                        capture_output=True, text=True, check=True, timeout=10
                     )
                     return int(result.stdout.strip())
                 except subprocess.CalledProcessError:
@@ -150,9 +148,9 @@ class DiagnosticsPlugin(PluginBase):
                 try:
                     result = subprocess.run(
                         ['lsblk', '-b', '-d', '-o', 'SIZE', device_path],
-                        capture_output=True, text=True, check=True
+                        capture_output=True, text=True, check=True, timeout=10
                     )
-                    lines = result.stdout.strip().split('\\n')
+                    lines = result.stdout.strip().splitlines()
                     if len(lines) > 1:
                         return int(lines[1].strip())
                 except subprocess.CalledProcessError:
@@ -162,9 +160,9 @@ class DiagnosticsPlugin(PluginBase):
                 try:
                     result = subprocess.run(
                         ['diskutil', 'info', device_path],
-                        capture_output=True, text=True, check=True
+                        capture_output=True, text=True, check=True, timeout=15
                     )
-                    for line in result.stdout.split('\\n'):
+                    for line in result.stdout.splitlines():
                         if 'Total Size:' in line:
                             # Extract size in bytes
                             parts = line.split('(')
@@ -185,8 +183,6 @@ class DiagnosticsPlugin(PluginBase):
         info = {'model': 'Unknown', 'vendor': 'Unknown', 'serial': 'Unknown'}
         
         try:
-            import platform
-            
             if platform.system() == "Linux":
                 # Extract device name for sysfs lookup
                 device_name = device_path.split('/')[-1].rstrip('0123456789')
@@ -311,7 +307,7 @@ class DiagnosticsPlugin(PluginBase):
                     # Parse badblocks output
                     if "bad blocks" in result.stderr:
                         # Extract bad block count
-                        for line in result.stderr.split('\\n'):
+                        for line in result.stderr.splitlines():
                             if "bad blocks" in line:
                                 parts = line.split()
                                 if parts:
@@ -349,7 +345,7 @@ class DiagnosticsPlugin(PluginBase):
             try:
                 result = subprocess.run(
                     ['blkid', '-o', 'value', '-s', 'TYPE', device_path],
-                    capture_output=True, text=True, check=True
+                    capture_output=True, text=True, check=True, timeout=10
                 )
                 results['filesystem_type'] = result.stdout.strip()
             except (subprocess.CalledProcessError, FileNotFoundError):
@@ -380,7 +376,7 @@ class DiagnosticsPlugin(PluginBase):
         try:
             result = subprocess.run(
                 ['e2fsck', '-n', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=60
             )
             
             if result.returncode == 0:
@@ -399,7 +395,7 @@ class DiagnosticsPlugin(PluginBase):
         try:
             result = subprocess.run(
                 ['fsck.fat', '-v', '-r', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=60
             )
             
             if result.returncode == 0:
@@ -418,7 +414,7 @@ class DiagnosticsPlugin(PluginBase):
         try:
             result = subprocess.run(
                 ['ntfsfix', '-n', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=60
             )
             
             if result.returncode == 0:
@@ -437,7 +433,7 @@ class DiagnosticsPlugin(PluginBase):
         try:
             result = subprocess.run(
                 ['diskutil', 'verifyVolume', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=120
             )
             
             if result.returncode == 0:
@@ -467,14 +463,14 @@ class DiagnosticsPlugin(PluginBase):
             # Try to get SMART data using smartctl
             result = subprocess.run(
                 ['smartctl', '-a', device_path],
-                capture_output=True, text=True
+                capture_output=True, text=True, timeout=30
             )
             
             if result.returncode == 0:
                 results['smart_available'] = True
                 
                 # Parse SMART output
-                for line in result.stdout.split('\\n'):
+                for line in result.stdout.splitlines():
                     if 'overall-health' in line.lower():
                         if 'PASSED' in line:
                             results['health_status'] = 'Good'

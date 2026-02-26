@@ -10,7 +10,7 @@ import logging
 import platform
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from PyQt6.QtCore import QThread, pyqtSignal, QTimer
+from PyQt6.QtCore import QThread, pyqtSignal
 
 
 @dataclass
