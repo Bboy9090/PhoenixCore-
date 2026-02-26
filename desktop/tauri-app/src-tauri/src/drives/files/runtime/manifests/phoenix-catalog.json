@@ -1,0 +1,184 @@
+{
+  "schema_version": "1.0.0",
+  "product": {
+    "name": "Phoenix Key",
+    "vendor": "BootForge",
+    "channel": "legendary",
+    "build": "2025.12.13"
+  },
+  "ui": {
+    "default_theme": "glow",
+    "themes": ["glow", "noir", "emergency"],
+    "category_order": [
+      "windows",
+      "phoenix_pe",
+      "linux",
+      "rescue",
+      "antivirus",
+      "tools",
+      "diagnostics",
+      "network_security",
+      "mac_tools",
+      "docs"
+    ]
+  },
+  "sources": {
+    "iso_dir": "usb_layout/isos",
+    "tools_dir": "usb_layout/tools",
+    "docs_dir": "usb_layout/docs_on_usb",
+    "ventoy_dir": "usb_layout/ventoy",
+    "private_vault_dir": "usb_layout/private_vault"
+  },
+  "entries": [
+    {
+      "id": "win11_24h2_x64",
+      "type": "iso",
+      "category": "windows",
+      "name": "Windows 11 24H2 (x64)",
+      "description": "Official Windows 11 installer ISO. Supports UEFI. Secure Boot awareness depends on platform settings.",
+      "path": "isos/windows/Win11_24H2_x64.iso",
+      "boot": { "mode": ["uefi"], "secure_boot": "supported" },
+      "tags": ["windows", "installer"],
+      "requires": [],
+      "recommended": true,
+      "updates": { "cadence": "quarterly", "source_type": "official" }
+    },
+    {
+      "id": "win10_22h2_x64",
+      "type": "iso",
+      "category": "windows",
+      "name": "Windows 10 22H2 (x64)",
+      "description": "Reliable fallback installer for older hardware and compatibility repairs.",
+      "path": "isos/windows/Win10_22H2_x64.iso",
+      "boot": { "mode": ["uefi", "legacy"], "secure_boot": "supported" },
+      "tags": ["windows", "installer"],
+      "recommended": true
+    },
+    {
+      "id": "phoenix_pe_latest",
+      "type": "wim",
+      "category": "phoenix_pe",
+      "name": "Phoenix PE (BootForge WinPE)",
+      "description": "BootForge WinPE environment with diagnostics, imaging, and repair utilities. Driver injection capable.",
+      "path": "tools/diagnostics/PhoenixPE_boot.wim",
+      "boot": { "mode": ["uefi", "legacy"], "secure_boot": "partial" },
+      "tags": ["winpe", "bootforge", "repair"],
+      "recommended": true,
+      "capabilities": [
+        "disk_imaging",
+        "partition_repair",
+        "offline_registry",
+        "driver_injection",
+        "shop_reports"
+      ]
+    },
+    {
+      "id": "systemrescue_latest",
+      "type": "iso",
+      "category": "rescue",
+      "name": "SystemRescue",
+      "description": "General-purpose Linux rescue with disk, filesystem, and boot repair tools.",
+      "path": "isos/rescue/SystemRescue.iso",
+      "boot": { "mode": ["uefi", "legacy"], "secure_boot": "varies" },
+      "tags": ["rescue", "linux"],
+      "recommended": true
+    },
+    {
+      "id": "gparted_live",
+      "type": "iso",
+      "category": "rescue",
+      "name": "GParted Live",
+      "description": "Partition editor for quick fixes and resizing/repair work.",
+      "path": "isos/rescue/GParted.iso",
+      "boot": { "mode": ["uefi", "legacy"], "secure_boot": "varies" },
+      "tags": ["partition", "rescue"],
+      "recommended": true
+    },
+    {
+      "id": "clonezilla_live",
+      "type": "iso",
+      "category": "tools",
+      "name": "Clonezilla Live",
+      "description": "Disk imaging and cloning environment for backups and migrations.",
+      "path": "isos/tools/Clonezilla.iso",
+      "boot": { "mode": ["uefi", "legacy"], "secure_boot": "varies" },
+      "tags": ["imaging", "cloning"],
+      "recommended": true
+    },
+    {
+      "id": "memtest86",
+      "type": "efi",
+      "category": "diagnostics",
+      "name": "MemTest86",
+      "description": "Memory test for diagnosing RAM instability and intermittent faults.",
+      "path": "tools/diagnostics/memtest86/BOOTX64.EFI",
+      "boot": { "mode": ["uefi"], "secure_boot": "supported" },
+      "tags": ["ram", "diagnostics"],
+      "recommended": true
+    },
+    {
+      "id": "antivirus_rescue_generic",
+      "type": "iso",
+      "category": "antivirus",
+      "name": "Antivirus Rescue Disk (Generic Slot)",
+      "description": "Placeholder entry. Drop your preferred vendor rescue ISO here and keep checksums updated.",
+      "path": "isos/antivirus/Rescue.iso",
+      "boot": { "mode": ["uefi", "legacy"], "secure_boot": "varies" },
+      "tags": ["antivirus", "rescue"],
+      "recommended": false
+    },
+    {
+      "id": "phoenix_mac_toolkit",
+      "type": "bundle",
+      "category": "mac_tools",
+      "name": "Phoenix Mac Toolkit (Compliance Mode)",
+      "description": "Mac repair helpers, EFI utilities, and BootCamp driver pack guidance. Not a macOS installer builder.",
+      "path": "tools/mac/PhoenixMacToolkit.bundle",
+      "boot": { "mode": ["n/a"], "secure_boot": "n/a" },
+      "tags": ["mac", "efi", "bootcamp"],
+      "recommended": true,
+      "capabilities": ["efi_guidance", "bootcamp_driver_prep", "reset_guides"]
+    },
+    {
+      "id": "docs_index",
+      "type": "doc",
+      "category": "docs",
+      "name": "Phoenix Key Docs",
+      "description": "Offline documentation: tool explanations, boot notes, shop playbooks, and safety rules.",
+      "path": "docs_on_usb/index.html",
+      "tags": ["docs", "offline"],
+      "recommended": true
+    }
+  ],
+  "bundles": [
+    {
+      "id": "fast_build_default",
+      "name": "Fast Build Default",
+      "description": "Recommended essentials for 90% of real-world repairs.",
+      "includes": [
+        "win11_24h2_x64",
+        "win10_22h2_x64",
+        "phoenix_pe_latest",
+        "systemrescue_latest",
+        "gparted_live",
+        "clonezilla_live",
+        "memtest86",
+        "docs_index",
+        "phoenix_mac_toolkit"
+      ]
+    },
+    {
+      "id": "forge_smoke_test",
+      "name": "Forge Smoke Test",
+      "description": "Minimal payload to validate Ventoy install + directory layout + docs + manifests + report.",
+      "includes": [
+        "docs_index"
+      ]
+    }
+  ],
+  "rules": {
+    "require_checksum_for_recommended": true,
+    "block_unknown_sources_in_enterprise": true,
+    "mac_mode_disclaimer_required": true
+  }
+}
