@@ -16,8 +16,6 @@ from PyQt6.QtGui import QFont
 
 from src.core.hardware_profiles import (
     get_mac_model_data,
-    get_mac_oclp_requirements,
-    get_patch_requirements_for_model,
     is_mac_oclp_compatible,
 )
 from src.core.hardware_detector import DetectedHardware

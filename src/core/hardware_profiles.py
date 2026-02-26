@@ -1694,8 +1694,8 @@ def create_mac_hardware_profile(model: str) -> HardwareProfile:
 
 # === ADDITIONAL HELPER FUNCTIONS FOR OCLP INTEGRATION ===
 
-def get_patch_requirements_for_model(model_id: str, macos_version: str = "13.0") -> List[str]:
-    """Get patch requirements for a specific Mac model and macOS version"""
+def get_required_patches_list_for_model(model_id: str, macos_version: str = "13.0") -> List[str]:
+    """Get patch requirements list for a specific Mac model and macOS version (with version fallback)."""
     mac_models = get_mac_model_data()
     
     if model_id not in mac_models:

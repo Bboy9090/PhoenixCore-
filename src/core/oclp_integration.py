@@ -28,7 +28,7 @@ except ImportError:
 
 from src.core.hardware_detector import DetectedHardware, DetectionConfidence
 from src.core.usb_builder import HardwareProfile
-from src.core.hardware_profiles import get_mac_model_data, get_patch_requirements_for_model
+from src.core.hardware_profiles import get_mac_model_data
 
 
 class OCLPAvailability(Enum):
