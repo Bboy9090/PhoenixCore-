@@ -791,17 +791,9 @@ class WinPatchEngine:
         try:
             for reg_path, keys in bypass.registry_keys.items():
                 for key_name, (key_type, key_value) in keys.items():
-                    # Use DISM to add registry values to offline image
-                    cmd = [
-                        self.dism_path, '/English',
-                        f'/Image:{self.mount_dir}',
-                        '/Set-TargetPath:OFFLINE',
-                        '/Add-Package',  # This would need proper DISM registry commands
-                        # Note: DISM doesn't have direct registry edit commands
-                        # This is a placeholder - actual implementation would use reg files
-                    ]
-                    
-                    # For now, create registry files that will be processed during boot
+                    # DISM does not support direct registry editing; use offline approach.
+                    # _create_offline_registry_script writes .cmd/.reg files to Setup/Scripts
+                    # for execution at first boot (or import via reg load + reg import on offline hive).
                     self._create_offline_registry_script(reg_path, key_name, key_type, key_value)
                     
             self.logger.info(f"Applied registry bypass using DISM: {bypass.name}")

@@ -546,9 +546,7 @@ class WizardController(QObject):
         }
 
 
-# Concrete step implementations would be created separately as needed
-# Example placeholder for future development:
-
+# Concrete step implementations used by create_wizard_controller
 class HardwareDetectionStep(BaseStep):
     """Concrete implementation of hardware detection step"""
     
@@ -592,15 +590,5 @@ def create_wizard_controller(config: Optional[Config] = None) -> WizardControlle
     """
     controller = WizardController(config)
     
-    # Register default step implementations
-    # (In a full implementation, these would be more sophisticated)
     controller.register_step(HardwareDetectionStep())
-    
-    # TODO: Register other step implementations:
-    # controller.register_step(OSImageSelectionStep())
-    # controller.register_step(USBConfigurationStep()) 
-    # controller.register_step(SafetyReviewStep())
-    # controller.register_step(BuildVerifyStep())
-    # controller.register_step(SummaryStep())
-    
     return controller

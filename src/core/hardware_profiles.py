@@ -13,6 +13,7 @@ from .patch_pipeline import (
 from .vendor_database import PatchCapability, SecurityLevel, PatchCompatibility
 from typing import List, Dict, Optional, Any
 import re
+import time
 import logging
 
 
@@ -815,9 +816,10 @@ def from_mac_model(model: str) -> HardwareProfile:
 
 
 def get_profiles_by_platform(platform: str) -> List[HardwareProfile]:
-    """Get hardware profiles filtered by platform"""
+    """Get hardware profiles filtered by platform (macos->mac alias supported)."""
     all_profiles = get_default_profiles()
-    return [profile for profile in all_profiles if profile.platform == platform]
+    key = "mac" if platform == "macos" else platform
+    return [profile for profile in all_profiles if profile.platform == key]
 
 
 def get_mac_profiles_by_oclp_compatibility(compatibility: str) -> List[HardwareProfile]:
@@ -1392,7 +1394,7 @@ def _create_patch_set_for_group(group_name: str, models: List[Dict[str, Any]]) -
             target_hardware=target_hardware,
             actions=actions,
             author="BootForge",
-            created_at=1234567890.0  # Placeholder timestamp
+            created_at=time.time()
         )
         
         return patch_set
@@ -1420,7 +1422,7 @@ def _create_graphics_actions(model_data: Dict[str, Any]) -> List[PatchAction]:
             reversible=True,
             requires_reboot=True,
             conditions=PatchCondition(
-                os_version="1[1-4]\..*",  # macOS 11-14
+                os_version=r"1[1-4]\..*",  # macOS 11-14
                 required_firmware="UEFI"
             )
         )
@@ -1550,11 +1552,9 @@ def _get_supported_macos_versions(models: List[Dict[str, Any]]) -> List[str]:
     version_patterns = []
     for version in sorted(all_versions):
         if "." in version:
-            # Convert version like "11.0" to pattern "11\..*"
             pattern = version.replace(".", r"\.") + r"\..*"
         else:
-            # Single number version
-            pattern = f"{version}\..*"
+            pattern = rf"{version}\..*"
         version_patterns.append(pattern)
     
     return version_patterns

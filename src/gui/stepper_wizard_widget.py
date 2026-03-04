@@ -642,8 +642,6 @@ class HardwareDetectionStepView(StepView):
             # Platforms: support macOS; handle others gracefully
             for platform_name, platform_key in [("🍎 Mac Models", "macos"), ("🪟 Windows PCs", "windows"), ("🐧 Linux Systems", "linux")]:
                 try:
-                    if platform_key != "macos":
-                        raise NotImplementedError("Platform not supported yet")
                     profiles = get_profiles_by_platform(platform_key) or []
                     if not profiles:
                         raise ValueError("No profiles found")
@@ -2893,7 +2891,7 @@ class SafetyReviewStepView(StepView):
         
         self.summary_layout = QVBoxLayout(summary_group)
         
-        # Placeholders - will be populated when wizard state is loaded
+        # Initial labels; populated from wizard state in load_step_data
         self.hardware_summary = QLabel("⏳ Loading hardware information...")
         self.hardware_summary.setStyleSheet("color: #cccccc; font-size: 14px; padding: 5px;")
         self.summary_layout.addWidget(self.hardware_summary)

@@ -795,10 +795,21 @@ class PatchPlanner:
             )
     
     def _has_sufficient_consent(self, risk_level: ValidationResult) -> bool:
-        """Check if user has provided sufficient consent for risk level"""
-        # TODO: Implement consent checking with stored user consent records
-        # For now, always require explicit consent for dangerous operations
-        return risk_level in [ValidationResult.SAFE, ValidationResult.WARNING]
+        """Check if user has provided sufficient consent for risk level."""
+        if risk_level in [ValidationResult.SAFE, ValidationResult.WARNING]:
+            return True
+        # Check stored consent records in safety_validator
+        cutoff = time.time() - 3600  # 1 hour expiry
+        for _op_id, consent in getattr(self.safety_validator, '_consent_records', {}).items():
+            if consent.timestamp >= cutoff and consent.is_valid_for_risk(risk_level):
+                return True
+        # Check config/env for pre-approved consent (e.g. CI, automated flows)
+        consent_level = os.environ.get("BOOTFORGE_PATCH_CONSENT_LEVEL", "").lower()
+        if consent_level == "expert" and risk_level != ValidationResult.BLOCKED:
+            return True
+        if consent_level == "informed" and risk_level == ValidationResult.DANGEROUS:
+            return True
+        return False
     
     def _apply_patch_set(self, patch_set: PatchSet, target_mount_point: str, 
                         dry_run: bool) -> Tuple[bool, List[str]]:

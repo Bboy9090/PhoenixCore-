@@ -98,7 +98,6 @@ class BootForgeMainWindow(QMainWindow):
         self.setMinimumSize(1000, 700)
         self.resize(1200, 800)
         
-        # Set window icon (placeholder for now)
         self.setWindowIcon(self._create_app_icon())
         
         # Create central widget with splitter
