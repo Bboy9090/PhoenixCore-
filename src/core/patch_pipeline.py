@@ -10,9 +10,11 @@ import time
 import uuid
 import logging
 import hashlib
+import shutil
 import tempfile
 import platform
 import subprocess
+from zipfile import ZipFile
 from abc import ABC, abstractmethod
 from pathlib import Path
 from enum import Enum
@@ -884,28 +886,129 @@ class PatchPlanner:
         
         return True
     
+    def _resolve_source_files(self, source_files: List[str], extensions: List[str],
+                              search_dirs: List[Path]) -> List[Path]:
+        """Resolve logical source file names to actual paths under search directories."""
+        resolved = []
+        for name in source_files or []:
+            base = Path(name).stem
+            candidates = [name] + [f"{base}{ext}" for ext in extensions]
+            for search_dir in search_dirs:
+                if not search_dir or not search_dir.exists():
+                    continue
+                for cand in candidates:
+                    p = search_dir / cand
+                    if p.exists() and p.is_file() and p not in resolved:
+                        resolved.append(p)
+                        break
+                else:
+                    for f in search_dir.rglob("*"):
+                        if f.is_file() and f.name in candidates and f not in resolved:
+                            resolved.append(f)
+                            break
+        return resolved
+
     def _apply_kext_injection(self, action: PatchAction, target_mount_point: str,
                              logs: List[str]) -> Tuple[bool, List[str]]:
-        """Apply kext injection safely"""
+        """Apply kext injection: copy .kext bundles to EFI/OC/Kexts or target_path."""
         logs.append(f"Injecting kext: {action.source_files}")
-        # TODO: Implement safe kext injection to target volume
-        logs.append("PLACEHOLDER: Kext injection not implemented")
+        base = Path(__file__).resolve().parent.parent.parent
+        search_dirs = [Path.home() / ".bootforge" / "kexts", base / "plugins" / "drivers" / "macos"]
+        if os.environ.get("BOOTFORGE_KEXTS_DIR"):
+            search_dirs.insert(0, Path(os.environ["BOOTFORGE_KEXTS_DIR"]))
+        resolved = self._resolve_source_files(
+            action.source_files or [], [".kext", ".kext.zip"], search_dirs
+        )
+        if not resolved:
+            logs.append("No kext files found in search paths. Add kexts to ~/.bootforge/kexts or set BOOTFORGE_KEXTS_DIR.")
+            return True, logs  # Skip without failing - OCLP build may provide kexts separately
+
+        target_base = Path(target_mount_point)
+        dest_dir = (target_base / (action.target_path or "EFI/OC/Kexts").lstrip("/")).resolve()
+        if not str(dest_dir).startswith(str(target_base.resolve())):
+            logs.append(f"SECURITY: Kext target outside mount: {dest_dir}")
+            return False, logs
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        for src in resolved:
+            if src.suffix == ".zip":
+                with ZipFile(src) as zf:
+                    for member in zf.namelist():
+                        if member.endswith(".kext/") or member.endswith(".kext"):
+                            zf.extract(member, dest_dir)
+                            logs.append(f"Extracted kext from {src.name}")
+            else:
+                dest = dest_dir / src.name
+                shutil.copy2(src, dest)
+                logs.append(f"Copied {src.name} to {dest_dir}")
         return True, logs
-    
+
     def _apply_efi_patch(self, action: PatchAction, target_mount_point: str,
                         logs: List[str]) -> Tuple[bool, List[str]]:
-        """Apply EFI patch safely"""
+        """Apply EFI patch: copy .efi payloads to EFI/BOOT or EFI/OC."""
         logs.append(f"Applying EFI patch: {action.source_files}")
-        # TODO: Implement safe EFI patching to target EFI partition
-        logs.append("PLACEHOLDER: EFI patching not implemented")
+        base = Path(__file__).resolve().parent.parent.parent
+        search_dirs = [Path.home() / ".bootforge" / "efi", base / "plugins" / "efi"]
+        if os.environ.get("BOOTFORGE_EFI_DIR"):
+            search_dirs.insert(0, Path(os.environ["BOOTFORGE_EFI_DIR"]))
+        resolved = self._resolve_source_files(
+            action.source_files or [], [".efi"], search_dirs
+        )
+        if not resolved:
+            logs.append("No EFI files found in search paths. Set BOOTFORGE_EFI_DIR or add to ~/.bootforge/efi")
+            return True, logs
+
+        target_base = Path(target_mount_point)
+        dest_dir = (target_base / (action.target_path or "EFI/BOOT").lstrip("/")).resolve()
+        if not str(dest_dir).startswith(str(target_base.resolve())):
+            logs.append(f"SECURITY: EFI target outside mount: {dest_dir}")
+            return False, logs
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        for src in resolved:
+            shutil.copy2(src, dest_dir / src.name)
+            logs.append(f"Copied {src.name} to {dest_dir}")
         return True, logs
-    
+
     def _apply_driver_injection(self, action: PatchAction, target_mount_point: str,
                                logs: List[str]) -> Tuple[bool, List[str]]:
-        """Apply driver injection safely"""
+        """Apply driver injection: copy Windows drivers to System32/drivers and INF."""
         logs.append(f"Injecting drivers: {action.source_files}")
-        # TODO: Implement safe driver injection to target volume
-        logs.append("PLACEHOLDER: Driver injection not implemented")
+        base = Path(__file__).resolve().parent.parent.parent
+        search_dirs = [Path.home() / ".bootforge" / "drivers" / "windows", base / "plugins" / "drivers" / "windows"]
+        if os.environ.get("BOOTFORGE_DRIVERS_DIR"):
+            search_dirs.insert(0, Path(os.environ["BOOTFORGE_DRIVERS_DIR"]))
+        resolved = self._resolve_source_files(
+            action.source_files or [], [".sys", ".inf", ".cat", ".zip"], search_dirs
+        )
+        if not resolved:
+            logs.append("No driver files found. Add to ~/.bootforge/drivers/windows or set BOOTFORGE_DRIVERS_DIR")
+            return True, logs
+
+        target_base = Path(target_mount_point).resolve()
+        drivers_dir = (target_base / "Windows" / "System32" / "drivers").resolve()
+        inf_dir = (target_base / "Windows" / "INF").resolve()
+        tb_str = str(target_base)
+        if not (str(drivers_dir).startswith(tb_str) and str(inf_dir).startswith(tb_str)):
+            logs.append("SECURITY: Driver target outside mount")
+            return False, logs
+        drivers_dir.mkdir(parents=True, exist_ok=True)
+        inf_dir.mkdir(parents=True, exist_ok=True)
+        for src in resolved:
+            if src.suffix.lower() == ".sys":
+                shutil.copy2(src, drivers_dir / src.name)
+                logs.append(f"Copied driver {src.name}")
+            elif src.suffix.lower() == ".inf":
+                shutil.copy2(src, inf_dir / src.name)
+                logs.append(f"Copied INF {src.name}")
+            elif src.suffix.lower() == ".zip":
+                with ZipFile(src) as zf:
+                    for m in zf.namelist():
+                        if m.endswith(".sys"):
+                            zf.extract(m, drivers_dir)
+                            logs.append(f"Extracted {m} from {src.name}")
+                        elif m.endswith(".inf"):
+                            zf.extract(m, inf_dir)
+                            logs.append(f"Extracted {m} from {src.name}")
         return True, logs
     
     def _audit_execution(self, plan: PatchPlan, target_mount_point: str, 

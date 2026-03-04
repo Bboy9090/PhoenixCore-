@@ -1129,14 +1129,15 @@ class StorageBuilder(QThread):
             efi_path = Path(efi_mount) / "EFI"
             efi_path.mkdir(exist_ok=True)
             
-            # Create BOOT folder
+            # Create BOOT folder - no fake bootloader; real EFI from OCLP required
             boot_folder = efi_path / "BOOT"
             boot_folder.mkdir(exist_ok=True)
-            
-            # Create placeholder bootloader
-            bootx64 = boot_folder / "BOOTx64.efi"
-            with open(bootx64, 'wb') as f:
-                f.write(b'BOOTFORGE_TEMPLATE_BOOTLOADER')
+            readme_path = boot_folder / "README.txt"
+            readme_path.write_text(
+                "OpenCore Legacy Patcher (OCLP) build required for bootable USB.\n"
+                "Run OCLP on macOS to generate BOOTx64.efi and copy it here.\n"
+                "This template has config structure only - not bootable until OCLP completes."
+            )
             
             # Create OC folder structure
             oc_folder = efi_path / "OC"

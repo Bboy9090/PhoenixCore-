@@ -458,9 +458,11 @@ class WizardController(QObject):
         self._emergency_stop_triggered = True
         
         # If build is in progress, attempt to cancel it
-        if self._build_in_progress:
-            # TODO: Implement emergency build cancellation
-            pass
+        if self._build_in_progress and hasattr(self, 'current_builder') and self.current_builder:
+            if hasattr(self.current_builder, 'cancel_build'):
+                self.current_builder.cancel_build()
+            if hasattr(self.current_builder, 'cancel_operation'):
+                self.current_builder.cancel_operation()
     
     def set_build_in_progress(self, in_progress: bool) -> None:
         """Set build operation status"""

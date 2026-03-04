@@ -942,17 +942,39 @@ class WinPatchEngine:
         return False
     
     def _inject_single_driver(self, driver: DriverPackage) -> bool:
-        """Inject a single driver package using DISM"""
+        """Inject a single driver package using DISM when driver files exist."""
         try:
             if not self.dism_path or self.dism_path == 'wimlib-imagex':
-                self.logger.warning("Driver injection requires DISM")
+                self.logger.warning("Driver injection requires DISM (wimlib-imagex does not support /add-driver)")
                 return False
-            
-            # In real implementation, would download/locate driver files
-            # For now, just simulate successful injection
-            self.logger.info(f"Simulating injection of {driver.name} driver")
-            return True
-            
+            if not self.mount_dir or not self.mount_dir.exists():
+                self.logger.warning("No image mounted for driver injection")
+                return False
+            # Resolve driver path: check driver_dir, user drivers folder
+            driver_base = (self.config.get_app_dir() / "drivers" / "windows") if self.config else (Path.home() / ".bootforge" / "drivers" / "windows")
+            inf_path = Path(driver.inf_path)
+            resolved = driver_base / inf_path.name if not inf_path.is_absolute() else inf_path
+            if not resolved.exists():
+                for parent in [driver_base, Path.home() / ".bootforge" / "drivers"]:
+                    if parent.exists():
+                        found = list(parent.rglob(inf_path.name))
+                        if found:
+                            resolved = found[0]
+                            break
+            if not resolved.exists():
+                self.logger.info(f"Driver files not found for {driver.name} (add to ~/.bootforge/drivers/windows/)")
+                return False
+            driver_dir = str(resolved.parent)
+            cmd = [self.dism_path, "/Image:" + str(self.mount_dir), "/Add-Driver", f"/Driver:{driver_dir}", "/Recurse"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0:
+                self.logger.info(f"Injected driver: {driver.name}")
+                return True
+            self.logger.warning(f"DISM driver add failed for {driver.name}: {result.stderr or result.stdout}")
+            return False
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"Driver injection timed out: {driver.name}")
+            return False
         except Exception as e:
             self.logger.error(f"Failed to inject driver {driver.name}: {e}")
             return False
