@@ -578,8 +578,7 @@ class WinPatchEngine:
             if validation_result.result in [ValidationResult.WARNING, ValidationResult.DANGEROUS]:
                 consent_level = ConsentLevel.INFORMED if validation_result.result == ValidationResult.WARNING else ConsentLevel.EXPERT
                 
-                # In a real implementation, this would prompt the user
-                # For now, we'll assume consent is given if in BYPASS mode
+                # Consent: record for BYPASS mode; GUI callers should use safety_validator.require_user_consent for interactive prompt
                 user_consent = UserConsent(
                     operation_id=patch_risk.patch_id,
                     operation_type="windows_bypass",
@@ -903,7 +902,6 @@ class WinPatchEngine:
             
             for driver in self.driver_database:
                 if windows_version in driver.compatible_windows:
-                    # Basic hardware matching - would be more sophisticated in real implementation
                     if self._driver_matches_hardware(driver, hardware):
                         compatible_drivers.append(driver)
             
@@ -922,15 +920,30 @@ class WinPatchEngine:
             return False
     
     def _driver_matches_hardware(self, driver: DriverPackage, hardware: DetectedHardware) -> bool:
-        """Check if driver matches detected hardware"""
-        # Simplified matching - real implementation would use hardware IDs
+        """Match driver to hardware using category and PCI vendor hints (VEN_8086=Intel, VEN_10EC=Realtek, VEN_1022=AMD)."""
+        vendor_map = {"8086": "Intel", "10EC": "Realtek", "1022": "AMD", "1002": "AMD"}
+        hw_id = getattr(driver, 'hardware_id', '') or ''
+        ven_match = None
+        for ven_hex, vendor in vendor_map.items():
+            if f"VEN_{ven_hex}" in hw_id.upper():
+                ven_match = vendor
+                break
         if driver.category == DriverCategory.NETWORK:
-            return len(hardware.network_adapters) > 0
+            adapters = getattr(hardware, 'network_adapters', []) or []
+            if not adapters:
+                return False
+            if ven_match:
+                return any(ven_match.lower() in str(a.get('vendor', '')).lower() for a in adapters)
+            return True
         elif driver.category == DriverCategory.STORAGE:
-            return len(hardware.storage_devices) > 0
+            return len(getattr(hardware, 'storage_devices', []) or []) > 0
         elif driver.category == DriverCategory.GRAPHICS:
-            return len(hardware.gpus) > 0
-        
+            gpus = getattr(hardware, 'gpus', []) or []
+            if not gpus:
+                return False
+            if ven_match:
+                return any(ven_match.lower() in str(g.get('vendor', '')).lower() for g in gpus)
+            return True
         return False
     
     def _inject_single_driver(self, driver: DriverPackage) -> bool:

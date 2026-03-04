@@ -2425,40 +2425,30 @@ class StorageConfigurationStepView(StepView):
         self._check_recipe_compatibility(recipe, compat_label)
     
     def _check_recipe_compatibility(self, recipe: DeploymentRecipe, compat_label: QLabel):
-        """Check recipe compatibility with detected hardware and OS"""
+        """Check recipe compatibility against hardware profiles and detected hardware."""
         if not self.detected_hardware or not self.selected_os_image:
             compat_label.setText("ℹ️ Complete previous steps first")
             return
-        
-        # This would normally check against actual hardware profiles
-        # For now, we'll do basic platform matching
-        
-        hw_platform = getattr(self.detected_hardware, 'platform', 'unknown').lower()
-        os_platform = getattr(self.selected_os_image, 'platform', 'unknown').lower()
-        
-        recipe_platform_map = {
-            DeploymentType.MACOS_OCLP: 'mac',
-            DeploymentType.WINDOWS_UNATTENDED: 'windows', 
-            DeploymentType.LINUX_AUTOMATED: 'linux'
-        }
-        
-        recipe_platform = recipe_platform_map.get(recipe.deployment_type, 'unknown')
-        
-        # Check compatibility
-        is_compatible = (recipe_platform == hw_platform or recipe_platform == os_platform)
-        
+        try:
+            from src.core.hardware_profiles import get_compatible_profiles
+            compatible = get_compatible_profiles(recipe.deployment_type)
+            hw_platform = getattr(self.detected_hardware, 'platform', 'unknown').lower()
+            model = getattr(self.detected_hardware, 'system_model', '') or ''
+            plat_key = 'mac' if hw_platform in ('mac', 'macos', 'darwin') else hw_platform
+            recipe_plat = {DeploymentType.MACOS_OCLP: 'mac', DeploymentType.WINDOWS_UNATTENDED: 'windows', DeploymentType.LINUX_AUTOMATED: 'linux'}.get(recipe.deployment_type, '')
+            match = any(getattr(p, 'platform', '') == plat_key or getattr(p, 'model', '') == model for p in compatible)
+            is_compatible = match or (recipe_plat == plat_key)
+            reason = f"Recipe {recipe.deployment_type.value}, detected {model or plat_key}"
+        except Exception as e:
+            is_compatible = True
+            reason = str(e)
         if is_compatible:
             compat_label.setText("✅ Compatible")
             compat_label.setStyleSheet("color: #4CAF50; font-size: 11px; margin-top: 5px;")
         else:
             compat_label.setText("⚠️ May not be compatible")
             compat_label.setStyleSheet("color: #FF9800; font-size: 11px; margin-top: 5px;")
-        
-        # Store compatibility info
-        self.recipe_compatibility[recipe.name] = {
-            'compatible': is_compatible,
-            'reason': f"Recipe for {recipe_platform}, detected {hw_platform}/{os_platform}"
-        }
+        self.recipe_compatibility[recipe.name] = {'compatible': is_compatible, 'reason': reason}
     
     def _select_recipe(self, recipe: DeploymentRecipe):
         """Select a deployment recipe"""

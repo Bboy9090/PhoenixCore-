@@ -1581,7 +1581,7 @@ For more information, visit: https://dortania.github.io/OpenCore-Legacy-Patcher/
             self._copy_grub_files(efi_mount)
             
             # Stage OS installation files
-            if not self._stage_os_payloads():
+            if not self._stage_os_payloads(partition_mounts):
                 self._log_message("ERROR", "Failed to stage OS payloads")
                 return False
             
@@ -1619,100 +1619,131 @@ For more information, visit: https://dortania.github.io/OpenCore-Legacy-Patcher/
         except Exception as e:
             self._log_message("WARNING", f"Error copying GRUB files: {e}")
     
-    def _stage_os_payloads(self) -> bool:
-        """Stage operating system installation files to their partitions"""
+    def _stage_os_payloads(self, partition_mounts: Dict[str, str]) -> bool:
+        """Stage operating system installation files to their partitions."""
         try:
             self._log_message("INFO", "Staging OS installation payloads...")
-            
             if not hasattr(self, 'grub_config') or not self.grub_config:
-                return True  # No multi-boot config, skip staging
-            
-            # Process each OS entry in GRUB config
+                return True
+            efi_mount = partition_mounts.get("EFI System", "")
             for entry in self.grub_config.entries:
                 self._log_message("INFO", f"Staging {entry.name} ({entry.os_type})")
-                
                 if entry.os_type == "windows":
-                    self._stage_windows_payload(entry)
+                    self._stage_windows_payload(entry, efi_mount, partition_mounts)
                 elif entry.os_type == "macos":
-                    self._stage_macos_payload(entry)
+                    self._stage_macos_payload(entry, efi_mount, partition_mounts)
                 elif entry.os_type == "linux":
-                    self._stage_linux_payload(entry)
-                
+                    self._stage_linux_payload(entry, efi_mount, partition_mounts)
             self._log_message("INFO", "OS payload staging completed")
             return True
-            
         except Exception as e:
             self._log_message("ERROR", f"Error staging OS payloads: {e}")
             return False
-    
-    def _stage_windows_payload(self, entry):
-        """Stage Windows installation files"""
+
+    def _extract_iso(self, iso_path: str, dest_dir: str) -> bool:
+        """Extract ISO contents using 7z or bsdtar. Returns True if successful."""
+        Path(dest_dir).mkdir(parents=True, exist_ok=True)
         try:
-            # Look for Windows ISO in source files
+            r = subprocess.run(
+                ["7z", "x", "-y", f"-o{dest_dir}", iso_path],
+                capture_output=True, text=True, timeout=300,
+            )
+            if r.returncode == 0:
+                return True
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+            pass
+        try:
+            r = subprocess.run(
+                ["bsdtar", "-xf", iso_path, "-C", dest_dir],
+                capture_output=True, text=True, timeout=300,
+            )
+            if r.returncode == 0:
+                return True
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+            pass
+        return False
+
+    def _stage_windows_payload(self, entry, efi_mount: str, partition_mounts: Dict[str, str]):
+        """Extract Windows EFI boot files from ISO and copy to EFI partition."""
+        try:
             windows_iso = None
-            for filename, path in self.source_files.items():
-                if 'windows' in filename.lower() and path.endswith('.iso'):
+            for _fn, path in self.source_files.items():
+                if path.endswith('.iso') and any(x in path.lower() for x in ('windows', 'win', 'win10', 'win11')):
                     windows_iso = path
                     break
-            
             if not windows_iso or not os.path.exists(windows_iso):
                 self._log_message("WARNING", f"Windows ISO not found for {entry.name}")
                 return
-            
-            # Mount Windows ISO and copy EFI boot files
-            iso_mount = f"{self.temp_dir}/windows_iso"
-            os.makedirs(iso_mount, exist_ok=True)
-            
-            # Mount ISO (simplified - would need proper mounting)
-            self._log_message("INFO", f"Extracting Windows EFI files from {windows_iso}")
-            
-            # In a real implementation, would extract EFI/BOOT/BOOTX64.EFI 
-            # and other necessary files to the EFI System Partition
-            
+            iso_extract = str(self.temp_dir / "windows_iso")
+            os.makedirs(iso_extract, exist_ok=True)
+            if self._extract_iso(windows_iso, iso_extract):
+                efi_boot = Path(iso_extract) / "EFI" / "BOOT"
+                if efi_boot.exists():
+                    efi_dest = Path(efi_mount) / "EFI" / "BOOT"
+                    efi_dest.mkdir(parents=True, exist_ok=True)
+                    for f in efi_boot.glob("*"):
+                        if f.is_file():
+                            shutil.copy2(f, efi_dest / f.name)
+                            self._log_message("INFO", f"Copied {f.name} to EFI")
+                win_part = partition_mounts.get("Windows", partition_mounts.get("DATA", ""))
+                if win_part and (Path(iso_extract) / "sources" / "boot.wim").exists():
+                    shutil.copytree(Path(iso_extract) / "sources", Path(win_part) / "sources", dirs_exist_ok=True)
+                    self._log_message("INFO", "Copied Windows sources to partition")
+            else:
+                self._log_message("WARNING", "Could not extract Windows ISO (install 7z or bsdtar)")
         except Exception as e:
             self._log_message("WARNING", f"Error staging Windows payload: {e}")
-    
-    def _stage_macos_payload(self, entry):
-        """Stage macOS installation files"""
+
+    def _stage_macos_payload(self, entry, efi_mount: str, partition_mounts: Dict[str, str]):
+        """Stage macOS installer; full createinstallmedia requires macOS."""
         try:
-            # Look for macOS installer in source files
-            macos_installer = None
-            for filename, path in self.source_files.items():
-                if 'macos' in filename.lower() and (path.endswith('.dmg') or path.endswith('.app')):
-                    macos_installer = path
+            macos_src = None
+            for _fn, path in self.source_files.items():
+                if path.endswith('.dmg') or path.endswith('.app') or 'macos' in path.lower():
+                    macos_src = path
                     break
-            
-            if not macos_installer or not os.path.exists(macos_installer):
+            if not macos_src or not os.path.exists(macos_src):
                 self._log_message("WARNING", f"macOS installer not found for {entry.name}")
                 return
-            
-            self._log_message("INFO", f"Staging macOS installer from {macos_installer}")
-            
-            # In a real implementation, would restore BaseSystem.dmg 
-            # to the HFS+/APFS partition and setup boot.efi
-            
+            mac_part = partition_mounts.get("macOS", partition_mounts.get("Install macOS", ""))
+            if mac_part:
+                shutil.copy2(macos_src, Path(mac_part) / Path(macos_src).name)
+                self._log_message("INFO", f"Copied macOS installer to partition")
+            else:
+                self._log_message("INFO", "macOS partition not found; run createinstallmedia on macOS for full USB")
         except Exception as e:
             self._log_message("WARNING", f"Error staging macOS payload: {e}")
-    
-    def _stage_linux_payload(self, entry):
-        """Stage Linux installation files"""
+
+    def _stage_linux_payload(self, entry, efi_mount: str, partition_mounts: Dict[str, str]):
+        """Extract vmlinuz and initrd from Linux ISO; copy to EFI or Linux partition."""
         try:
-            # Look for Linux ISO in source files
             linux_iso = None
-            for filename, path in self.source_files.items():
-                if 'linux' in filename.lower() and path.endswith('.iso'):
+            for _fn, path in self.source_files.items():
+                if path.endswith('.iso') and any(x in path.lower() for x in ('ubuntu', 'linux', 'debian', 'fedora')):
                     linux_iso = path
                     break
-            
             if not linux_iso or not os.path.exists(linux_iso):
                 self._log_message("WARNING", f"Linux ISO not found for {entry.name}")
                 return
-            
-            self._log_message("INFO", f"Staging Linux installer from {linux_iso}")
-            
-            # In a real implementation, would extract vmlinuz and initrd
-            # from the ISO and copy to the Linux partition
-            
+            iso_extract = str(self.temp_dir / "linux_iso")
+            os.makedirs(iso_extract, exist_ok=True)
+            if self._extract_iso(linux_iso, iso_extract):
+                for p in Path(iso_extract).rglob("vmlinuz*"):
+                    if p.is_file():
+                        dest = Path(efi_mount) / "EFI" / "BOOT" / p.name
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(p, dest)
+                        self._log_message("INFO", f"Copied {p.name} to EFI")
+                        break
+                for p in Path(iso_extract).rglob("initrd*"):
+                    if p.is_file():
+                        dest = Path(efi_mount) / "EFI" / "BOOT" / p.name
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(p, dest)
+                        self._log_message("INFO", f"Copied {p.name} to EFI")
+                        break
+            else:
+                self._log_message("WARNING", "Could not extract Linux ISO (install 7z or bsdtar)")
         except Exception as e:
             self._log_message("WARNING", f"Error staging Linux payload: {e}")
     
@@ -1842,22 +1873,23 @@ class StorageBuilderEngine:
     
     def create_patch_plan(self, hardware_profile: HardwareProfile, 
                          target_os: str, target_version: str,
-                         validation_mode: str = "compliant") -> Optional[PatchPlan]:
-        """Create a patch plan for specific hardware and OS target"""
+                         validation_mode: str = "compliant",
+                         detected_hardware: Optional['DetectedHardware'] = None) -> Optional[PatchPlan]:
+        """Create a patch plan for specific hardware and OS target."""
         try:
-            # Create a simple DetectedHardware object from profile
-            # In real usage, this would come from HardwareDetector
             from .hardware_detector import DetectedHardware
-            detected_hardware = DetectedHardware(platform=hardware_profile.platform)
-            detected_hardware.system_model = hardware_profile.model
-            detected_hardware.system_manufacturer = "Apple" if hardware_profile.platform == "mac" else "PC"
-            detected_hardware.cpu_name = hardware_profile.cpu_family or "Unknown"
-            detected_hardware.cpu_architecture = hardware_profile.architecture
+            hw = detected_hardware
+            if hw is None:
+                hw = DetectedHardware(platform=hardware_profile.platform)
+                hw.system_model = hardware_profile.model
+                hw.system_manufacturer = "Apple" if hardware_profile.platform == "mac" else "PC"
+                hw.cpu_name = hardware_profile.cpu_family or "Unknown"
+                hw.cpu_architecture = hardware_profile.architecture
             
             # Create patch plan using the planner
             os_info = {"family": target_os, "version": target_version}
             patch_plan = self.patch_planner.create_patch_plan(
-                hardware=detected_hardware,
+                hardware=hw,
                 os_info=os_info
             )
             

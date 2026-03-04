@@ -369,12 +369,28 @@ class PatchPlanner:
         self._load_builtin_patches()
     
     def _load_builtin_patches(self):
-        """Load built-in patch sets"""
+        """Load patch sets from config files and built-in defaults."""
         try:
-            # This would normally load from configuration files
-            # For now, we'll create some example patch sets
-            
-            # Example: Intel HD Graphics patch for macOS
+            # Load from config/patches YAML files if present
+            config_dirs = [
+                Path(__file__).resolve().parent.parent.parent / "configs" / "patches",
+                Path.home() / ".bootforge" / "configs" / "patches",
+            ]
+            for config_dir in config_dirs:
+                if config_dir.exists():
+                    try:
+                        from src.core.patch_config_loader import PatchConfigLoader
+                        loader = PatchConfigLoader(str(config_dir))
+                        for patch_set in loader.load_all_configs():
+                            if patch_set and patch_set.id not in self._patch_sets:
+                                self._patch_sets[patch_set.id] = patch_set
+                                for hw in (patch_set.target_hardware or []):
+                                    self._hardware_mappings.setdefault(hw, []).append(patch_set.id)
+                        self.logger.info(f"Loaded patch configs from {config_dir}")
+                    except Exception as e:
+                        self.logger.debug(f"Could not load from {config_dir}: {e}")
+
+            # Built-in patch sets (used when no config files exist)
             intel_graphics_patch = PatchSet(
                 id="intel_hd_graphics_macos",
                 name="Intel HD Graphics Support",
