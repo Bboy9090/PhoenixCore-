@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build Windows GUI executable
+        run: |
+          pyinstaller --noconfirm --onefile --name BootForge main.py
+        shell: powershell
+
+      - name: Generate checksum
+        run: |
+          Get-FileHash dist\BootForge.exe -Algorithm SHA256 | Out-File dist\BootForge.exe.sha256
+        shell: powershell
+
+      - name: Upload Windows artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/BootForge.exe
+          asset_name: BootForge-${{ github.ref_name }}-windows.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+
+      - name: Upload Windows checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/BootForge.exe.sha256
+          asset_name: BootForge-${{ github.ref_name }}-windows.exe.sha256
+          asset_content_type: text/plain
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+          git submodule update --init third_party/OpenCore-Legacy-Patcher || true
+
+      - name: Build macOS app (basic bundle)
+        run: |
+          pyinstaller --noconfirm --windowed --name BootForge main.py
+        shell: bash
+
+      - name: Generate checksum
+        run: |
+          shasum -a 256 dist/BootForge.app > dist/BootForge.app.sha256
+        shell: bash
+
+      - name: Upload macOS artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/BootForge.app
+          asset_name: BootForge-${{ github.ref_name }}-macos.app
+          asset_content_type: application/octet-stream
+
+      - name: Upload macOS checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/BootForge.app.sha256
+          asset_name: BootForge-${{ github.ref_name }}-macos.app.sha256
+          asset_content_type: text/plain
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build Linux binary
+        run: |
+          pyinstaller --noconfirm --onefile --name BootForge main.py
+
+      - name: Generate checksum
+        run: |
+          sha256sum dist/BootForge > dist/BootForge.sha256
+
+      - name: Upload Linux artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/BootForge
+          asset_name: BootForge-${{ github.ref_name }}-linux
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/BootForge.sha256
+          asset_name: BootForge-${{ github.ref_name }}-linux.sha256
+          asset_content_type: text/plain
+
