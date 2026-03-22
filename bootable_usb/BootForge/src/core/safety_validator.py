@@ -349,7 +349,7 @@ class SafetyValidator:
                     try:
                         real_path = os.path.realpath(device_path_sys)
                         return "/usb" in real_path.lower() or removable
-                    except:
+                    except OSError:
                         pass
                 
                 return removable
@@ -365,7 +365,7 @@ class SafetyValidator:
                     else:
                         drive_type = ctypes.windll.kernel32.GetDriveTypeW(device_path)
                         return drive_type == 2  # DRIVE_REMOVABLE
-                except:
+                except (OSError, ctypes.ArgumentError):
                     return False
                     
             elif self.system == "Darwin":  # macOS
@@ -373,14 +373,14 @@ class SafetyValidator:
                     # Use diskutil to check if device is removable
                     result = subprocess.run(
                         ['diskutil', 'info', device_path],
-                        capture_output=True, text=True, check=False
+                        capture_output=True, text=True, check=False, timeout=15
                     )
                     if result.returncode == 0:
                         output = result.stdout.lower()
                         return any(keyword in output for keyword in [
                             'removable media', 'usb', 'external', 'removable: yes'
                         ])
-                except:
+                except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
                     pass
                 return False
             
@@ -389,7 +389,6 @@ class SafetyValidator:
                 
         except Exception as e:
             self.logger.error(f"Error checking if device is removable: {e}")
-            return False
             return False
     
     def _is_system_disk(self, device_path: str) -> bool:
@@ -454,7 +453,7 @@ class SafetyValidator:
                 # Use lsblk to get size
                 result = subprocess.run(
                     ['lsblk', '-b', '-n', '-o', 'SIZE', device_path],
-                    capture_output=True, text=True, check=False
+                    capture_output=True, text=True, check=False, timeout=10
                 )
                 if result.returncode == 0:
                     size_bytes = int(result.stdout.strip())
@@ -621,9 +620,9 @@ class SafetyValidator:
     def _is_tool_available(self, tool: str) -> bool:
         """Check if required tool is available"""
         try:
-            result = subprocess.run(['which', tool], capture_output=True, check=False)
+            result = subprocess.run(['which', tool], capture_output=True, check=False, timeout=5)
             return result.returncode == 0
-        except:
+        except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
             return False
     
     def _check_privileges(self) -> SafetyCheck:
@@ -638,7 +637,7 @@ class SafetyValidator:
             else:
                 # Check if sudo is available
                 try:
-                    result = subprocess.run(['sudo', '-n', 'true'], capture_output=True, check=False)
+                    result = subprocess.run(['sudo', '-n', 'true'], capture_output=True, check=False, timeout=5)
                     if result.returncode == 0:
                         return SafetyCheck(
                             name="Privileges",
@@ -652,7 +651,7 @@ class SafetyValidator:
                             message="Root privileges required",
                             mitigation="Run with sudo or as root"
                         )
-                except:
+                except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
                     return SafetyCheck(
                         name="Privileges",
                         result=ValidationResult.BLOCKED,
@@ -677,7 +676,7 @@ class SafetyValidator:
                         message="Administrator privileges required",
                         mitigation="Run as administrator"
                     )
-            except:
+            except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
                 return SafetyCheck(
                     name="Privileges",
                     result=ValidationResult.WARNING,
@@ -735,7 +734,7 @@ class SafetyValidator:
                 # Use lsblk to get block devices
                 result = subprocess.run(
                     ['lsblk', '-d', '-n', '-o', 'NAME,TYPE,TRAN'],
-                    capture_output=True, text=True, check=False
+                    capture_output=True, text=True, check=False, timeout=10
                 )
                 
                 if result.returncode == 0:
@@ -932,9 +931,19 @@ class SafetyValidator:
                     self.logger.warning(f"User declined consent for {operation_type}")
                     return None
             else:
-                # Non-interactive mode - log warning and simulate
-                self.logger.warning(f"Non-interactive mode: simulating consent for {operation_type}")
-                user_confirmation = f"Simulated: User acknowledged {len(risk_factors)} risk factors"
+                # Non-interactive mode: block destructive operations unless explicitly allowed
+                allow_env = os.environ.get("BOOTFORGE_ALLOW_NONINTERACTIVE_DESTRUCTIVE", "").strip().lower()
+                if allow_env in ("1", "true", "yes"):
+                    self.logger.warning(
+                        f"Non-interactive mode: consent allowed via BOOTFORGE_ALLOW_NONINTERACTIVE_DESTRUCTIVE for {operation_type}"
+                    )
+                    user_confirmation = f"Non-interactive override: {len(risk_factors)} risk factors acknowledged"
+                else:
+                    self.logger.warning(
+                        f"Non-interactive mode: BLOCKED {operation_type}. "
+                        "Set BOOTFORGE_ALLOW_NONINTERACTIVE_DESTRUCTIVE=1 to allow destructive ops in scripts."
+                    )
+                    return None
             
             # Create consent record
             consent = UserConsent(

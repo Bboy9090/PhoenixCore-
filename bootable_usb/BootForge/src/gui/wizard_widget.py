@@ -438,7 +438,7 @@ class ConfirmationPage(WizardPage):
         warning_text.setMaximumHeight(100)
         warning_text.setReadOnly(True)
         warning_text.setPlainText(
-            "⚠️  FINAL WARNING  ⚠️\\n\\n"
+            "⚠️  FINAL WARNING  ⚠️\n\n"
             "This operation will completely erase all data on the target device. "
             "Make sure you have backed up any important data. "
             "This action cannot be undone!"

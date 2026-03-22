@@ -32,6 +32,27 @@ git submodule update --init third_party/OpenCore-Legacy-Patcher
 pip install wxpython pyobjc
 ```
 
+### Mobile app (phoenix-core-mobile)
+
+The mobile app is an Expo (React Native) project for iOS and Android.
+
+1. Install [Node.js](https://nodejs.org/) 18+ and npm.
+2. From the repo root:
+
+```bash
+cd phoenix-core-mobile
+npm install
+npx expo start
+```
+
+3. **Run on your phone with Expo Go:**
+   - Install [Expo Go](https://expo.dev/go) on your device.
+   - Ensure phone and computer are on the same Wi‑Fi (or use `npx expo start --tunnel`).
+   - Scan the QR code shown in the terminal.
+
+4. **Optional – connect to local web server:**  
+   Set `EXPO_PUBLIC_API_URL` to your host’s LAN IP before starting (e.g. `http://192.168.1.100:5000`).
+
 ---
 
 ## Running Tests

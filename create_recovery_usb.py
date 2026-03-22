@@ -33,10 +33,13 @@ def print_important_info():
 def main():
     print("🚀 BootForge Tools USB Creator")
     print("=" * 40)
-    
-    print_important_info()
-    
-    response = input("Do you want to create a BootForge Tools USB? (yes/no): ")
+
+    # Non-interactive mode for CI
+    if "--yes" in sys.argv or "-y" in sys.argv:
+        response = "yes"
+    else:
+        print_important_info()
+        response = input("Do you want to create a BootForge Tools USB? (yes/no): ")
     if response.lower() not in ['yes', 'y']:
         print("\n📖 HOW TO CREATE A BOOTABLE MACOS INSTALLER USB:")
         print("=" * 70)
