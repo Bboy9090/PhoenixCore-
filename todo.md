@@ -23,3 +23,25 @@
 - [x] Update app.config.ts with new app name
 - [x] Update Home screen hero text and branding
 - [x] Optimize icon files for deployment (resize under 1MB)
+
+
+## Phase 2: Backend API & PhoenixCore Integration
+
+- [x] Create Flask backend API wrapper around PhoenixCore modules
+- [x] Build hardware detection endpoint (/api/v1/hardware/detect)
+- [x] Build USB device enumeration endpoint (/api/v1/usb/devices)
+- [x] Build recipe building endpoint (/api/v1/recipe/build)
+- [x] Build USB build execution endpoint (/api/v1/usb/build)
+- [x] Build safety validation endpoint (/api/v1/safety/validate)
+- [x] Implement WebSocket progress streaming for builds
+- [x] Create React hooks for API interaction (use-phoenix-api.ts)
+- [x] Integrate real hardware detection into Device Wizard (wizard-integrated.tsx)
+- [x] Integrate real USB device enumeration into USB Builder (builder-integrated.tsx)
+- [x] Integrate real recipe building into USB Builder
+- [x] Add real-time build progress tracking to UI
+- [x] Build desktop recipe consumer application (PhoenixDrive_Desktop_Consumer.py)
+- [x] Add QR code generation for recipe export (qr-utils.ts)
+- [x] Add QR code scanning for recipe import (recipe-export.tsx)
+- [ ] Test end-to-end integration (mobile → backend → desktop)
+- [ ] Add error handling and retry logic
+- [ ] Add offline fallback mode
