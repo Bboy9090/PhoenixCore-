@@ -68,3 +68,8 @@ Thumbs.db
 /target
 **/*.rs.bk
 reports/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
