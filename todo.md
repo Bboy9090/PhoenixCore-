@@ -101,3 +101,37 @@
 - [ ] Add video tutorials (embedded or links)
 - [ ] Test with non-technical users
 - [ ] Gather feedback and iterate
+
+
+## Phase 5: iOS App Store Submission
+
+- [x] Configure app.config.ts with iOS App Store settings
+- [x] Create eas.json for EAS Build configuration
+- [x] Create iOS_BUILD_GUIDE.md with detailed instructions
+- [x] Create iOS_QUICK_START.md for quick reference
+- [ ] Set up Apple Developer Account ($99/year)
+- [ ] Create App ID in Apple Developer Portal
+- [ ] Create development and distribution certificates
+- [ ] Create provisioning profiles (development & App Store)
+- [ ] Set up App Store Connect entry
+- [ ] Add app screenshots (iPhone 6.7", iPad 12.9")
+- [ ] Add app preview video (optional but recommended)
+- [ ] Fill in app description and keywords
+- [ ] Build for iOS using EAS Build
+- [ ] Test on physical iOS device or simulator
+- [ ] Submit to App Store for review
+- [ ] Monitor review status and respond to feedback
+- [ ] Launch on App Store
+
+## Phase 6: Android Google Play Submission
+
+- [ ] Configure app.config.ts with Android Play Store settings
+- [ ] Create Google Play Developer Account ($25 one-time)
+- [ ] Set up Google Play Console entry
+- [ ] Generate signing key for Android
+- [ ] Build for Android using EAS Build
+- [ ] Add app screenshots and preview
+- [ ] Fill in app description and keywords
+- [ ] Submit to Google Play for review
+- [ ] Monitor review status
+- [ ] Launch on Google Play Store

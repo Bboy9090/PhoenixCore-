@@ -41,18 +41,32 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
+  description: "Bobby's PhoenixDrive: Create bootable USB drives for Windows, Linux, ChromeOS, and macOS. Simple planning tool that works with PhoenixCore for safe, reliable OS deployment.",
   version: "1.0.0",
+  runtimeVersion: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
+  primaryColor: "#FF6B35",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
+  platforms: ["ios", "android", "web"],
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
-    "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+    buildNumber: "1",
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+      NSLocalNetworkUsageDescription: "Bobby's PhoenixDrive needs local network access to detect USB devices and communicate with your computer.",
+      NSBonjourServiceTypes: ["_http._tcp", "_ws._tcp"],
+      NSMicrophoneUsageDescription: "Not used by Bobby's PhoenixDrive.",
+      NSPhotoLibraryUsageDescription: "Not used by Bobby's PhoenixDrive.",
+      NSCameraUsageDescription: "Not used by Bobby's PhoenixDrive."
+    },
+    entitlements: {
+      "com.apple.developer.networking.local-network": true,
+      "com.apple.developer.networking.multicast": true
+    }
   },
   android: {
     adaptiveIcon: {
@@ -114,6 +128,10 @@ const config: ExpoConfig = {
     [
       "expo-build-properties",
       {
+        ios: {
+          deploymentTarget: "14.0",
+          useFrameworks: "static",
+        },
         android: {
           buildArchs: ["armeabi-v7a", "arm64-v8a"],
           minSdkVersion: 24,
@@ -125,6 +143,15 @@ const config: ExpoConfig = {
     typedRoutes: true,
     reactCompiler: true,
   },
+  extra: {
+    eas: {
+      projectId: "Ckayyn9SVaz8UPGNyasERW",
+    },
+  },
 };
+
+// Privacy policy URL - add to app store metadata
+config.extra = config.extra || {};
+config.extra.privacyUrl = "https://example.com/privacy";
 
 export default config;
