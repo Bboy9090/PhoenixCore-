@@ -1,0 +1,4 @@
+[autorun]
+open=Start-BootForge-Windows.bat
+icon=BootForge\assets\icons\app_icon_premium.png
+label=BootForge Recovery USB

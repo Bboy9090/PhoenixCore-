@@ -1,0 +1,179 @@
+"""
+BootForge Configuration Management
+Handles application settings, preferences, and plugin configurations
+"""
+
+import json
+import os
+import logging
+from pathlib import Path
+from typing import Dict, Any, Optional, List
+from dataclasses import dataclass, asdict, field, fields
+
+
+@dataclass
+class AppConfig:
+    """Application configuration settings"""
+    app_name: str = "BootForge"
+    version: str = "1.0.0"
+    log_level: str = "INFO"
+    temp_dir: str = ""
+    max_concurrent_writes: int = 2
+    thermal_threshold: float = 85.0
+    auto_update_check: bool = True
+    plugin_directories: Optional[List[str]] = None
+    extras: Dict[str, Any] = field(default_factory=dict)
+    
+    def __post_init__(self):
+        if self.plugin_directories is None:
+            self.plugin_directories = ["plugins"]
+        if not self.temp_dir:
+            self.temp_dir = str(Path.home() / ".bootforge" / "temp")
+
+
+class Config:
+    """Central configuration manager for BootForge"""
+    
+    def __init__(self, config_file: Optional[str] = None):
+        self.logger = logging.getLogger(__name__)
+        
+        # Default configuration paths
+        self.app_dir = Path.home() / ".bootforge"
+        self.config_file = config_file or str(self.app_dir / "config.json")
+        
+        # Initialize configuration
+        self._config = AppConfig()
+        self._ensure_directories()
+        self.load()
+    
+    def _ensure_directories(self):
+        """Create necessary application directories"""
+        if self._config is None:
+            return
+        temp_dir = getattr(self._config, "temp_dir", None) or str(Path.home() / ".bootforge" / "temp")
+        directories = [
+            self.app_dir,
+            Path(temp_dir),
+            self.app_dir / "logs",
+            self.app_dir / "plugins",
+            self.app_dir / "cache"
+        ]
+        for directory in directories:
+            try:
+                directory.mkdir(parents=True, exist_ok=True)
+                self.logger.debug(f"Ensured directory exists: {directory}")
+            except OSError as e:
+                self.logger.warning(f"Could not create directory {directory}: {e}")
+    
+    def load(self) -> bool:
+        """Load configuration from file"""
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r') as f:
+                    data = json.load(f)
+                    known_fields = {f.name for f in fields(AppConfig)}
+                    init_kwargs = {k: v for k, v in data.items() if k in known_fields}
+                    extras = {k: v for k, v in data.items() if k not in known_fields}
+                    self._config = AppConfig(**init_kwargs)
+                    if extras:
+                        self._config.extras.update(extras)
+                    self.logger.info(f"Configuration loaded from {self.config_file}")
+                    return True
+            else:
+                self.logger.info("No configuration file found, using defaults")
+                self.save()  # Create default config file
+                return False
+        except Exception as e:
+            self.logger.error(f"Error loading configuration: {e}")
+            return False
+    
+    def save(self) -> bool:
+        """Save configuration to file"""
+        try:
+            self._ensure_directories()
+            with open(self.config_file, 'w') as f:
+                data = asdict(self._config)
+                extras = data.pop("extras", {})
+                data.update(extras)
+                json.dump(data, f, indent=2)
+            self.logger.info(f"Configuration saved to {self.config_file}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error saving configuration: {e}")
+            return False
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get configuration value"""
+        if not key:
+            return default
+        if self._config is None:
+            return default
+        if hasattr(self._config, key):
+            return getattr(self._config, key, default)
+        return self._config.extras.get(key, default)
+    
+    def set(self, key: str, value: Any) -> bool:
+        """Set configuration value"""
+        try:
+            if hasattr(self._config, key):
+                setattr(self._config, key, value)
+                self.logger.debug(f"Configuration updated: {key} = {value}")
+                return True
+
+            self._config.extras[key] = value
+            self.logger.debug(f"Configuration extra stored: {key} = {value}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting configuration: {e}")
+            return False
+    
+    def get_app_dir(self) -> Path:
+        """Get application directory path"""
+        return self.app_dir
+    
+    def get_temp_dir(self) -> Path:
+        """Get temporary directory path"""
+        if self._config is None:
+            return Path.home() / ".bootforge" / "temp"
+        return Path(self._config.temp_dir)
+    
+    def get_log_dir(self) -> Path:
+        """Get log directory path"""
+        return self.app_dir / "logs"
+    
+    def get_plugin_dirs(self) -> List[Path]:
+        """Get plugin directory paths"""
+        if self._config.plugin_directories is None:
+            return []
+        return [Path(d) for d in self._config.plugin_directories]
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert configuration to dictionary"""
+        data = asdict(self._config)
+        extras = data.pop("extras", {})
+        data.update(extras)
+        return data
+
+
+# Recovery defaults
+APP_NAME = "bootforge"
+LOG_NAME = "bootforge.log"
+
+
+def default_log_dir() -> Path:
+    for cand in (Path("/var/log"), Path("/tmp/bootforge"), Path.cwd() / "bootforge_logs"):
+        try:
+            cand.mkdir(parents=True, exist_ok=True)
+            test = cand / ".bf_write_test"
+            test.write_text("ok")
+            test.unlink(missing_ok=True)
+            return cand
+        except (OSError, PermissionError):
+            continue
+    return Path.cwd()
+
+
+_env_log_dir = os.getenv("BOOTFORGE_LOG_DIR")
+LOG_DIR = Path(_env_log_dir) if _env_log_dir else default_log_dir()
+LOG_FILE = LOG_DIR / LOG_NAME
+MOUNT_BASE = Path(os.getenv("BOOTFORGE_MOUNT_BASE", "/mnt/bootforge"))

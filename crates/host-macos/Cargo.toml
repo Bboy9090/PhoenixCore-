@@ -1,0 +1,9 @@
+[package]
+name = "phoenix-host-macos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+phoenix-core = { path = "../core" }
+libc = "1.0.0-alpha.2"

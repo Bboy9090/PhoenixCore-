@@ -1,0 +1,60 @@
+obg@Robs-iMac BootForgeOS % pip3 install pyinstaller
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: pyinstaller in /Users/robg/Library/Python/3.9/lib/python/site-packages (6.16.0)
+Requirement already satisfied: altgraph in /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site-packages (from pyinstaller) (0.17.2)
+Requirement already satisfied: importlib-metadata>=4.6 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from pyinstaller) (8.7.0)
+Requirement already satisfied: macholib>=1.8 in /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site-packages (from pyinstaller) (1.15.2)
+Requirement already satisfied: packaging>=22.0 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from pyinstaller) (25.0)
+Requirement already satisfied: pyinstaller-hooks-contrib>=2025.8 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from pyinstaller) (2025.8)
+Requirement already satisfied: setuptools>=42.0.0 in /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site-packages (from pyinstaller) (58.0.4)
+Requirement already satisfied: zipp>=3.20 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from importlib-metadata>=4.6->pyinstaller) (3.23.0)
+robg@Robs-iMac BootForgeOS % python3 src/installers/build_installer.py
+BootForge Installer Builder
+========================================
+Building BootForge executable...
+Traceback (most recent call last):
+  File "/Users/robg/Downloads/BootForgeOS/src/installers/build_installer.py", line 248, in <module>
+    main()
+  File "/Users/robg/Downloads/BootForgeOS/src/installers/build_installer.py", line 226, in main
+    if not build_executable():
+  File "/Users/robg/Downloads/BootForgeOS/src/installers/build_installer.py", line 43, in build_executable
+    result = subprocess.run(cmd, capture_output=True, text=True)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 505, in run
+    with Popen(*popenargs, **kwargs) as process:
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 951, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 1821, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'pyinstaller'
+robg@Robs-iMac BootForgeOS % pip3 install pyinstaller PyQt6 requests psutil pillow cryptography grpcio grpcio-tools protobuf pyyaml click colorama zeroconf
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: pyinstaller in /Users/robg/Library/Python/3.9/lib/python/site-packages (6.16.0)
+Requirement already satisfied: PyQt6 in /Users/robg/Library/Python/3.9/lib/python/site-packages (6.9.1)
+Requirement already satisfied: requests in /Users/robg/Library/Python/3.9/lib/python/site-packages (2.32.5)
+Requirement already satisfied: psutil in /Users/robg/Library/Python/3.9/lib/python/site-packages (7.0.0)
+Requirement already satisfied: pillow in /Users/robg/Library/Python/3.9/lib/python/site-packages (11.3.0)
+Requirement already satisfied: cryptography in /Users/robg/Library/Python/3.9/lib/python/site-packages (45.0.7)
+Requirement already satisfied: grpcio in /Users/robg/Library/Python/3.9/lib/python/site-packages (1.74.0)
+Requirement already satisfied: grpcio-tools in /Users/robg/Library/Python/3.9/lib/python/site-packages (1.74.0)
+Requirement already satisfied: protobuf in /Users/robg/Library/Python/3.9/lib/python/site-packages (6.32.1)
+Requirement already satisfied: pyyaml in /Users/robg/Library/Python/3.9/lib/python/site-packages (6.0.2)
+Requirement already satisfied: click in /Users/robg/Library/Python/3.9/lib/python/site-packages (8.1.8)
+Requirement already satisfied: colorama in /Users/robg/Library/Python/3.9/lib/python/site-packages (0.4.6)
+Requirement already satisfied: zeroconf in /Users/robg/Library/Python/3.9/lib/python/site-packages (0.147.2)
+Requirement already satisfied: altgraph in /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site-packages (from pyinstaller) (0.17.2)
+Requirement already satisfied: importlib-metadata>=4.6 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from pyinstaller) (8.7.0)
+Requirement already satisfied: macholib>=1.8 in /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site-packages (from pyinstaller) (1.15.2)
+Requirement already satisfied: packaging>=22.0 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from pyinstaller) (25.0)
+Requirement already satisfied: pyinstaller-hooks-contrib>=2025.8 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from pyinstaller) (2025.8)
+Requirement already satisfied: setuptools>=42.0.0 in /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site-packages (from pyinstaller) (58.0.4)
+Requirement already satisfied: PyQt6-sip<14,>=13.8 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from PyQt6) (13.10.2)
+Requirement already satisfied: PyQt6-Qt6<6.10.0,>=6.9.0 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from PyQt6) (6.9.2)
+Requirement already satisfied: charset_normalizer<4,>=2 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from requests) (3.4.3)
+Requirement already satisfied: idna<4,>=2.5 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from requests) (3.10)
+Requirement already satisfied: urllib3<3,>=1.21.1 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from requests) (2.5.0)
+Requirement already satisfied: certifi>=2017.4.17 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from requests) (2025.8.3)
+Requirement already satisfied: cffi>=1.14 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from cryptography) (2.0.0)
+Requirement already satisfied: ifaddr>=0.1.7 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from zeroconf) (0.2.0)
+Requirement already satisfied: pycparser in /Users/robg/Library/Python/3.9/lib/python/site-packages (from cffi>=1.14->cryptography) (2.23)
+Requirement already satisfied: zipp>=3.20 in /Users/robg/Library/Python/3.9/lib/python/site-packages (from importlib-metadata>=4.6->pyinstaller) (3.23.0)
+robg@Robs-iMac BootForgeOS % 

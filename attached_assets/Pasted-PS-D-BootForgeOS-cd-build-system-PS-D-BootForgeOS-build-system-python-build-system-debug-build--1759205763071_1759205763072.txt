@@ -1,0 +1,673 @@
+PS D:\BootForgeOS> cd build_system
+PS D:\BootForgeOS\build_system> python build_system\debug_build.py
+C:\Users\Bobby\AppData\Local\Programs\Python\Python311\python.exe: can't open file 'D:\\BootForgeOS\\build_system\\build_system\\debug_build.py': [Errno 2] No such file or directory
+PS D:\BootForgeOS\build_system> dir
+
+
+    Directory: D:\BootForgeOS\build_system
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----         9/29/2025   2:53 PM                specs
+------         9/29/2025   2:53 PM           1404 build_all.py
+------         9/29/2025   2:53 PM           8586 pyinstaller_config.py
+------         9/29/2025   2:53 PM           1231 simple_build.py
+------         9/29/2025   2:53 PM           7532 usb_toolkit_builder.py
+
+
+PS D:\BootForgeOS\build_system> cd..
+PS D:\BootForgeOS> python build_system\debug_build.py
+C:\Users\Bobby\AppData\Local\Programs\Python\Python311\python.exe: can't open file 'D:\\BootForgeOS\\build_system\\debug_build.py': [Errno 2] No such file or directory
+PS D:\BootForgeOS> pip install pyinstaller
+Requirement already satisfied: pyinstaller in c:\users\bobby\appdata\local\programs\python\python311\lib\site-packages (6.16.0)
+Requirement already satisfied: altgraph in c:\users\bobby\appdata\local\programs\python\python311\lib\site-packages (from pyinstaller) (0.17.4)
+Requirement already satisfied: packaging>=22.0 in c:\users\bobby\appdata\local\programs\python\python311\lib\site-packages (from pyinstaller) (24.2)
+Requirement already satisfied: pefile!=2024.8.26,>=2022.5.30 in c:\users\bobby\appdata\local\programs\python\python311\lib\site-packages (from pyinstaller) (2023.2.7)
+Requirement already satisfied: pyinstaller-hooks-contrib>=2025.8 in c:\users\bobby\appdata\local\programs\python\python311\lib\site-packages (from pyinstaller) (2025.8)
+Requirement already satisfied: pywin32-ctypes>=0.2.1 in c:\users\bobby\appdata\local\programs\python\python311\lib\site-packages (from pyinstaller) (0.2.3)
+Requirement already satisfied: setuptools>=42.0.0 in c:\users\bobby\appdata\local\programs\python\python311\lib\site-packages (from pyinstaller) (80.9.0)
+PS D:\BootForgeOS> python build_system\simple_build.py
+Building BootForge executable...
+480 INFO: PyInstaller: 6.16.0, contrib hooks: 2025.8
+480 INFO: Python: 3.11.1
+491 INFO: Platform: Windows-10-10.0.22631-SP0
+491 INFO: Python environment: C:\Users\Bobby\AppData\Local\Programs\Python\Python311
+494 INFO: wrote D:\BootForgeOS\BootForge.spec
+507 INFO: Module search paths (PYTHONPATH):
+['D:\\BootForgeOS',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\python311.zip',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\DLLs',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\setuptools\\_vendor',
+ 'D:\\BootForgeOS']
+1074 INFO: Appending 'datas' from .spec
+1082 INFO: checking Analysis
+1130 INFO: Building because hiddenimports changed
+1130 INFO: Looking for Python shared library...
+1130 INFO: Using Python shared library: C:\Users\Bobby\AppData\Local\Programs\Python\Python311\python311.dll
+1130 INFO: Running Analysis Analysis-00.toc
+1130 INFO: Target bytecode optimization level: 0
+1130 INFO: Initializing module dependency graph...
+1131 INFO: Initializing module graph hook caches...
+1153 INFO: Analyzing modules for base_library.zip ...
+3015 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+3110 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+4901 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+6508 INFO: Caching module dependency graph...
+6560 INFO: Analyzing D:\BootForgeOS\main.py
+6719 INFO: Processing standard module hook 'hook-PyQt6.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+7515 INFO: Processing standard module hook 'hook-PyQt6.QtWidgets.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+8332 INFO: Processing standard module hook 'hook-PyQt6.QtCore.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+9223 INFO: Processing standard module hook 'hook-PyQt6.QtGui.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+9741 INFO: Processing standard module hook 'hook-psutil.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+9829 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+9891 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+10437 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+10439 INFO: SetuptoolsInfo: initializing cached setuptools info...
+15521 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+15682 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+16534 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+17491 INFO: Processing standard module hook 'hook-PyQt6.QtSvg.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+17805 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+18350 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+19515 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+19701 INFO: Processing standard module hook 'hook-cryptography.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+21220 INFO: hook-cryptography: cryptography does not seem to be using dynamically linked OpenSSL.
+21626 INFO: Processing standard module hook 'hook-bcrypt.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+21671 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+22103 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+22769 INFO: Processing module hooks (post-graph stage)...
+22827 INFO: Performing binary vs. data reclassification (229 entries)
+23403 INFO: Looking for ctypes DLLs
+23484 INFO: Analyzing run-time hooks ...
+23487 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+23490 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+23492 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+23496 INFO: Including run-time hook 'pyi_rth_cryptography_openssl.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+23497 INFO: Including run-time hook 'pyi_rth_pyqt6.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+23499 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+23502 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+23584 INFO: Creating base_library.zip...
+23665 INFO: Looking for dynamic libraries
+24231 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyQt6\\Qt6\\bin']
+24231 INFO: Extra DLL search directories (PATH): ['C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyQt6\\Qt6\\bin']
+25396 INFO: Warnings written to D:\BootForgeOS\build\BootForge\warn-BootForge.txt
+25455 INFO: Graph cross-reference written to D:\BootForgeOS\build\BootForge\xref-BootForge.html
+25551 INFO: checking PYZ
+25609 INFO: checking PKG
+25626 INFO: Building because toc changed
+25627 INFO: Building PKG (CArchive) BootForge.pkg
+48565 INFO: Building PKG (CArchive) BootForge.pkg completed successfully.
+48578 INFO: Bootloader C:\Users\Bobby\AppData\Local\Programs\Python\Python311\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+48578 INFO: checking EXE
+48614 INFO: Building because console changed
+48614 INFO: Building EXE from EXE-00.toc
+48616 INFO: Copying bootloader EXE to D:\BootForgeOS\dist\BootForge.exe
+48712 INFO: Copying icon to EXE
+48770 INFO: Copying 0 resources to EXE
+48770 INFO: Embedding manifest in EXE
+48825 INFO: Appending PKG archive to EXE
+49609 INFO: Fixing EXE headers
+51541 INFO: Building EXE from EXE-00.toc completed successfully.
+51559 INFO: Build complete! The results are available in: D:\BootForgeOS\dist
+✅ Build successful!
+Executable: D:\BootForgeOS/dist/BootForge
+PS D:\BootForgeOS> python build_system\debug_build.py
+C:\Users\Bobby\AppData\Local\Programs\Python\Python311\python.exe: can't open file 'D:\\BootForgeOS\\build_system\\debug_build.py': [Errno 2] No such file or directory
+PS D:\BootForgeOS> python -m PyInstaller --onefile --console --name BootForge-Debug --add-data "src;src" --hidden-import PyQt6.QtCore --hidden-import PyQt6.QtWidgets --hidden-import PyQt6.QtGui main.py
+402 INFO: PyInstaller: 6.16.0, contrib hooks: 2025.8
+402 INFO: Python: 3.11.1
+411 INFO: Platform: Windows-10-10.0.22631-SP0
+412 INFO: Python environment: C:\Users\Bobby\AppData\Local\Programs\Python\Python311
+414 INFO: wrote D:\BootForgeOS\BootForge-Debug.spec
+907 INFO: Module search paths (PYTHONPATH):
+['D:\\BootForgeOS',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\python311.zip',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\DLLs',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages',
+ 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\setuptools\\_vendor',
+ 'D:\\BootForgeOS']
+1486 INFO: Appending 'datas' from .spec
+1492 INFO: checking Analysis
+1492 INFO: Building Analysis because Analysis-00.toc is non existent
+1492 INFO: Looking for Python shared library...
+1492 INFO: Using Python shared library: C:\Users\Bobby\AppData\Local\Programs\Python\Python311\python311.dll
+1493 INFO: Running Analysis Analysis-00.toc
+1493 INFO: Target bytecode optimization level: 0
+1493 INFO: Initializing module dependency graph...
+1494 INFO: Initializing module graph hook caches...
+1514 INFO: Analyzing modules for base_library.zip ...
+3219 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+4216 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+5832 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+7678 INFO: Caching module dependency graph...
+7735 INFO: Analyzing D:\BootForgeOS\main.py
+7761 INFO: Processing standard module hook 'hook-PyQt6.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+8630 INFO: Processing standard module hook 'hook-PyQt6.QtWidgets.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+9448 INFO: Processing standard module hook 'hook-PyQt6.QtCore.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+10237 INFO: Processing standard module hook 'hook-PyQt6.QtGui.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+10723 INFO: Processing standard module hook 'hook-psutil.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+10816 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+10882 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+11294 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+11296 INFO: SetuptoolsInfo: initializing cached setuptools info...
+16499 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+16665 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+17536 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+18198 INFO: Processing standard module hook 'hook-PyQt6.QtSvg.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+18419 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+18980 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+20150 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+20337 INFO: Processing standard module hook 'hook-cryptography.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+21812 INFO: hook-cryptography: cryptography does not seem to be using dynamically linked OpenSSL.
+22214 INFO: Processing standard module hook 'hook-bcrypt.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+22257 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+22563 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+22986 INFO: Processing module hooks (post-graph stage)...
+23043 INFO: Performing binary vs. data reclassification (229 entries)
+23103 INFO: Looking for ctypes DLLs
+23185 INFO: Analyzing run-time hooks ...
+23188 INFO: Including run-time hook 'pyi_rth_pyqt6.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+23191 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+23193 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks'
+23196 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+23199 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+23202 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+23205 INFO: Including run-time hook 'pyi_rth_cryptography_openssl.py' from 'C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+23220 INFO: Creating base_library.zip...
+23671 INFO: Looking for dynamic libraries
+24270 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyQt6\\Qt6\\bin']
+24270 INFO: Extra DLL search directories (PATH): ['C:\\Users\\Bobby\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyQt6\\Qt6\\bin']
+25408 INFO: Warnings written to D:\BootForgeOS\build\BootForge-Debug\warn-BootForge-Debug.txt
+25466 INFO: Graph cross-reference written to D:\BootForgeOS\build\BootForge-Debug\xref-BootForge-Debug.html
+25581 INFO: checking PYZ
+25582 INFO: Building PYZ because PYZ-00.toc is non existent
+25582 INFO: Building PYZ (ZlibArchive) D:\BootForgeOS\build\BootForge-Debug\PYZ-00.pyz
+26276 INFO: Building PYZ (ZlibArchive) D:\BootForgeOS\build\BootForge-Debug\PYZ-00.pyz completed successfully.
+26319 INFO: checking PKG
+26320 INFO: Building PKG because PKG-00.toc is non existent
+26320 INFO: Building PKG (CArchive) BootForge-Debug.pkg
+49038 INFO: Building PKG (CArchive) BootForge-Debug.pkg completed successfully.
+49068 INFO: Bootloader C:\Users\Bobby\AppData\Local\Programs\Python\Python311\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
+49069 INFO: checking EXE
+49069 INFO: Building EXE because EXE-00.toc is non existent
+49069 INFO: Building EXE from EXE-00.toc
+49070 INFO: Copying bootloader EXE to D:\BootForgeOS\dist\BootForge-Debug.exe
+49179 INFO: Copying icon to EXE
+49237 INFO: Copying 0 resources to EXE
+49238 INFO: Embedding manifest in EXE
+49291 INFO: Appending PKG archive to EXE
+50617 INFO: Fixing EXE headers
+52558 INFO: Building EXE from EXE-00.toc completed successfully.
+52585 INFO: Build complete! The results are available in: D:\BootForgeOS\dist
+PS D:\BootForgeOS> python main.py --gui
+2025-09-29 23:47:07 - root - INFO - BootForge logging system initialized
+2025-09-29 23:47:07 - __main__ - INFO - Starting BootForge GUI application...
+2025-09-29 23:47:07 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-29 23:47:07 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-29 23:47:07 - src.core.real_time_monitor - INFO - Real-Time Health Manager initialized with standard monitoring
+2025-09-29 23:47:07 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-29 23:47:07 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-29 23:47:07 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-29 23:47:07 - src.core.intelligent_guidance - INFO - Intelligent Guidance Manager initialized with standard level
+2025-09-29 23:47:07 - src.core.error_prevention_recovery - INFO - Error Prevention & Recovery Manager initialized
+2025-09-29 23:47:07 - src.core.one_click_profiles - INFO - One-Click Profile Manager initialized with 7 profiles
+2025-09-29 23:47:08 - src.gui.stepper_header - INFO - StepperHeader initialized with 6 steps
+2025-09-29 23:47:08 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - Registered provider: linux
+2025-09-29 23:47:08 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:08 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:08 - OCLPCompatibilityDatabase - INFO - Loaded 48 Mac model OCLP configurations from comprehensive database
+2025-09-29 23:47:08 - OCLPIntegration - INFO - OCLP Integration initialized
+2025-09-29 23:47:08 - src.core.os_image_manager.macos - INFO - MacOSProvider initialized with COMPLIANT security mode and OCLP integration
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - Registered provider: macos
+2025-09-29 23:47:08 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:08 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:08 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:08 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:08 - src.core.win_patch_engine - INFO - WinPatchEngine initialized with standard safety level
+2025-09-29 23:47:08 - src.core.win_patch_engine - INFO - DISM: C:\Windows\System32\DISM.exe, WimLib: None
+2025-09-29 23:47:08 - src.core.win_patch_engine - INFO - Loaded 5 bypasses, 5 driver packages
+AUDIT: WinPatchEngine session started: 1d53771e-b2af-421f-a4fa-b337209114e8
+2025-09-29 23:47:08 - src.core.win_patch_engine.audit - INFO - WinPatchEngine session started: 1d53771e-b2af-421f-a4fa-b337209114e8
+AUDIT: Safety level: standard, Validation mode: compliant
+2025-09-29 23:47:08 - src.core.win_patch_engine.audit - INFO - Safety level: standard, Validation mode: compliant
+2025-09-29 23:47:08 - src.core.os_image_manager.windows - INFO - WindowsProvider initialized with COMPLIANT security mode and Windows bypass engine
+2025-09-29 23:47:08 - src.core.os_image_manager.windows - INFO - Windows Patch Engine loaded with 5 bypasses
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - Registered provider: windows
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - Registered provider: custom
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - All built-in providers registered successfully
+2025-09-29 23:47:08 - src.gui.os_image_manager_qt - INFO - Qt bridge for OSImageManager initialized
+2025-09-29 23:47:11 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.4 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.4/
+2025-09-29 23:47:11 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.3 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.3/
+2025-09-29 23:47:11 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.2 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.2/
+2025-09-29 23:47:11 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.1 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.1/
+2025-09-29 23:47:13 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.12.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.12.01/
+2025-09-29 23:47:14 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.10.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.10.01/
+2025-09-29 23:47:14 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.08.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.08.01/
+2025-09-29 23:47:14 - src.core.os_image_manager.macos - INFO - Processing macOS 14 catalog...
+2025-09-29 23:47:20 - src.core.os_image_manager.macos - INFO - Processing macOS 13 catalog...
+2025-09-29 23:47:24 - src.core.os_image_manager.macos - INFO - Processing macOS 12 catalog...
+2025-09-29 23:47:28 - src.core.os_image_manager.macos - INFO - Processing macOS 11 catalog...
+2025-09-29 23:47:33 - src.core.os_image_manager.macos - INFO - Processing macOS 10.15 catalog...
+2025-09-29 23:47:38 - src.gui.stepper_wizard_widget.OSImageSelectionStepView - INFO - Skipping recommendations - no hardware or images available
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-29 23:47:38 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-29 23:47:38 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-29 23:47:38 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-29 23:47:38 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.gui.stepper_header - INFO - Current step changed from 0 to 0
+2025-09-29 23:47:39 - src.gui.stepper_wizard_widget - INFO - BootForge stepper wizard initialized
+2025-09-29 23:47:39 - src.gui.stepper_header - INFO - StepperHeader initialized with 6 steps
+2025-09-29 23:47:39 - src.gui.stepper_header - INFO - Current step changed from 0 to 0
+2025-09-29 23:47:39 - src.gui.wizard_widget - INFO - Stepper header integration initialized
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-29 23:47:39 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-29 23:47:39 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-29 23:47:39 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-29 23:47:39 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-29 23:47:39 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-29 23:47:39 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - Registered provider: linux
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:39 - OCLPCompatibilityDatabase - INFO - Loaded 48 Mac model OCLP configurations from comprehensive database
+2025-09-29 23:47:39 - OCLPIntegration - INFO - OCLP Integration initialized
+2025-09-29 23:47:39 - src.core.os_image_manager.macos - INFO - MacOSProvider initialized with COMPLIANT security mode and OCLP integration
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - Registered provider: macos
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:39 - src.core.win_patch_engine - INFO - WinPatchEngine initialized with standard safety level
+2025-09-29 23:47:39 - src.core.win_patch_engine - INFO - DISM: C:\Windows\System32\DISM.exe, WimLib: None
+2025-09-29 23:47:39 - src.core.win_patch_engine - INFO - Loaded 5 bypasses, 5 driver packages
+AUDIT: WinPatchEngine session started: 1ecc4b04-d4be-4536-9bf8-28aab7c73c3a
+2025-09-29 23:47:39 - src.core.win_patch_engine.audit - INFO - WinPatchEngine session started: 1ecc4b04-d4be-4536-9bf8-28aab7c73c3a
+AUDIT: Safety level: standard, Validation mode: compliant
+2025-09-29 23:47:39 - src.core.win_patch_engine.audit - INFO - Safety level: standard, Validation mode: compliant
+2025-09-29 23:47:39 - src.core.os_image_manager.windows - INFO - WindowsProvider initialized with COMPLIANT security mode and Windows bypass engine
+2025-09-29 23:47:39 - src.core.os_image_manager.windows - INFO - Windows Patch Engine loaded with 5 bypasses
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - Registered provider: windows
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - Registered provider: custom
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - All built-in providers registered successfully
+2025-09-29 23:47:39 - src.gui.os_image_manager_qt - INFO - Qt bridge for OSImageManager initialized
+2025-09-29 23:47:41 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.4 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.4/
+2025-09-29 23:47:41 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.3 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.3/
+2025-09-29 23:47:41 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.2 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.2/
+2025-09-29 23:47:41 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.1 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.1/
+2025-09-29 23:47:43 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.12.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.12.01/
+2025-09-29 23:47:43 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.10.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.10.01/
+2025-09-29 23:47:44 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.08.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.08.01/
+2025-09-29 23:47:44 - src.core.os_image_manager.macos - INFO - Processing macOS 14 catalog...
+2025-09-29 23:47:48 - src.core.os_image_manager.macos - INFO - Processing macOS 13 catalog...
+2025-09-29 23:47:53 - src.core.os_image_manager.macos - INFO - Processing macOS 12 catalog...
+2025-09-29 23:47:57 - src.core.os_image_manager.macos - INFO - Processing macOS 11 catalog...
+2025-09-29 23:48:02 - src.core.os_image_manager.macos - INFO - Processing macOS 10.15 catalog...
+2025-09-29 23:48:10 - src.gui.usb_recipe_manager - INFO - Auto-detected hardware: Generic x64 PC
+2025-09-29 23:48:10 - src.gui.usb_recipe_manager - INFO - Found 0 USB devices
+2025-09-29 23:48:10 - src.gui.main_window - INFO - System monitoring started
+2025-09-29 23:48:10 - src.core.real_time_monitor - INFO - Starting comprehensive health monitoring...
+2025-09-29 23:48:10 - src.core.system_monitor - INFO - System monitoring started
+2025-09-29 23:48:10 - src.core.real_time_monitor.SystemHealthMonitor - INFO - System Health monitor started
+2025-09-29 23:48:10 - src.gui.main_window - INFO - BootForge main window initialized with advanced systems
+2025-09-29 23:48:28 - src.gui.main_window - INFO - Preferences dialog requested
+2025-09-29 23:48:29 - src.gui.main_window - INFO - Preferences dialog requested
+2025-09-29 23:48:32 - src.gui.main_window - INFO - Preferences dialog requested
+2025-09-29 23:48:46 - src.gui.main_window - INFO - Preferences dialog requested
+2025-09-29 23:48:48 - src.gui.main_window - INFO - Documentation requested
+2025-09-29 23:49:16 - src.gui.main_window - INFO - Application closing
+2025-09-29 23:49:16 - src.core.system_monitor - INFO - System monitoring stopped
+2025-09-29 23:49:18 - src.core.real_time_monitor - INFO - Stopping health monitoring...
+2025-09-29 23:49:19 - src.core.real_time_monitor.SystemHealthMonitor - INFO - System Health monitor stopped
+2025-09-29 23:49:19 - src.core.config - INFO - Configuration saved to C:\Users\Bobby\.bootforge\config.json
+PS D:\BootForgeOS> python main.py --gui
+2025-09-29 23:49:54 - root - INFO - BootForge logging system initialized
+2025-09-29 23:49:54 - __main__ - INFO - Starting BootForge GUI application...
+2025-09-29 23:49:54 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-29 23:49:54 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-29 23:49:54 - src.core.real_time_monitor - INFO - Real-Time Health Manager initialized with standard monitoring
+2025-09-29 23:49:54 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-29 23:49:54 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-29 23:49:54 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-29 23:49:54 - src.core.intelligent_guidance - INFO - Intelligent Guidance Manager initialized with standard level
+2025-09-29 23:49:54 - src.core.error_prevention_recovery - INFO - Error Prevention & Recovery Manager initialized
+2025-09-29 23:49:54 - src.core.one_click_profiles - INFO - One-Click Profile Manager initialized with 7 profiles
+2025-09-29 23:49:54 - src.gui.stepper_header - INFO - StepperHeader initialized with 6 steps
+2025-09-29 23:49:54 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-29 23:49:54 - src.core.os_image_manager - INFO - Registered provider: linux
+2025-09-29 23:49:54 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:49:54 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:49:54 - OCLPCompatibilityDatabase - INFO - Loaded 48 Mac model OCLP configurations from comprehensive database
+2025-09-29 23:49:54 - OCLPIntegration - INFO - OCLP Integration initialized
+2025-09-29 23:49:54 - src.core.os_image_manager.macos - INFO - MacOSProvider initialized with COMPLIANT security mode and OCLP integration
+2025-09-29 23:49:54 - src.core.os_image_manager - INFO - Registered provider: macos
+2025-09-29 23:49:54 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:49:54 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:49:54 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:49:54 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:49:54 - src.core.win_patch_engine - INFO - WinPatchEngine initialized with standard safety level
+2025-09-29 23:49:54 - src.core.win_patch_engine - INFO - DISM: C:\Windows\System32\DISM.exe, WimLib: None
+2025-09-29 23:49:54 - src.core.win_patch_engine - INFO - Loaded 5 bypasses, 5 driver packages
+AUDIT: WinPatchEngine session started: 738cd8c5-634e-48cc-b839-4a02895e3bc7
+2025-09-29 23:49:54 - src.core.win_patch_engine.audit - INFO - WinPatchEngine session started: 738cd8c5-634e-48cc-b839-4a02895e3bc7
+AUDIT: Safety level: standard, Validation mode: compliant
+2025-09-29 23:49:54 - src.core.win_patch_engine.audit - INFO - Safety level: standard, Validation mode: compliant
+2025-09-29 23:49:54 - src.core.os_image_manager.windows - INFO - WindowsProvider initialized with COMPLIANT security mode and Windows bypass engine
+2025-09-29 23:49:54 - src.core.os_image_manager.windows - INFO - Windows Patch Engine loaded with 5 bypasses
+2025-09-29 23:49:54 - src.core.os_image_manager - INFO - Registered provider: windows
+2025-09-29 23:49:54 - src.core.os_image_manager - INFO - Registered provider: custom
+2025-09-29 23:49:54 - src.core.os_image_manager - INFO - All built-in providers registered successfully
+2025-09-29 23:49:54 - src.gui.os_image_manager_qt - INFO - Qt bridge for OSImageManager initialized
+2025-09-29 23:49:56 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.4 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.4/
+2025-09-29 23:49:56 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.3 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.3/
+2025-09-29 23:49:57 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.2 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.2/
+2025-09-29 23:49:57 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.1 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.1/
+2025-09-29 23:49:59 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.12.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.12.01/
+2025-09-29 23:49:59 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.10.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.10.01/
+2025-09-29 23:49:59 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.08.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.08.01/
+2025-09-29 23:49:59 - src.core.os_image_manager.macos - INFO - Processing macOS 14 catalog...
+2025-09-29 23:50:05 - src.core.os_image_manager.macos - INFO - Processing macOS 13 catalog...
+2025-09-29 23:50:08 - src.core.os_image_manager.macos - INFO - Processing macOS 12 catalog...
+2025-09-29 23:50:11 - src.core.os_image_manager.macos - INFO - Processing macOS 11 catalog...
+2025-09-29 23:50:16 - src.core.os_image_manager.macos - INFO - Processing macOS 10.15 catalog...
+2025-09-29 23:50:20 - src.gui.stepper_wizard_widget.OSImageSelectionStepView - INFO - Skipping recommendations - no hardware or images available
+2025-09-29 23:50:20 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:20 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:20 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:20 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:50:20 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:20 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-29 23:50:20 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-29 23:50:20 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-29 23:50:20 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-29 23:50:20 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-29 23:50:20 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:20 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:20 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:20 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:50:20 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:20 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-29 23:50:20 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-29 23:50:20 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-29 23:50:20 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-29 23:50:20 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-29 23:50:20 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:20 - src.gui.stepper_header - INFO - Current step changed from 0 to 0
+2025-09-29 23:50:20 - src.gui.stepper_wizard_widget - INFO - BootForge stepper wizard initialized
+2025-09-29 23:50:21 - src.gui.stepper_header - INFO - StepperHeader initialized with 6 steps
+2025-09-29 23:50:21 - src.gui.stepper_header - INFO - Current step changed from 0 to 0
+2025-09-29 23:50:21 - src.gui.wizard_widget - INFO - Stepper header integration initialized
+2025-09-29 23:50:21 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:21 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:21 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:50:21 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:21 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-29 23:50:21 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-29 23:50:21 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-29 23:50:21 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-29 23:50:21 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-29 23:50:21 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:21 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-29 23:50:21 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-29 23:50:21 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-29 23:50:21 - src.core.os_image_manager - INFO - Registered provider: linux
+2025-09-29 23:50:21 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:21 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:50:21 - OCLPCompatibilityDatabase - INFO - Loaded 48 Mac model OCLP configurations from comprehensive database
+2025-09-29 23:50:21 - OCLPIntegration - INFO - OCLP Integration initialized
+2025-09-29 23:50:21 - src.core.os_image_manager.macos - INFO - MacOSProvider initialized with COMPLIANT security mode and OCLP integration
+2025-09-29 23:50:21 - src.core.os_image_manager - INFO - Registered provider: macos
+2025-09-29 23:50:21 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:21 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:50:21 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:50:21 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:50:21 - src.core.win_patch_engine - INFO - WinPatchEngine initialized with standard safety level
+2025-09-29 23:50:21 - src.core.win_patch_engine - INFO - DISM: C:\Windows\System32\DISM.exe, WimLib: None
+2025-09-29 23:50:21 - src.core.win_patch_engine - INFO - Loaded 5 bypasses, 5 driver packages
+AUDIT: WinPatchEngine session started: 81657903-566a-4d4e-8273-0fb13172be61
+2025-09-29 23:50:21 - src.core.win_patch_engine.audit - INFO - WinPatchEngine session started: 81657903-566a-4d4e-8273-0fb13172be61
+AUDIT: Safety level: standard, Validation mode: compliant
+2025-09-29 23:50:21 - src.core.win_patch_engine.audit - INFO - Safety level: standard, Validation mode: compliant
+2025-09-29 23:50:21 - src.core.os_image_manager.windows - INFO - WindowsProvider initialized with COMPLIANT security mode and Windows bypass engine
+2025-09-29 23:50:21 - src.core.os_image_manager.windows - INFO - Windows Patch Engine loaded with 5 bypasses
+2025-09-29 23:50:21 - src.core.os_image_manager - INFO - Registered provider: windows
+2025-09-29 23:50:21 - src.core.os_image_manager - INFO - Registered provider: custom
+2025-09-29 23:50:21 - src.core.os_image_manager - INFO - All built-in providers registered successfully
+2025-09-29 23:50:21 - src.gui.os_image_manager_qt - INFO - Qt bridge for OSImageManager initialized
+2025-09-29 23:50:23 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.4 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.4/
+2025-09-29 23:50:23 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.3 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.3/
+2025-09-29 23:50:23 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.2 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.2/
+2025-09-29 23:50:23 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.1 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.1/
+2025-09-29 23:50:25 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.12.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.12.01/
+2025-09-29 23:50:25 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.10.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.10.01/
+2025-09-29 23:50:25 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.08.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.08.01/
+2025-09-29 23:50:25 - src.core.os_image_manager.macos - INFO - Processing macOS 14 catalog...
+2025-09-29 23:50:29 - src.core.os_image_manager.macos - INFO - Processing macOS 13 catalog...
+2025-09-29 23:50:33 - src.core.os_image_manager.macos - INFO - Processing macOS 12 catalog...
+2025-09-29 23:50:43 - src.core.os_image_manager.macos - INFO - Processing macOS 11 catalog...
+2025-09-29 23:50:48 - src.core.os_image_manager.macos - INFO - Processing macOS 10.15 catalog...
+2025-09-29 23:50:52 - src.gui.usb_recipe_manager - INFO - Auto-detected hardware: Generic x64 PC
+2025-09-29 23:50:52 - src.gui.usb_recipe_manager - INFO - Found 0 USB devices
+2025-09-29 23:50:52 - src.gui.main_window - INFO - System monitoring started
+2025-09-29 23:50:52 - src.core.real_time_monitor - INFO - Starting comprehensive health monitoring...
+2025-09-29 23:50:52 - src.core.system_monitor - INFO - System monitoring started
+2025-09-29 23:50:52 - src.core.real_time_monitor.SystemHealthMonitor - INFO - System Health monitor started
+2025-09-29 23:50:52 - src.gui.main_window - INFO - BootForge main window initialized with advanced systems
+2025-09-29 23:51:58 - src.gui.stepper_wizard_widget.HardwareDetectionStepView - INFO - Starting hardware detection...
+2025-09-29 23:51:58 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-29 23:51:58 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-29 23:51:58 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-29 23:51:58 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-29 23:51:58 - src.core.hardware_detector - INFO - Starting hardware detection...
+2025-09-29 23:52:02 - src.core.hardware_detector - INFO - Hardware detection completed in 3.98s
+2025-09-29 23:52:02 - src.core.hardware_detector - INFO - Detection confidence: high
+2025-09-29 23:52:02 - src.core.hardware_detector - INFO - Hardware summary: Apple Inc. iMac15,1 | CPU: Intel(R) Core(TM) i5-4590 CPU @ 3.30GHz | RAM: 31.9GB | GPU: AMD RADEON R9 M290
+2025-09-29 23:52:03 - src.core.hardware_matcher - INFO - Finding matches for: Apple Inc. iMac15,1 | CPU: Intel(R) Core(TM) i5-4590 CPU @ 3.30GHz | RAM: 31.9GB | GPU: AMD RADEON R9 M290
+2025-09-29 23:52:03 - src.core.hardware_matcher - INFO - Found 15 candidate profiles
+2025-09-29 23:52:03 - src.core.hardware_matcher - INFO - Found 5 matching profiles
+2025-09-29 23:52:03 - src.core.hardware_matcher - INFO -   VMware Virtual Machine: 49.0% (low)
+2025-09-29 23:52:03 - src.core.hardware_matcher - INFO -   VirtualBox Virtual Machine: 49.0% (low)
+2025-09-29 23:52:03 - src.core.hardware_matcher - INFO -   Generic x64 PC: 27.0% (unknown)
+2025-09-29 23:52:03 - src.gui.stepper_wizard_widget.HardwareDetectionStepView - INFO - Hardware detection completed: Apple Inc. iMac15,1 | CPU: Intel(R) Core(TM) i5-4590 CPU @ 3.30GHz | RAM: 31.9GB | GPU: AMD RADEON R9 M290
+2025-09-29 23:52:03 - src.gui.stepper_wizard_widget.HardwareDetectionStepView - INFO - Selected hardware profile: VMware Virtual Machine
+2025-09-29 23:52:17 - src.gui.stepper_header - INFO - StepperHeader reset to beginning
+2025-09-29 23:52:17 - src.gui.main_window - INFO - Operation stopped by user
+2025-09-29 23:52:18 - src.gui.main_window - INFO - Preferences dialog requested
+2025-09-29 23:57:34 - src.gui.stepper_header - INFO - StepperHeader reset to beginning
+2025-09-29 23:57:34 - src.gui.main_window - INFO - New project started
+2025-09-29 23:57:36 - src.gui.stepper_header - INFO - Current step changed from 0 to 1
+2025-09-29 23:57:36 - src.gui.stepper_wizard_widget.HardwareDetectionStepView - INFO - Hardware detection step exited
+2025-09-29 23:57:36 - src.gui.stepper_wizard_widget.OSImageSelectionStepView - INFO - OS Image Selection step entered
+2025-09-29 23:57:36 - src.gui.main_window - INFO - Stepper wizard step changed to: OS Image Selection
+2025-09-29 23:58:00 - src.gui.main_window - INFO - Application closing
+2025-09-29 23:58:00 - src.core.system_monitor - INFO - System monitoring stopped
+2025-09-29 23:58:03 - src.core.real_time_monitor - INFO - Stopping health monitoring...
+2025-09-29 23:58:04 - src.core.real_time_monitor.SystemHealthMonitor - INFO - System Health monitor stopped
+2025-09-29 23:58:04 - src.core.config - INFO - Configuration saved to C:\Users\Bobby\.bootforge\config.json
+PS D:\BootForgeOS> python main.py --gui
+2025-09-30 00:13:07 - root - INFO - BootForge logging system initialized
+2025-09-30 00:13:07 - __main__ - INFO - Starting BootForge GUI application...
+2025-09-30 00:13:07 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-30 00:13:07 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-30 00:13:07 - src.core.real_time_monitor - INFO - Real-Time Health Manager initialized with standard monitoring
+2025-09-30 00:13:07 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-30 00:13:07 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-30 00:13:07 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-30 00:13:07 - src.core.intelligent_guidance - INFO - Intelligent Guidance Manager initialized with standard level
+2025-09-30 00:13:07 - src.core.error_prevention_recovery - INFO - Error Prevention & Recovery Manager initialized
+2025-09-30 00:13:07 - src.core.one_click_profiles - INFO - One-Click Profile Manager initialized with 7 profiles
+2025-09-30 00:13:07 - src.gui.stepper_header - INFO - StepperHeader initialized with 6 steps
+2025-09-30 00:13:07 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-30 00:13:07 - src.core.os_image_manager - INFO - Registered provider: linux
+2025-09-30 00:13:07 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:07 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-30 00:13:07 - OCLPCompatibilityDatabase - INFO - Loaded 48 Mac model OCLP configurations from comprehensive database
+2025-09-30 00:13:07 - OCLPIntegration - INFO - OCLP Integration initialized
+2025-09-30 00:13:07 - src.core.os_image_manager.macos - INFO - MacOSProvider initialized with COMPLIANT security mode and OCLP integration
+2025-09-30 00:13:07 - src.core.os_image_manager - INFO - Registered provider: macos
+2025-09-30 00:13:07 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:07 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-30 00:13:07 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:07 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-30 00:13:07 - src.core.win_patch_engine - INFO - WinPatchEngine initialized with standard safety level
+2025-09-30 00:13:07 - src.core.win_patch_engine - INFO - DISM: C:\Windows\System32\DISM.exe, WimLib: None
+2025-09-30 00:13:07 - src.core.win_patch_engine - INFO - Loaded 5 bypasses, 5 driver packages
+AUDIT: WinPatchEngine session started: 43382908-5947-471c-b1d7-129d4e3015fa
+2025-09-30 00:13:07 - src.core.win_patch_engine.audit - INFO - WinPatchEngine session started: 43382908-5947-471c-b1d7-129d4e3015fa
+AUDIT: Safety level: standard, Validation mode: compliant
+2025-09-30 00:13:07 - src.core.win_patch_engine.audit - INFO - Safety level: standard, Validation mode: compliant
+2025-09-30 00:13:07 - src.core.os_image_manager.windows - INFO - WindowsProvider initialized with COMPLIANT security mode and Windows bypass engine
+2025-09-30 00:13:07 - src.core.os_image_manager.windows - INFO - Windows Patch Engine loaded with 5 bypasses
+2025-09-30 00:13:07 - src.core.os_image_manager - INFO - Registered provider: windows
+2025-09-30 00:13:07 - src.core.os_image_manager - INFO - Registered provider: custom
+2025-09-30 00:13:07 - src.core.os_image_manager - INFO - All built-in providers registered successfully
+2025-09-30 00:13:07 - src.gui.os_image_manager_qt - INFO - Qt bridge for OSImageManager initialized
+2025-09-30 00:13:08 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.4 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.4/
+2025-09-30 00:13:08 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.3 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.3/
+2025-09-30 00:13:08 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.2 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.2/
+2025-09-30 00:13:09 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.1 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.1/
+2025-09-30 00:13:13 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.12.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.12.01/
+2025-09-30 00:13:13 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.10.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.10.01/
+2025-09-30 00:13:13 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.08.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.08.01/
+2025-09-30 00:13:13 - src.core.os_image_manager.macos - INFO - Processing macOS 14 catalog...
+2025-09-30 00:13:23 - src.core.os_image_manager.macos - INFO - Processing macOS 13 catalog...
+2025-09-30 00:13:29 - src.core.os_image_manager.macos - INFO - Processing macOS 12 catalog...
+2025-09-30 00:13:32 - src.core.os_image_manager.macos - INFO - Processing macOS 11 catalog...
+2025-09-30 00:13:39 - src.core.os_image_manager.macos - INFO - Processing macOS 10.15 catalog...
+2025-09-30 00:13:43 - src.gui.stepper_wizard_widget.OSImageSelectionStepView - INFO - Skipping recommendations - no hardware or images available
+2025-09-30 00:13:43 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:43 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:43 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:43 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-30 00:13:43 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:43 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-30 00:13:43 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-30 00:13:43 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-30 00:13:43 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-30 00:13:43 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-30 00:13:43 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-30 00:13:44 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-30 00:13:44 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-30 00:13:44 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-30 00:13:44 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.gui.stepper_header - INFO - Current step changed from 0 to 0
+2025-09-30 00:13:44 - src.gui.stepper_wizard_widget - INFO - BootForge stepper wizard initialized
+2025-09-30 00:13:44 - src.gui.stepper_header - INFO - StepperHeader initialized with 6 steps
+2025-09-30 00:13:44 - src.gui.stepper_header - INFO - Current step changed from 0 to 0
+2025-09-30 00:13:44 - src.gui.wizard_widget - INFO - Stepper header integration initialized
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-30 00:13:44 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-30 00:13:44 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-30 00:13:44 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-30 00:13:44 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-30 00:13:44 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-30 00:13:44 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-30 00:13:44 - src.core.os_image_manager - INFO - Registered provider: linux
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-30 00:13:44 - OCLPCompatibilityDatabase - INFO - Loaded 48 Mac model OCLP configurations from comprehensive database
+2025-09-30 00:13:44 - OCLPIntegration - INFO - OCLP Integration initialized
+2025-09-30 00:13:44 - src.core.os_image_manager.macos - INFO - MacOSProvider initialized with COMPLIANT security mode and OCLP integration
+2025-09-30 00:13:44 - src.core.os_image_manager - INFO - Registered provider: macos
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-30 00:13:44 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-30 00:13:44 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-30 00:13:44 - src.core.win_patch_engine - INFO - WinPatchEngine initialized with standard safety level
+2025-09-30 00:13:44 - src.core.win_patch_engine - INFO - DISM: C:\Windows\System32\DISM.exe, WimLib: None
+2025-09-30 00:13:44 - src.core.win_patch_engine - INFO - Loaded 5 bypasses, 5 driver packages
+AUDIT: WinPatchEngine session started: b3640610-b88c-4e5b-b3b0-783e8e43b196
+2025-09-30 00:13:44 - src.core.win_patch_engine.audit - INFO - WinPatchEngine session started: b3640610-b88c-4e5b-b3b0-783e8e43b196
+AUDIT: Safety level: standard, Validation mode: compliant
+2025-09-30 00:13:44 - src.core.win_patch_engine.audit - INFO - Safety level: standard, Validation mode: compliant
+2025-09-30 00:13:44 - src.core.os_image_manager.windows - INFO - WindowsProvider initialized with COMPLIANT security mode and Windows bypass engine
+2025-09-30 00:13:44 - src.core.os_image_manager.windows - INFO - Windows Patch Engine loaded with 5 bypasses
+2025-09-30 00:13:44 - src.core.os_image_manager - INFO - Registered provider: windows
+2025-09-30 00:13:44 - src.core.os_image_manager - INFO - Registered provider: custom
+2025-09-30 00:13:44 - src.core.os_image_manager - INFO - All built-in providers registered successfully
+2025-09-30 00:13:44 - src.gui.os_image_manager_qt - INFO - Qt bridge for OSImageManager initialized
+2025-09-30 00:13:45 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.4 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.4/
+2025-09-30 00:13:45 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.3 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.3/
+2025-09-30 00:13:45 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.2 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.2/
+2025-09-30 00:13:45 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.1 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.1/
+2025-09-30 00:13:47 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.12.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.12.01/
+2025-09-30 00:13:47 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.10.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.10.01/
+2025-09-30 00:13:48 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.08.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.08.01/
+2025-09-30 00:13:48 - src.core.os_image_manager.macos - INFO - Processing macOS 14 catalog...
+2025-09-30 00:13:53 - src.core.os_image_manager.macos - INFO - Processing macOS 13 catalog...
+2025-09-30 00:13:58 - src.core.os_image_manager.macos - INFO - Processing macOS 12 catalog...
+2025-09-30 00:14:07 - src.core.os_image_manager.macos - INFO - Processing macOS 11 catalog...
+2025-09-30 00:14:12 - src.core.os_image_manager.macos - INFO - Processing macOS 10.15 catalog...
+2025-09-30 00:14:16 - src.gui.usb_recipe_manager - INFO - Auto-detected hardware: Generic x64 PC
+2025-09-30 00:14:16 - src.gui.usb_recipe_manager - INFO - Found 0 USB devices
+2025-09-30 00:14:16 - src.gui.main_window - INFO - System monitoring started
+2025-09-30 00:14:16 - src.core.real_time_monitor - INFO - Starting comprehensive health monitoring...
+2025-09-30 00:14:16 - src.core.system_monitor - INFO - System monitoring started
+2025-09-30 00:14:16 - src.core.real_time_monitor.SystemHealthMonitor - INFO - System Health monitor started
+2025-09-30 00:14:16 - src.gui.main_window - INFO - BootForge main window initialized with advanced systems
+2025-09-30 00:14:23 - src.gui.main_window - INFO - Preferences dialog requested
+2025-09-30 00:14:28 - src.gui.main_window - INFO - Preferences dialog requested
+2025-09-30 00:14:30 - src.gui.stepper_header - INFO - StepperHeader reset to beginning
+2025-09-30 00:14:30 - src.gui.main_window - INFO - Operation stopped by user
+2025-09-30 00:14:32 - src.gui.main_window - INFO - Refreshing device list
+2025-09-30 00:14:37 - src.gui.main_window - INFO - Refreshing device list
+2025-09-30 00:14:39 - src.gui.main_window - INFO - Format device requested
+2025-09-30 00:14:41 - src.gui.main_window - INFO - Preferences dialog requested
+2025-09-30 00:14:47 - src.gui.main_window - INFO - Documentation requested
+2025-09-30 00:14:57 - src.gui.stepper_wizard_widget.HardwareDetectionStepView - INFO - Starting hardware detection...
+2025-09-30 00:14:57 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-30 00:14:57 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-30 00:14:57 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-30 00:14:57 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-30 00:14:58 - src.core.hardware_detector - INFO - Starting hardware detection...
+2025-09-30 00:15:02 - src.core.hardware_detector - INFO - Hardware detection completed in 4.18s
+2025-09-30 00:15:02 - src.core.hardware_detector - INFO - Detection confidence: high
+2025-09-30 00:15:02 - src.core.hardware_detector - INFO - Hardware summary: Apple Inc. iMac15,1 | CPU: Intel(R) Core(TM) i5-4590 CPU @ 3.30GHz | RAM: 31.9GB | GPU: AMD RADEON R9 M290
+2025-09-30 00:15:02 - src.core.hardware_matcher - INFO - Finding matches for: Apple Inc. iMac15,1 | CPU: Intel(R) Core(TM) i5-4590 CPU @ 3.30GHz | RAM: 31.9GB | GPU: AMD RADEON R9 M290
+2025-09-30 00:15:02 - src.core.hardware_matcher - INFO - Found 15 candidate profiles
+2025-09-30 00:15:02 - src.core.hardware_matcher - INFO - Found 5 matching profiles
+2025-09-30 00:15:02 - src.core.hardware_matcher - INFO -   VMware Virtual Machine: 49.0% (low)
+2025-09-30 00:15:02 - src.core.hardware_matcher - INFO -   VirtualBox Virtual Machine: 49.0% (low)
+2025-09-30 00:15:02 - src.core.hardware_matcher - INFO -   Generic x64 PC: 27.0% (unknown)
+2025-09-30 00:15:02 - src.gui.stepper_wizard_widget.HardwareDetectionStepView - INFO - Hardware detection completed: Apple Inc. iMac15,1 | CPU: Intel(R) Core(TM) i5-4590 CPU @ 3.30GHz | RAM: 31.9GB | GPU: AMD RADEON R9 M290
+2025-09-30 00:15:02 - src.gui.stepper_wizard_widget.HardwareDetectionStepView - INFO - Selected hardware profile: VMware Virtual Machine

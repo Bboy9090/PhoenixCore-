@@ -1,0 +1,127 @@
+INFO: Building EXE from EXE-00.toc completed successfully.
+52585 INFO: Build complete! The results are available in: D:\BootForgeOS\dist
+PS D:\BootForgeOS> python main.py --gui
+2025-09-29 23:47:07 - root - INFO - BootForge logging system initialized
+2025-09-29 23:47:07 - __main__ - INFO - Starting BootForge GUI application...
+2025-09-29 23:47:07 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-29 23:47:07 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-29 23:47:07 - src.core.real_time_monitor - INFO - Real-Time Health Manager initialized with standard monitoring
+2025-09-29 23:47:07 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-29 23:47:07 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-29 23:47:07 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-29 23:47:07 - src.core.intelligent_guidance - INFO - Intelligent Guidance Manager initialized with standard level
+2025-09-29 23:47:07 - src.core.error_prevention_recovery - INFO - Error Prevention & Recovery Manager initialized
+2025-09-29 23:47:07 - src.core.one_click_profiles - INFO - One-Click Profile Manager initialized with 7 profiles
+2025-09-29 23:47:08 - src.gui.stepper_header - INFO - StepperHeader initialized with 6 steps
+2025-09-29 23:47:08 - src.core.config - INFO - Configuration loaded from C:\Users\Bobby\.bootforge\config.json
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - Registered provider: linux
+2025-09-29 23:47:08 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:08 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:08 - OCLPCompatibilityDatabase - INFO - Loaded 48 Mac model OCLP configurations from comprehensive database
+2025-09-29 23:47:08 - OCLPIntegration - INFO - OCLP Integration initialized
+2025-09-29 23:47:08 - src.core.os_image_manager.macos - INFO - MacOSProvider initialized with COMPLIANT security mode and OCLP integration
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - Registered provider: macos
+2025-09-29 23:47:08 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:08 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:08 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:08 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:08 - src.core.win_patch_engine - INFO - WinPatchEngine initialized with standard safety level
+2025-09-29 23:47:08 - src.core.win_patch_engine - INFO - DISM: C:\Windows\System32\DISM.exe, WimLib: None
+2025-09-29 23:47:08 - src.core.win_patch_engine - INFO - Loaded 5 bypasses, 5 driver packages
+AUDIT: WinPatchEngine session started: 1d53771e-b2af-421f-a4fa-b337209114e8
+2025-09-29 23:47:08 - src.core.win_patch_engine.audit - INFO - WinPatchEngine session started: 1d53771e-b2af-421f-a4fa-b337209114e8
+AUDIT: Safety level: standard, Validation mode: compliant
+2025-09-29 23:47:08 - src.core.win_patch_engine.audit - INFO - Safety level: standard, Validation mode: compliant
+2025-09-29 23:47:08 - src.core.os_image_manager.windows - INFO - WindowsProvider initialized with COMPLIANT security mode and Windows bypass engine
+2025-09-29 23:47:08 - src.core.os_image_manager.windows - INFO - Windows Patch Engine loaded with 5 bypasses
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - Registered provider: windows
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - Registered provider: custom
+2025-09-29 23:47:08 - src.core.os_image_manager - INFO - All built-in providers registered successfully
+2025-09-29 23:47:08 - src.gui.os_image_manager_qt - INFO - Qt bridge for OSImageManager initialized
+2025-09-29 23:47:11 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.4 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.4/
+2025-09-29 23:47:11 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.3 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.3/
+2025-09-29 23:47:11 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.2 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.2/
+2025-09-29 23:47:11 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.1 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.1/
+2025-09-29 23:47:13 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.12.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.12.01/
+2025-09-29 23:47:14 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.10.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.10.01/
+2025-09-29 23:47:14 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.08.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.08.01/
+2025-09-29 23:47:14 - src.core.os_image_manager.macos - INFO - Processing macOS 14 catalog...
+2025-09-29 23:47:20 - src.core.os_image_manager.macos - INFO - Processing macOS 13 catalog...
+2025-09-29 23:47:24 - src.core.os_image_manager.macos - INFO - Processing macOS 12 catalog...
+2025-09-29 23:47:28 - src.core.os_image_manager.macos - INFO - Processing macOS 11 catalog...
+2025-09-29 23:47:33 - src.core.os_image_manager.macos - INFO - Processing macOS 10.15 catalog...
+2025-09-29 23:47:38 - src.gui.stepper_wizard_widget.OSImageSelectionStepView - INFO - Skipping recommendations - no hardware or images available
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-29 23:47:38 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-29 23:47:38 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-29 23:47:38 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-29 23:47:38 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-29 23:47:38 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-29 23:47:38 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.gui.stepper_header - INFO - Current step changed from 0 to 0
+2025-09-29 23:47:39 - src.gui.stepper_wizard_widget - INFO - BootForge stepper wizard initialized
+2025-09-29 23:47:39 - src.gui.stepper_header - INFO - StepperHeader initialized with 6 steps
+2025-09-29 23:47:39 - src.gui.stepper_header - INFO - Current step changed from 0 to 0
+2025-09-29 23:47:39 - src.gui.wizard_widget - INFO - Stepper header integration initialized
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.usb_builder - INFO - Loaded 5 built-in recipes
+2025-09-29 23:47:39 - src.core.usb_builder - INFO - Loaded 6 hardware profiles
+2025-09-29 23:47:39 - src.core.patch_config_loader - INFO - Loaded 2 total patch sets from 1 config files
+2025-09-29 23:47:39 - src.core.hardware_profiles - INFO - Created 18 Mac patch sets
+2025-09-29 23:47:39 - src.core.usb_builder - INFO - Loaded 19 patch sets for patch pipeline
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.vendor_database - INFO - Vendor database initialized with 26 vendors, 29 devices
+2025-09-29 23:47:39 - src.core.hardware_matcher - INFO - Hardware matcher initialized with 66 profiles
+2025-09-29 23:47:39 - src.core.hardware_detector - INFO - Detected platform: windows
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - Registered provider: linux
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:39 - OCLPCompatibilityDatabase - INFO - Loaded 48 Mac model OCLP configurations from comprehensive database
+2025-09-29 23:47:39 - OCLPIntegration - INFO - OCLP Integration initialized
+2025-09-29 23:47:39 - src.core.os_image_manager.macos - INFO - MacOSProvider initialized with COMPLIANT security mode and OCLP integration
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - Registered provider: macos
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:39 - src.core.safety_validator - INFO - SafetyValidator initialized: level=standard, patch_mode=compliant
+2025-09-29 23:47:39 - src.core.patch_pipeline - INFO - Loaded 2 built-in patch sets
+2025-09-29 23:47:39 - src.core.win_patch_engine - INFO - WinPatchEngine initialized with standard safety level
+2025-09-29 23:47:39 - src.core.win_patch_engine - INFO - DISM: C:\Windows\System32\DISM.exe, WimLib: None
+2025-09-29 23:47:39 - src.core.win_patch_engine - INFO - Loaded 5 bypasses, 5 driver packages
+AUDIT: WinPatchEngine session started: 1ecc4b04-d4be-4536-9bf8-28aab7c73c3a
+2025-09-29 23:47:39 - src.core.win_patch_engine.audit - INFO - WinPatchEngine session started: 1ecc4b04-d4be-4536-9bf8-28aab7c73c3a
+AUDIT: Safety level: standard, Validation mode: compliant
+2025-09-29 23:47:39 - src.core.win_patch_engine.audit - INFO - Safety level: standard, Validation mode: compliant
+2025-09-29 23:47:39 - src.core.os_image_manager.windows - INFO - WindowsProvider initialized with COMPLIANT security mode and Windows bypass engine
+2025-09-29 23:47:39 - src.core.os_image_manager.windows - INFO - Windows Patch Engine loaded with 5 bypasses
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - Registered provider: windows
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - Registered provider: custom
+2025-09-29 23:47:39 - src.core.os_image_manager - INFO - All built-in providers registered successfully
+2025-09-29 23:47:39 - src.gui.os_image_manager_qt - INFO - Qt bridge for OSImageManager initialized
+2025-09-29 23:47:41 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.4 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.4/
+2025-09-29 23:47:41 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.3 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.3/
+2025-09-29 23:47:41 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.2 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.2/
+2025-09-29 23:47:41 - src.core.os_image_manager.linux - WARNING - Failed to get archived Kali 2023.1 images: 404 Client Error: Not Found for url: https://cdimage.kali.org/kali-2023.1/
+2025-09-29 23:47:43 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.12.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.12.01/
+2025-09-29 23:47:43 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.10.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.10.01/
+2025-09-29 23:47:44 - src.core.os_image_manager.linux - WARNING - Failed to get archived Arch 2024.08.01 images: 404 Client Error: Not Found for url: https://geo.mirror.pkgbuild.com/iso/2024.08.01/
+2025-09-29 23:47:44 - src.core.os_image_manager.macos - INFO - Processing macOS 14 catalog...
+2025-09-29 23:47:48 - src.core.os_image_manager.macos - INFO - Processing macOS 13 catalog...
+2025-09-29 23:47:53 - src.core.os_image_manager.macos - INFO - Processing macOS 12 catalog...
+2025-09-29 23:47:57 - src.core.os_image_manager.macos - INFO - Processing macOS 11 catalog...

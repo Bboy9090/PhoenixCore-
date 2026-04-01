@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "last_sync": "2025-10-01T07:54:24.481943",
+  "image_library": {
+    "macOS": [],
+    "Windows": [],
+    "Linux": []
+  },
+  "sync_settings": {
+    "auto_sync": true,
+    "preserve_custom_images": true,
+    "max_image_age_days": 90
+  }
+}

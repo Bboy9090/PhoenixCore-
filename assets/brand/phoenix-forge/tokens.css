@@ -1,0 +1,15 @@
+:root {
+  --phoenix-forge-black: #0b0b0c;
+  --phoenix-forge-iron: #1c1e22;
+  --phoenix-forge-ash: #f5f2ea;
+  --phoenix-forge-ember: #e63b2e;
+  --phoenix-forge-plasma: #ff7a1a;
+  --phoenix-forge-gold: #ffb020;
+
+  --phoenix-forge-font-display: "Orbitron", "Eurostile", "BankGothic", "Arial Black", sans-serif;
+  --phoenix-forge-font-body: "Inter", "Source Sans 3", "Arial", sans-serif;
+
+  --phoenix-forge-radius-sm: 6px;
+  --phoenix-forge-radius-lg: 12px;
+  --phoenix-forge-logo-clearspace: 16px;
+}
