@@ -1,0 +1,123 @@
+# PhoenixCore full build & deploy – runs on push to main, manual, or release
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  release:
+    types: [published]
+
+env:
+  RUST_CRATES: phoenix-core,phoenix-safety,phoenix-fs-fat32,phoenix-host-linux,phoenix-host-macos,phoenix-bootloader-core,phoenix-wim
+
+jobs:
+  build-rust:
+    name: Rust (Phoenix CLI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          for p in ${RUST_CRATES//,/ }; do
+            cargo build -p $p --release || true
+          done
+      - run: |
+          mkdir -p dist
+          for p in phoenix-core phoenix-safety phoenix-fs-fat32 phoenix-bootloader-core phoenix-wim; do
+            [ -f "target/release/$p" ] && cp "target/release/$p" dist/ || true
+          done
+          [ -f "target/release/phoenix-cli" ] && cp target/release/phoenix-cli dist/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-binaries
+          path: dist/
+
+  build-usb-toolkit:
+    name: Recovery USB Toolkit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install -r requirements.txt
+      - run: python3 create_recovery_usb.py --yes
+      - uses: actions/upload-artifact@v4
+        with:
+          name: usb-toolkit
+          path: |
+            dist/BootForge-Bootable-USB.zip
+            bootable_usb/
+
+  build-mobile-web:
+    name: Mobile (Web Build)
+    runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_API_URL: ${{ vars.BACKEND_URL || 'https://phoenixcore-backend.onrender.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: phoenix-core-mobile/package-lock.json
+      - run: |
+          cd phoenix-core-mobile
+          npm ci
+          npx expo export --platform web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-web
+          path: phoenix-core-mobile/dist/
+
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    needs: build-mobile-web
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mobile-web
+      - run: |
+          [ -d mobile-web ] && mv mobile-web dist || true
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          force_orphan: true
+
+  release-assets:
+    name: Release Assets
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: [build-rust, build-usb-toolkit, build-mobile-web]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: rust-binaries
+      - uses: actions/download-artifact@v4
+        with:
+          name: usb-toolkit
+      - uses: actions/download-artifact@v4
+        with:
+          name: mobile-web
+      - name: Create release assets
+        run: |
+          mkdir -p _release
+          cp usb-toolkit/dist/BootForge-Bootable-USB.zip _release/ 2>/dev/null || true
+          cp rust-binaries/* _release/ 2>/dev/null || true
+          (cd mobile-web && zip -r ../_release/phoenix-core-mobile-web.zip .) || true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: _release/*
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

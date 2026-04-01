@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "PhoenixCore Mobile",
+    "slug": "phoenix-core-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "phoenixcore",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1e1e1e"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.phoenixcore.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1e1e1e"
+      },
+      "package": "dev.phoenixcore.mobile"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": ["expo-router"]
+  }
+}

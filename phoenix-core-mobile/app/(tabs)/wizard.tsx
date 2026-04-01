@@ -1,395 +1,98 @@
-import { ScrollView, Text, View, Pressable, StyleSheet } from "react-native";
-import { useState, useMemo } from "react";
-import { ScreenContainer } from "@/components/screen-container";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useColors } from "@/hooks/use-colors";
-import { DEVICE_TYPES, OS_CATALOG, getCompatibility } from "@/lib/data/catalog";
-
-type Step = "device" | "result";
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { getRecipes, Recipe } from '../../lib/api';
 
 export default function WizardScreen() {
-  const colors = useColors();
-  const [step, setStep] = useState<Step>("device");
-  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const compatibility = useMemo(() => {
-    if (!selectedDevice) return [];
-    return getCompatibility(selectedDevice);
-  }, [selectedDevice]);
-
-  const device = DEVICE_TYPES.find((d) => d.id === selectedDevice);
-
-  const handleSelectDevice = (deviceId: string) => {
-    setSelectedDevice(deviceId);
-    setStep("result");
-  };
-
-  const handleReset = () => {
-    setStep("device");
-    setSelectedDevice(null);
-  };
+  useEffect(() => {
+    getRecipes()
+      .then(setRecipes)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
-    <ScreenContainer>
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-            Device Wizard
-          </Text>
-          <Text style={[styles.screenSubtitle, { color: colors.muted }]}>
-            {step === "device"
-              ? "Select your device type to see compatible operating systems"
-              : `Compatibility results for ${device?.name}`}
-          </Text>
-        </View>
+    <View style={styles.container}>
+      <Text style={styles.title}>Wizard</Text>
+      <Text style={styles.subtitle}>
+        Step-by-step USB creation and recovery flows
+      </Text>
 
-        {/* Step Indicator */}
-        <View style={styles.stepRow}>
-          <View style={[styles.stepDot, { backgroundColor: colors.primary }]} />
-          <View style={[styles.stepLine, { backgroundColor: step === "result" ? colors.primary : colors.border }]} />
-          <View style={[styles.stepDot, { backgroundColor: step === "result" ? colors.primary : colors.border }]} />
-        </View>
+      {loading && <ActivityIndicator color="#00d4ff" style={styles.loader} />}
+      {error && (
+        <Text style={styles.error}>
+          Cannot reach backend: {error}. Start web_server.py and set EXPO_PUBLIC_API_URL.
+        </Text>
+      )}
 
-        {step === "device" ? (
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.muted }]}>
-              WHAT TYPE OF DEVICE ARE YOU WORKING WITH?
-            </Text>
-            {DEVICE_TYPES.map((dt) => (
-              <Pressable
-                key={dt.id}
-                onPress={() => handleSelectDevice(dt.id)}
-                style={({ pressed }) => [
-                  styles.deviceCard,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                  pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
-                ]}
-              >
-                <View style={[styles.deviceIcon, { backgroundColor: colors.primary + "15" }]}>
-                  <IconSymbol name={dt.icon as any} size={28} color={colors.primary} />
-                </View>
-                <View style={styles.deviceText}>
-                  <Text style={[styles.deviceName, { color: colors.foreground }]}>
-                    {dt.name}
-                  </Text>
-                  <Text style={[styles.deviceDesc, { color: colors.muted }]} numberOfLines={2}>
-                    {dt.description}
-                  </Text>
-                  <View style={styles.archRow}>
-                    {dt.architectures.map((arch) => (
-                      <View key={arch} style={[styles.archBadge, { backgroundColor: colors.primary + "18" }]}>
-                        <Text style={[styles.archText, { color: colors.primary }]}>{arch}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-                <IconSymbol name="chevron.right" size={20} color={colors.muted} />
-              </Pressable>
-            ))}
-          </View>
-        ) : (
-          <View style={styles.section}>
-            {/* Selected Device Summary */}
-            <View style={[styles.selectedDevice, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
-              <IconSymbol name={device?.icon as any || "laptopcomputer"} size={24} color={colors.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.selectedDeviceName, { color: colors.foreground }]}>
-                  {device?.name}
-                </Text>
-                <Text style={[styles.selectedDeviceArch, { color: colors.muted }]}>
-                  Architecture: {device?.architectures.join(", ")}
-                </Text>
+      {!loading && !error && (
+        <ScrollView style={styles.list}>
+          {recipes.map((r) => (
+            <View key={r.id} style={styles.card}>
+              <Text style={styles.cardTitle}>{r.name}</Text>
+              <Text style={styles.cardDesc}>{r.description}</Text>
+              <View style={styles.meta}>
+                <Text style={styles.badge}>{r.target_os}</Text>
+                <Text style={styles.metaText}>{r.min_storage_gb}GB+ • {r.estimated_minutes}min • {r.difficulty}</Text>
               </View>
-              <Pressable
-                onPress={handleReset}
-                style={({ pressed }) => [
-                  styles.changeBtn,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Text style={[styles.changeBtnText, { color: colors.primary }]}>Change</Text>
-              </Pressable>
             </View>
-
-            {/* Compatibility Results */}
-            <Text style={[styles.sectionLabel, { color: colors.muted }]}>
-              OS COMPATIBILITY
-            </Text>
-
-            {/* Supported */}
-            {compatibility.filter((c) => c.status === "supported").length > 0 && (
-              <View style={styles.compatGroup}>
-                <View style={styles.compatHeader}>
-                  <IconSymbol name="checkmark.circle.fill" size={18} color={colors.success} />
-                  <Text style={[styles.compatHeaderText, { color: colors.success }]}>
-                    Fully Supported
-                  </Text>
-                </View>
-                {compatibility
-                  .filter((c) => c.status === "supported")
-                  .map((c) => {
-                    const os = OS_CATALOG.find((o) => o.id === c.osId);
-                    if (!os) return null;
-                    return (
-                      <View key={c.osId} style={[styles.compatItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        <View style={[styles.compatDot, { backgroundColor: colors.success }]} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.compatName, { color: colors.foreground }]}>
-                            {os.name} {os.version}
-                          </Text>
-                          <Text style={[styles.compatNote, { color: colors.muted }]}>{c.notes}</Text>
-                        </View>
-                        <Text style={[styles.compatSize, { color: colors.muted }]}>{os.sizeGB} GB</Text>
-                      </View>
-                    );
-                  })}
-              </View>
-            )}
-
-            {/* Partial */}
-            {compatibility.filter((c) => c.status === "partial").length > 0 && (
-              <View style={styles.compatGroup}>
-                <View style={styles.compatHeader}>
-                  <IconSymbol name="exclamationmark.triangle.fill" size={18} color={colors.warning} />
-                  <Text style={[styles.compatHeaderText, { color: colors.warning }]}>
-                    Partial Support
-                  </Text>
-                </View>
-                {compatibility
-                  .filter((c) => c.status === "partial")
-                  .map((c) => {
-                    const os = OS_CATALOG.find((o) => o.id === c.osId);
-                    if (!os) return null;
-                    return (
-                      <View key={c.osId} style={[styles.compatItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        <View style={[styles.compatDot, { backgroundColor: colors.warning }]} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.compatName, { color: colors.foreground }]}>
-                            {os.name} {os.version}
-                          </Text>
-                          <Text style={[styles.compatNote, { color: colors.muted }]}>{c.notes}</Text>
-                        </View>
-                        <Text style={[styles.compatSize, { color: colors.muted }]}>{os.sizeGB} GB</Text>
-                      </View>
-                    );
-                  })}
-              </View>
-            )}
-
-            {/* Unsupported */}
-            {compatibility.filter((c) => c.status === "unsupported").length > 0 && (
-              <View style={styles.compatGroup}>
-                <View style={styles.compatHeader}>
-                  <IconSymbol name="xmark.circle.fill" size={18} color={colors.error} />
-                  <Text style={[styles.compatHeaderText, { color: colors.error }]}>
-                    Not Supported
-                  </Text>
-                </View>
-                {compatibility
-                  .filter((c) => c.status === "unsupported")
-                  .map((c) => {
-                    const os = OS_CATALOG.find((o) => o.id === c.osId);
-                    if (!os) return null;
-                    return (
-                      <View key={c.osId} style={[styles.compatItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        <View style={[styles.compatDot, { backgroundColor: colors.error }]} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.compatName, { color: colors.foreground }]}>
-                            {os.name} {os.version}
-                          </Text>
-                          <Text style={[styles.compatNote, { color: colors.muted }]}>{c.notes}</Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-              </View>
-            )}
-
-            {/* Build USB CTA */}
-            <Pressable
-              onPress={() => {/* Navigate to builder with pre-selected items */}}
-              style={({ pressed }) => [
-                styles.buildCTA,
-                { backgroundColor: colors.primary },
-                pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] },
-              ]}
-            >
-              <IconSymbol name="externaldrive.fill" size={20} color="#FFFFFF" />
-              <Text style={styles.buildCTAText}>Build USB for This Device</Text>
-            </Pressable>
-          </View>
-        )}
-      </ScrollView>
-    </ScreenContainer>
+          ))}
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    gap: 6,
+  container: {
+    flex: 1,
+    backgroundColor: '#1e1e1e',
+    padding: 24,
   },
-  screenTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-  },
-  screenSubtitle: {
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    marginTop: 16,
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#00d4ff',
     marginBottom: 8,
   },
-  stepDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  stepLine: {
-    flex: 1,
-    height: 2,
-    marginHorizontal: 4,
-  },
-  section: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-    gap: 10,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  deviceCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 14,
-  },
-  deviceIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  deviceText: {
-    flex: 1,
-    gap: 4,
-  },
-  deviceName: {
+  subtitle: {
     fontSize: 16,
-    fontWeight: "700",
+    color: '#aaa',
+    marginBottom: 24,
   },
-  deviceDesc: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  archRow: {
-    flexDirection: "row",
-    gap: 6,
-    marginTop: 4,
-  },
-  archBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  archText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  selectedDevice: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
+  loader: { marginVertical: 24 },
+  error: { color: '#ff6b6b', fontSize: 14, marginBottom: 16 },
+  list: { flex: 1 },
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    gap: 12,
+    borderColor: 'rgba(0,212,255,0.3)',
   },
-  selectedDeviceName: {
-    fontSize: 15,
-    fontWeight: "700",
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#00d4ff',
+    marginBottom: 6,
   },
-  selectedDeviceArch: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  changeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  changeBtnText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  compatGroup: {
-    gap: 8,
-  },
-  compatHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 4,
-  },
-  compatHeaderText: {
+  cardDesc: {
+    color: '#aaa',
     fontSize: 14,
-    fontWeight: "700",
+    marginBottom: 10,
   },
-  compatItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 10,
-  },
-  compatDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  compatName: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  compatNote: {
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  badge: {
+    backgroundColor: 'rgba(0,212,255,0.2)',
+    color: '#00d4ff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
   },
-  compatSize: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  buildCTA: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    borderRadius: 14,
-    gap: 10,
-    marginTop: 8,
-  },
-  buildCTAText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  metaText: { color: '#666', fontSize: 12 },
 });

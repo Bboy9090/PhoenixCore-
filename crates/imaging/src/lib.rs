@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use sha2::{Digest, Sha256};
 use std::fmt::Write as _;
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct ChunkPlan {

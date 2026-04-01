@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QSplitter, QTableWidget, QTableWidgetItem,
     QHeaderView, QDialog, QDialogButtonBox, QFormLayout
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QMutex
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QMutex, QMetaObject, Q_ARG
 from PyQt6.QtGui import QFont, QPixmap, QIcon, QColor
 
 from src.gui.stepper_header import StepperHeader, StepState
@@ -33,7 +33,7 @@ from src.gui.os_image_manager_qt import OSImageManagerQt
 from src.core.os_image_manager import OSImageInfo, ImageStatus, VerificationMethod, DownloadProgress
 from src.core.config import Config
 from src.core.safety_validator import SafetyValidator, SafetyLevel, ValidationResult, DeviceRisk
-from src.core.usb_builder import StorageBuilderEngine, DeploymentRecipe, DeploymentType, HardwareProfile, StorageBuilder
+from src.core.usb_builder import StorageBuilderEngine, DeploymentRecipe, DeploymentType, HardwareProfile, StorageBuilder, BuildProgress
 
 
 class StepView(QWidget):
@@ -603,224 +603,157 @@ class HardwareDetectionStepView(StepView):
     
     def _open_manual_selection(self):
         """Open manual hardware profile selection dialog"""
-        from src.core.hardware_profiles import get_profiles_by_platform
-        
-        # Create dialog
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Manual Hardware Profile Selection")
-        dialog.setMinimumSize(800, 600)
-        dialog.setStyleSheet(f"background-color: {BootForgeTheme.COLORS['bg_primary']};")
-        
-        layout = QVBoxLayout(dialog)
-        
-        # Instructions
-        info_label = QLabel("💡 Select the hardware profile for the computer you want to create a bootable USB for.\nThis allows you to create USBs for different computers than the one you're currently using.")
-        info_label.setWordWrap(True)
-        info_label.setStyleSheet(f"color: {BootForgeTheme.COLORS['text_secondary']}; padding: 10px; font-size: 14px;")
-        layout.addWidget(info_label)
-        
-        # Search box
-        search_layout = QHBoxLayout()
-        search_label = QLabel("🔍 Search:")
-        search_label.setStyleSheet(f"color: {BootForgeTheme.COLORS['text_primary']}; font-weight: bold;")
-        search_layout.addWidget(search_label)
-        
-        search_box = QLineEdit()
-        search_box.setPlaceholderText("Type to filter by name or model...")
-        search_box.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {BootForgeTheme.COLORS['bg_secondary']};
-                color: {BootForgeTheme.COLORS['text_primary']};
-                border: 2px solid {BootForgeTheme.COLORS['border']};
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 14px;
-            }}
-        """)
-        search_layout.addWidget(search_box)
-        layout.addLayout(search_layout)
-        
-        # Tabs for platforms
-        tabs = QTabWidget()
-        tabs.setStyleSheet(f"""
-            QTabWidget::pane {{
-                border: 2px solid {BootForgeTheme.COLORS['border']};
-                background-color: {BootForgeTheme.COLORS['bg_secondary']};
-                border-radius: 6px;
-            }}
-            QTabBar::tab {{
-                background-color: {BootForgeTheme.COLORS['bg_tertiary']};
-                color: {BootForgeTheme.COLORS['text_primary']};
-                padding: 10px 20px;
-                margin-right: 2px;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-            }}
-            QTabBar::tab:selected {{
-                background-color: {BootForgeTheme.COLORS['accent']};
-                color: white;
-                font-weight: bold;
-            }}
-        """)
-        
-        # Store profile widgets for searching
-        self.profile_widgets = {}
-        self.selected_manual_profile = None
-        
-        # Create tables for each platform
-        for platform_name, platform_key in [("🍎 Mac Models", "macos"), ("🪟 Windows PCs", "windows"), ("🐧 Linux Systems", "linux")]:
-            profiles = get_profiles_by_platform(platform_key)
-            
-            table = QTableWidget()
-            table.setColumnCount(4)
-            table.setHorizontalHeaderLabels(["Name", "Model", "Architecture", "Year"])
-            table.setRowCount(len(profiles))
-            table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-            table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-            table.setStyleSheet(f"""
-                QTableWidget {{
-                    background-color: {BootForgeTheme.COLORS['bg_secondary']};
-                    color: {BootForgeTheme.COLORS['text_primary']};
-                    gridline-color: {BootForgeTheme.COLORS['border']};
-                    border: none;
-                }}
-                QHeaderView::section {{
-                    background-color: {BootForgeTheme.COLORS['bg_tertiary']};
-                    color: {BootForgeTheme.COLORS['text_primary']};
-                    padding: 8px;
-                    border: none;
-                    font-weight: bold;
-                }}
-                QTableWidget::item:selected {{
-                    background-color: {BootForgeTheme.COLORS['accent']};
-                    color: white;
-                }}
-            """)
-            
-            # Populate table
-            for row, profile in enumerate(profiles):
-                name_item = QTableWidgetItem(profile.name)
-                model_item = QTableWidgetItem(profile.model)
-                arch_item = QTableWidgetItem(profile.architecture)
-                year_item = QTableWidgetItem(str(getattr(profile, 'year', 'N/A')))
-                
-                table.setItem(row, 0, name_item)
-                table.setItem(row, 1, model_item)
-                table.setItem(row, 2, arch_item)
-                table.setItem(row, 3, year_item)
-                
-                # Store profile data
-                name_item.setData(Qt.ItemDataRole.UserRole, profile)
-                
-                # Store for search
-                self.profile_widgets[f"{profile.name} {profile.model}".lower()] = (table, row)
-            
-            # Handle selection
-            def make_selection_handler(tbl):
-                def handler():
-                    selected = tbl.selectedItems()
-                    if selected:
-                        self.selected_manual_profile = selected[0].data(Qt.ItemDataRole.UserRole)
-                return handler
-            
-            table.itemSelectionChanged.connect(make_selection_handler(table))
-            
-            # Configure header (with error handling for platform differences)
-            try:
-                header = table.horizontalHeader()
-                if header:
-                    header.setStretchLastSection(True)
-                    # Try to set resize mode for first column
-                    try:
-                        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-                    except (AttributeError, TypeError):
-                        # Try applying to all columns as fallback
-                        try:
-                            header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-                        except:
-                            # Continue with just setStretchLastSection
-                            pass
-            except Exception as e:
-                self.logger.warning(f"Could not configure table header: {e}")
-            
-            tabs.addTab(table, platform_name)
-        
-        # Search functionality
-        def filter_profiles(text):
-            text = text.lower()
-            for search_key, (table, row) in self.profile_widgets.items():
-                if text in search_key:
-                    table.showRow(row)
-                else:
-                    table.hideRow(row)
-        
-        search_box.textChanged.connect(filter_profiles)
-        
-        layout.addWidget(tabs)
-        
-        # Buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        button_box.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {BootForgeTheme.COLORS['accent']};
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-weight: bold;
-                min-width: 100px;
-            }}
-            QPushButton:hover {{
-                background-color: {BootForgeTheme.COLORS['accent_hover']};
-            }}
-        """)
-        button_box.accepted.connect(dialog.accept)
-        button_box.rejected.connect(dialog.reject)
-        layout.addWidget(button_box)
-        
-        # Show dialog
-        if dialog.exec() == QDialog.DialogCode.Accepted and self.selected_manual_profile:
-            self.logger.info(f"Manual profile selected: {self.selected_manual_profile.name}")
-            
-            # Wrap profile in a ProfileMatch object
-            from src.core.hardware_detector import ProfileMatch
-            manual_match = ProfileMatch(
-                profile=self.selected_manual_profile,
-                match_score=0.0,
-                match_reasons=["Manual selection - user chose this profile for a different computer"],
-                confidence=DetectionConfidence.UNKNOWN,
-                detection_data=None
-            )
-            
-            # Set as selected profile
-            self.selected_profile = manual_match
-            self.profile_matches = [manual_match]
-            
-            # Update UI
-            self.status_label.setText(f"✅ Manually selected: {self.selected_manual_profile.name}")
-            self.status_label.setStyleSheet(f"color: {BootForgeTheme.COLORS['accent']}; font-size: 16px; font-weight: bold; padding: 10px;")
-            
-            # Show results
-            self.results_group.setVisible(True)
-            self.hardware_summary_label.setText(f"📱 {self.selected_manual_profile.name} (Manual Selection)")
-            self.hardware_details.setPlainText(f"""Platform: {self.selected_manual_profile.platform.title()}
-Model: {self.selected_manual_profile.model}
-Architecture: {self.selected_manual_profile.architecture}
-CPU: {self.selected_manual_profile.cpu_family}
+        self.logger.info("Manual Selection button clicked")
+        # Safe import with error handling
+        try:
+            from src.core.hardware_profiles import get_profiles_by_platform
+        except Exception as e:
+            self.logger.error(f"Failed to import get_profiles_by_platform: {e}", exc_info=True)
+            QMessageBox.critical(self, "Import Error", f"Failed to load hardware profiles:\n{e}")
+            return
 
-⚠️ NOTE: You manually selected this profile. Make sure you're creating the USB for the correct computer!
-            """)
-            
-            # Populate profile dropdown with manual selection
-            self.profile_combo.clear()
-            self.profile_combo.addItem(f"🧭 {self.selected_manual_profile.name} (Manual)")
-            self.profile_combo.setItemData(0, manual_match)
-            self.profile_combo.setEnabled(False)
-            
-            # Enable next button
-            self.set_navigation_enabled(next=True)
-            self.step_completed.emit()
-    
+        try:
+            # Create dialog UI
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Manual Hardware Profile Selection")
+            dialog.setMinimumSize(800, 600)
+            layout = QVBoxLayout(dialog)
+
+            info_label = QLabel(
+                "💡 Select the hardware profile for the computer you want to create a bootable USB for.\n"
+                "This lets you create USBs for a different computer than the one you're using.")
+            info_label.setWordWrap(True)
+            layout.addWidget(info_label)
+
+            search_layout = QHBoxLayout()
+            search_layout.addWidget(QLabel("Search:"))
+            search_box = QLineEdit()
+            search_box.setPlaceholderText("Type to filter by name or model…")
+            search_layout.addWidget(search_box)
+            layout.addLayout(search_layout)
+
+            tabs = QTabWidget()
+            layout.addWidget(tabs)
+
+            # Storage for filtering and selection
+            self.profile_widgets = {}
+            self.selected_manual_profile = None
+
+            # Platforms: support macOS; handle others gracefully
+            for platform_name, platform_key in [("🍎 Mac Models", "macos"), ("🪟 Windows PCs", "windows"), ("🐧 Linux Systems", "linux")]:
+                try:
+                    if platform_key != "macos":
+                        raise NotImplementedError("Platform not supported yet")
+                    profiles = get_profiles_by_platform(platform_key) or []
+                    if not profiles:
+                        raise ValueError("No profiles found")
+                except Exception as e:
+                    placeholder = QWidget()
+                    ph_layout = QVBoxLayout(placeholder)
+                    msg = QLabel(f"{platform_name} is unavailable: {e}")
+                    msg.setWordWrap(True)
+                    ph_layout.addWidget(msg)
+                    tabs.addTab(placeholder, platform_name)
+                    continue
+
+                # Build selectable table for macOS profiles
+                table = QTableWidget()
+                table.setColumnCount(4)
+                table.setHorizontalHeaderLabels(["Name", "Model", "Architecture", "Year"])
+                
+                # Configure table headers (with None checks for Qt compatibility)
+                h_header = table.horizontalHeader()
+                if h_header is not None:
+                    h_header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+                
+                v_header = table.verticalHeader()
+                if v_header is not None:
+                    v_header.setVisible(False)
+                table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+                table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+                table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+                table.setRowCount(len(profiles))
+
+                for row, p in enumerate(profiles):
+                    name = getattr(p, "name", "") or str(getattr(p, "model", "Unknown"))
+                    model = getattr(p, "model", "Unknown")
+                    arch = getattr(p, "architecture", getattr(p, "arch", "Unknown"))
+                    year = getattr(p, "year", getattr(p, "release_year", ""))
+                    table.setItem(row, 0, QTableWidgetItem(str(name)))
+                    table.setItem(row, 1, QTableWidgetItem(str(model)))
+                    table.setItem(row, 2, QTableWidgetItem(str(arch)))
+                    table.setItem(row, 3, QTableWidgetItem(str(year)))
+
+                def on_selection_changed(tbl=table, profs=profiles):
+                    r = tbl.currentRow()
+                    if 0 <= r < len(profs):
+                        self.selected_manual_profile = profs[r]
+
+                table.itemSelectionChanged.connect(on_selection_changed)
+                table.itemDoubleClicked.connect(lambda *_: dialog.accept())
+
+                tabs.addTab(table, platform_name)
+                self.profile_widgets[platform_key] = {"table": table, "profiles": profiles}
+
+            # Search filter across tables
+            def filter_profiles(text: str):
+                t = (text or "").strip().lower()
+                for data in self.profile_widgets.values():
+                    tbl = data["table"]
+                    profs = data["profiles"]
+                    for row, p in enumerate(profs):
+                        hay = f"{getattr(p, 'name', '')} {getattr(p, 'model', '')}".lower()
+                        tbl.setRowHidden(row, t not in hay)
+
+            search_box.textChanged.connect(filter_profiles)
+
+            # Buttons
+            button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+            button_box.accepted.connect(dialog.accept)
+            button_box.rejected.connect(dialog.reject)
+            layout.addWidget(button_box)
+
+            # Accept selection and update UI
+            if dialog.exec() == QDialog.DialogCode.Accepted and self.selected_manual_profile:
+                p = self.selected_manual_profile
+                manual_match = ProfileMatch(
+                    profile=p,
+                    match_score=0.0,
+                    match_reasons=["Manual selection - user chose this profile for a different computer"],
+                    confidence=DetectionConfidence.UNKNOWN,
+                    detection_data=None,
+                )
+                self.selected_profile = manual_match
+                self.profile_matches = [manual_match]
+
+                name = getattr(p, "name", "Unknown")
+                self.status_label.setText(f"✅ Manually selected: {name}")
+                self.results_group.setVisible(True)
+                self.hardware_summary_label.setText(f"📱 {name} (Manual Selection)")
+                details = (
+                    f"Platform: {str(getattr(p, 'platform', 'macOS')).title()}\n"
+                    f"Model: {getattr(p, 'model', 'Unknown')}\n"
+                    f"Architecture: {getattr(p, 'architecture', getattr(p, 'arch', 'Unknown'))}\n"
+                    f"CPU: {getattr(p, 'cpu_family', 'Unknown')}\n\n"
+                    "⚠️ NOTE: You manually selected this profile. Make sure you're creating the USB for the correct computer!"
+                )
+                self.hardware_details.setPlainText(details)
+                self.profile_combo.clear()
+                self.profile_combo.addItem(f"🧭 {name} (Manual)")
+                self.profile_combo.setItemData(0, manual_match)
+                self.profile_combo.setEnabled(False)
+                self.set_navigation_enabled(next=True)
+                self.step_completed.emit()
+
+        except Exception as e:
+            # Top-level safety net: show dialog instead of crashing
+            self.logger.error(f"Error in manual selection dialog: {e}", exc_info=True)
+            QMessageBox.critical(
+                self,
+                "Manual Selection Error",
+                f"An error occurred while opening the manual selection dialog:\n\n{e}",
+            )
+
     def _on_detection_started(self):
         """Handle detection started signal"""
         self.logger.debug("Hardware detection started")
@@ -908,7 +841,7 @@ CPU: {self.selected_manual_profile.cpu_family}
         # Update hardware summary
         summary = self.detected_hardware.get_summary()
         confidence_text = self.detected_hardware.detection_confidence.value.replace("_", " ").title()
-        self.hardware_summary_label.setText(f"📱 {summary}\\n🎯 Detection Confidence: {confidence_text}")
+        self.hardware_summary_label.setText(f"📱 {summary}\n🎯 Detection Confidence: {confidence_text}")
         
         # Update detailed information
         details = self._format_hardware_details(self.detected_hardware)
@@ -971,7 +904,7 @@ CPU: {self.selected_manual_profile.cpu_family}
         elif hardware.platform:
             details.append(f"🔧 Platform: {hardware.platform.title()}")
         
-        return "\\n".join(details) if details else "No detailed hardware information available"
+        return "\n".join(details) if details else "No detailed hardware information available"
     
     def _populate_profile_matches(self):
         """Populate the profile selection combo box with matches"""
@@ -2311,11 +2244,11 @@ class StorageConfigurationStepView(StepView):
         
         # Device info
         size_gb = device.size_bytes / (1024**3)
-        device_text = f"{safety_icon} {device.vendor} {device.model}\\n"
+        device_text = f"{safety_icon} {device.vendor} {device.model}\n"
         device_text += f"    📦 {size_gb:.1f} GB • {device.filesystem} • {device.path}"
         
         if device_risk.mount_points:
-            device_text += f"\\n    📁 Mounted: {', '.join(device_risk.mount_points)}"
+            device_text += f"\n    📁 Mounted: {', '.join(device_risk.mount_points)}"
         
         item.setText(device_text)
         item.setData(Qt.ItemDataRole.UserRole, device)
@@ -2354,8 +2287,8 @@ class StorageConfigurationStepView(StepView):
             QMessageBox.warning(
                 self,
                 "Device Blocked",
-                f"This device cannot be used for safety reasons:\\n\\n"
-                f"• {chr(10).join(device_risk.risk_factors)}\\n\\n"
+                f"This device cannot be used for safety reasons:\n\n"
+                f"• {chr(10).join(device_risk.risk_factors)}\n\n"
                 f"Please select a different USB device."
             )
             return
@@ -2675,8 +2608,8 @@ class StorageConfigurationStepView(StepView):
             QMessageBox.warning(
                 self,
                 "Insufficient Storage",
-                f"The selected USB device ({device_size_gb:.1f} GB) is too small for {self.selected_recipe.name}.\\n\\n"
-                f"Minimum required: {min_required} GB\\n"
+                f"The selected USB device ({device_size_gb:.1f} GB) is too small for {self.selected_recipe.name}.\n\n"
+                f"Minimum required: {min_required} GB\n"
                 f"Please select a larger USB device."
             )
             return False
@@ -2726,8 +2659,18 @@ class StorageConfigurationStepView(StepView):
             "selected_recipe": self.selected_recipe,
             "device_risk": self.device_risks.get(self.selected_device.path) if self.selected_device else None,
             "recipe_compatibility": self.recipe_compatibility.get(self.selected_recipe.name) if self.selected_recipe else None,
-            "available_devices_count": len(self.available_devices)
+            "available_devices_count": len(self.available_devices),
+            "detected_hardware": self.detected_hardware,
+            "selected_os_image": self.selected_os_image,
+            "selected_image": self.selected_os_image
         }
+        # Include hardware profile for build (best match or generic fallback)
+        if self.profile_matches:
+            data["hardware_profile"] = self.profile_matches[0].profile
+        elif self.detected_hardware:
+            generic = self.storage_builder.detect_hardware_profile()
+            if generic:
+                data["hardware_profile"] = generic
         
         self.logger.info(f"Exporting USB configuration data: device={self.selected_device.path if self.selected_device else None}, recipe={self.selected_recipe.name if self.selected_recipe else None}")
         return data
@@ -2761,14 +2704,14 @@ class StorageConfigurationStepView(StepView):
             hw_info = getattr(self.detected_hardware, 'get_summary', lambda: "Hardware detected")()
             os_info = getattr(self.selected_os_image, 'name', 'OS image selected')
             
-            context_text = f"🔧 Hardware: {hw_info}\\n📀 OS Image: {os_info}\\n\\nSelect a compatible deployment recipe:"
+            context_text = f"🔧 Hardware: {hw_info}\n📀 OS Image: {os_info}\n\nSelect a compatible deployment recipe:"
             self.context_label.setText(context_text)
         elif self.detected_hardware:
             hw_info = getattr(self.detected_hardware, 'get_summary', lambda: "Hardware detected")()
-            self.context_label.setText(f"🔧 Hardware: {hw_info}\\n⚠️ Please select an OS image first")
+            self.context_label.setText(f"🔧 Hardware: {hw_info}\n⚠️ Please select an OS image first")
         elif self.selected_os_image:
             os_info = getattr(self.selected_os_image, 'name', 'OS image selected')
-            self.context_label.setText(f"📀 OS Image: {os_info}\\n⚠️ Please detect hardware first")
+            self.context_label.setText(f"📀 OS Image: {os_info}\n⚠️ Please detect hardware first")
         else:
             self.context_label.setText("⚠️ Please complete hardware detection and OS selection first")
     
@@ -3431,8 +3374,8 @@ The following DESTRUCTIVE operations will be performed:
         return checkboxes_valid and erase_valid and device_path_valid
     
     def get_step_data(self) -> Dict[str, Any]:
-        """Get comprehensive step data including all safety confirmations"""
-        return {
+        """Get comprehensive step data including all safety confirmations and build inputs"""
+        data = {
             'safety_confirmations_complete': self.validate_step(),
             'device_risk_assessment': self.device_risk,
             'user_confirmations': {
@@ -3443,6 +3386,18 @@ The following DESTRUCTIVE operations will be performed:
             'final_device_path': self.target_device.path if self.target_device else None,
             'final_validation_timestamp': datetime.now().isoformat()
         }
+        # Include build inputs for downstream Build step
+        if self.target_device:
+            data['selected_device'] = self.target_device
+            data['device_info'] = self.target_device
+        if self.selected_recipe:
+            data['selected_recipe'] = self.selected_recipe
+        if self.detected_hardware:
+            data['detected_hardware'] = self.detected_hardware
+        if self.selected_image:
+            data['selected_image'] = self.selected_image
+            data['selected_os_image'] = self.selected_image
+        return data
     
     def load_step_data(self, data: Dict[str, Any]):
         """Load wizard state data and update all displays"""
@@ -3461,6 +3416,8 @@ The following DESTRUCTIVE operations will be performed:
         # Load device information
         if 'device_info' in data:
             self.target_device = data['device_info']
+        elif 'selected_device' in data:
+            self.target_device = data['selected_device']
             self._update_device_summary()
             self._update_device_path_confirmation()
             # Run safety assessment for the device
@@ -3965,17 +3922,44 @@ class BuildVerifyStepView(StepView):
             if self.current_builder.isRunning():  # type: ignore
                 self._emergency_stop()
     
+    def load_step_data(self, data: Dict[str, Any]):
+        """Load build inputs from previous steps"""
+        self.logger.info(f"Loading build step data: {list(data.keys())}")
+        self.selected_device = data.get("selected_device") or data.get("device_info")
+        self.selected_recipe = data.get("selected_recipe")
+        self.hardware_profile = data.get("hardware_profile")
+        detected_hw = data.get("detected_hardware")
+        img = data.get("selected_image") or data.get("selected_os_image")
+        if detected_hw and not self.hardware_profile:
+            self.hardware_profile = self.storage_builder_engine.detect_hardware_profile()
+        if img and self.hardware_profile is None:
+            self.hardware_profile = self.storage_builder_engine.detect_hardware_profile() or HardwareProfile(
+                name="Generic", platform="linux", model="generic", architecture="x86_64"
+            )
+        self.source_files = self._build_source_files_from_image(img)
+    
+    def _build_source_files_from_image(self, image) -> Dict[str, str]:
+        """Build source_files dict from selected OS image"""
+        if not image:
+            return {}
+        path = None
+        if hasattr(image, "local_path") and image.local_path:
+            path = str(image.local_path)
+        elif hasattr(image, "image_path") and image.image_path:
+            path = image.image_path
+        elif isinstance(image, dict):
+            path = image.get("local_path") or image.get("image_path") or image.get("path")
+        if path and Path(path).exists():
+            if hasattr(image, "os_family") and image.os_family:
+                key = f"{image.os_family}_installer"
+            else:
+                key = "os_image"
+            return {key: path}
+        return {}
+    
     def _load_wizard_state(self):
-        """Load wizard state from previous steps"""
-        # This would be populated by the wizard controller
-        # For now, we'll use placeholder data
-        self.logger.info("Loading wizard state from previous steps")
-        
-        # In real implementation, this would come from wizard_state
-        # self.selected_device = self.wizard_state.selected_device
-        # self.selected_recipe = self.wizard_state.selected_recipe
-        # self.hardware_profile = self.wizard_state.hardware_profile
-        # self.source_files = self.wizard_state.source_files
+        """Apply loaded wizard state - no-op when load_step_data has already populated"""
+        pass
     
     def _update_device_info_display(self):
         """Update the device information display"""
@@ -4027,8 +4011,22 @@ Source Files: {len(self.source_files)} files ready"""
             self._log_build_message("WARNING", f"Build requirements not met: {', '.join(missing)}")
     
     def _start_build_process(self):
-        """Start the comprehensive build process"""
+        """Start the real USB build process using StorageBuilder"""
         self.logger.info("Starting USB build process")
+        
+        if not self.selected_device or not self.selected_recipe:
+            QMessageBox.warning(
+                self, "Configuration Incomplete",
+                "Please complete the previous steps: select a device and deployment recipe."
+            )
+            return
+        
+        if not self.hardware_profile:
+            self.hardware_profile = self.storage_builder_engine.detect_hardware_profile()
+        if not self.hardware_profile:
+            self.hardware_profile = HardwareProfile(
+                name="Generic", platform="linux", model="generic", architecture="x86_64"
+            )
         
         # Disable start button and enable emergency stop
         self.start_build_btn.setEnabled(False)
@@ -4041,279 +4039,66 @@ Source Files: {len(self.source_files)} files ready"""
         
         # Reset progress tracking
         self.build_start_time = datetime.now()
-        self.current_stage = 0
-        self.bytes_written = 0
         self.build_completed_successfully = False
         
-        # Start Stage 1: Pre-build Safety Revalidation
-        self._start_stage_1_safety_revalidation()
+        # Connect and start real StorageBuilder
+        self.current_builder = self.storage_builder_engine.builder
+        self.current_builder.progress_updated.connect(self._on_builder_progress)
+        self.current_builder.operation_completed.connect(self._on_build_completed)
+        self.current_builder.log_message.connect(self._on_builder_log)
+        
+        self._log_build_message("INFO", "=== Starting real USB build ===")
+        self._log_build_message("INFO", f"Target: {self.selected_device.path}")
+        self._log_build_message("INFO", f"Recipe: {self.selected_recipe.name}")
+        
+        self.current_builder.start_build(
+            self.selected_recipe,
+            self.selected_device.path,
+            self.hardware_profile,
+            self.source_files or {}
+        )
     
-    def _start_stage_1_safety_revalidation(self):
-        """Stage 1: Comprehensive safety revalidation with TOCTTOU protection"""
-        self.current_stage = 1
-        self._update_stage_display(1, "Pre-build Safety Validation", "Performing comprehensive safety checks...")
-        
-        self._log_build_message("INFO", "=== STAGE 1: Pre-build Safety Revalidation ===")
-        self._log_build_message("INFO", "Performing TOCTTOU protection validation...")
-        
-        # Simulate safety validation progress
-        self.safety_timer = QTimer()
-        self.safety_timer.timeout.connect(self._update_safety_validation)
-        self.safety_progress = 0
-        self.safety_timer.start(100)
+    def _on_builder_progress(self, progress: BuildProgress):
+        """Handle real build progress updates from StorageBuilder"""
+        self.stage_progress_bar.setValue(int(progress.step_progress))
+        self.overall_progress_bar.setValue(int(progress.overall_progress))
+        self.operation_label.setText(progress.detailed_status or progress.current_step)
+        if hasattr(self, "total_size_label") and self.total_size_label and progress.speed_mbps > 0:
+            self.total_size_label.setText(f"{progress.speed_mbps:.1f} MB/s")
     
-    def _update_safety_validation(self):
-        """Update safety validation progress"""
-        self.safety_progress += 5
-        self.stage_progress_bar.setValue(self.safety_progress)
-        
-        # Update operation text
-        safety_operations = [
-            "Verifying device accessibility...",
-            "Checking device removability status...",
-            "Validating device hasn't changed...",
-            "Ensuring no mounted partitions...",
-            "Confirming device safety profile...",
-            "Performing final safety validation..."
-        ]
-        
-        operation_index = min(self.safety_progress // 17, len(safety_operations) - 1)
-        self.operation_label.setText(safety_operations[operation_index])
-        
-        if self.safety_progress >= 100:
-            self.safety_timer.stop()
-            self._complete_stage_1_safety()
+    def _on_builder_log(self, level: str, message: str):
+        """Handle log messages from StorageBuilder"""
+        self._log_build_message(level, message)
     
-    def _complete_stage_1_safety(self):
-        """Complete Stage 1 and proceed to Stage 2"""
-        self._log_build_message("INFO", "Safety validation completed successfully")
-        self._log_build_message("INFO", "Device confirmed safe for deployment")
-        
-        # Update overall progress
-        self.overall_progress_bar.setValue(20)
-        
-        # Proceed to Stage 2
-        self._start_stage_2_device_preparation()
-    
-    def _start_stage_2_device_preparation(self):
-        """Stage 2: Device preparation and partitioning"""
-        self.current_stage = 2
-        self._update_stage_display(2, "Device Preparation", "Preparing USB device and creating partitions...")
-        
-        self._log_build_message("INFO", "=== STAGE 2: Device Preparation ===")
-        self._log_build_message("INFO", "Unmounting existing partitions...")
-        self._log_build_message("INFO", "Creating new partition scheme...")
-        
-        # Simulate device preparation
-        self.prep_timer = QTimer()
-        self.prep_timer.timeout.connect(self._update_device_preparation)
-        self.prep_progress = 0
-        self.prep_timer.start(150)
-    
-    def _update_device_preparation(self):
-        """Update device preparation progress"""
-        self.prep_progress += 8
-        self.stage_progress_bar.setValue(self.prep_progress)
-        
-        prep_operations = [
-            "Unmounting device partitions...",
-            "Wiping existing partition table...",
-            "Creating GPT partition scheme...",
-            "Creating EFI system partition...",
-            "Creating main data partition...",
-            "Formatting partitions..."
-        ]
-        
-        operation_index = min(self.prep_progress // 17, len(prep_operations) - 1)
-        self.operation_label.setText(prep_operations[operation_index])
-        
-        if self.prep_progress >= 100:
-            self.prep_timer.stop()
-            self._complete_stage_2_preparation()
-    
-    def _complete_stage_2_preparation(self):
-        """Complete Stage 2 and proceed to Stage 3"""
-        self._log_build_message("INFO", "Device preparation completed successfully")
-        self._log_build_message("INFO", "Partitions created and formatted")
-        
-        # Update overall progress
-        self.overall_progress_bar.setValue(40)
-        
-        # Proceed to Stage 3
-        self._start_stage_3_image_deployment()
-    
-    def _start_stage_3_image_deployment(self):
-        """Stage 3: OS image deployment - the main writing phase"""
-        self.current_stage = 3
-        self._update_stage_display(3, "OS Image Deployment", "Writing operating system image and core files...")
-        
-        self._log_build_message("INFO", "=== STAGE 3: OS Image Deployment ===")
-        self._log_build_message("INFO", "Starting OS image write operation...")
-        
-        # Calculate estimated total size (simulated)
-        self.total_bytes_to_write = int(4.2 * 1024 * 1024 * 1024)  # 4.2 GB example
-        if hasattr(self, 'total_size_label') and self.total_size_label:
-            self.total_size_label.setText(f"{self.total_bytes_to_write / (1024**3):.1f} GB")
-        
-        # Start image writing simulation
-        self.image_timer = QTimer()
-        self.image_timer.timeout.connect(self._update_image_deployment)
-        self.image_progress = 0
-        self.last_speed_update = time.time()
-        self.image_timer.start(50)  # Faster updates for writing simulation
-    
-    def _update_image_deployment(self):
-        """Update image deployment progress with realistic speed simulation"""
-        # Simulate realistic write speeds (20-80 MB/s)
-        current_time = time.time()
-        time_delta = current_time - self.last_speed_update
-        
-        # Simulate variable write speed
-        import random
-        base_speed = 45  # MB/s base speed
-        speed_variation = random.uniform(0.8, 1.2)
-        current_speed = base_speed * speed_variation
-        
-        # Calculate bytes written in this interval
-        bytes_this_interval = current_speed * 1024 * 1024 * time_delta  # MB/s to bytes
-        self.bytes_written = int(self.bytes_written + bytes_this_interval)
-        
-        # Update progress
-        progress_percent = min((self.bytes_written / self.total_bytes_to_write) * 100, 100)
-        self.stage_progress_bar.setValue(int(progress_percent))
-        
-        # Update statistics
-        self._update_build_statistics(current_speed)
-        
-        # Update operation text
-        self.operation_label.setText(f"Writing OS image... {self.bytes_written / (1024**3):.1f} GB / {self.total_bytes_to_write / (1024**3):.1f} GB")
-        
-        self.last_speed_update = current_time
-        
-        if progress_percent >= 100:
-            self.image_timer.stop()
-            self._complete_stage_3_deployment()
-    
-    def _complete_stage_3_deployment(self):
-        """Complete Stage 3 and proceed to Stage 4"""
-        self._log_build_message("INFO", "OS image deployment completed successfully")
-        self._log_build_message("INFO", f"Written {self.bytes_written / (1024**3):.1f} GB of data")
-        
-        # Update overall progress
-        self.overall_progress_bar.setValue(70)
-        
-        # Proceed to Stage 4
-        self._start_stage_4_bootloader_config()
-    
-    def _start_stage_4_bootloader_config(self):
-        """Stage 4: Bootloader configuration and installation"""
-        self.current_stage = 4
-        self._update_stage_display(4, "Bootloader Configuration", "Installing and configuring bootloader components...")
-        
-        self._log_build_message("INFO", "=== STAGE 4: Bootloader Configuration ===")
-        self._log_build_message("INFO", "Installing bootloader components...")
-        
-        # Simulate bootloader configuration
-        self.bootloader_timer = QTimer()
-        self.bootloader_timer.timeout.connect(self._update_bootloader_config)
-        self.bootloader_progress = 0
-        self.bootloader_timer.start(200)
-    
-    def _update_bootloader_config(self):
-        """Update bootloader configuration progress"""
-        self.bootloader_progress += 12
-        self.stage_progress_bar.setValue(self.bootloader_progress)
-        
-        bootloader_operations = [
-            "Installing GRUB bootloader...",
-            "Configuring boot parameters...",
-            "Setting up UEFI boot entries...",
-            "Applying hardware-specific configs...",
-            "Finalizing bootloader installation..."
-        ]
-        
-        operation_index = min(self.bootloader_progress // 20, len(bootloader_operations) - 1)
-        self.operation_label.setText(bootloader_operations[operation_index])
-        
-        if self.bootloader_progress >= 100:
-            self.bootloader_timer.stop()
-            self._complete_stage_4_bootloader()
-    
-    def _complete_stage_4_bootloader(self):
-        """Complete Stage 4 and proceed to Stage 5"""
-        self._log_build_message("INFO", "Bootloader configuration completed successfully")
-        self._log_build_message("INFO", "Device is now bootable")
-        
-        # Update overall progress
-        self.overall_progress_bar.setValue(90)
-        
-        # Proceed to Stage 5
-        self._start_stage_5_verification()
-    
-    def _start_stage_5_verification(self):
-        """Stage 5: Final verification and cleanup"""
-        self.current_stage = 5
-        self._update_stage_display(5, "Final Verification", "Verifying installation integrity and creating deployment report...")
-        
-        self._log_build_message("INFO", "=== STAGE 5: Final Verification ===")
-        self._log_build_message("INFO", "Starting comprehensive verification...")
-        
-        # Simulate verification process
-        self.verify_timer = QTimer()
-        self.verify_timer.timeout.connect(self._update_verification)
-        self.verify_progress = 0
-        self.verify_timer.start(180)
-    
-    def _update_verification(self):
-        """Update verification progress"""
-        self.verify_progress += 10
-        self.stage_progress_bar.setValue(self.verify_progress)
-        
-        verify_operations = [
-            "Verifying file system integrity...",
-            "Checking bootloader installation...",
-            "Validating partition structure...",
-            "Testing boot configuration...",
-            "Generating deployment report...",
-            "Finalizing USB drive..."
-        ]
-        
-        operation_index = min(self.verify_progress // 17, len(verify_operations) - 1)
-        self.operation_label.setText(verify_operations[operation_index])
-        
-        if self.verify_progress >= 100:
-            self.verify_timer.stop()
-            self._complete_build_process()
-    
-    def _complete_build_process(self):
-        """Complete the entire build process successfully"""
-        self.build_completed_successfully = True
-        build_duration = datetime.now() - self.build_start_time if self.build_start_time else None
-        
-        # Update UI to success state
-        self.build_icon.setText("✅")
-        self.build_title.setText("USB Drive Created Successfully!")
-        self.build_subtitle.setText(f"Completed in {build_duration.total_seconds():.0f} seconds" if build_duration else "Build completed")
-        
-        # Final progress updates
-        self.overall_progress_bar.setValue(100)
-        self.stage_progress_bar.setValue(100)
-        self.operation_label.setText("Build process completed successfully")
-        
-        # Log completion
-        self._log_build_message("SUCCESS", "=== BUILD COMPLETED SUCCESSFULLY ===")
-        self._log_build_message("SUCCESS", "USB drive is ready for use")
-        self._log_build_message("INFO", f"Total build time: {build_duration.total_seconds():.1f} seconds" if build_duration else "Build time unknown")
-        
-        # Disable emergency stop and enable navigation
+    def _on_build_completed(self, success: bool, message: str):
+        """Handle build completion from StorageBuilder"""
+        self.build_completed_successfully = success
+        self.start_build_btn.setEnabled(True)
         self.emergency_stop_btn.setEnabled(False)
-        self.set_navigation_enabled(previous=False, next=True)
         
-        # Emit completion signal
-        self.step_completed.emit()
+        if self.current_builder:
+            try:
+                self.current_builder.progress_updated.disconnect(self._on_builder_progress)
+                self.current_builder.operation_completed.disconnect(self._on_build_completed)
+                self.current_builder.log_message.disconnect(self._on_builder_log)
+            except Exception:
+                pass
+            self.current_builder = None
         
-        # Update wizard state for summary step
-        self._prepare_summary_data()
+        if success:
+            self._log_build_message("INFO", f"✅ Build completed: {message}")
+            self.build_icon.setText("✅")
+            self.build_title.setText("Build Complete")
+            self.build_subtitle.setText(message)
+            self.overall_progress_bar.setValue(100)
+            self._prepare_summary_data()
+            self.step_completed.emit()
+        else:
+            self._log_build_message("ERROR", f"Build failed: {message}")
+            self.build_icon.setText("❌")
+            self.build_title.setText("Build Failed")
+            self.build_subtitle.setText(message)
+            QMessageBox.critical(self, "Build Failed", message)
     
     def _prepare_summary_data(self):
         """Prepare build data for the summary step"""
@@ -4325,7 +4110,7 @@ Source Files: {len(self.source_files)} files ready"""
             "device_size": f"{self.selected_device.size_bytes / (1024**3):.1f} GB" if self.selected_device else "Unknown",
             "recipe_name": self.selected_recipe.name if self.selected_recipe else "Unknown",
             "build_duration": f"{build_duration.total_seconds():.0f} seconds" if build_duration else "Unknown",
-            "bytes_written": f"{self.bytes_written / (1024**3):.1f} GB",
+            "bytes_written": f"{getattr(self, 'bytes_written', 0) / (1024**3):.1f} GB",
             "verification_passed": True,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
@@ -4779,10 +4564,10 @@ class SummaryStepView(StepView):
                 import platform
                 system = platform.system()
                 if system == "Linux":
-                    result = subprocess.run(['umount', self.target_device_path], check=False, capture_output=True)
+                    result = subprocess.run(['umount', self.target_device_path], check=False, capture_output=True, timeout=30)
                     success = result.returncode == 0
                 elif system == "Darwin":  # macOS
-                    result = subprocess.run(['diskutil', 'eject', self.target_device_path], check=False, capture_output=True)
+                    result = subprocess.run(['diskutil', 'eject', self.target_device_path], check=False, capture_output=True, timeout=30)
                     success = result.returncode == 0
                 elif system == "Windows":
                     # Windows: Use PowerShell RemovableStorage cmdlet or notify user
@@ -4845,7 +4630,7 @@ class SummaryStepView(StepView):
                     ['powershell', '-Command', ps_command],
                     capture_output=True,
                     text=True,
-                    timeout=5
+                    timeout=10
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     drive_letter = result.stdout.strip()
@@ -4942,7 +4727,7 @@ class SummaryStepView(StepView):
         """)
         
         # Format and display logs
-        log_content = "\\n".join(self.wizard_state.build_result.build_log)
+        log_content = "\n".join(self.wizard_state.build_result.build_log)
         log_text.setPlainText(log_content)
         layout.addWidget(log_text)
         
@@ -5081,7 +4866,7 @@ class SummaryStepView(StepView):
             for log_line in logs[-50:]:
                 lines.append(f"  {log_line}")
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
     def _update_status_display(self):
         """Update the main status display based on build results"""
@@ -5175,7 +4960,7 @@ class SummaryStepView(StepView):
 🔧 Vendor: {device.vendor}"""
             
             if device.serial:
-                usb_info += f"\\n🆔 Serial: {device.serial}"
+                usb_info += f"\n🆔 Serial: {device.serial}"
                 
             self.usb_details_label.setText(usb_info)
             self.target_device_path = device.path
@@ -5295,7 +5080,7 @@ class SummaryStepView(StepView):
                 ])
         
         if recommendations:
-            self.recommendations_label.setText("\\n".join(recommendations))
+            self.recommendations_label.setText("\n".join(recommendations))
         else:
             self.recommendations_label.setText("No specific recommendations available at this time.")
     
@@ -5438,6 +5223,14 @@ class BootForgeStepperWizard(QWidget):
             if old_index != step_index:
                 if 0 <= old_index < len(self.step_views):
                     self.step_views[old_index].on_step_left()
+                # Collect and pass accumulated data from all previous steps to the new step
+                accumulated = {}
+                for i in range(step_index):
+                    step_data = self.step_views[i].get_step_data()
+                    if step_data:
+                        accumulated.update(step_data)
+                if accumulated:
+                    self.step_views[step_index].load_step_data(accumulated)
                 self.step_views[step_index].on_step_entered()
             
             # Emit signals

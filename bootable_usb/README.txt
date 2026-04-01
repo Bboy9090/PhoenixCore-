@@ -47,5 +47,5 @@ BootForge Bootable USB Recovery System
 - If USB not detected: Check USB port/cable
 - For Mac boot issues: Reset NVRAM (Cmd+Opt+P+R)
 
-Created: 2025-10-01 01:12:04
+Created: 2026-03-13 20:44:50
 Version: BootForge USB Recovery v1.0
