@@ -7,6 +7,7 @@ for the patch pipeline system.
 import yaml
 import os
 import re
+import time
 import logging
 from typing import List, Dict, Optional, Any, Set
 from pathlib import Path
@@ -17,6 +18,16 @@ from .patch_pipeline import (
     PatchCondition, PatchStatus
 )
 from .vendor_database import PatchCapability, SecurityLevel
+
+
+def _parse_created_timestamp(created: Any) -> float:
+    """Parse created timestamp from metadata; fallback to current time."""
+    if created is None:
+        return time.time()
+    try:
+        return float(created)
+    except (TypeError, ValueError):
+        return time.time()
 
 
 @dataclass
@@ -157,7 +168,7 @@ class PatchConfigLoader:
                 target_hardware=target_hardware,
                 actions=actions,
                 author=metadata.author,
-                created_at=1234567890.0  # Placeholder - could parse from metadata.created
+                created_at=_parse_created_timestamp(getattr(metadata, 'created', None))
             )
             
             return patch_set

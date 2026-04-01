@@ -578,8 +578,7 @@ class WinPatchEngine:
             if validation_result.result in [ValidationResult.WARNING, ValidationResult.DANGEROUS]:
                 consent_level = ConsentLevel.INFORMED if validation_result.result == ValidationResult.WARNING else ConsentLevel.EXPERT
                 
-                # In a real implementation, this would prompt the user
-                # For now, we'll assume consent is given if in BYPASS mode
+                # Consent: record for BYPASS mode; GUI callers should use safety_validator.require_user_consent for interactive prompt
                 user_consent = UserConsent(
                     operation_id=patch_risk.patch_id,
                     operation_type="windows_bypass",
@@ -791,17 +790,9 @@ class WinPatchEngine:
         try:
             for reg_path, keys in bypass.registry_keys.items():
                 for key_name, (key_type, key_value) in keys.items():
-                    # Use DISM to add registry values to offline image
-                    cmd = [
-                        self.dism_path, '/English',
-                        f'/Image:{self.mount_dir}',
-                        '/Set-TargetPath:OFFLINE',
-                        '/Add-Package',  # This would need proper DISM registry commands
-                        # Note: DISM doesn't have direct registry edit commands
-                        # This is a placeholder - actual implementation would use reg files
-                    ]
-                    
-                    # For now, create registry files that will be processed during boot
+                    # DISM does not support direct registry editing; use offline approach.
+                    # _create_offline_registry_script writes .cmd/.reg files to Setup/Scripts
+                    # for execution at first boot (or import via reg load + reg import on offline hive).
                     self._create_offline_registry_script(reg_path, key_name, key_type, key_value)
                     
             self.logger.info(f"Applied registry bypass using DISM: {bypass.name}")
@@ -911,7 +902,6 @@ class WinPatchEngine:
             
             for driver in self.driver_database:
                 if windows_version in driver.compatible_windows:
-                    # Basic hardware matching - would be more sophisticated in real implementation
                     if self._driver_matches_hardware(driver, hardware):
                         compatible_drivers.append(driver)
             
@@ -930,29 +920,66 @@ class WinPatchEngine:
             return False
     
     def _driver_matches_hardware(self, driver: DriverPackage, hardware: DetectedHardware) -> bool:
-        """Check if driver matches detected hardware"""
-        # Simplified matching - real implementation would use hardware IDs
+        """Match driver to hardware using category and PCI vendor hints (VEN_8086=Intel, VEN_10EC=Realtek, VEN_1022=AMD)."""
+        vendor_map = {"8086": "Intel", "10EC": "Realtek", "1022": "AMD", "1002": "AMD"}
+        hw_id = getattr(driver, 'hardware_id', '') or ''
+        ven_match = None
+        for ven_hex, vendor in vendor_map.items():
+            if f"VEN_{ven_hex}" in hw_id.upper():
+                ven_match = vendor
+                break
         if driver.category == DriverCategory.NETWORK:
-            return len(hardware.network_adapters) > 0
+            adapters = getattr(hardware, 'network_adapters', []) or []
+            if not adapters:
+                return False
+            if ven_match:
+                return any(ven_match.lower() in str(a.get('vendor', '')).lower() for a in adapters)
+            return True
         elif driver.category == DriverCategory.STORAGE:
-            return len(hardware.storage_devices) > 0
+            return len(getattr(hardware, 'storage_devices', []) or []) > 0
         elif driver.category == DriverCategory.GRAPHICS:
-            return len(hardware.gpus) > 0
-        
+            gpus = getattr(hardware, 'gpus', []) or []
+            if not gpus:
+                return False
+            if ven_match:
+                return any(ven_match.lower() in str(g.get('vendor', '')).lower() for g in gpus)
+            return True
         return False
     
     def _inject_single_driver(self, driver: DriverPackage) -> bool:
-        """Inject a single driver package using DISM"""
+        """Inject a single driver package using DISM when driver files exist."""
         try:
             if not self.dism_path or self.dism_path == 'wimlib-imagex':
-                self.logger.warning("Driver injection requires DISM")
+                self.logger.warning("Driver injection requires DISM (wimlib-imagex does not support /add-driver)")
                 return False
-            
-            # In real implementation, would download/locate driver files
-            # For now, just simulate successful injection
-            self.logger.info(f"Simulating injection of {driver.name} driver")
-            return True
-            
+            if not self.mount_dir or not self.mount_dir.exists():
+                self.logger.warning("No image mounted for driver injection")
+                return False
+            # Resolve driver path: check driver_dir, user drivers folder
+            driver_base = (self.config.get_app_dir() / "drivers" / "windows") if self.config else (Path.home() / ".bootforge" / "drivers" / "windows")
+            inf_path = Path(driver.inf_path)
+            resolved = driver_base / inf_path.name if not inf_path.is_absolute() else inf_path
+            if not resolved.exists():
+                for parent in [driver_base, Path.home() / ".bootforge" / "drivers"]:
+                    if parent.exists():
+                        found = list(parent.rglob(inf_path.name))
+                        if found:
+                            resolved = found[0]
+                            break
+            if not resolved.exists():
+                self.logger.info(f"Driver files not found for {driver.name} (add to ~/.bootforge/drivers/windows/)")
+                return False
+            driver_dir = str(resolved.parent)
+            cmd = [self.dism_path, "/Image:" + str(self.mount_dir), "/Add-Driver", f"/Driver:{driver_dir}", "/Recurse"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0:
+                self.logger.info(f"Injected driver: {driver.name}")
+                return True
+            self.logger.warning(f"DISM driver add failed for {driver.name}: {result.stderr or result.stdout}")
+            return False
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"Driver injection timed out: {driver.name}")
+            return False
         except Exception as e:
             self.logger.error(f"Failed to inject driver {driver.name}: {e}")
             return False

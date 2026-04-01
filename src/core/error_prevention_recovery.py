@@ -8,6 +8,8 @@ import time
 import threading
 import shutil
 import hashlib
+import subprocess
+import platform
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Dict, List, Optional, Callable, Any, Tuple
@@ -385,21 +387,71 @@ class CheckpointManager:
             return False
     
     def _capture_device_state(self, device_path: str) -> Dict[str, Any]:
-        """Capture current device state for rollback"""
-        # This would capture partition table, filesystem info, etc.
-        # Simplified implementation
-        return {
+        """Capture partition table for rollback (sfdisk on Linux, diskpart on Windows)."""
+        state = {
             "device_path": device_path,
             "timestamp": time.time(),
-            "partition_info": "captured"  # Placeholder
+            "partition_dump_path": None,
+            "partition_info": {},
         }
-    
+        try:
+            if platform.system() == "Linux":
+                dump_path = self.checkpoint_dir / f"partition_backup_{hashlib.md5(device_path.encode()).hexdigest()[:12]}.dump"
+                r = subprocess.run(
+                    ["sfdisk", "--dump", device_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if r.returncode == 0 and r.stdout:
+                    dump_path.write_text(r.stdout)
+                    state["partition_dump_path"] = str(dump_path)
+                    state["partition_info"] = {"method": "sfdisk", "size": len(r.stdout)}
+            elif platform.system() == "Darwin":
+                dump_path = self.checkpoint_dir / f"partition_backup_{hashlib.md5(device_path.encode()).hexdigest()[:12]}.txt"
+                r = subprocess.run(
+                    ["diskutil", "list", "-plist", device_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if r.returncode == 0 and r.stdout:
+                    dump_path.write_text(r.stdout)
+                    state["partition_dump_path"] = str(dump_path)
+                    state["partition_info"] = {"method": "diskutil", "size": len(r.stdout)}
+            # Windows: diskpart scripts for backup are complex; capture metadata only
+            elif platform.system() == "Windows":
+                state["partition_info"] = {"method": "windows", "note": "Full restore requires manual diskpart"}
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
+            self.logger.warning(f"Could not capture partition table: {e}")
+        return state
+
     def _restore_device_state(self, device_state: Dict[str, Any]) -> bool:
-        """Restore device to previous state"""
-        # This would implement actual device restoration
-        # Simplified implementation
-        self.logger.info(f"Restoring device state: {device_state}")
-        return True  # Placeholder
+        """Restore partition table from captured dump if available."""
+        try:
+            dump_path = device_state.get("partition_dump_path")
+            device_path = device_state.get("device_path")
+            method = device_state.get("partition_info", {}).get("method")
+            if not dump_path or not Path(dump_path).exists() or not device_path:
+                self.logger.info("No partition dump to restore; device state recorded only")
+                return True
+            if method == "sfdisk":
+                dump_content = Path(dump_path).read_text()
+                r = subprocess.run(
+                    ["sfdisk", device_path],
+                    input=dump_content,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                return r.returncode == 0
+            if method == "diskutil":
+                self.logger.warning("macOS partition restore from diskutil plist not automated; manual restore required")
+                return False
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to restore device state: {e}")
+            return False
     
     def _calculate_file_checksums(self, files: List[Path]) -> Dict[str, str]:
         """Calculate checksums for source files"""
