@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #12121a;
+  --color-bg-card: #16161f;
+  --color-accent-primary: #00d4ff;
+  --color-accent-secondary: #0099cc;
+  --color-accent-glow: rgba(0, 212, 255, 0.15);
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-primary text-white font-sans antialiased;
+    background: radial-gradient(circle at 50% 50%, #12121a 0%, #0a0a0f 100%);
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  }
+  
+  .accent-glow {
+    @apply shadow-[0_0_20px_rgba(0,212,255,0.2)];
+  }
+  
+  .phoenix-button {
+    @apply bg-accent-primary text-black font-bold py-3 px-6 rounded-xl transition-all cursor-pointer;
+    @apply hover:bg-accent-secondary hover:scale-[1.02] active:scale-[0.98];
+    @apply shadow-[0_0_15px_rgba(0,212,255,0.4)];
+  }
+}
+
+/* Specific Animations for Splash Screen */
+@keyframes phoenix-glow {
+  0%, 100% { opacity: 0.5; filter: blur(10px); }
+  50% { opacity: 1; filter: blur(20px); }
+}
+
+.animate-phoenix-glow {
+  animation: phoenix-glow 3s infinite ease-in-out;
+}
