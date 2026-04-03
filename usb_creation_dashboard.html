@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phoenix Core - USB Creation Workflow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            color: #00d4ff;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 1rem;
+        }
+
+        .workflow-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .workflow-steps {
+            background: rgba(26, 26, 46, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 30px;
+            height: fit-content;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 50px;
+            width: 2px;
+            height: 30px;
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 2px solid rgba(0, 212, 255, 0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #00d4ff;
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+
+        .step.active .step-number {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .step.completed .step-number {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        .step-content h3 {
+            color: #fff;
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+        }
+
+        .step-content p {
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        .content-area {
+            background: rgba(26, 26, 46, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 30px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .recipe-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .recipe-card:hover {
+            border-color: #00d4ff;
+            background: rgba(15, 23, 42, 1);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.1);
+        }
+
+        .recipe-card.selected {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .recipe-card h4 {
+            color: #00d4ff;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .recipe-card p {
+            color: #888;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        .recipe-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .device-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .device-item {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .device-item:hover {
+            border-color: #00d4ff;
+            background: rgba(15, 23, 42, 1);
+        }
+
+        .device-item.selected {
+            border-color: #ff007f;
+            background: rgba(255, 0, 127, 0.1);
+        }
+
+        .device-info h4 {
+            color: #fff;
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+        }
+
+        .device-info p {
+            color: #888;
+            font-size: 0.8rem;
+        }
+
+        .device-size {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+
+        .warning-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .warning-box::before {
+            content: '⚠️';
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .warning-text h4 {
+            color: #f59e0b;
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+        }
+
+        .warning-text p {
+            color: #daa520;
+            font-size: 0.85rem;
+        }
+
+        .progress-container {
+            margin: 30px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #00ffaa);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+        }
+
+        .current-step {
+            color: #00d4ff;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #00ffaa);
+            color: #0a0a0f;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: rgba(0, 212, 255, 0.1);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: #ef4444;
+        }
+
+        .summary-box {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+
+        .summary-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .summary-label {
+            color: #888;
+        }
+
+        .summary-value {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+
+        .success-message {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .success-message h3 {
+            color: #10b981;
+            margin-bottom: 10px;
+        }
+
+        .success-message p {
+            color: #6ee7b7;
+        }
+
+        @media (max-width: 768px) {
+            .workflow-container {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .recipe-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔥 Create Bootable USB</h1>
+            <p>Professional OS deployment from your phone or desktop</p>
+        </div>
+
+        <div class="workflow-container">
+            <!-- Workflow Steps -->
+            <div class="workflow-steps">
+                <div class="step active" id="step-1">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Select OS</h3>
+                        <p>Choose operating system</p>
+                    </div>
+                </div>
+
+                <div class="step" id="step-2">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Select Device</h3>
+                        <p>Choose USB drive</p>
+                    </div>
+                </div>
+
+                <div class="step" id="step-3">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Review</h3>
+                        <p>Confirm before build</p>
+                    </div>
+                </div>
+
+                <div class="step" id="step-4">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Create</h3>
+                        <p>Build bootable USB</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Step 1: Recipe Selection -->
+                <div class="section active" id="section-1">
+                    <h2 style="margin-bottom: 20px; color: #00d4ff;">Select Operating System</h2>
+                    <div class="recipe-grid" id="recipe-list">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Step 2: Device Selection -->
+                <div class="section" id="section-2">
+                    <h2 style="margin-bottom: 20px; color: #00d4ff;">Select USB Device</h2>
+                    <div class="summary-box">
+                        <div class="summary-row">
+                            <span class="summary-label">Selected OS:</span>
+                            <span class="summary-value" id="selected-os">None</span>
+                        </div>
+                    </div>
+                    <div class="device-list" id="device-list">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Step 3: Review -->
+                <div class="section" id="section-3">
+                    <h2 style="margin-bottom: 20px; color: #00d4ff;">Review Before Creating</h2>
+                    <div class="summary-box">
+                        <div class="summary-row">
+                            <span class="summary-label">Operating System:</span>
+                            <span class="summary-value" id="review-os">-</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Target Device:</span>
+                            <span class="summary-value" id="review-device">-</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Device Size:</span>
+                            <span class="summary-value" id="review-size">-</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Estimated Time:</span>
+                            <span class="summary-value" id="review-time">-</span>
+                        </div>
+                    </div>
+                    <div class="warning-box">
+                        <div class="warning-text">
+                            <h4>⚠️ WARNING</h4>
+                            <p>All data on the selected USB drive will be permanently erased. This cannot be undone.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Progress -->
+                <div class="section" id="section-4">
+                    <h2 style="margin-bottom: 20px; color: #00d4ff;">Creating Bootable USB</h2>
+                    <div class="progress-container">
+                        <div class="progress-info">
+                            <span id="progress-percent">0%</span>
+                            <span id="progress-time">Calculating...</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <div class="current-step" id="current-step">Initializing...</div>
+                    </div>
+                </div>
+
+                <!-- Success -->
+                <div class="section" id="section-5">
+                    <div class="success-message">
+                        <h3>✅ USB Created Successfully!</h3>
+                        <p>Your bootable USB drive is ready to use</p>
+                    </div>
+                    <div class="summary-box">
+                        <div class="summary-row">
+                            <span class="summary-label">Status:</span>
+                            <span class="summary-value" style="color: #10b981;">Completed</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="button-group">
+                    <button class="btn-secondary" id="btn-back" style="display: none;">← Back</button>
+                    <button class="btn-primary" id="btn-next">Next →</button>
+                    <button class="btn-danger" id="btn-cancel" style="display: none;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let selectedRecipe = null;
+        let selectedDevice = null;
+        let currentJob = null;
+        const recipes = [
+            { recipe_id: 'ubuntu-22.04', name: 'Ubuntu 22.04 LTS', description: 'Long Term Support', size: '4.7 GB', time: '5m' },
+            { recipe_id: 'ubuntu-24.04', name: 'Ubuntu 24.04 LTS', description: 'Latest LTS', size: '5 GB', time: '5m' },
+            { recipe_id: 'fedora-39', name: 'Fedora 39', description: 'Latest Release', size: '2.1 GB', time: '3m' },
+            { recipe_id: 'debian-12', name: 'Debian 12', description: 'Stable Release', size: '3.9 GB', time: '4m' },
+            { recipe_id: 'windows-11', name: 'Windows 11', description: 'Latest Windows', size: '6.5 GB', time: '7m' },
+            { recipe_id: 'macos-sonoma', name: 'macOS Sonoma', description: 'Latest macOS', size: '12.5 GB', time: '10m' },
+        ];
+
+        const devices = [
+            { id: 'usb1', name: 'Kingston DataTraveler', size: '32 GB', type: 'USB' },
+            { id: 'usb2', name: 'SanDisk Cruzer', size: '16 GB', type: 'USB' },
+            { id: 'ssd1', name: 'Samsung 970 EVO', size: '500 GB', type: 'SSD' },
+        ];
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function updateUI() {
+            // Update steps
+            document.querySelectorAll('.step').forEach((step, idx) => {
+                step.classList.remove('active', 'completed');
+                if (idx + 1 === currentStep) {
+                    step.classList.add('active');
+                } else if (idx + 1 < currentStep) {
+                    step.classList.add('completed');
+                }
+            });
+
+            // Update sections
+            document.querySelectorAll('.section').forEach((section, idx) => {
+                section.classList.remove('active');
+                if (idx + 1 === currentStep) {
+                    section.classList.add('active');
+                }
+            });
+
+            // Update buttons
+            document.getElementById('btn-back').style.display = currentStep > 1 ? 'block' : 'none';
+            document.getElementById('btn-cancel').style.display = currentStep === 4 ? 'block' : 'none';
+            document.getElementById('btn-next').textContent = currentStep === 3 ? 'Create USB' : currentStep === 5 ? 'Create Another' : 'Next →';
+        }
+
+        function loadRecipes() {
+            const recipeList = document.getElementById('recipe-list');
+            recipeList.innerHTML = recipes.map(recipe => `
+                <div class="recipe-card" onclick="selectRecipe('${recipe.recipe_id}', '${recipe.name}')">
+                    <h4>${recipe.name}</h4>
+                    <p>${recipe.description}</p>
+                    <div class="recipe-meta">
+                        <span>📦 ${recipe.size}</span>
+                        <span>⏱️ ~${recipe.time}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadDevices() {
+            const deviceList = document.getElementById('device-list');
+            deviceList.innerHTML = devices.map(device => `
+                <div class="device-item" onclick="selectDevice('${device.id}', '${device.name}', '${device.size}')">
+                    <div class="device-info">
+                        <h4>${device.name}</h4>
+                        <p>${device.type} • ${device.size}</p>
+                    </div>
+                    <div class="device-size">${device.size}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectRecipe(id, name) {
+            selectedRecipe = { id, name };
+            document.querySelectorAll('.recipe-card').forEach(card => card.classList.remove('selected'));
+            event.target.closest('.recipe-card').classList.add('selected');
+            document.getElementById('selected-os').textContent = name;
+        }
+
+        function selectDevice(id, name, size) {
+            selectedDevice = { id, name, size };
+            document.querySelectorAll('.device-item').forEach(item => item.classList.remove('selected'));
+            event.target.closest('.device-item').classList.add('selected');
+        }
+
+        function nextStep() {
+            if (currentStep === 1 && !selectedRecipe) {
+                alert('Please select an operating system');
+                return;
+            }
+            if (currentStep === 2 && !selectedDevice) {
+                alert('Please select a USB device');
+                return;
+            }
+            if (currentStep === 3) {
+                // Start build
+                document.getElementById('review-os').textContent = selectedRecipe.name;
+                document.getElementById('review-device').textContent = selectedDevice.name;
+                document.getElementById('review-size').textContent = selectedDevice.size;
+                document.getElementById('review-time').textContent = '~5 minutes';
+                currentStep = 4;
+                simulateBuild();
+                updateUI();
+                return;
+            }
+            if (currentStep === 4) return; // Building
+            if (currentStep === 5) {
+                // Reset
+                currentStep = 1;
+                selectedRecipe = null;
+                selectedDevice = null;
+                updateUI();
+                return;
+            }
+
+            if (currentStep === 2) {
+                document.getElementById('review-os').textContent = selectedRecipe.name;
+            }
+
+            currentStep++;
+            updateUI();
+        }
+
+        function prevStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                updateUI();
+            }
+        }
+
+        function simulateBuild() {
+            let progress = 0;
+            const steps = ['Downloading OS image', 'Validating image', 'Preparing USB device', 'Formatting device', 'Writing bootloader', 'Writing OS files', 'Finalizing'];
+            let stepIndex = 0;
+
+            const interval = setInterval(() => {
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    document.getElementById('progress-percent').textContent = '100%';
+                    document.getElementById('current-step').textContent = 'Complete!';
+                    document.getElementById('btn-next').textContent = 'Create Another';
+                    currentStep = 5;
+                    updateUI();
+                    return;
+                }
+
+                progress += Math.random() * 15;
+                if (progress > 100) progress = 100;
+
+                if (progress > (stepIndex + 1) * (100 / steps.length)) {
+                    stepIndex++;
+                }
+
+                document.getElementById('progress-fill').style.width = progress + '%';
+                document.getElementById('progress-percent').textContent = Math.round(progress) + '%';
+                document.getElementById('current-step').textContent = steps[Math.min(stepIndex, steps.length - 1)];
+                document.getElementById('progress-time').textContent = `${Math.round((100 - progress) / 20)} min remaining`;
+            }, 500);
+        }
+
+        // Event listeners
+        document.getElementById('btn-next').addEventListener('click', nextStep);
+        document.getElementById('btn-back').addEventListener('click', prevStep);
+        document.getElementById('btn-cancel').addEventListener('click', () => {
+            if (confirm('Cancel build?')) {
+                currentStep = 1;
+                selectedRecipe = null;
+                selectedDevice = null;
+                updateUI();
+            }
+        });
+
+        // Initialize
+        loadRecipes();
+        loadDevices();
+        updateUI();
+    </script>
+</body>
+</html>
