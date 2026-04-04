@@ -45,9 +45,7 @@ jobs:
         with:
           python-version: "3.10"
       - run: pip install -r requirements.txt
-      - run: |
-          cd legacy
-          python3 create_recovery_usb.py --yes
+      - run: python3 legacy/create_recovery_usb.py --yes
       - uses: actions/upload-artifact@v4
         with:
           name: usb-toolkit
