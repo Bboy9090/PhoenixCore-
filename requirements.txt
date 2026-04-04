@@ -20,7 +20,7 @@ PyQt6>=6.9.0
 click>=8.0.0
 colorama>=0.4.6
 cryptography>=45.0.0
-flaskFlask==2.3.3
+Flask==2.3.3
 grpcio
 grpcio-tools
 grpcio-tools>=1.66.0
