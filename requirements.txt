@@ -15,7 +15,7 @@
 # wxpython  # Uncomment to launch embedded OCLP from BootForge
 Flask-CORS==4.0.0
 Flask-SocketIO==5.3.4
-Pillow==10.0.0
+Pillow>=10.0.0
 PyQt6>=6.9.0
 click>=8.0.0
 colorama>=0.4.6
@@ -25,7 +25,7 @@ grpcio
 grpcio-tools
 grpcio-tools>=1.66.0
 grpcio>=1.66.0
-pillow>=11.0.0
+Pillow>=10.0.0
 protobuf
 protobuf>=5.28.0
 psutil==5.9.5
