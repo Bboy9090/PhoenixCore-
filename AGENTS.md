@@ -11,7 +11,7 @@
 | Service | Command | Notes |
 |---------|---------|-------|
 | **Python CLI** | `python3 main.py --help` | Primary CLI entry point; see README for subcommands |
-| **Flask web server** | `python3 web_server.py` | Demo/download landing page on port 5000 |
+| **Flask web server** | `python3 website/web_server.py` | Demo/download landing page on port 5000 |
 | **PyQt6 GUI** | `python3 main.py --gui` | Requires a display (Xvfb or desktop); headless environments will error |
 
 ### Key dev commands

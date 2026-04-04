@@ -1,24 +1,40 @@
 # Copilot Command Guide
 
+Commands below match **`AGENTS.md`** and the verified layout: BootForge lives under **`desktop/`** (root **`main.py`** delegates to **`desktop/main.py`**). Rust: prefer building **individual crates** on Linux (full workspace may fail; see `AGENTS.md`).
+
 ## Bootstrap
-- **Python:** `pip install -r requirements.txt`【F:README.md†L43-L53】
-- **OCLP (optional):** `git submodule update --init third_party/OpenCore-Legacy-Patcher`【F:docs/oclp_integration.md】
-- **Rust:** Install Rust (e.g. rustup); no separate bootstrap step for Phoenix Core crates.
+
+- **Python:** `pip install -r requirements.txt`
+- **OCLP (optional):** `git submodule update --init third_party/OpenCore-Legacy-Patcher` (see `docs/oclp_integration.md`)
+- **Rust:** Install Rust (e.g. rustup); stable >= 1.94 for edition 2024 dependencies.
 
 ## Build
-- **Rust (Phoenix Core CLI):** `cargo build --workspace`【F:.github/workflows/ci-windows.yml】
-- **Rust release binary:** `cargo build --workspace --release` (output: `target/release/phoenix-cli` or `phoenix-cli.exe` on Windows)
-- **Python (recommended):** `python src/installers/build_installer.py`【F:README.md†L170-L174】
-- **Python:** `pyinstaller --onefile --name=PhoenixKey main.py`【F:README.md†L170-L177】
-- **Python (BootForge):** `python -m PyInstaller --onefile --windowed --name BootForge --add-data src:src --hidden-import PyQt6.QtCore --hidden-import PyQt6.QtWidgets --hidden-import PyQt6.QtGui --hidden-import requests --hidden-import psutil --hidden-import cryptography --hidden-import yaml --hidden-import click --hidden-import colorama main.py` (use `;` instead of `:` in `--add-data` on Windows)【F:build_system/simple_build.py†L19-L36】
+
+- **Rust (supported crates, Linux):**  
+  `cargo build -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-host-linux -p phoenix-host-macos -p phoenix-bootloader-core -p phoenix-wim`
+- **Rust release (same packages):** add `--release`.
+- **BootForge (PyInstaller example):** run from repo root with `desktop` as cwd so `src` resolves:  
+  `cd desktop && python -m PyInstaller --onefile --windowed --name BootForge --add-data src:src --hidden-import PyQt6.QtCore --hidden-import PyQt6.QtWidgets --hidden-import PyQt6.QtGui --hidden-import requests --hidden-import psutil --hidden-import cryptography --hidden-import yaml --hidden-import click --hidden-import colorama main.py`  
+  On Windows use `;` instead of `:` in `--add-data`.
 
 ## Test
-- **Rust:** `cargo test --workspace`【F:.github/workflows/ci-windows.yml】
-- **Python:** `python -m pytest tests/`【F:README.md†L179-L183】
-- **Python (with coverage):** `python -m pytest tests/ --cov=src`【F:README.md†L183-L186】
+
+- **Python:** `python3 -m pytest tests/`
+- **Rust (supported crates):**  
+  `cargo test -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-host-linux -p phoenix-host-macos -p phoenix-bootloader-core -p phoenix-wim`
 
 ## Lint
-- No lint commands are documented in the reviewed files.
+
+- **Rust:** `cargo clippy` with the same `-p` list as build.  
+- **Rust format:** `cargo fmt --check`
+
+## Run (dev)
+
+- **BootForge GUI:** `python3 main.py --gui`
+- **BootForge CLI:** `python3 main.py --help`
+- **FastAPI backend:** `cd backend && uvicorn main:app --host 0.0.0.0 --port 8000`
+- **Flask web demo:** `python3 website/web_server.py`
 
 ## Package
-- `python build_system/build_all.py` (ensures PyInstaller is installed, builds the platform executable, and generates the USB toolkit)【F:build_system/build_all.py†L11-L47】
+
+- If `build_system/build_all.py` exists in your checkout, it may orchestrate installers; prefer scripts checked into the repo over guessed invocations.

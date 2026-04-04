@@ -1,71 +1,75 @@
 # Phoenix Core (Unified)
 
-Phoenix Core is a professional, cross-platform OS deployment system. This repository contains both the **modern cloud-ready architecture** and the **original desktop tools** in a unified, modular structure.
+Phoenix Core is a professional, cross-platform OS deployment system. This repository contains the **Rust core engine**, the **BootForge desktop app** (PyQt6), **HTTP APIs**, **mobile clients**, and **legacy reference** trees in one modular layout.
+
+**Authoritative architecture and integration audit:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AUDIT_PLATFORM_INTEGRATION.md`](docs/AUDIT_PLATFORM_INTEGRATION.md).
 
 ---
 
-## 🚀 Unified Architecture
+## Unified architecture (at a glance)
 
-The repository is organized into primary modules that coexist and interact:
-
-- **[`backend/`](file:///Users/bj90-m1/Documents/GitHub/PhoenixCore-/backend)**: **Central FastAPI Service**. The primary API for hardware discovery and USB imaging.
-- **[`mobile/`](file:///Users/bj90-m1/Documents/GitHub/PhoenixCore-/mobile)**: **React Native / Expo App**. Modern mobile client for managing Phoenix Core.
-- **[`src/`](file:///Users/bj90-m1/Documents/GitHub/PhoenixCore-/src)**: **Refactored Core Engine**. The new "Wave 8" deployment logic, diagnostics, and recovery tools.
-- **[`website/`](file:///Users/bj90-m1/Documents/GitHub/PhoenixCore-/website)**: **Flask Web Demo**. A web interface for downloads and cloud-based diagnostics.
+| Module | Role |
+|--------|------|
+| [`crates/`](crates/) + [`apps/cli/`](apps/cli/) | **Phoenix Core engine** — device graph, safety, workflows (`phoenix-cli`). Long-term source of truth for low-level operations. |
+| [`desktop/`](desktop/) | **BootForge** — PyQt6 GUI and Python engine under `desktop/src/` (USB recipes, safety validator, platform providers). Entry: `python main.py` at repo root. |
+| [`backend/`](backend/) | **FastAPI** — REST for device scan, recipes, build jobs (orchestration for operators and mobile). |
+| [`website/`](website/) | Flask demo / landing; optional recovery GUI build output under `website/recovery-gui/`. |
+| [`phoenix-core-mobile/`](phoenix-core-mobile/) | Expo app — planning and remote status against the HTTP API. |
+| [`mobile/`](mobile/) | Additional React Native tree; confirm product ownership before consolidating. |
+| [`legacy/`](legacy/) | Archived toolkits and experiments — do not extend; port changes into `desktop/` or `crates/`. |
+| [`server/`](server/) | Legacy Flask wrapper with a sibling-repo path assumption — prefer `backend/` for new work. |
 
 ---
 
-## 🛠️ Features (Wave 8)
+## Features (Wave 8)
 
 - **Universal USB creation**: Windows, Linux, macOS installers.
-- **OCLP integration**: Boot unsupported Macs on newer macOS via embedded OpenCore Legacy Patcher.
-- **Target & Kext config**: Select Mac model, kexts (Graphics, Audio, WiFi/Bluetooth, USB), and OpenCore settings.
-- **Phoenix Core Engine**: Rust-based device graph, safety gates, and imaging primitives.
-- **PyQt6 GUI**: Modern wizard workflow and one-click profiles.
+- **OCLP integration**: Unsupported Macs via OpenCore Legacy Patcher (`third_party/OpenCore-Legacy-Patcher` when checked out).
+- **Phoenix Core Engine (Rust)**: Device graph, safety gates, imaging primitives, workflows.
+- **BootForge (PyQt6)**: Wizard workflow and profiles via `desktop/`.
 
-## 🚀 Quick Start
+## Quick start
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
 
-# Run GUI
-python main.py --gui
+# BootForge GUI (repo root delegates to desktop/main.py)
+python3 main.py --gui
 
-# Or CLI
-python main.py --help
+# CLI
+python3 main.py --help
+
+# FastAPI backend (optional)
+cd backend && uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-## 📄 Components
+**Rust CLI (supported crates on Linux — see `AGENTS.md`):**
 
-### 1. Modern API & Mobile
-- **Backend (FastAPI)**: Real-time device orchestration.
-- **Mobile (Expo)**: Remote management and status monitoring.
+```bash
+cargo build -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 \
+  -p phoenix-host-linux -p phoenix-host-macos -p phoenix-bootloader-core -p phoenix-wim
+```
 
-### 2. High-Performance Core (Rust)
-- The low-level engine that powers all the above.
-- **Rust Workspace**: `cargo build --workspace`
-
-### 3. Recovery & Imaging
-- Integrated disk probing, OS identification, and Cold Fuse imaging.
-
-## 📁 Repository Map
+## Repository map
 
 ```text
 .
-├── backend/          # Central FastAPI Backend
-├── mobile/           # React Native Mobile App
-├── src/              # Refactored Core Engine (Wave 8)
-│   ├── gui/         # PyQt6 GUI & Wizards
-│   ├── recovery/    # Disk probing & OS identification
-│   └── imaging/     # Cold Fuse imaging pipeline
-├── website/          # Flask Web Server / Vercel
-├── crates/           # Rust Imaging & Safety Libraries
-├── legacy/           # Original toolkits & scripts
-└── third_party/      # OCLP Submodule
+├── apps/cli/              # phoenix-cli
+├── backend/               # FastAPI (devices, recipes, build jobs)
+├── crates/                # Rust workspace (core, safety, hosts, imaging, …)
+├── desktop/               # BootForge: main.py, src/ (engine + GUI)
+├── docs/                  # Architecture, contracts, audits
+├── legacy/                # Quarantined / reference only
+├── mobile/                # React Native (parallel to phoenix-core-mobile)
+├── phoenix-core-mobile/   # Expo app
+├── server/                # Legacy Flask API (see audit doc)
+├── tests/                 # Python tests (imports desktop/src as `src`)
+├── website/               # Flask web demo, recovery-gui assets
+├── main.py                # Root entry → desktop/main.py
+└── third_party/           # OCLP submodule (optional)
 ```
 
-## 📄 License
+## License
 
-- **Phoenix Core** – Licensed under the MIT License.
+- **Phoenix Core** – MIT License.
 - **OpenCore Legacy Patcher** – BSD 2‑Clause.

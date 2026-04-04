@@ -2,6 +2,8 @@
 
 This document describes how PhoenixCore and BootForge fit together, and the major pieces inside the project.
 
+**Repository layout in this monorepo:** the BootForge Python engine lives under **`desktop/src/`** (imported as `src.*` in tests and the desktop app). The **FastAPI** service is under **`backend/`**. The **Rust** engine and `phoenix-cli` live under **`crates/`** and **`apps/cli/`**. For overlap between layers, gaps, and priorities, see **`docs/AUDIT_PLATFORM_INTEGRATION.md`**.
+
 At a high level:
 
 - **PhoenixCore** is the recovery environment and core engine.
