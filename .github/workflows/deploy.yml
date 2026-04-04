@@ -45,13 +45,15 @@ jobs:
         with:
           python-version: "3.10"
       - run: pip install -r requirements.txt
-      - run: python3 legacy/create_recovery_usb.py --yes
+      - run: |
+          cd legacy
+          python3 create_recovery_usb.py --yes
       - uses: actions/upload-artifact@v4
         with:
           name: usb-toolkit
           path: |
-            dist/BootForge-Bootable-USB.zip
-            bootable_usb/
+            legacy/dist/BootForge-Bootable-USB.zip
+            legacy/bootable_usb/
 
   build-mobile-web:
     name: Mobile (Web Build)
