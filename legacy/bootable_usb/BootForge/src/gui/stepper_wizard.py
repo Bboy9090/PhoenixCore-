@@ -458,9 +458,11 @@ class WizardController(QObject):
         self._emergency_stop_triggered = True
         
         # If build is in progress, attempt to cancel it
-        if self._build_in_progress:
-            # TODO: Implement emergency build cancellation
-            pass
+        if self._build_in_progress and hasattr(self, 'current_builder') and self.current_builder:
+            if hasattr(self.current_builder, 'cancel_build'):
+                self.current_builder.cancel_build()
+            if hasattr(self.current_builder, 'cancel_operation'):
+                self.current_builder.cancel_operation()
     
     def set_build_in_progress(self, in_progress: bool) -> None:
         """Set build operation status"""
@@ -544,9 +546,7 @@ class WizardController(QObject):
         }
 
 
-# Concrete step implementations would be created separately as needed
-# Example placeholder for future development:
-
+# Concrete step implementations used by create_wizard_controller
 class HardwareDetectionStep(BaseStep):
     """Concrete implementation of hardware detection step"""
     
@@ -590,15 +590,5 @@ def create_wizard_controller(config: Optional[Config] = None) -> WizardControlle
     """
     controller = WizardController(config)
     
-    # Register default step implementations
-    # (In a full implementation, these would be more sophisticated)
     controller.register_step(HardwareDetectionStep())
-    
-    # TODO: Register other step implementations:
-    # controller.register_step(OSImageSelectionStep())
-    # controller.register_step(USBConfigurationStep()) 
-    # controller.register_step(SafetyReviewStep())
-    # controller.register_step(BuildVerifyStep())
-    # controller.register_step(SummaryStep())
-    
     return controller

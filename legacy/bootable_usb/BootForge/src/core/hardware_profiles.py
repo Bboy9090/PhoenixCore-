@@ -13,6 +13,7 @@ from .patch_pipeline import (
 from .vendor_database import PatchCapability, SecurityLevel, PatchCompatibility
 from typing import List, Dict, Optional, Any
 import re
+import time
 import logging
 
 
@@ -743,18 +744,14 @@ def get_default_profiles() -> List[HardwareProfile]:
     # Get comprehensive Windows profiles (with bypass support)
     profiles.extend(get_windows_profiles())
     
-    # Windows profiles
+    # Get comprehensive Linux profiles (parity with Windows)
+    profiles.extend(get_linux_profiles())
+    
+    # Additional Windows profiles (legacy entries)
     profiles.extend([
         HardwareProfile(
-            name="Generic x64 PC",
-            platform="windows",
-            model="generic_x64",
-            architecture="x86_64",
-            cpu_family="Generic Intel/AMD"
-        ),
-        HardwareProfile(
             name="Surface Pro Series",
-            platform="windows", 
+            platform="windows",
             model="surface_pro",
             architecture="x86_64",
             cpu_family="Intel Core",
@@ -764,7 +761,7 @@ def get_default_profiles() -> List[HardwareProfile]:
             name="Dell OptiPlex Series",
             platform="windows",
             model="dell_optiplex",
-            architecture="x86_64", 
+            architecture="x86_64",
             cpu_family="Intel Core",
             driver_packages=["intel_management_engine", "dell_command_update"]
         ),
@@ -775,33 +772,6 @@ def get_default_profiles() -> List[HardwareProfile]:
             architecture="x86_64",
             cpu_family="Intel Core",
             driver_packages=["lenovo_vantage", "thinkpad_drivers"]
-        )
-    ])
-    
-    # Linux profiles
-    profiles.extend([
-        HardwareProfile(
-            name="Generic Linux x86_64",
-            platform="linux",
-            model="generic_linux_x64",
-            architecture="x86_64",
-            cpu_family="Generic Intel/AMD"
-        ),
-        HardwareProfile(
-            name="Raspberry Pi 4",
-            platform="linux",
-            model="rpi4",
-            architecture="arm64",
-            cpu_family="Broadcom BCM2711",
-            special_requirements={"boot_partition": "fat32", "gpu_memory_split": 64}
-        ),
-        HardwareProfile(
-            name="Framework Laptop",
-            platform="linux",
-            model="framework_laptop",
-            architecture="x86_64",
-            cpu_family="Intel Core/AMD Ryzen",
-            special_requirements={"modular_ports": True}
         )
     ])
     
@@ -846,9 +816,10 @@ def from_mac_model(model: str) -> HardwareProfile:
 
 
 def get_profiles_by_platform(platform: str) -> List[HardwareProfile]:
-    """Get hardware profiles filtered by platform"""
+    """Get hardware profiles filtered by platform (macos->mac alias supported)."""
     all_profiles = get_default_profiles()
-    return [profile for profile in all_profiles if profile.platform == platform]
+    key = "mac" if platform == "macos" else platform
+    return [profile for profile in all_profiles if profile.platform == key]
 
 
 def get_mac_profiles_by_oclp_compatibility(compatibility: str) -> List[HardwareProfile]:
@@ -1423,7 +1394,7 @@ def _create_patch_set_for_group(group_name: str, models: List[Dict[str, Any]]) -
             target_hardware=target_hardware,
             actions=actions,
             author="BootForge",
-            created_at=1234567890.0  # Placeholder timestamp
+            created_at=time.time()
         )
         
         return patch_set
@@ -1451,7 +1422,7 @@ def _create_graphics_actions(model_data: Dict[str, Any]) -> List[PatchAction]:
             reversible=True,
             requires_reboot=True,
             conditions=PatchCondition(
-                os_version="1[1-4]\..*",  # macOS 11-14
+                os_version=r"1[1-4]\..*",  # macOS 11-14
                 required_firmware="UEFI"
             )
         )
@@ -1581,11 +1552,9 @@ def _get_supported_macos_versions(models: List[Dict[str, Any]]) -> List[str]:
     version_patterns = []
     for version in sorted(all_versions):
         if "." in version:
-            # Convert version like "11.0" to pattern "11\..*"
             pattern = version.replace(".", r"\.") + r"\..*"
         else:
-            # Single number version
-            pattern = f"{version}\..*"
+            pattern = rf"{version}\..*"
         version_patterns.append(pattern)
     
     return version_patterns
@@ -1694,8 +1663,8 @@ def create_mac_hardware_profile(model: str) -> HardwareProfile:
 
 # === ADDITIONAL HELPER FUNCTIONS FOR OCLP INTEGRATION ===
 
-def get_patch_requirements_for_model(model_id: str, macos_version: str = "13.0") -> List[str]:
-    """Get patch requirements for a specific Mac model and macOS version"""
+def get_required_patches_list_for_model(model_id: str, macos_version: str = "13.0") -> List[str]:
+    """Get patch requirements list for a specific Mac model and macOS version (with version fallback)."""
     mac_models = get_mac_model_data()
     
     if model_id not in mac_models:
@@ -1940,6 +1909,87 @@ def get_windows_hardware_profiles() -> List[Dict[str, Any]]:
     }
     
     return list(windows_profiles.values())
+
+
+def get_linux_hardware_profiles() -> List[Dict[str, Any]]:
+    """
+    Get comprehensive Linux hardware profiles with distro compatibility.
+    Parity with Windows profiles for Apple/Linux support.
+    """
+    linux_profiles = {
+        "generic_linux_x64": {
+            "name": "Generic Linux x86_64", "platform": "linux", "model": "generic_linux_x64", "architecture": "x86_64",
+            "linux_compatibility": {"ubuntu": ["20.04", "22.04", "24.04"], "debian": ["11", "12"], "fedora": ["38", "39", "40"]},
+            "driver_categories": ["network", "storage", "graphics", "audio"],
+            "deployment_type": "linux_automated",
+            "notes": ["Universal compatibility", "UEFI and Legacy BIOS", "Most common target"]
+        },
+        "generic_linux_arm64": {
+            "name": "Generic Linux ARM64", "platform": "linux", "model": "generic_linux_arm64", "architecture": "arm64",
+            "linux_compatibility": {"ubuntu": ["22.04", "24.04"], "debian": ["12"]},
+            "driver_categories": ["network", "storage"],
+            "deployment_type": "linux_automated",
+            "notes": ["ARM SBCs and servers", "Raspberry Pi 64-bit", "AWS Graviton"]
+        },
+        "raspberry_pi_4": {
+            "name": "Raspberry Pi 4", "platform": "linux", "model": "rpi4", "architecture": "arm64",
+            "linux_compatibility": {"ubuntu": ["22.04", "24.04"], "debian": ["11", "12"]},
+            "special_requirements": {"boot_partition": "fat32", "gpu_memory_split": 64},
+            "driver_categories": ["storage"],
+            "deployment_type": "linux_automated",
+            "notes": ["BCM2711", "4GB/8GB RAM options", "USB boot supported"]
+        },
+        "raspberry_pi_5": {
+            "name": "Raspberry Pi 5", "platform": "linux", "model": "rpi5", "architecture": "arm64",
+            "linux_compatibility": {"ubuntu": ["24.04"], "debian": ["12"]},
+            "special_requirements": {"boot_partition": "fat32"},
+            "driver_categories": ["storage"],
+            "deployment_type": "linux_automated",
+            "notes": ["BCM2712", "PCIe support", "Improved USB"]
+        },
+        "framework_laptop": {
+            "name": "Framework Laptop", "platform": "linux", "model": "framework_laptop", "architecture": "x86_64",
+            "linux_compatibility": {"ubuntu": ["22.04", "24.04"], "fedora": ["38", "39", "40"]},
+            "special_requirements": {"modular_ports": True},
+            "driver_categories": ["network", "storage", "graphics", "audio"],
+            "deployment_type": "linux_automated",
+            "notes": ["Intel/AMD options", "Excellent Linux support", "Modular design"]
+        },
+        "steam_deck": {
+            "name": "Steam Deck", "platform": "linux", "model": "steam_deck", "architecture": "x86_64",
+            "linux_compatibility": {"ubuntu": ["22.04", "24.04"], "steamos": ["3"]},
+            "driver_categories": ["graphics", "audio"],
+            "deployment_type": "linux_automated",
+            "notes": ["AMD custom APU", "SteamOS or generic Linux", "Gaming-optimized"]
+        },
+        "intel_nuc": {
+            "name": "Intel NUC", "platform": "linux", "model": "intel_nuc", "architecture": "x86_64",
+            "linux_compatibility": {"ubuntu": ["20.04", "22.04", "24.04"], "fedora": ["38", "39", "40"]},
+            "driver_categories": ["network", "storage", "graphics", "audio"],
+            "deployment_type": "linux_automated",
+            "notes": ["Compact PC", "Full Linux support", "Headless or desktop"]
+        },
+    }
+    return list(linux_profiles.values())
+
+
+def get_linux_profiles() -> List[HardwareProfile]:
+    """Convert Linux profile data to HardwareProfile objects"""
+    profiles = []
+    for profile_data in get_linux_hardware_profiles():
+        profile = HardwareProfile(
+            name=profile_data["name"],
+            platform=profile_data["platform"],
+            model=profile_data.get("model", "generic_linux"),
+            architecture=profile_data["architecture"],
+            driver_packages=profile_data.get("driver_categories", []),
+            special_requirements=profile_data.get("special_requirements", {}),
+            notes=profile_data.get("notes", []),
+            deployment_type=profile_data.get("deployment_type", "linux_automated"),
+            supported_os_versions=list(profile_data.get("linux_compatibility", {}).keys())
+        )
+        profiles.append(profile)
+    return profiles
 
 
 def get_windows_profiles() -> List[HardwareProfile]:

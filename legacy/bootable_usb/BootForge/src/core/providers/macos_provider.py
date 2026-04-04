@@ -139,7 +139,7 @@ class MacOSProvider(OSImageProvider):
             )
             
             if success:
-                self.logger.info(f"macOS image patching {'simulated' if dry_run else 'completed'} successfully")
+                self.logger.info(f"macOS image patching {'dry-run completed' if dry_run else 'completed'} successfully")
             else:
                 self.logger.error(f"macOS image patching failed: {execution_log[-1] if execution_log else 'Unknown error'}")
             

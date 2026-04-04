@@ -7,6 +7,7 @@ Main application entry point
 import sys
 import os
 import logging
+import traceback
 from pathlib import Path
 
 # Add src directory to Python path
@@ -15,6 +16,24 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 # Enable GUI mode by default on Windows if double-clicked
 if sys.platform.startswith("win") and len(sys.argv) == 1:
     sys.argv.append("--gui")
+
+
+def _excepthook(exc_type, exc_value, exc_tb):
+    """Centralized unhandled exception handler - logs before default behavior."""
+    try:
+        log = logging.getLogger("bootforge.main")
+        if log.handlers:
+            log.critical(
+                "Unhandled exception: %s",
+                "".join(traceback.format_exception(exc_type, exc_value, exc_tb)),
+            )
+    except Exception:
+        pass
+    sys.__excepthook__(exc_type, exc_value, exc_tb)
+
+
+sys.excepthook = _excepthook
+
 
 def main():
     """Main application entry point"""

@@ -503,6 +503,42 @@ def api_health():
     """Alternative health check"""
     return jsonify({"status": "healthy", "service": "BootForge"})
 
+# Mobile API – USB recipes and toolkit for PhoenixCore Mobile
+USB_RECIPES = [
+    {"id": "macos_daily_driver", "name": "macOS Daily Driver", "description": "Perfect macOS setup for everyday use (Mac 2012+)", "target_os": "macos", "min_storage_gb": 32, "difficulty": "beginner", "estimated_minutes": 45},
+    {"id": "macos_legacy_rescue", "name": "Legacy Mac Rescue", "description": "Breathe new life into old Macs (2008-2016)", "target_os": "macos", "min_storage_gb": 64, "difficulty": "intermediate", "estimated_minutes": 90},
+    {"id": "macos_recovery_only", "name": "macOS Recovery Only", "description": "Minimal recovery environment for diagnostics", "target_os": "macos", "min_storage_gb": 16, "difficulty": "beginner", "estimated_minutes": 25},
+    {"id": "windows_tpm_bypass", "name": "Windows TPM Bypass", "description": "Create Windows installer bypassing TPM checks", "target_os": "windows", "min_storage_gb": 32, "difficulty": "intermediate", "estimated_minutes": 40},
+    {"id": "linux_live", "name": "Linux Live USB", "description": "Portable Linux for rescue or testing", "target_os": "linux", "min_storage_gb": 8, "difficulty": "beginner", "estimated_minutes": 20},
+]
+
+@app.route('/api/recipes')
+def api_recipes():
+    """USB deployment recipes for mobile app"""
+    return jsonify({"recipes": USB_RECIPES})
+
+@app.route('/api/usb-toolkit')
+def api_usb_toolkit():
+    """USB toolkit availability and download info"""
+    base = get_base_url()
+    zip_path = Path(DIST_DIR) / "BootForge-Bootable-USB.zip"
+    available = zip_path.exists()
+    return jsonify({
+        "available": available,
+        "download_url": f"{base}/download/bootable-usb" if available else None,
+        "filename": "BootForge-Bootable-USB.zip",
+        "message": "Run: python3 create_recovery_usb.py --yes" if not available else "Ready",
+    })
+
+@app.route('/download/bootable-usb')
+def download_bootable_usb():
+    """Serve BootForge Bootable USB zip (from create_recovery_usb)"""
+    filename = "BootForge-Bootable-USB.zip"
+    file_path = Path(DIST_DIR) / filename
+    if not file_path.exists():
+        return jsonify({"error": "USB toolkit not built", "run": "python3 create_recovery_usb.py --yes"}), 404
+    return send_from_directory(DIST_DIR, filename, as_attachment=True, download_name=filename)
+
 # Installation script routes
 @app.route('/install')
 def install_instructions():

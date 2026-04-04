@@ -1,0 +1,14 @@
+# Render.com blueprint - connect this repo for auto-deploy backend
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: phoenixcore-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python web_server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: BASE_URL
+        sync: false  # Set in Render dashboard to your service URL
