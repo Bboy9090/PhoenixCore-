@@ -612,8 +612,9 @@ async def run_diagnostics():
         tool_status[tool] = "available" if available else "not found"
     checks["tools"] = {"status": "ok", "tools": tool_status}
 
-    # Check Phoenix Core source
-    phoenix_path = Path("/home/ubuntu/PhoenixCore")
+    from core.phoenix_paths import oclp_submodule_path, repo_root
+
+    phoenix_path = repo_root()
     checks["phoenix_core"] = {
         "status": "ok" if phoenix_path.exists() else "not found",
         "path": str(phoenix_path),
@@ -621,7 +622,7 @@ async def run_diagnostics():
     }
 
     # Check OCLP
-    oclp_path = phoenix_path / "third_party" / "OpenCore-Legacy-Patcher"
+    oclp_path = oclp_submodule_path()
     checks["oclp"] = {
         "status": "available" if oclp_path.exists() else "not installed",
         "path": str(oclp_path),

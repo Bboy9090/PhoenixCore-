@@ -20,6 +20,8 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+from core.phoenix_paths import legacy_boot_kiosk_script, oclp_submodule_path, recovery_gui_dist
+
 # ─── Build State ──────────────────────────────────────────────────────────────
 
 class BuildStatus(str, Enum):
@@ -206,11 +208,18 @@ def validate_safety(device_path: str, recipe_id: str) -> Dict[str, Any]:
     Perform safety validation before USB creation.
     Returns risk assessment and confirmation token.
     """
+    import os
+
     from core.device_scanner import get_device_by_path, scan_usb_devices
 
     warnings = []
     errors = []
     risk_level = "low"
+    allow_demo = os.environ.get("PHX_ALLOW_DEMO_DEVICE", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
     # Check recipe exists
     if recipe_id not in RECIPES:
@@ -237,19 +246,35 @@ def validate_safety(device_path: str, recipe_id: str) -> Dict[str, Any]:
                 break
 
     if not device:
-        # In dry-run / demo mode, create a virtual device
-        device = {
-            "id": "demo",
-            "path": device_path,
-            "name": "Demo Device",
-            "friendly_name": "Demo USB Drive",
-            "size_bytes": 32 * 1024 ** 3,
-            "size_gb": 32.0,
-            "removable": True,
-            "is_system_disk": False,
-            "risk_level": "low",
-        }
-        warnings.append("Device not found in system — running in demo/simulation mode")
+        if allow_demo:
+            device = {
+                "id": "demo",
+                "path": device_path,
+                "name": "Demo Device",
+                "friendly_name": "Demo USB Drive",
+                "size_bytes": 32 * 1024 ** 3,
+                "size_gb": 32.0,
+                "removable": True,
+                "is_system_disk": False,
+                "risk_level": "low",
+            }
+            warnings.append(
+                "Device not found in system — demo device (set PHX_ALLOW_DEMO_DEVICE=1)"
+            )
+        else:
+            errors.append(
+                "Device not found or not visible to the scanner. "
+                "Plug in the USB drive, refresh the device list, and retry. "
+                "(Operators can set PHX_ALLOW_DEMO_DEVICE=1 only for controlled demos.)"
+            )
+            return {
+                "safe_to_proceed": False,
+                "risk_level": "critical",
+                "warnings": warnings,
+                "errors": errors,
+                "confirmation_token": "",
+                "device_info": None,
+            }
 
     # System disk check
     if device.get("is_system_disk"):
@@ -624,7 +649,7 @@ Phoenix Core - Professional OS Deployment Tool
 
     # --- NEW: Copy Phoenix Recovery GUI Assets ---
     _log(job, "Bundling Phoenix Recovery GUI (Decked Out)...")
-    gui_dist = Path(__file__).parent.parent.parent / "website" / "recovery-gui" / "dist"
+    gui_dist = recovery_gui_dist()
     if gui_dist.exists():
         # Copy built GUI to the USB's tools directory
         gui_target = Path(mount_point) / "tools" / "gui"
@@ -640,7 +665,7 @@ Phoenix Core - Professional OS Deployment Tool
         _log(job, "Warning: Recovery GUI dist not found. Build it first.")
 
     # --- NEW: Copy Kiosk Launcher ---
-    kiosk_script = Path(__file__).parent.parent.parent / "legacy" / "scripts" / "boot-kiosk.sh"
+    kiosk_script = legacy_boot_kiosk_script()
     if kiosk_script.exists():
         shutil.copy(kiosk_script, Path(mount_point) / "scripts" / "boot-kiosk.sh")
         (Path(mount_point) / "scripts" / "boot-kiosk.sh").chmod(0o755)
@@ -758,7 +783,7 @@ def _run_build_job(job: BuildJob, request: Dict[str, Any]):
                 _simulate_build_step(job, "Applying OCLP patches", 2.0, 75, 88)
             else:
                 # Check if OCLP is available
-                oclp_path = Path("/home/ubuntu/PhoenixCore/third_party/OpenCore-Legacy-Patcher")
+                oclp_path = oclp_submodule_path()
                 if oclp_path.exists():
                     _log(job, "OCLP found — applying patches")
                     # Would invoke OCLP here
