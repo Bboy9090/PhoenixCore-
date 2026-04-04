@@ -45,7 +45,7 @@ jobs:
         shell: bash
 
       - name: Run Python tests
-        run: PYTHONPATH=. python -m pytest tests/
+        run: PYTHONPATH=desktop:desktop/src python -m pytest tests/
         shell: bash
 
       - name: Build Rust (compilable crates only)
