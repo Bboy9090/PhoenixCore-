@@ -16,12 +16,16 @@ npx expo start
 3. Scan the QR code from the terminal
 4. If not on same network, use: `npx expo start --tunnel`
 
-## Connect to Local Backend
+## Connect to the Phoenix Core API (required for USB flows)
 
-To talk to the BootForge web server:
+The app drives the **FastAPI** backend on the computer that has the USB drive (`backend/main.py`, default port **8000**). The phone does not write to USB directly.
 
 ```bash
-EXPO_PUBLIC_API_URL=http://YOUR_LAN_IP:5000 npx expo start
+# On the host machine (same Wi‑Fi as the phone):
+cd backend && uvicorn main:app --host 0.0.0.0 --port 8000
+
+# On your dev machine when starting Expo:
+EXPO_PUBLIC_API_URL=http://YOUR_LAN_IP:8000 npx expo start
 ```
 
 Find your LAN IP: `ifconfig` (macOS/Linux) or `ipconfig` (Windows).

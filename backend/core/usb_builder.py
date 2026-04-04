@@ -208,18 +208,11 @@ def validate_safety(device_path: str, recipe_id: str) -> Dict[str, Any]:
     Perform safety validation before USB creation.
     Returns risk assessment and confirmation token.
     """
-    import os
-
     from core.device_scanner import get_device_by_path, scan_usb_devices
 
     warnings = []
     errors = []
     risk_level = "low"
-    allow_demo = os.environ.get("PHX_ALLOW_DEMO_DEVICE", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
 
     # Check recipe exists
     if recipe_id not in RECIPES:
@@ -246,35 +239,18 @@ def validate_safety(device_path: str, recipe_id: str) -> Dict[str, Any]:
                 break
 
     if not device:
-        if allow_demo:
-            device = {
-                "id": "demo",
-                "path": device_path,
-                "name": "Demo Device",
-                "friendly_name": "Demo USB Drive",
-                "size_bytes": 32 * 1024 ** 3,
-                "size_gb": 32.0,
-                "removable": True,
-                "is_system_disk": False,
-                "risk_level": "low",
-            }
-            warnings.append(
-                "Device not found in system — demo device (set PHX_ALLOW_DEMO_DEVICE=1)"
-            )
-        else:
-            errors.append(
-                "Device not found or not visible to the scanner. "
-                "Plug in the USB drive, refresh the device list, and retry. "
-                "(Operators can set PHX_ALLOW_DEMO_DEVICE=1 only for controlled demos.)"
-            )
-            return {
-                "safe_to_proceed": False,
-                "risk_level": "critical",
-                "warnings": warnings,
-                "errors": errors,
-                "confirmation_token": "",
-                "device_info": None,
-            }
+        errors.append(
+            "Device not found or not visible to the scanner. "
+            "Plug in the USB drive, refresh the device list, and retry."
+        )
+        return {
+            "safe_to_proceed": False,
+            "risk_level": "critical",
+            "warnings": warnings,
+            "errors": errors,
+            "confirmation_token": "",
+            "device_info": None,
+        }
 
     # System disk check
     if device.get("is_system_disk"):

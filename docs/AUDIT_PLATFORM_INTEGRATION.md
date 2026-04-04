@@ -8,7 +8,7 @@ This audit supports the goal of a **single authoritative runtime path**, clearer
 |------|---------|----------|
 | Module boundaries | README and `docs/LEGACY.md` disagree on whether `src/` is canonical; actual layout is `desktop/src/`, `backend/`, `crates/`, `legacy/` | High |
 | Duplicate logic | BootForge engine exists in `desktop/src/`, duplicated under `legacy/bootable_usb/BootForge/`; Flask `server/` expects a different repo layout | High |
-| Safety | Backend `validate_safety` previously accepted unknown devices as “demo” — now gated by `PHX_ALLOW_DEMO_DEVICE` | Addressed (Phase 2 partial) |
+| Safety | Backend `validate_safety` no longer injects a fake device — unknown targets fail closed | Addressed |
 | Device detection | Linux scan enumerates non-removable disks; risk heuristics can mis-rank internal NVMe; Windows relies on `BusType` for “removable” | Medium |
 | Platform drift | Hard-coded `/home/ubuntu/PhoenixCore` paths in backend — replaced with `backend/core/phoenix_paths.py` | Addressed (Phase 1) |
 | Operator workflows | FastAPI documents workflows; execution is recipe-mapped with `dry_run` defaults that can surprise operators | Medium |
@@ -53,8 +53,8 @@ This audit supports the goal of a **single authoritative runtime path**, clearer
 
 ## 3. Safety gaps (current + mitigations)
 
-- **Unknown device “demo” fallback** in `validate_safety`: could proceed without a real disk. **Mitigation:** require `PHX_ALLOW_DEMO_DEVICE=1` for demo device injection; default is block.
-- **Confirmation tokens:** workflow runner used a hard-coded demo token in some paths — review clients to always pass tokens from `/api/safety-check`.
+- **Unknown device** in `validate_safety`: returns errors and no confirmation token until a real device is visible to the scanner.
+- **Confirmation tokens:** `/api/workflows/run` requires a real token from `/api/safety-check` for non–dry-run builds (no `PHX-demo` fallback).
 - **Desktop `SafetyValidator`:** richer than FastAPI checks — **risk of inconsistent policy** between GUI and API.
 
 ---
@@ -99,7 +99,7 @@ This audit supports the goal of a **single authoritative runtime path**, clearer
 ### P0 — Safety and honesty
 
 1. Align FastAPI safety rules with `SafetyValidator` policy or call shared validation code.
-2. Ensure no build path uses demo device without `PHX_ALLOW_DEMO_DEVICE`.
+2. Keep production builds free of synthetic devices in safety validation (current default).
 3. Return explicit `platform_support` in build progress when `dd`/format is simulated.
 
 ### P1 — Structure
@@ -125,7 +125,7 @@ This audit supports the goal of a **single authoritative runtime path**, clearer
 | Phase | Focus | Outcome |
 |-------|--------|---------|
 | **1** | Docs + path resolution + README accuracy | Operators know what is canonical; no hard-coded paths |
-| **2** | Safety + device listing | Shared policy; demo mode explicit; fewer foot-guns |
+| **2** | Safety + device listing | Shared policy; no fake devices in validation |
 | **3** | UX | Wizard/API parity for confirmations |
 | **4** | Tests + CI | pytest finds `desktop/src`; API tests for safety |
 | **5** | Mobile/cloud | One OpenAPI contract; event stream or poll contract |
@@ -135,7 +135,7 @@ This audit supports the goal of a **single authoritative runtime path**, clearer
 ## Code changes in this branch (reviewable)
 
 - `backend/core/phoenix_paths.py` — repo root and OCLP/GUI path resolution.
-- `backend/core/usb_builder.py` — demo device gated; paths use `phoenix_paths`.
+- `backend/core/usb_builder.py` — unknown devices fail closed; paths use `phoenix_paths`.
 - `backend/main.py` — diagnostics use repo root, not `/home/ubuntu/...`.
 - `main.py` (root) — delegates to `desktop/main.py`.
 - `tests/conftest.py` — adds `desktop/` to `sys.path` for `src.*` imports.

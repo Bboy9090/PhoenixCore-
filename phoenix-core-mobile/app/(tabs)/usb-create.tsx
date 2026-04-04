@@ -60,8 +60,9 @@ export default function USBCreateScreen() {
         );
       }
     },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.error || 'Safety check failed');
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Safety check failed';
+      Alert.alert('Error', msg);
     },
   });
 
@@ -74,8 +75,9 @@ export default function USBCreateScreen() {
     onSuccess: (job) => {
       setCurrentJob(job);
     },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to start build');
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Failed to start build';
+      Alert.alert('Error', msg);
       setStep('device-selection');
     },
   });
@@ -90,8 +92,9 @@ export default function USBCreateScreen() {
       Alert.alert('Success', 'Build cancelled');
       resetWorkflow();
     },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to cancel build');
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Failed to cancel build';
+      Alert.alert('Error', msg);
     },
   });
 

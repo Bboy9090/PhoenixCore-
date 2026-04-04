@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, RefreshControl, Alert, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { phoenixClient, StorageDevice, StorageSummary } from '@/lib/api/phoenix-enterprise-client';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -40,76 +40,11 @@ export default function DevicesScreen() {
     refetchInterval: 5000,
   });
 
-  // Mount device mutation
-  const mountMutation = useMutation({
-    mutationFn: (deviceId: string) => phoenixClient.mountDevice(deviceId),
-    onSuccess: () => {
-      Alert.alert('Success', 'Device mounted successfully');
-      refetch();
-    },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to mount device');
-    },
-  });
-
-  // Unmount device mutation
-  const unmountMutation = useMutation({
-    mutationFn: (deviceId: string) => phoenixClient.unmountDevice(deviceId),
-    onSuccess: () => {
-      Alert.alert('Success', 'Device unmounted successfully');
-      refetch();
-    },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to unmount device');
-    },
-  });
-
-  // Erase device mutation
-  const eraseMutation = useMutation({
-    mutationFn: (deviceId: string) => phoenixClient.eraseDevice(deviceId),
-    onSuccess: () => {
-      Alert.alert('Success', 'Device erase job started');
-      refetch();
-    },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to erase device');
-    },
-  });
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
   }, [refetch]);
-
-  const handleMount = (deviceId: string) => {
-    Alert.alert('Mount Device', 'Mount this device?', [
-      { text: 'Cancel', onPress: () => {} },
-      { text: 'Mount', onPress: () => mountMutation.mutate(deviceId) },
-    ]);
-  };
-
-  const handleUnmount = (deviceId: string) => {
-    Alert.alert('Unmount Device', 'Unmount this device?', [
-      { text: 'Cancel', onPress: () => {} },
-      { text: 'Unmount', onPress: () => unmountMutation.mutate(deviceId) },
-    ]);
-  };
-
-  const handleErase = (deviceId: string, deviceName: string) => {
-    Alert.alert(
-      'Erase Device',
-      `WARNING: This will erase all data on ${deviceName}. This cannot be undone!`,
-      [
-        { text: 'Cancel', onPress: () => {} },
-        {
-          text: 'Erase',
-          onPress: () => eraseMutation.mutate(deviceId),
-          style: 'destructive',
-        },
-      ]
-    );
-  };
 
   const getDeviceIcon = (type: string) => {
     switch (type) {
@@ -162,6 +97,13 @@ export default function DevicesScreen() {
       className="flex-1 bg-slate-900"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00d4ff" />}
     >
+      <View className="p-4 bg-slate-800 border-b border-slate-600">
+        <Text className="text-cyan-300 text-sm font-semibold mb-1">Host machine</Text>
+        <Text className="text-gray-400 text-xs">
+          Lists disks from the computer running the Phoenix Core API ({phoenixClient.getBackendUrl()}). Mount, unmount, and raw erase are not available in the mobile app — use the desktop BootForge app or the host OS.
+        </Text>
+      </View>
+
       {/* Summary Stats */}
       {summary && (
         <View className="p-4 border-b border-slate-700">
@@ -267,40 +209,6 @@ export default function DevicesScreen() {
                 </View>
               )}
 
-              {/* Action Buttons */}
-              <View className="flex-row gap-2">
-                {device.status === 'unmounted' ? (
-                  <TouchableOpacity
-                    onPress={() => handleMount(device.device_id)}
-                    disabled={mountMutation.isPending}
-                    className="flex-1 bg-green-600 rounded py-2 items-center"
-                  >
-                    <Text className="text-white font-semibold text-sm">
-                      {mountMutation.isPending ? 'Mounting...' : 'Mount'}
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => handleUnmount(device.device_id)}
-                    disabled={unmountMutation.isPending}
-                    className="flex-1 bg-orange-600 rounded py-2 items-center"
-                  >
-                    <Text className="text-white font-semibold text-sm">
-                      {unmountMutation.isPending ? 'Unmounting...' : 'Unmount'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  onPress={() => handleErase(device.device_id, device.device_name)}
-                  disabled={eraseMutation.isPending}
-                  className="flex-1 bg-red-600 rounded py-2 items-center"
-                >
-                  <Text className="text-white font-semibold text-sm">
-                    {eraseMutation.isPending ? 'Erasing...' : 'Erase'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </View>
           ))
         )}

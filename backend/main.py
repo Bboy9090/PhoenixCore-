@@ -90,7 +90,7 @@ async def health():
             "oclp_integration": platform.system() == "Darwin",
             "multiboot": True,
             "recovery_usb": True,
-            "dry_run_mode": True,
+            "dry_run_mode": False,
         },
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
@@ -532,7 +532,7 @@ async def run_workflow(body: dict):
     """
     workflow_id = body.get("workflow_id", "")
     device_path = body.get("device_path", "")
-    dry_run = body.get("dry_run", True)
+    dry_run = body.get("dry_run", False)
 
     if not device_path:
         raise HTTPException(status_code=400, detail="device_path is required")
@@ -557,12 +557,19 @@ async def run_workflow(body: dict):
             "safety": safety,
         }
 
+    token = safety.get("confirmation_token") or ""
+    if not dry_run and not token:
+        raise HTTPException(
+            status_code=400,
+            detail="Safety check did not return a confirmation token; cannot start build.",
+        )
+
     # Start build
     build_request = {
         "recipe_id": recipe_id,
         "target_device_path": device_path,
         "dry_run": dry_run,
-        "confirmation_token": safety.get("confirmation_token", "PHX-demo"),
+        "confirmation_token": token,
         "oclp_enabled": body.get("oclp_enabled", False),
         "oclp_target_model": body.get("oclp_target_model"),
         "oclp_macos_version": body.get("oclp_macos_version"),
