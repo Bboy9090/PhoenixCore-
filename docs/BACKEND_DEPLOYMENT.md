@@ -31,7 +31,9 @@ pip install phoenix_safety-1.1.0-py3-none-any.whl
 pip install fastapi "uvicorn[standard]" pydantic psutil
 ```
 
-Pin versions to match your `backend/requirements.txt` for FastAPI stack.
+**Version pinning:** Match the **`version`** in `packages/phoenix_safety/pyproject.toml` to the wheel filename. CI (Ubuntu job) uploads **`phoenix-safety-wheel`** artifact from each run — use for internal mirrors without a full clone.
+
+Pin FastAPI stack versions to match your `backend/requirements.txt`.
 
 ## Environment variables
 

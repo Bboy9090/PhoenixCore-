@@ -1,18 +1,12 @@
-# Experimental / non-core templates
+# Experimental / non-core
 
-This directory **anchors** material that is **not** part of the Phoenix Core USB product core.
+## `root-app-template/`
 
-## Contents
+The **Expo + pnpm + tRPC** template (formerly at repo root). See **[`root-app-template/README.md`](root-app-template/README.md)**.
 
-| Path | Role |
-|------|------|
-| Root-level `package.json` (if present) | **Non-core** Expo + Node + tRPC template — see **`CONFIG_ROOT_TEMPLATE.md`** at repo root |
+**Canonical Phoenix mobile:** [`../phoenix-core-mobile/`](../phoenix-core-mobile/)
 
-**Do not** treat code here as authoritative for Phoenix Core deployment. See **`docs/REPO_STATUS_MAP.md`**.
+## Barriers at repo root
 
-## Canonical product roots
-
-- **`desktop/`** — BootForge  
-- **`backend/`** — FastAPI  
-- **`phoenix-core-mobile/`** — Expo mobile  
-- **`packages/phoenix_safety/`** — shared safety  
+- [`../CONFIG_ROOT_TEMPLATE.md`](../CONFIG_ROOT_TEMPLATE.md)
+- [`../ROOT_APP_TEMPLATE.redirect.md`](../ROOT_APP_TEMPLATE.redirect.md)

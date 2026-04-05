@@ -12,13 +12,19 @@ Hard labels for humans and tooling. **Canonical** = ship and patch here first.
 | `docs/` | **Canonical** | Architecture + audits |
 | `website/` | **Canonical (non-core)** | Flask demo / marketing |
 | `main.py` (root) | **Canonical** | Entry → `desktop/main.py` |
-| `requirements.txt` (root) | **Canonical** | BootForge + web deps + `-e packages/phoenix_safety` |
+| `requirements.txt` (root) | **Canonical** | BootForge + web deps + `./packages/phoenix_safety` |
 | `packages/phoenix_safety/` | **Canonical** | Shared `SafetyValidator` — single implementation |
-| `backend/requirements.txt` | **Canonical** | FastAPI runtime + editable phoenix-safety |
-| `server/api.py` (Flask) | **Deprecated** | Use `backend/`; path fixed to `desktop/src` |
-| `server/_core/`, root `package.json` | **Experimental / template** | See **`ROOT_NONCORE_NOTICE.md`**, **`experimental/README.md`** |
-| `experimental/` | **Pointer / isolation doc** | Documents non-core template; barrier **`CONFIG_ROOT_TEMPLATE.md`** |
-| `CONFIG_ROOT_TEMPLATE.md` | **Tombstone** | Read before editing root `package.json` |
+| `backend/requirements.txt` | **Canonical** | FastAPI runtime + `../packages/phoenix_safety` |
+| `experimental/root-app-template/` | **Experimental / template** | Expo + pnpm + tRPC + `server/` (includes deprecated Flask `server/api.py`) |
+| `experimental/` | **Isolation** | Pointer + `root-app-template/README.md` |
+| `CONFIG_ROOT_TEMPLATE.md` | **Tombstone** | Template moved off root |
+| `ROOT_APP_TEMPLATE.redirect.md` | **Redirect** | How to run the template |
 | `mobile/` | **Deprecated** | Use `phoenix-core-mobile/` |
 | `legacy/` | **Archive** | No feature work; reference only |
 | `legacy/bootable_usb/BootForge/` | **Archive (duplicate)** | Do not sync with `desktop/` |
+
+## Migration (final cleanup)
+
+- **Removed from repo root:** `package.json`, `pnpm-lock.yaml`, `app/`, `server/`, and related Expo/tRPC files → **`experimental/root-app-template/`**.
+- **If you had scripts** assuming root `pnpm dev`, run from **`experimental/root-app-template/`** instead.
+- **Legacy Flask** `server/api.py` now only exists under the template tree; **canonical API** is **`backend/main.py`**.

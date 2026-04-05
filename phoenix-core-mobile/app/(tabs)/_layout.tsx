@@ -22,6 +22,33 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="usb-create"
+        options={{
+          title: 'USB',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="hardware-chip" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="devices"
+        options={{
+          title: 'Disks',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="disc" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="monitor"
+        options={{
+          title: 'Monitor',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="pulse" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="wizard"
         options={{
           title: 'Wizard',

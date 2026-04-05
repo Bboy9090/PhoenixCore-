@@ -155,8 +155,9 @@ def query_audit(
 ) -> List[Dict[str, Any]]:
     """
     Query indexed audit events. Returns full records (parsed payload) newest first.
-    If SQLite is missing or empty, returns [] (use rebuild_audit_index_from_jsonl).
+    Auto-rebuilds SQLite from JSONL when missing or stale.
     """
+    ensure_audit_index()
     db = _db_path()
     if not db.exists():
         return []
@@ -224,6 +225,58 @@ def rebuild_audit_index_from_jsonl() -> int:
     return count
 
 
+def _latest_jsonl_mtime() -> float:
+    """Latest mtime among destructive_jobs*.jsonl (0 if none)."""
+    d = _audit_dir()
+    if not d.is_dir():
+        return 0.0
+    m = 0.0
+    for p in d.glob("destructive_jobs*.jsonl"):
+        if p.is_file():
+            m = max(m, p.stat().st_mtime)
+    return m
+
+
+def _db_mtime() -> float:
+    p = _db_path()
+    return p.stat().st_mtime if p.exists() else 0.0
+
+
+def ensure_audit_index() -> Dict[str, Any]:
+    """
+    If JSONL exists and SQLite is missing, corrupt, or older than JSONL, rebuild index.
+    JSONL remains source of truth. Safe to call on startup and before queries.
+    """
+    d = _audit_dir()
+    if not d.is_dir():
+        return {"action": "none", "reason": "no_audit_dir"}
+
+    latest_j = _latest_jsonl_mtime()
+    if latest_j == 0.0:
+        return {"action": "none", "reason": "no_jsonl"}
+
+    dbp = _db_path()
+    if dbp.exists():
+        try:
+            conn = sqlite3.connect(str(dbp))
+            try:
+                conn.execute("SELECT 1 FROM audit_events LIMIT 1")
+            finally:
+                conn.close()
+        except sqlite3.Error:
+            try:
+                dbp.unlink()
+            except OSError:
+                pass
+
+    dbm = _db_mtime()
+    if dbm == 0.0 or latest_j > dbm + 0.001:
+        n = rebuild_audit_index_from_jsonl()
+        return {"action": "rebuilt", "indexed_records": n, "reason": "missing_stale_or_newer_jsonl"}
+
+    return {"action": "ok"}
+
+
 def export_jsonl_path() -> Path:
     return _current_log_path()
 
@@ -232,6 +285,7 @@ def audit_summary_for_jobs(limit: int = 50) -> List[Dict[str, Any]]:
     """
     One row per job_id (latest event) for operator dashboards.
     """
+    ensure_audit_index()
     db = _db_path()
     if not db.exists():
         return []

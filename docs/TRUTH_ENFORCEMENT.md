@@ -16,8 +16,7 @@ bash scripts/ci_truth_enforcement.sh
 4. No **`mobile.`** Python imports in those trees.
 5. **`packages/phoenix_safety/phoenix_safety/safety_validator.py`** exists.
 6. **`python3 -c "from phoenix_safety.safety_validator import SafetyValidator"`** succeeds (requires **`pip install -r requirements.txt`** first in CI).
-7. **`backend/`** and **`packages/`** must not **`import server.`** / **`from server.`**.
-8. Canonical **`*.py`** must not **`import legacy`** / **`from legacy`** as a top-level package.
+7. **`python3 scripts/check_import_boundaries.py`** — AST scan: no imports of **`legacy`**, **`experimental`**, or **`server`** from **`backend/`**, **`desktop/`**, **`packages/`**, **`tests/`** (see **`docs/IMPORT_BOUNDARIES.md`**).
 
 ## pytest
 

@@ -6,6 +6,7 @@ import time
 import platform
 import logging
 import asyncio
+from contextlib import asynccontextmanager
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
@@ -42,6 +43,7 @@ from core.audit_store import (
     query_audit,
     audit_summary_for_jobs,
     rebuild_audit_index_from_jsonl,
+    ensure_audit_index,
 )
 
 # ─── App Setup ────────────────────────────────────────────────────────────────
@@ -49,12 +51,25 @@ from core.audit_store import (
 START_TIME = time.time()
 APP_VERSION = "2.0.0"
 
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Rebuild audit SQLite from JSONL when missing or older than logs."""
+    try:
+        info = ensure_audit_index()
+        logging.getLogger("phoenix-core").info("audit_index_startup: %s", info)
+    except Exception as e:
+        logging.getLogger("phoenix-core").warning("audit_index_startup_failed: %s", e)
+    yield
+
+
 app = FastAPI(
     title="Phoenix Core API",
     description="Real backend for Phoenix Core — cross-platform OS deployment and USB creation tool",
     version=APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=_lifespan,
 )
 
 # CORS for mobile app

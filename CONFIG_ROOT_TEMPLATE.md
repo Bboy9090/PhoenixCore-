@@ -1,14 +1,9 @@
-# STOP — non-core template at repository root
+# STOP — non-core template (relocated)
 
-If your checkout has **`package.json`**, **`pnpm-lock.yaml`**, **`server/_core/`**, or similar at the **repository root**, that tree is **not** the Phoenix Core USB product.
+The Expo / pnpm / tRPC template is **not** at the repository root anymore.
 
-| Use instead |
-|-------------|
-| **Mobile:** `phoenix-core-mobile/` |
-| **API:** `backend/` |
-| **Desktop:** `desktop/` + root `main.py` |
-| **Shared safety:** `packages/phoenix_safety/` |
+**Location:** [`experimental/root-app-template/`](experimental/root-app-template/)
 
-Do **not** add Phoenix USB features to the root template without an explicit product decision.
+**Quick redirect:** [`ROOT_APP_TEMPLATE.redirect.md`](ROOT_APP_TEMPLATE.redirect.md)
 
-See **`docs/REPO_STATUS_MAP.md`** and **`ROOT_NONCORE_NOTICE.md`**.
+Do **not** add Phoenix USB product code here.

@@ -53,6 +53,18 @@ jobs:
         run: bash scripts/ci_truth_enforcement.sh
         shell: bash
 
+      - name: Build phoenix-safety wheel (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: bash scripts/build_phoenix_safety_wheel.sh
+        shell: bash
+
+      - name: Upload phoenix-safety wheel artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-safety-wheel
+          path: packages/phoenix_safety/dist/*.whl
+
       - name: Build Rust (compilable crates only)
         run: |
           cargo build -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-bootloader-core -p phoenix-wim || true

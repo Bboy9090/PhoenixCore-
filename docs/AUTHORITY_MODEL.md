@@ -31,8 +31,8 @@ This document is **normative** for Phoenix Core. Code and APIs should align with
 | Area | Status |
 |------|--------|
 | `website/web_server.py` | Marketing / demo |
-| `server/api.py` (Flask) | **Deprecated** — use `backend/` |
-| Root `package.json` / `server/_core/` | **Experimental / template** — not Phoenix USB product |
+| `experimental/root-app-template/server/api.py` (Flask) | **Deprecated** — use `backend/`; kept only inside template tree |
+| `experimental/root-app-template/` | **Experimental / template** — not Phoenix USB product |
 | `legacy/` | **Archive** |
 | `mobile/` (root RN tree) | **Deprecated** — use `phoenix-core-mobile/` |
 

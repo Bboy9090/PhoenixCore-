@@ -19,8 +19,8 @@ Use this when deciding **which command to run** or **which HTTP server is author
 ## Non-authoritative / other products
 
 - **`website/web_server.py`** — marketing / demo Flask (port 5000 typical).
-- **`server/api.py`** — legacy Flask API; **deprecated** in favor of `backend/`.
-- **Root `package.json` + `server/_core/`** — separate Expo/Node template; **not** `phoenix-core-mobile/`.
+- **`experimental/root-app-template/server/api.py`** — legacy Flask sample inside the non-core template; **deprecated** — use `backend/`.
+- **`experimental/root-app-template/`** — Expo + pnpm + `server/_core/` template; **not** `phoenix-core-mobile/`.
 - **`legacy/`** — quarantined reference copies.
 
 See **`docs/AUDIT_SECOND_PASS_STRUCTURE.md`** for drift, build truth, and debt.

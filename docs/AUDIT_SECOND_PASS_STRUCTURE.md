@@ -33,7 +33,7 @@ There is **no single fused pipeline** yet; the repo has **three real execution l
 | `legacy/bootable_usb/BootForge/` | **Quarantine** — duplicate of old `src/` layout; do not patch. |
 | `legacy/` (rest) | **Reference / donor** only. |
 | `server/api.py` | **Deprecated** Flask API; wrong historical `PhoenixCore-` path (corrected to repo-relative in-tree). Prefer **`backend/`**. |
-| Root `package.json` + `server/_core` | **Separate Expo/pnpm template** — not the same app as `phoenix-core-mobile/`. |
+| `experimental/root-app-template/` | **Separate Expo/pnpm template** — not the same app as `phoenix-core-mobile/`. |
 | `mobile/` | **Parallel** React Native tree; product ownership unclear vs `phoenix-core-mobile/`. |
 | `website/web_server.py` | **Marketing / toolkit demo** (Flask); not the Phoenix Core API. |
 | `crates/imaging`, `phoenix-report`, `phoenix-content`, etc. | **Rust workspace members**; several **do not build** on all platforms (see AGENTS.md). |
@@ -64,7 +64,7 @@ There is **no single fused pipeline** yet; the repo has **three real execution l
 | `cd backend && uvicorn main:app` | **Requires** `backend/requirements.txt` (FastAPI, uvicorn) — now documented and file added. |
 | `python3 website/web_server.py` | **Yes** (Flask from root requirements or separate install) | Demo only. |
 | Rust subset in AGENTS.md | **Yes** on Linux/macOS CI matrix | Windows host crate not in default CI build line; workspace build **fails** on Linux by design (known). |
-| Root `pnpm install` / `pnpm dev` | **Separate product** | Succeeds if Node/pnpm OK; **not** Phoenix Core backend. |
+| `experimental/root-app-template` `pnpm install` / `pnpm dev` | **Separate product** | Not Phoenix Core backend. |
 | `phoenix-core-mobile` `npm install` | **Yes** | Uses own `package.json`. |
 
 **Hidden assumptions:** `PHOENIX_REPO_ROOT` optional for packaged layouts; OCLP under `third_party/`; physical USB operations only on **host** running API or BootForge.
@@ -99,7 +99,7 @@ There is **no single fused pipeline** yet; the repo has **three real execution l
 
 ## Fake or drifting paths (remove or isolate)
 
-1. **Root `package.json` “app-template”** — isolate mentally: not Phoenix Core mobile; document in README.
+1. **`experimental/root-app-template/`** — non-core Expo template; not Phoenix Core mobile.
 2. **`server/api.py` sibling `PhoenixCore-` path** — **fixed** to `desktop/` on `sys.path` when present.
 3. **`legacy/bootable_usb/BootForge`** — do not use for fixes.
 4. **Invalid pip name `flaskFlask`** in root `requirements.txt` — **fixed**.
@@ -133,7 +133,7 @@ There is **no single fused pipeline** yet; the repo has **three real execution l
 
 - [x] Add this audit document.
 - [x] Add `docs/CANONICAL_RUNTIME.md` (short pointer).
-- [x] README: monorepo warning (root `package.json` vs `phoenix-core-mobile/`).
+- [x] README: template relocated under `experimental/root-app-template/`.
 - [x] `server/README.md`: deprecated; use `backend/`.
 - [x] Fix `server/api.py` `sys.path` to repo `desktop/` (stop `PhoenixCore-` fiction).
 

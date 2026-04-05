@@ -1,14 +1,18 @@
-# Non-core paths at repository root
+# Non-core template — relocated
 
-**Barrier:** Read **`CONFIG_ROOT_TEMPLATE.md`** before changing root `package.json` / `server/_core/`.
+The **Expo / pnpm / tRPC** workspace was moved from the repository root to:
 
-**Phoenix Core product** code lives primarily under:
+**[`experimental/root-app-template/`](experimental/root-app-template/)**
 
-- `desktop/`, `backend/`, `packages/phoenix_safety/`, `phoenix-core-mobile/`, `crates/`, `apps/cli/`, `website/`, `tests/`, `docs/`
+**Barrier:** Read [`CONFIG_ROOT_TEMPLATE.md`](CONFIG_ROOT_TEMPLATE.md).
 
-**At this root you may also see:**
+## Phoenix Core product paths
 
-- **`package.json`** — Expo / Node / tRPC **template workspace** (pnpm). It is **not** the same app as `phoenix-core-mobile/`. Prefer the Expo app under `phoenix-core-mobile/` for Phoenix mobile + USB remote control.
-- **`server/`** — Legacy Flask + template server code; **deprecated** for Phoenix USB API (`backend/` is canonical).
+| Use | Path |
+|-----|------|
+| BootForge | `desktop/` + root `main.py` |
+| FastAPI | `backend/` |
+| Mobile | `phoenix-core-mobile/` |
+| Safety | `packages/phoenix_safety/` |
 
-See **`experimental/README.md`** and **`docs/REPO_STATUS_MAP.md`**.
+See [`docs/REPO_STATUS_MAP.md`](docs/REPO_STATUS_MAP.md).

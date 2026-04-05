@@ -16,8 +16,8 @@ export default function HomeScreen() {
         {loading && <Text style={styles.status}>Checking…</Text>}
         {error && (
           <Text style={styles.error}>
-            Offline or wrong URL. Set EXPO_PUBLIC_API_URL to your web server
-            (e.g. http://YOUR_IP:5000).
+            Offline or wrong URL. Set EXPO_PUBLIC_API_URL to the Phoenix Core FastAPI host
+            (e.g. http://YOUR_LAN_IP:8000).
           </Text>
         )}
         {status && (
@@ -26,7 +26,7 @@ export default function HomeScreen() {
       </View>
 
       <Text style={styles.hint}>
-        Use the tabs: Wizard, Builder, Knowledge
+        Tabs: USB, Disks, Monitor (host metrics + audit), Wizard, Builder, Knowledge
       </Text>
     </View>
   );

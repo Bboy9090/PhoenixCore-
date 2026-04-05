@@ -531,7 +531,7 @@ class PhoenixEnterpriseClient {
     return this.request('GET', `/api/audit/query?${q.toString()}`);
   }
 
-  public async rebuildAuditIndex(): Promise<{ indexed_records: number }> {
+  public async rebuildAuditIndex(): Promise<{ indexed_records?: number; audit_schema_version?: string }> {
     return this.request('POST', '/api/audit/rebuild-index');
   }
 
