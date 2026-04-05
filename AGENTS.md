@@ -12,6 +12,7 @@
 |---------|---------|-------|
 | **Python CLI** | `python3 main.py --help` | Primary CLI entry point; see README for subcommands |
 | **Flask web server** | `python3 website/web_server.py` | Demo/download landing page on port 5000 |
+| **FastAPI backend** | `pip install -r backend/requirements.txt && cd backend && uvicorn main:app --host 0.0.0.0 --port 8000` | REST API for devices, safety, builds; use with `phoenix-core-mobile/` |
 | **PyQt6 GUI** | `python3 main.py --gui` | Requires a display (Xvfb or desktop); headless environments will error |
 
 ### Key dev commands

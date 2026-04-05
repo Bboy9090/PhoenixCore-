@@ -2,6 +2,8 @@
 
 This audit supports the goal of a **single authoritative runtime path**, clearer operator workflows, and stronger cross-platform reliability **without** a ground-up rewrite. It reflects the repository as of the branch that introduced this file.
 
+**Structural second pass (canonical vs fake roots, build truth, production coherence):** [`AUDIT_SECOND_PASS_STRUCTURE.md`](AUDIT_SECOND_PASS_STRUCTURE.md).
+
 ## Executive summary
 
 | Area | Finding | Severity |

@@ -2,7 +2,11 @@
 
 Phoenix Core is a professional, cross-platform OS deployment system. This repository contains the **Rust core engine**, the **BootForge desktop app** (PyQt6), **HTTP APIs**, **mobile clients**, and **legacy reference** trees in one modular layout.
 
-**Authoritative architecture and integration audit:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AUDIT_PLATFORM_INTEGRATION.md`](docs/AUDIT_PLATFORM_INTEGRATION.md).
+**Authoritative architecture and integration audit:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AUDIT_PLATFORM_INTEGRATION.md`](docs/AUDIT_PLATFORM_INTEGRATION.md), [`docs/AUDIT_SECOND_PASS_STRUCTURE.md`](docs/AUDIT_SECOND_PASS_STRUCTURE.md).
+
+**Which binary to run:** [`docs/CANONICAL_RUNTIME.md`](docs/CANONICAL_RUNTIME.md).
+
+> **Monorepo note:** The **root** `package.json` (pnpm, Expo ~54, `server/_core`) is a **separate Node/Expo template**, not the same app as [`phoenix-core-mobile/`](phoenix-core-mobile/). For Phoenix mobile + USB remote control, use **`phoenix-core-mobile/`** against the **`backend/`** FastAPI server.
 
 ---
 
@@ -39,9 +43,12 @@ python3 main.py --gui
 # CLI
 python3 main.py --help
 
-# FastAPI backend (optional)
+# FastAPI backend (mobile / remote operators — install backend deps first)
+pip install -r backend/requirements.txt
 cd backend && uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
+`GET /api/health` includes **`capabilities.destructive_usb_write_native`** (true on Linux with `dd`/`parted`). On other OSes, destructive USB steps may be limited — use BootForge on the desktop path for full parity.
 
 **Rust CLI (supported crates on Linux — see `AGENTS.md`):**
 

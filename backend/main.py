@@ -33,6 +33,7 @@ from core.oclp_integration import (
     check_oclp_compatibility, get_all_compatible_models,
     get_macos_versions, detect_current_mac_model,
 )
+from core.platform_caps import platform_caps
 
 # ─── App Setup ────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,8 @@ async def root():
 async def health():
     """Comprehensive health check."""
     uptime = time.time() - START_TIME
+    caps = platform_caps()
+    native_usb = caps.get("destructive_usb_write_native", False)
     return {
         "status": "healthy",
         "version": APP_VERSION,
@@ -82,11 +85,13 @@ async def health():
         "platform_version": platform.release(),
         "architecture": platform.machine(),
         "python_version": platform.python_version(),
+        "capabilities": caps,
         "features": {
             "usb_detection": True,
             "hardware_profiling": True,
             "system_monitoring": True,
             "usb_creation": True,
+            "destructive_usb_write_native": native_usb,
             "oclp_integration": platform.system() == "Darwin",
             "multiboot": True,
             "recovery_usb": True,

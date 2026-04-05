@@ -20,10 +20,11 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
-# Add PhoenixCore to path
-PHOENIX_CORE_PATH = Path(__file__).parent.parent.parent / "PhoenixCore-"
-if PHOENIX_CORE_PATH.exists():
-    sys.path.insert(0, str(PHOENIX_CORE_PATH))
+# BootForge engine lives under desktop/src (imported as src.*)
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_DESKTOP_SRC = _REPO_ROOT / "desktop"
+if _DESKTOP_SRC.is_dir():
+    sys.path.insert(0, str(_DESKTOP_SRC))
 
 # Try importing PhoenixCore modules
 try:

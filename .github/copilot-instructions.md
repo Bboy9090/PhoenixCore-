@@ -4,7 +4,8 @@ Commands below match **`AGENTS.md`** and the verified layout: BootForge lives un
 
 ## Bootstrap
 
-- **Python:** `pip install -r requirements.txt`
+- **Python (BootForge + tests):** `pip install -r requirements.txt`
+- **Python (FastAPI backend only):** `pip install -r backend/requirements.txt`
 - **OCLP (optional):** `git submodule update --init third_party/OpenCore-Legacy-Patcher` (see `docs/oclp_integration.md`)
 - **Rust:** Install Rust (e.g. rustup); stable >= 1.94 for edition 2024 dependencies.
 
@@ -32,7 +33,7 @@ Commands below match **`AGENTS.md`** and the verified layout: BootForge lives un
 
 - **BootForge GUI:** `python3 main.py --gui`
 - **BootForge CLI:** `python3 main.py --help`
-- **FastAPI backend:** `cd backend && uvicorn main:app --host 0.0.0.0 --port 8000`
+- **FastAPI backend:** `pip install -r backend/requirements.txt && cd backend && uvicorn main:app --host 0.0.0.0 --port 8000`
 - **Flask web demo:** `python3 website/web_server.py`
 
 ## Package
