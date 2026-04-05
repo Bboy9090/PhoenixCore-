@@ -30,6 +30,18 @@ EXPO_PUBLIC_API_URL=http://YOUR_LAN_IP:8000 npx expo start
 
 Find your LAN IP: `ifconfig` (macOS/Linux) or `ipconfig` (Windows).
 
+## Audit / destructive job history (host)
+
+After a failed or completed USB job, review durable records on the **host**:
+
+- `GET /api/audit/jobs/summary?limit=20` — one line per job id  
+- `GET /api/audit/query?job_id=<uuid>` — full timeline for one job  
+- `POST /api/audit/rebuild-index` — if SQLite index is empty but JSONL exists  
+
+The TypeScript client exposes `phoenixClient.getAuditJobsSummary()`, `queryAudit()`, `rebuildAuditIndex()`. See **`docs/AUDIT_LOG.md`**.
+
+**Recovery:** There is **no automatic rollback**. Treat the stick as suspect after a mid-write failure; re-image from BootForge on the desktop if unsure.
+
 ## Routes
 
 - **/** – Home

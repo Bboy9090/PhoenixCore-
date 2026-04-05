@@ -6,7 +6,7 @@ This directory **anchors** material that is **not** part of the Phoenix Core USB
 
 | Path | Role |
 |------|------|
-| `root-app-template/` | Former repo-root Expo + Node + tRPC workspace (`package.json`, `server/_core/`, etc.) — **not** `phoenix-core-mobile/` |
+| Root-level `package.json` (if present) | **Non-core** Expo + Node + tRPC template — see **`CONFIG_ROOT_TEMPLATE.md`** at repo root |
 
 **Do not** treat code here as authoritative for Phoenix Core deployment. See **`docs/REPO_STATUS_MAP.md`**.
 

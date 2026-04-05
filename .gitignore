@@ -3,6 +3,8 @@
 # dependencies
 node_modules/
 *.egg-info/
+packages/phoenix_safety/dist/
+packages/phoenix_safety/build/
 
 # Expo
 .expo/

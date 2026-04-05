@@ -1,6 +1,6 @@
 # BootForge Requirements
-# Shared safety (install from repo root: pip install -r requirements.txt)
--e ../packages/phoenix_safety
+# Shared safety (path install from desktop/: pip install -r desktop/requirements.txt)
+../packages/phoenix_safety
 
 # Core dependencies
 click>=8.0.0

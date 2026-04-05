@@ -1,5 +1,7 @@
 # Non-core paths at repository root
 
+**Barrier:** Read **`CONFIG_ROOT_TEMPLATE.md`** before changing root `package.json` / `server/_core/`.
+
 **Phoenix Core product** code lives primarily under:
 
 - `desktop/`, `backend/`, `packages/phoenix_safety/`, `phoenix-core-mobile/`, `crates/`, `apps/cli/`, `website/`, `tests/`, `docs/`

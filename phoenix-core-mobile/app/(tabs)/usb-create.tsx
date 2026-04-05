@@ -156,7 +156,7 @@ export default function USBCreateScreen() {
         const stage = jobProgress.failure_stage ? `\nStage: ${jobProgress.failure_stage}` : '';
         const roll = jobProgress.rollback_available
           ? ''
-          : '\n\nNo automatic rollback. Re-scan devices on the host, pick a new USB if needed, or use BootForge desktop. Audit: GET /api/audit/jobs/recent on the host.';
+          : '\n\nNo automatic rollback. Re-scan devices on the host, pick a new USB if needed, or use BootForge desktop.\n\nAudit: on the host open GET /api/audit/jobs/summary or /api/audit/query?job_id=… (see docs/AUDIT_LOG.md).';
         Alert.alert('Build Failed', `${jobProgress.error_message || 'Unknown error'}${stage}${roll}`);
         resetWorkflow();
       }

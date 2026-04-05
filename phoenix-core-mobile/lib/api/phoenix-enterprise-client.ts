@@ -498,6 +498,43 @@ class PhoenixEnterpriseClient {
     return { success: true };
   }
 
+  public async getAuditJobsSummary(limit: number = 50): Promise<{
+    audit_schema_version?: string;
+    jobs: Array<{
+      job_id: string;
+      last_written_at?: string;
+      last_event?: string;
+      recipe_id?: string;
+      target_device_path?: string;
+      failure_stage?: string;
+      rollback_available?: boolean;
+    }>;
+  }> {
+    return this.request('GET', `/api/audit/jobs/summary?limit=${limit}`);
+  }
+
+  public async queryAudit(params: {
+    job_id?: string;
+    target_device_path?: string;
+    event?: string;
+    since?: string;
+    until?: string;
+    limit?: number;
+  }): Promise<{ audit_schema_version?: string; count: number; records: Record<string, unknown>[] }> {
+    const q = new URLSearchParams();
+    if (params.job_id) q.set('job_id', params.job_id);
+    if (params.target_device_path) q.set('target_device_path', params.target_device_path);
+    if (params.event) q.set('event', params.event);
+    if (params.since) q.set('since', params.since);
+    if (params.until) q.set('until', params.until);
+    q.set('limit', String(params.limit ?? 100));
+    return this.request('GET', `/api/audit/query?${q.toString()}`);
+  }
+
+  public async rebuildAuditIndex(): Promise<{ indexed_records: number }> {
+    return this.request('POST', '/api/audit/rebuild-index');
+  }
+
   public async getBuildJobs(): Promise<BuildJob[]> {
     const data = await this.request<{ jobs: Array<Record<string, unknown>> }>('GET', '/api/build/jobs/list');
     return (data.jobs || []).map((j) => ({

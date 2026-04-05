@@ -35,7 +35,14 @@ from core.oclp_integration import (
 )
 from core.platform_caps import platform_caps
 from core.platform_guard import require_destructive_usb_native, DestructiveOperationNotSupported, explain_block
-from core.audit_store import read_recent, export_jsonl_path, AUDIT_SCHEMA_VERSION
+from core.audit_store import (
+    read_recent,
+    export_jsonl_path,
+    AUDIT_SCHEMA_VERSION,
+    query_audit,
+    audit_summary_for_jobs,
+    rebuild_audit_index_from_jsonl,
+)
 
 # ─── App Setup ────────────────────────────────────────────────────────────────
 
@@ -379,7 +386,50 @@ async def audit_export_path():
         "audit_schema_version": AUDIT_SCHEMA_VERSION,
         "path": str(export_jsonl_path()),
         "format": "jsonl",
+        "index_path": str(export_jsonl_path().parent / "audit_index.sqlite3"),
+        "index_format": "sqlite",
     }
+
+
+@app.get("/api/audit/query", tags=["Audit"])
+async def audit_query(
+    job_id: Optional[str] = Query(None),
+    target_device_path: Optional[str] = Query(None),
+    event: Optional[str] = Query(None),
+    since: Optional[str] = Query(None, description="ISO8601 written_at lower bound"),
+    until: Optional[str] = Query(None, description="ISO8601 written_at upper bound"),
+    limit: int = Query(100, ge=1, le=500),
+):
+    """Query indexed audit events (SQLite). Rebuild index if empty: POST /api/audit/rebuild-index."""
+    rows = query_audit(
+        job_id=job_id,
+        target_device_path=target_device_path,
+        event=event,
+        since_iso=since,
+        until_iso=until,
+        limit=limit,
+    )
+    return {
+        "audit_schema_version": AUDIT_SCHEMA_VERSION,
+        "count": len(rows),
+        "records": rows,
+    }
+
+
+@app.get("/api/audit/jobs/summary", tags=["Audit"])
+async def audit_jobs_summary(limit: int = Query(50, ge=1, le=200)):
+    """Latest event per job_id (operator history at a glance)."""
+    return {
+        "audit_schema_version": AUDIT_SCHEMA_VERSION,
+        "jobs": audit_summary_for_jobs(limit),
+    }
+
+
+@app.post("/api/audit/rebuild-index", tags=["Audit"])
+async def audit_rebuild_index():
+    """Re-scan JSONL files and repopulate SQLite index."""
+    n = rebuild_audit_index_from_jsonl()
+    return {"audit_schema_version": AUDIT_SCHEMA_VERSION, "indexed_records": n}
 
 
 # ─── OCLP Integration ─────────────────────────────────────────────────────────

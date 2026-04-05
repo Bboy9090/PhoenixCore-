@@ -6,7 +6,7 @@ Commands below match **`AGENTS.md`** and the verified layout: BootForge lives un
 
 ## Bootstrap
 
-- **Python (BootForge + tests):** `pip install -r requirements.txt` (installs **editable `packages/phoenix_safety`**)
+- **Python (BootForge + tests):** `pip install -r requirements.txt` (installs **`phoenix-safety` from `./packages/phoenix_safety`**)
 - **Python (FastAPI backend only):** `pip install -r backend/requirements.txt` (includes phoenix-safety)
 - **OCLP (optional):** `git submodule update --init third_party/OpenCore-Legacy-Patcher` (see `docs/oclp_integration.md`)
 - **Rust:** Install Rust (e.g. rustup); stable >= 1.94 for edition 2024 dependencies.

@@ -1,5 +1,5 @@
-# Shared safety (canonical) — install first for desktop + backend
--e packages/phoenix_safety
+# Shared safety (canonical) — path install (non-editable from repo root)
+./packages/phoenix_safety
 
 # BootForge Requirements
 # Core dependencies

@@ -1,16 +1,32 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "phoenix-safety"
-version = "1.0.0"
+version = "1.1.0"
 description = "Shared Phoenix Core safety validation (BootForge + FastAPI)"
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Phoenix Core contributors" },
+]
+keywords = ["phoenix", "safety", "disk", "usb"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Private :: Do Not Upload",
+]
 dependencies = [
     "psutil>=5.9.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Bboy9090/PhoenixCore-"
+Documentation = "https://github.com/Bboy9090/PhoenixCore-/blob/main/packages/phoenix_safety/README.md"
 
 [tool.setuptools.packages.find]
 where = ["."]

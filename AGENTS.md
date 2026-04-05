@@ -4,6 +4,7 @@
 - Keep command documentation in `.github/copilot-instructions.md` aligned with the latest verified build/test steps.
 - Prefer documenting commands with exact invocations copied from source docs or scripts; avoid guessing.
 - **Authority model:** `docs/AUTHORITY_MODEL.md` — BootForge desktop > FastAPI > Rust (explicit wiring only).
+- **Shared safety package:** `packages/phoenix_safety/` (version in `pyproject.toml`); backend-only deploy: `docs/BACKEND_DEPLOYMENT.md`.
 
 ## Cursor Cloud specific instructions
 

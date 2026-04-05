@@ -34,4 +34,17 @@ fi
 echo "== phoenix_safety package present =="
 test -f packages/phoenix_safety/phoenix_safety/safety_validator.py
 
+echo "== phoenix_safety importable in environment =="
+python3 -c "from phoenix_safety.safety_validator import SafetyValidator; assert SafetyValidator is not None"
+
+echo "== backend must not import server.* or legacy package =="
+if grep -r -E '^[[:space:]]*(from|import)[[:space:]]+server\.' --include='*.py' backend packages 2>/dev/null | grep -q .; then
+  echo "FAIL: backend/packages must not import server.*"
+  exit 1
+fi
+if grep -r -E '^[[:space:]]*(from|import)[[:space:]]+legacy(\.| |$)' --include='*.py' backend packages desktop tests 2>/dev/null | grep -q .; then
+  echo "FAIL: canonical code must not import legacy as top-level package"
+  exit 1
+fi
+
 echo "OK: truth enforcement passed"

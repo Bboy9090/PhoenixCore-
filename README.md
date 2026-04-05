@@ -4,7 +4,7 @@ Phoenix Core is a professional, cross-platform OS deployment system. This reposi
 
 **Authoritative architecture and integration audit:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AUDIT_PLATFORM_INTEGRATION.md`](docs/AUDIT_PLATFORM_INTEGRATION.md), [`docs/AUDIT_SECOND_PASS_STRUCTURE.md`](docs/AUDIT_SECOND_PASS_STRUCTURE.md).
 
-**Authority hierarchy (enforced):** [`docs/AUTHORITY_MODEL.md`](docs/AUTHORITY_MODEL.md) · **Safety:** [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md) · **Capabilities:** [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) · **Path status:** [`docs/REPO_STATUS_MAP.md`](docs/REPO_STATUS_MAP.md) · **Lockdown Plus:** [`docs/LOCKDOWN_PLUS_REPORT.md`](docs/LOCKDOWN_PLUS_REPORT.md) · **Audit log:** [`docs/AUDIT_LOG.md`](docs/AUDIT_LOG.md) · **CI truth:** [`docs/TRUTH_ENFORCEMENT.md`](docs/TRUTH_ENFORCEMENT.md).
+**Authority hierarchy (enforced):** [`docs/AUTHORITY_MODEL.md`](docs/AUTHORITY_MODEL.md) · **Safety:** [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md) · **Capabilities:** [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) · **Path status:** [`docs/REPO_STATUS_MAP.md`](docs/REPO_STATUS_MAP.md) · **Lockdown Plus:** [`docs/LOCKDOWN_PLUS_REPORT.md`](docs/LOCKDOWN_PLUS_REPORT.md) · **Stabilization:** [`docs/STABILIZATION_PHASE_REPORT.md`](docs/STABILIZATION_PHASE_REPORT.md) · **Backend deploy:** [`docs/BACKEND_DEPLOYMENT.md`](docs/BACKEND_DEPLOYMENT.md) · **Audit log:** [`docs/AUDIT_LOG.md`](docs/AUDIT_LOG.md) · **CI truth:** [`docs/TRUTH_ENFORCEMENT.md`](docs/TRUTH_ENFORCEMENT.md) · **Root template barrier:** [`CONFIG_ROOT_TEMPLATE.md`](CONFIG_ROOT_TEMPLATE.md).
 
 **Which binary to run:** [`docs/CANONICAL_RUNTIME.md`](docs/CANONICAL_RUNTIME.md).
 

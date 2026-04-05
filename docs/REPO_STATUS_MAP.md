@@ -17,7 +17,8 @@ Hard labels for humans and tooling. **Canonical** = ship and patch here first.
 | `backend/requirements.txt` | **Canonical** | FastAPI runtime + editable phoenix-safety |
 | `server/api.py` (Flask) | **Deprecated** | Use `backend/`; path fixed to `desktop/src` |
 | `server/_core/`, root `package.json` | **Experimental / template** | See **`ROOT_NONCORE_NOTICE.md`**, **`experimental/README.md`** |
-| `experimental/` | **Pointer / isolation doc** | Documents where non-core template material belongs |
+| `experimental/` | **Pointer / isolation doc** | Documents non-core template; barrier **`CONFIG_ROOT_TEMPLATE.md`** |
+| `CONFIG_ROOT_TEMPLATE.md` | **Tombstone** | Read before editing root `package.json` |
 | `mobile/` | **Deprecated** | Use `phoenix-core-mobile/` |
 | `legacy/` | **Archive** | No feature work; reference only |
 | `legacy/bootable_usb/BootForge/` | **Archive (duplicate)** | Do not sync with `desktop/` |

@@ -1,6 +1,12 @@
 # Phoenix Core FastAPI backend (backend/main.py)
-# Install from repo root so path resolves: pip install -r backend/requirements.txt
--e ../packages/phoenix_safety
+#
+# phoenix-safety: path is relative to THIS file (PEP 508 / pip).
+# From repo root: pip install -r backend/requirements.txt
+# Non-editable install from monorepo (preferred for deploy clones):
+../packages/phoenix_safety
+#
+# Editable dev alternative (comment line above, uncomment below):
+# -e ../packages/phoenix_safety
 
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
