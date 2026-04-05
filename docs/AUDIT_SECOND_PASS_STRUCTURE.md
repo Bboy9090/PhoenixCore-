@@ -3,6 +3,8 @@
 **Repository:** Bboy9090/PhoenixCore-  
 **Scope:** Verify structural correctness after compilation, Metro, Rust, and pathing fixes — not feature polish.
 
+**Lockdown enforcement (authority, safety, capabilities):** [`LOCKDOWN_PHASE_REPORT.md`](LOCKDOWN_PHASE_REPORT.md), [`AUTHORITY_MODEL.md`](AUTHORITY_MODEL.md).
+
 ---
 
 ## 1. Current canonical architecture

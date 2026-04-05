@@ -21,10 +21,17 @@ export default function USBCreateScreen() {
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const { data: hostCaps, isLoading: capsLoading } = useQuery({
+    queryKey: ['host-capabilities'],
+    queryFn: () => phoenixClient.refreshCapabilities(),
+  });
+  const usbWriteBlocked = hostCaps != null && !hostCaps.destructiveUsbWriteNative;
+
   // Query recipes
   const { data: recipes = [], isLoading: recipesLoading } = useQuery({
     queryKey: ['recipes'],
     queryFn: () => phoenixClient.getRecipes(),
+    enabled: !usbWriteBlocked,
   });
 
   // Query USB devices
@@ -145,6 +152,32 @@ export default function USBCreateScreen() {
 
   // Recipe Selection Step
   if (step === 'recipe-selection') {
+    if (capsLoading) {
+      return (
+        <View className="flex-1 bg-slate-900 justify-center items-center p-6">
+          <ActivityIndicator size="large" color="#00d4ff" />
+          <Text className="text-gray-400 mt-4">Checking host capabilities…</Text>
+        </View>
+      );
+    }
+    if (usbWriteBlocked) {
+      return (
+        <ScrollView className="flex-1 bg-slate-900">
+          <View className="p-4">
+            <Text className="text-white text-2xl font-bold mb-2">USB build unavailable</Text>
+            <Text className="text-amber-200 text-base mb-4">
+              This computer's Phoenix Core API reports no native destructive USB write path (Linux with dd/parted required for non-dry-run jobs). Remote USB creation is blocked to avoid false success.
+            </Text>
+            <Text className="text-gray-400 text-sm mb-4">
+              Use BootForge on the desktop (`python3 main.py --gui`) on a supported host, or run the API on Linux with parted and dd installed.
+            </Text>
+            <Text className="text-gray-500 text-xs">
+              See GET /api/health → features.destructive_usb_write_native and docs/CAPABILITY_MATRIX.md.
+            </Text>
+          </View>
+        </ScrollView>
+      );
+    }
     return (
       <ScrollView className="flex-1 bg-slate-900">
         <View className="p-4">

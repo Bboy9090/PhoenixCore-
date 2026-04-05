@@ -125,13 +125,18 @@ def _assess_risk(device: Dict[str, Any]) -> str:
     return "low"
 
 
-def scan_usb_devices() -> Dict[str, Any]:
+def scan_usb_devices(
+    *,
+    removable_only: bool = False,
+    include_all: bool = False,
+) -> Dict[str, Any]:
     """
-    Scan for all USB/removable storage devices.
-    Returns real device information from the OS.
+    Scan block devices. Default: all disks (backward compatible).
+    removable_only=True: USB-build pickers (OS-reported removable only).
+    include_all=True: with removable_only, still return full list (diagnostics).
     """
     start_time = time.time()
-    devices = []
+    devices: List[Dict[str, Any]] = []
     host_os = platform.system().lower()
 
     if host_os == "linux":
@@ -143,6 +148,9 @@ def scan_usb_devices() -> Dict[str, Any]:
     else:
         devices = _scan_generic()
 
+    if removable_only and not include_all:
+        devices = [d for d in devices if d.get("removable") is True]
+
     elapsed_ms = (time.time() - start_time) * 1000
 
     return {
@@ -151,6 +159,10 @@ def scan_usb_devices() -> Dict[str, Any]:
         "scan_time_ms": round(elapsed_ms, 2),
         "host_os": host_os,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "filter": {
+            "removable_only": removable_only,
+            "include_all": include_all,
+        },
     }
 
 

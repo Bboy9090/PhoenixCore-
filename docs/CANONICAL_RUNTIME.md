@@ -2,6 +2,8 @@
 
 Use this when deciding **which command to run** or **which HTTP server is authoritative**.
 
+**Normative authority hierarchy:** [`AUTHORITY_MODEL.md`](AUTHORITY_MODEL.md).
+
 ## Primary paths
 
 1. **BootForge (desktop GUI/CLI)** — `python3 main.py` from repo root (delegates to `desktop/main.py`).  

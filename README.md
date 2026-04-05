@@ -4,6 +4,8 @@ Phoenix Core is a professional, cross-platform OS deployment system. This reposi
 
 **Authoritative architecture and integration audit:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AUDIT_PLATFORM_INTEGRATION.md`](docs/AUDIT_PLATFORM_INTEGRATION.md), [`docs/AUDIT_SECOND_PASS_STRUCTURE.md`](docs/AUDIT_SECOND_PASS_STRUCTURE.md).
 
+**Authority hierarchy (enforced):** [`docs/AUTHORITY_MODEL.md`](docs/AUTHORITY_MODEL.md) · **Safety:** [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md) · **Capabilities:** [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) · **Path status:** [`docs/REPO_STATUS_MAP.md`](docs/REPO_STATUS_MAP.md).
+
 **Which binary to run:** [`docs/CANONICAL_RUNTIME.md`](docs/CANONICAL_RUNTIME.md).
 
 > **Monorepo note:** The **root** `package.json` (pnpm, Expo ~54, `server/_core`) is a **separate Node/Expo template**, not the same app as [`phoenix-core-mobile/`](phoenix-core-mobile/). For Phoenix mobile + USB remote control, use **`phoenix-core-mobile/`** against the **`backend/`** FastAPI server.
@@ -19,7 +21,7 @@ Phoenix Core is a professional, cross-platform OS deployment system. This reposi
 | [`backend/`](backend/) | **FastAPI** — REST for device scan, recipes, build jobs (orchestration for operators and mobile). |
 | [`website/`](website/) | Flask demo / landing; optional recovery GUI build output under `website/recovery-gui/`. |
 | [`phoenix-core-mobile/`](phoenix-core-mobile/) | Expo app — planning and remote status against the HTTP API. |
-| [`mobile/`](mobile/) | Additional React Native tree; confirm product ownership before consolidating. |
+| [`mobile/`](mobile/) | **Deprecated** — use [`phoenix-core-mobile/`](phoenix-core-mobile/). |
 | [`legacy/`](legacy/) | Archived toolkits and experiments — do not extend; port changes into `desktop/` or `crates/`. |
 | [`server/`](server/) | Legacy Flask wrapper with a sibling-repo path assumption — prefer `backend/` for new work. |
 

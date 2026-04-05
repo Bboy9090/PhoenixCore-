@@ -2,6 +2,8 @@
 
 Commands below match **`AGENTS.md`** and the verified layout: BootForge lives under **`desktop/`** (root **`main.py`** delegates to **`desktop/main.py`**). Rust: prefer building **individual crates** on Linux (full workspace may fail; see `AGENTS.md`).
 
+**Authority / safety:** `docs/AUTHORITY_MODEL.md`, `docs/SAFETY_MODEL.md`, `docs/CAPABILITY_MATRIX.md`.
+
 ## Bootstrap
 
 - **Python (BootForge + tests):** `pip install -r requirements.txt`

@@ -34,6 +34,7 @@ from core.oclp_integration import (
     get_macos_versions, detect_current_mac_model,
 )
 from core.platform_caps import platform_caps
+from core.platform_guard import require_destructive_usb_native, DestructiveOperationNotSupported, explain_block
 
 # ─── App Setup ────────────────────────────────────────────────────────────────
 
@@ -104,13 +105,21 @@ async def health():
 # ─── Device Detection ─────────────────────────────────────────────────────────
 
 @app.get("/api/devices", tags=["Devices"])
-async def list_devices():
+async def list_devices(
+    removable_only: bool = Query(
+        False,
+        description="If true, return only OS-reported removable devices (safer for USB target pickers).",
+    ),
+    include_all: bool = Query(
+        False,
+        description="If true with removable_only, still return all devices (diagnostics override).",
+    ),
+):
     """
-    Scan and list all USB/removable storage devices.
-    Returns real device information from the operating system.
+    Scan storage devices. Prefer **removable_only=true** for USB creation UIs.
     """
     try:
-        result = scan_usb_devices()
+        result = scan_usb_devices(removable_only=removable_only, include_all=include_all)
         return result
     except Exception as e:
         logger.error(f"Device scan error: {e}")
@@ -130,10 +139,13 @@ async def get_device(device_id: str):
 
 
 @app.post("/api/devices/refresh", tags=["Devices"])
-async def refresh_devices():
-    """Force a fresh device scan."""
+async def refresh_devices(
+    removable_only: bool = Query(False),
+    include_all: bool = Query(False),
+):
+    """Force a fresh device scan (same query params as GET /api/devices)."""
     try:
-        result = scan_usb_devices()
+        result = scan_usb_devices(removable_only=removable_only, include_all=include_all)
         return {"message": "Device scan complete", **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -265,8 +277,17 @@ async def safety_check(body: dict):
     if not device_path or not recipe_id:
         raise HTTPException(status_code=400, detail="device_path and recipe_id are required")
 
+    dry_run = bool(body.get("dry_run", False))
+    require_removable = body.get("require_removable", True)
+    if isinstance(require_removable, str):
+        require_removable = require_removable.lower() in ("1", "true", "yes")
     try:
-        result = validate_safety(device_path, recipe_id)
+        result = validate_safety(
+            device_path,
+            recipe_id,
+            require_removable=require_removable,
+            dry_run=dry_run,
+        )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -542,6 +563,12 @@ async def run_workflow(body: dict):
     if not device_path:
         raise HTTPException(status_code=400, detail="device_path is required")
 
+    if not dry_run:
+        try:
+            require_destructive_usb_native(dry_run=False)
+        except DestructiveOperationNotSupported:
+            raise HTTPException(status_code=503, detail=explain_block())
+
     # Map workflow to recipe
     workflow_recipe_map = {
         "quick-linux-usb": "linux-automated",
@@ -552,7 +579,7 @@ async def run_workflow(body: dict):
     recipe_id = workflow_recipe_map.get(workflow_id, "recovery")
 
     # Run safety check
-    safety = validate_safety(device_path, recipe_id)
+    safety = validate_safety(device_path, recipe_id, require_removable=True, dry_run=dry_run)
 
     if not safety["safe_to_proceed"] and not dry_run:
         return {

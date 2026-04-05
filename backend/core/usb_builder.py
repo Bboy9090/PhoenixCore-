@@ -21,6 +21,9 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 from core.phoenix_paths import legacy_boot_kiosk_script, oclp_submodule_path, recovery_gui_dist
+from core.safety_bridge import run_device_safety, validator_available, map_risk_level_from_validator
+from core.safety_schema import build_safety_payload
+from core.platform_guard import require_destructive_usb_native, DestructiveOperationNotSupported
 
 # ─── Build State ──────────────────────────────────────────────────────────────
 
@@ -55,6 +58,9 @@ class BuildJob:
     start_time: float = field(default_factory=time.time)
     dry_run: bool = False
     cancelled: bool = False
+    preflight: Optional[Dict[str, Any]] = None
+    failure_stage: Optional[str] = None
+    rollback_available: bool = False
 
 
 # ─── Global Job Registry ──────────────────────────────────────────────────────
@@ -203,35 +209,49 @@ def generate_confirmation_token() -> str:
     return f"PHX-{uuid.uuid4()}"
 
 
-def validate_safety(device_path: str, recipe_id: str) -> Dict[str, Any]:
+def validate_safety(
+    device_path: str,
+    recipe_id: str,
+    *,
+    require_removable: bool = True,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
     """
-    Perform safety validation before USB creation.
-    Returns risk assessment and confirmation token.
+    Canonical safety path: BootForge SafetyValidator + scanner + recipe checks.
+    Returns versioned schema via build_safety_payload.
     """
     from core.device_scanner import get_device_by_path, scan_usb_devices
 
-    warnings = []
-    errors = []
+    warnings: List[str] = []
+    errors: List[str] = []
     risk_level = "low"
+    capability_notes: List[str] = []
+    device_risk: Optional[Dict[str, Any]] = None
+
+    if not validator_available():
+        capability_notes.append(
+            "BootForge SafetyValidator not loaded; safety checks are incomplete. Install desktop deps (see desktop/requirements.txt)."
+        )
 
     # Check recipe exists
     if recipe_id not in RECIPES:
         errors.append(f"Unknown recipe: {recipe_id}")
-        return {
-            "safe_to_proceed": False,
-            "risk_level": "critical",
-            "warnings": warnings,
-            "errors": errors,
-            "confirmation_token": "",
-            "device_info": None,
-        }
+        return build_safety_payload(
+            safe_to_proceed=False,
+            risk_level="critical",
+            warnings=warnings,
+            errors=errors,
+            confirmation_token="",
+            device_info=None,
+            device_risk=None,
+            capability_notes=capability_notes,
+        )
 
     recipe = RECIPES[recipe_id]
 
-    # Find device
+    # Find device in scan
     device = get_device_by_path(device_path)
     if not device:
-        # Try scanning again
         scan = scan_usb_devices()
         for d in scan["devices"]:
             if d["path"] == device_path or d["id"] == device_path:
@@ -243,24 +263,41 @@ def validate_safety(device_path: str, recipe_id: str) -> Dict[str, Any]:
             "Device not found or not visible to the scanner. "
             "Plug in the USB drive, refresh the device list, and retry."
         )
-        return {
-            "safe_to_proceed": False,
-            "risk_level": "critical",
-            "warnings": warnings,
-            "errors": errors,
-            "confirmation_token": "",
-            "device_info": None,
-        }
+        return build_safety_payload(
+            safe_to_proceed=False,
+            risk_level="critical",
+            warnings=warnings,
+            errors=errors,
+            confirmation_token="",
+            device_info=None,
+            device_risk=None,
+            capability_notes=capability_notes,
+        )
 
-    # System disk check
-    if device.get("is_system_disk"):
-        errors.append("CRITICAL: Target device is the system disk. Operation refused.")
+    # Canonical validator on resolved path
+    ok, dr, verr, vwarn = run_device_safety(device_path)
+    device_risk = dr
+    errors.extend(verr)
+    for w in vwarn:
+        if w not in warnings:
+            warnings.append(w)
+    if device_risk:
+        risk_level = map_risk_level_from_validator(device_risk)
+
+    # Removable-only policy for API (ambiguous internal disks)
+    if require_removable and device and not device.get("removable", False):
+        msg = (
+            "Target is not marked removable in the OS scan. "
+            "USB builds are restricted to removable media. Use a USB device or BootForge desktop for advanced cases."
+        )
+        errors.append(msg)
         risk_level = "critical"
 
-    # Non-removable check
-    if not device.get("removable", True):
-        warnings.append("Target device is not marked as removable. Proceed with extreme caution.")
-        risk_level = "high"
+    # Scanner system disk
+    if device.get("is_system_disk"):
+        if "CRITICAL: Target device is the system disk" not in " ".join(errors):
+            errors.append("CRITICAL: Target device is the system disk. Operation refused.")
+        risk_level = "critical"
 
     # Size check
     required_gb = recipe["required_size_gb"]
@@ -272,25 +309,44 @@ def validate_safety(device_path: str, recipe_id: str) -> Dict[str, Any]:
         )
         risk_level = "critical"
     elif device_gb < required_gb * 1.2:
-        warnings.append(f"Device is close to minimum size ({device_gb:.1f} GB). Recommended: {required_gb * 1.5:.0f} GB+")
+        warnings.append(
+            f"Device is close to minimum size ({device_gb:.1f} GB). Recommended: {required_gb * 1.5:.0f} GB+"
+        )
 
-    # Large device warning
     if device_gb > 500:
         warnings.append(f"Large device ({device_gb:.0f} GB) — double-check this is the correct target")
         if risk_level == "low":
             risk_level = "medium"
 
+    # Non-dry-run + no native write
+    if not dry_run:
+        try:
+            require_destructive_usb_native(dry_run=False)
+        except DestructiveOperationNotSupported as e:
+            errors.append(str(e))
+            risk_level = "critical"
+            capability_notes.append("destructive_usb_write_native=false")
+
+    if not validator_available() and not errors:
+        errors.append(
+            "Cannot issue confirmation token without BootForge SafetyValidator. "
+            "pip install -r requirements.txt from repo root (includes PyQt6/psutil for desktop/src)."
+        )
+        risk_level = "critical"
+
     safe = len(errors) == 0
     token = generate_confirmation_token() if safe else ""
 
-    return {
-        "safe_to_proceed": safe,
-        "risk_level": risk_level,
-        "warnings": warnings,
-        "errors": errors,
-        "confirmation_token": token,
-        "device_info": device,
-    }
+    return build_safety_payload(
+        safe_to_proceed=safe,
+        risk_level=risk_level,
+        warnings=warnings,
+        errors=errors,
+        confirmation_token=token,
+        device_info=device,
+        device_risk=device_risk,
+        capability_notes=capability_notes,
+    )
 
 
 # ─── USB Build Engine ─────────────────────────────────────────────────────────
@@ -682,8 +738,19 @@ def _run_build_job(job: BuildJob, request: Dict[str, Any]):
         _log(job, "Running safety validation...")
 
         if not job.dry_run:
-            safety = validate_safety(device_path, job.recipe_id)
+            safety = validate_safety(
+                device_path, job.recipe_id, require_removable=True, dry_run=False
+            )
+            job.preflight = {
+                "schema_version": safety.get("schema_version"),
+                "safe_to_proceed": safety.get("safe_to_proceed"),
+                "device_risk": safety.get("device_risk"),
+                "validator_source": safety.get("validator_source"),
+                "rollback_available": False,
+                "note": "No automatic disk rollback is performed after destructive writes.",
+            }
             if not safety["safe_to_proceed"]:
+                job.failure_stage = "safety_validation"
                 errors = "; ".join(safety["errors"])
                 raise RuntimeError(f"Safety check failed: {errors}")
 
@@ -793,8 +860,12 @@ def _run_build_job(job: BuildJob, request: Dict[str, Any]):
     except Exception as e:
         job.status = BuildStatus.FAILED
         job.error = str(e)
+        if not job.failure_stage:
+            job.failure_stage = job.current_step or "unknown"
         job.current_step = "Failed"
-        _log(job, f"Build FAILED: {e}")
+        job.rollback_available = False
+        _log(job, f"Build FAILED at stage {job.failure_stage}: {e}")
+        _log(job, "Rollback: not available — manual recovery may be required if the disk was partially written.")
         logger.exception(f"Build job {job.job_id} failed")
 
 
@@ -807,6 +878,18 @@ def start_build(request: Dict[str, Any]) -> Dict[str, Any]:
     device_path = request.get("target_device_path", "")
     dry_run = request.get("dry_run", False)
     confirmation_token = request.get("confirmation_token", "")
+
+    if not dry_run:
+        try:
+            require_destructive_usb_native(dry_run=False)
+        except DestructiveOperationNotSupported as e:
+            return {
+                "job_id": "",
+                "status": "failed",
+                "message": str(e),
+                "confirmation_token": None,
+                "estimated_time_minutes": 0,
+            }
 
     # Validate token for non-dry-run
     if not dry_run and not confirmation_token.startswith("PHX-"):
@@ -877,4 +960,7 @@ def get_build_progress(job_id: str) -> Optional[Dict[str, Any]]:
         "speed_mbps": job.speed_mbps,
         "log_messages": job.log_messages[-50:],  # Last 50 messages
         "error": job.error,
+        "preflight": job.preflight,
+        "failure_stage": job.failure_stage,
+        "rollback_available": False,
     }

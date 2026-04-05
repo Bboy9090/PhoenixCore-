@@ -103,6 +103,11 @@ export interface SafetyCheckResult {
   confirmation_token?: string;
 }
 
+export interface HostCapabilities {
+  destructiveUsbWriteNative: boolean;
+  raw: Record<string, unknown>;
+}
+
 type BackendDevice = {
   id?: string;
   path: string;
@@ -191,6 +196,7 @@ class PhoenixEnterpriseClient {
   private authToken: string | null = null;
   /** Last token from safety check — required for startBuild */
   private lastConfirmationToken: string | null = null;
+  private lastCapabilities: HostCapabilities | null = null;
 
   constructor(backendUrl?: string) {
     this.backendUrl = (backendUrl || API_BASE_URL).replace(/\/$/, '');
@@ -259,6 +265,23 @@ class PhoenixEnterpriseClient {
     return this.request('GET', '/api/health');
   }
 
+  /** Cached from last refreshCapabilities(); use for gating USB build UI. */
+  public getLastCapabilities(): HostCapabilities | null {
+    return this.lastCapabilities;
+  }
+
+  public async refreshCapabilities(): Promise<HostCapabilities> {
+    const h = await this.request<{
+      features?: { destructive_usb_write_native?: boolean };
+      capabilities?: { destructive_usb_write_native?: boolean };
+    }>('GET', '/api/health');
+    const native =
+      h.features?.destructive_usb_write_native === true ||
+      h.capabilities?.destructive_usb_write_native === true;
+    this.lastCapabilities = { destructiveUsbWriteNative: native, raw: h as Record<string, unknown> };
+    return this.lastCapabilities;
+  }
+
   public async getSystemStatus(): Promise<{ status: string; uptime?: number }> {
     const h = await this.healthCheck();
     return { status: h.status, uptime: 0 };
@@ -269,9 +292,13 @@ class PhoenixEnterpriseClient {
     return (data.devices || []).map(mapBackendDevice);
   }
 
+  /** USB workflow: server-side removable_only filter (stricter than client-side filter). */
   public async getUSBDevices(): Promise<StorageDevice[]> {
-    const all = await this.getAllDevices();
-    return all.filter((d) => d.removable || d.device_type === 'usb');
+    const data = await this.request<{ devices: BackendDevice[] }>(
+      'GET',
+      '/api/devices?removable_only=true'
+    );
+    return (data.devices || []).map(mapBackendDevice);
   }
 
   public async getSSDDevices(): Promise<StorageDevice[]> {
