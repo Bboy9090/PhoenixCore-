@@ -82,6 +82,9 @@ export interface BuildJob {
   started_at?: string;
   completed_at?: string;
   error_message?: string;
+  failure_stage?: string;
+  rollback_available?: boolean;
+  preflight_note?: string;
 }
 
 export interface Recipe {
@@ -101,6 +104,9 @@ export interface SafetyCheckResult {
   warnings: string[];
   errors: string[];
   confirmation_token?: string;
+  risk_level?: string;
+  device_risk?: Record<string, unknown>;
+  schema_version?: string;
 }
 
 export interface HostCapabilities {
@@ -408,6 +414,9 @@ class PhoenixEnterpriseClient {
       warnings?: string[];
       errors?: string[];
       confirmation_token?: string;
+      risk_level?: string;
+      device_risk?: Record<string, unknown>;
+      schema_version?: string;
     }>('POST', '/api/safety-check', {
       device_path: deviceId,
       recipe_id: recipeId,
@@ -419,6 +428,9 @@ class PhoenixEnterpriseClient {
       warnings: data.warnings || [],
       errors: data.errors || [],
       confirmation_token: token,
+      risk_level: data.risk_level,
+      device_risk: data.device_risk,
+      schema_version: data.schema_version,
     };
   }
 
@@ -459,6 +471,9 @@ class PhoenixEnterpriseClient {
       current_step: string;
       elapsed_seconds?: number;
       error?: string | null;
+      failure_stage?: string | null;
+      rollback_available?: boolean;
+      preflight?: { note?: string };
     }>('GET', `/api/build/${encodeURIComponent(jobId)}/progress`);
 
     const st = mapJobStatus(p.status);
@@ -472,6 +487,9 @@ class PhoenixEnterpriseClient {
       estimated_time_remaining: 0,
       created_at: '',
       error_message: p.error || undefined,
+      failure_stage: p.failure_stage || undefined,
+      rollback_available: p.rollback_available === true,
+      preflight_note: p.preflight && typeof p.preflight === 'object' ? String(p.preflight.note || '') : undefined,
     };
   }
 

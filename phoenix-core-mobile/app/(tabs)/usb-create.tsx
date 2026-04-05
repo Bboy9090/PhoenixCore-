@@ -6,7 +6,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, RefreshControl, Alert, ActivityIndicator, TouchableOpacity, Text, Modal, FlatList } from 'react-native';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { phoenixClient, Recipe, StorageDevice, BuildJob } from '@/lib/api/phoenix-enterprise-client';
+import {
+  phoenixClient,
+  Recipe,
+  StorageDevice,
+  BuildJob,
+  SafetyCheckResult,
+} from '@/lib/api/phoenix-enterprise-client';
 import { Ionicons } from '@expo/vector-icons';
 import * as Progress from 'react-native-progress';
 
@@ -20,7 +26,6 @@ export default function USBCreateScreen() {
   const [showRecipeModal, setShowRecipeModal] = useState(false);
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
   const { data: hostCaps, isLoading: capsLoading } = useQuery({
     queryKey: ['host-capabilities'],
     queryFn: () => phoenixClient.refreshCapabilities(),
@@ -50,6 +55,43 @@ export default function USBCreateScreen() {
   });
 
   // Safety check mutation
+  const needsElevatedConfirmation = (r: SafetyCheckResult) => {
+    const lvl = (r.risk_level || '').toLowerCase();
+    const overall = String((r.device_risk as { overall_risk?: string } | undefined)?.overall_risk || '').toLowerCase();
+    return lvl === 'medium' || lvl === 'high' || overall === 'warning';
+  };
+
+  const proceedAfterSafetyOk = (result: SafetyCheckResult) => {
+    const path = selectedDevice?.device_id || '';
+    const runBuild = () => {
+      setStep('building');
+      startBuildMutation.mutate();
+    };
+    if (needsElevatedConfirmation(result)) {
+      Alert.alert(
+        'Elevated risk',
+        `Server risk: ${result.risk_level || 'unknown'}. Warnings:\n${(result.warnings || []).join('\n') || '(none)'}\n\nTarget path: ${path}\n\nThere is no automatic rollback if something goes wrong.`,
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => {} },
+          {
+            text: 'Continue',
+            onPress: () =>
+              Alert.alert(
+                'Final confirmation',
+                `You are about to start a destructive write to:\n${path}\n\nType mentally verified: this erases the device.`,
+                [
+                  { text: 'Cancel', style: 'cancel', onPress: () => {} },
+                  { text: 'Erase device', style: 'destructive', onPress: runBuild },
+                ]
+              ),
+          },
+        ]
+      );
+    } else {
+      runBuild();
+    }
+  };
+
   const safetyCheckMutation = useMutation({
     mutationFn: () => {
       if (!selectedRecipe || !selectedDevice) throw new Error('Recipe and device required');
@@ -57,12 +99,11 @@ export default function USBCreateScreen() {
     },
     onSuccess: (result) => {
       if (result.safe) {
-        setStep('building');
-        startBuildMutation.mutate();
+        proceedAfterSafetyOk(result);
       } else {
         Alert.alert(
           'Safety Check Failed',
-          `Warnings: ${result.warnings.join('\n')}\n\nErrors: ${result.errors.join('\n')}`,
+          `Errors: ${result.errors.join('\n')}\n\nWarnings: ${result.warnings.join('\n')}`,
           [{ text: 'OK' }]
         );
       }
@@ -112,7 +153,11 @@ export default function USBCreateScreen() {
       if (jobProgress.status === 'completed') {
         setStep('complete');
       } else if (jobProgress.status === 'failed') {
-        Alert.alert('Build Failed', jobProgress.error_message || 'Unknown error');
+        const stage = jobProgress.failure_stage ? `\nStage: ${jobProgress.failure_stage}` : '';
+        const roll = jobProgress.rollback_available
+          ? ''
+          : '\n\nNo automatic rollback. Re-scan devices on the host, pick a new USB if needed, or use BootForge desktop. Audit: GET /api/audit/jobs/recent on the host.';
+        Alert.alert('Build Failed', `${jobProgress.error_message || 'Unknown error'}${stage}${roll}`);
         resetWorkflow();
       }
     }
@@ -126,12 +171,13 @@ export default function USBCreateScreen() {
   };
 
   const handleSafetyCheck = () => {
+    const path = selectedDevice?.device_id || '';
     Alert.alert(
-      'Confirm Build',
-      `Create bootable USB on ${selectedDevice?.device_name}?\n\nThis will erase all data on the device.`,
+      'Confirm safety check',
+      `Request server validation for:\n${path}\n\nRemovable (host scan): ${selectedDevice?.removable ? 'yes' : 'unknown'}\n\nThis does not start the write yet — a second step runs after the server approves.`,
       [
         { text: 'Cancel', onPress: () => {} },
-        { text: 'Proceed', onPress: () => safetyCheckMutation.mutate(), style: 'destructive' },
+        { text: 'Run safety check', onPress: () => safetyCheckMutation.mutate(), style: 'destructive' },
       ]
     );
   };
@@ -239,7 +285,10 @@ export default function USBCreateScreen() {
             </View>
           )}
 
-          <Text className="text-white font-bold mb-2">Available USB Drives</Text>
+          <Text className="text-white font-bold mb-2">Removable drives (host)</Text>
+          <Text className="text-gray-500 text-xs mb-2">
+            List is removable_only from the API. Check path matches the physical USB.
+          </Text>
 
           {usbDevices.length === 0 ? (
             <View className="bg-slate-800 rounded-lg p-6 items-center border border-slate-700">
@@ -263,8 +312,12 @@ export default function USBCreateScreen() {
               >
                 <View className="flex-1">
                   <Text className="text-white font-bold">{device.device_name}</Text>
+                  <Text className="text-amber-200 text-xs font-mono mt-0.5">{device.device_id}</Text>
                   <Text className="text-gray-400 text-xs">{device.vendor} {device.model}</Text>
                   <Text className="text-cyan-400 text-xs mt-1">{formatBytes(device.size_bytes)}</Text>
+                  <Text className="text-gray-500 text-xs mt-0.5">
+                    Removable: {device.removable ? 'yes' : 'no'} · Risk: {device.health_status}
+                  </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={24} color="#00d4ff" />
               </TouchableOpacity>
@@ -293,7 +346,11 @@ export default function USBCreateScreen() {
             <View className="bg-slate-800 rounded-lg p-4 mb-4 border border-slate-700">
               <Text className="text-gray-400 text-xs mb-1">Target USB Drive</Text>
               <Text className="text-white font-bold text-lg">{selectedDevice.device_name}</Text>
+              <Text className="text-amber-200 text-xs font-mono mt-1">{selectedDevice.device_id}</Text>
               <Text className="text-gray-400 text-xs mt-1">{formatBytes(selectedDevice.size_bytes)}</Text>
+              <Text className="text-gray-500 text-xs mt-1">
+                Removable: {selectedDevice.removable ? 'yes' : 'no'} · Heuristic risk: {selectedDevice.health_status}
+              </Text>
             </View>
           )}
 
@@ -303,7 +360,7 @@ export default function USBCreateScreen() {
               <View className="flex-1 ml-3">
                 <Text className="text-red-200 font-bold">WARNING</Text>
                 <Text className="text-red-100 text-xs mt-1">
-                  All data on the selected USB drive will be permanently erased. This cannot be undone.
+                  All data on the selected USB drive will be permanently erased. There is no rollback. If the job fails mid-write, treat the stick as suspect and re-image from BootForge on the desktop if unsure.
                 </Text>
               </View>
             </View>
