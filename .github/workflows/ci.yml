@@ -49,6 +49,10 @@ jobs:
         run: python -m pytest tests/
         shell: bash
 
+      - name: Truth enforcement (lockdown plus)
+        run: bash scripts/ci_truth_enforcement.sh
+        shell: bash
+
       - name: Build Rust (compilable crates only)
         run: |
           cargo build -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-bootloader-core -p phoenix-wim || true

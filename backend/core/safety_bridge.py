@@ -1,21 +1,14 @@
 """
-Bridge to BootForge SafetyValidator (desktop/src) — canonical safety authority for API.
+Bridge to canonical **phoenix_safety** package (shared with BootForge desktop).
 
-Backend adds `repo/desktop` to sys.path so `src.core.safety_validator` imports resolve.
+Install: `pip install -e packages/phoenix_safety` (see root `requirements.txt`).
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_DESKTOP_ROOT = _REPO_ROOT / "desktop"
-if _DESKTOP_ROOT.is_dir() and str(_DESKTOP_ROOT) not in sys.path:
-    sys.path.insert(0, str(_DESKTOP_ROOT))
-
 try:
-    from src.core.safety_validator import (
+    from phoenix_safety.safety_validator import (
         SafetyValidator,
         SafetyLevel,
         ValidationResult,
@@ -43,8 +36,7 @@ def run_device_safety(device_path: str) -> Tuple[bool, Dict[str, Any], List[str]
 
     if not _VALIDATOR_AVAILABLE:
         errors.append(
-            "SafetyValidator unavailable (BootForge desktop/src not importable). "
-            "Install full desktop dependencies and run from repository checkout."
+            "phoenix_safety package not installed. Run: pip install -e packages/phoenix_safety"
         )
         return False, {}, errors, warnings
 
@@ -80,7 +72,9 @@ def run_device_safety(device_path: str) -> Tuple[bool, Dict[str, Any], List[str]
         return False, risk_dict, errors, warnings
 
     if ov == ValidationResult.WARNING:
-        warnings.append(f"Overall risk: WARNING ({', '.join(dr.risk_factors) if dr.risk_factors else 'see risk_factors'})")
+        warnings.append(
+            f"Overall risk: WARNING ({', '.join(dr.risk_factors) if dr.risk_factors else 'see risk_factors'})"
+        )
 
     return True, risk_dict, errors, warnings
 

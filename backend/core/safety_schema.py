@@ -20,7 +20,7 @@ def build_safety_payload(
     confirmation_token: str,
     device_info: Optional[Dict[str, Any]],
     device_risk: Optional[Dict[str, Any]] = None,
-    validator_source: str = "bootforge_safety_validator",
+    validator_source: str = "phoenix_safety",
     capability_notes: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     return {

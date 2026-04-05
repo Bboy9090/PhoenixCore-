@@ -4,11 +4,11 @@ Phoenix Core is a professional, cross-platform OS deployment system. This reposi
 
 **Authoritative architecture and integration audit:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/AUDIT_PLATFORM_INTEGRATION.md`](docs/AUDIT_PLATFORM_INTEGRATION.md), [`docs/AUDIT_SECOND_PASS_STRUCTURE.md`](docs/AUDIT_SECOND_PASS_STRUCTURE.md).
 
-**Authority hierarchy (enforced):** [`docs/AUTHORITY_MODEL.md`](docs/AUTHORITY_MODEL.md) · **Safety:** [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md) · **Capabilities:** [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) · **Path status:** [`docs/REPO_STATUS_MAP.md`](docs/REPO_STATUS_MAP.md).
+**Authority hierarchy (enforced):** [`docs/AUTHORITY_MODEL.md`](docs/AUTHORITY_MODEL.md) · **Safety:** [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md) · **Capabilities:** [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md) · **Path status:** [`docs/REPO_STATUS_MAP.md`](docs/REPO_STATUS_MAP.md) · **Lockdown Plus:** [`docs/LOCKDOWN_PLUS_REPORT.md`](docs/LOCKDOWN_PLUS_REPORT.md) · **Audit log:** [`docs/AUDIT_LOG.md`](docs/AUDIT_LOG.md) · **CI truth:** [`docs/TRUTH_ENFORCEMENT.md`](docs/TRUTH_ENFORCEMENT.md).
 
 **Which binary to run:** [`docs/CANONICAL_RUNTIME.md`](docs/CANONICAL_RUNTIME.md).
 
-> **Monorepo note:** The **root** `package.json` (pnpm, Expo ~54, `server/_core`) is a **separate Node/Expo template**, not the same app as [`phoenix-core-mobile/`](phoenix-core-mobile/). For Phoenix mobile + USB remote control, use **`phoenix-core-mobile/`** against the **`backend/`** FastAPI server.
+> **Monorepo note:** The **root** `package.json` (pnpm, Expo ~54, `server/_core`) is a **separate Node/Expo template**, not the same app as [`phoenix-core-mobile/`](phoenix-core-mobile/). For Phoenix mobile + USB remote control, use **`phoenix-core-mobile/`** against the **`backend/`** FastAPI server. See **[`ROOT_NONCORE_NOTICE.md`](ROOT_NONCORE_NOTICE.md)** and **[`experimental/README.md`](experimental/README.md)**.
 
 ---
 
@@ -38,6 +38,7 @@ Phoenix Core is a professional, cross-platform OS deployment system. This reposi
 
 ```bash
 pip install -r requirements.txt
+# Installs editable packages/phoenix_safety (shared SafetyValidator) for desktop + backend
 
 # BootForge GUI (repo root delegates to desktop/main.py)
 python3 main.py --gui
@@ -67,7 +68,9 @@ cargo build -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 \
 ├── backend/               # FastAPI (devices, recipes, build jobs)
 ├── crates/                # Rust workspace (core, safety, hosts, imaging, …)
 ├── desktop/               # BootForge: main.py, src/ (engine + GUI)
+├── packages/phoenix_safety/  # Shared SafetyValidator (pip install -e)
 ├── docs/                  # Architecture, contracts, audits
+├── experimental/          # Pointer doc for non-core template material
 ├── legacy/                # Quarantined / reference only
 ├── mobile/                # React Native (parallel to phoenix-core-mobile)
 ├── phoenix-core-mobile/   # Expo app

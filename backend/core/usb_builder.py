@@ -24,6 +24,8 @@ from core.phoenix_paths import legacy_boot_kiosk_script, oclp_submodule_path, re
 from core.safety_bridge import run_device_safety, validator_available, map_risk_level_from_validator
 from core.safety_schema import build_safety_payload
 from core.platform_guard import require_destructive_usb_native, DestructiveOperationNotSupported
+from core.audit_store import append_record
+from core.platform_caps import platform_caps
 
 # ─── Build State ──────────────────────────────────────────────────────────────
 
@@ -741,6 +743,7 @@ def _run_build_job(job: BuildJob, request: Dict[str, Any]):
             safety = validate_safety(
                 device_path, job.recipe_id, require_removable=True, dry_run=False
             )
+            caps = platform_caps()
             job.preflight = {
                 "schema_version": safety.get("schema_version"),
                 "safe_to_proceed": safety.get("safe_to_proceed"),
@@ -749,8 +752,43 @@ def _run_build_job(job: BuildJob, request: Dict[str, Any]):
                 "rollback_available": False,
                 "note": "No automatic disk rollback is performed after destructive writes.",
             }
+            append_record(
+                {
+                    "event": "preflight",
+                    "job_id": job.job_id,
+                    "recipe_id": job.recipe_id,
+                    "target_device_path": device_path,
+                    "device_info": safety.get("device_info"),
+                    "validation": {
+                        "safe_to_proceed": safety.get("safe_to_proceed"),
+                        "errors": safety.get("errors"),
+                        "warnings": safety.get("warnings"),
+                        "risk_level": safety.get("risk_level"),
+                        "device_risk": safety.get("device_risk"),
+                        "schema_version": safety.get("schema_version"),
+                    },
+                    "confirmation": {"had_token": True},
+                    "host_capabilities": caps,
+                    "dry_run": job.dry_run,
+                    "failure_stage": None,
+                    "rollback_available": False,
+                    "started_at_unix": job.start_time,
+                }
+            )
             if not safety["safe_to_proceed"]:
                 job.failure_stage = "safety_validation"
+                append_record(
+                    {
+                        "event": "job_failed",
+                        "job_id": job.job_id,
+                        "recipe_id": job.recipe_id,
+                        "target_device_path": device_path,
+                        "failure_stage": "safety_validation",
+                        "error": "; ".join(safety.get("errors") or []),
+                        "rollback_available": False,
+                        "failed_at_unix": time.time(),
+                    }
+                )
                 errors = "; ".join(safety["errors"])
                 raise RuntimeError(f"Safety check failed: {errors}")
 
@@ -856,6 +894,18 @@ def _run_build_job(job: BuildJob, request: Dict[str, Any]):
         job.elapsed_seconds = time.time() - job.start_time
         _log(job, f"Build complete! Elapsed: {job.elapsed_seconds:.1f}s")
         _log(job, f"USB drive is ready: {device_path}")
+        append_record(
+            {
+                "event": "job_complete",
+                "job_id": job.job_id,
+                "recipe_id": job.recipe_id,
+                "target_device_path": device_path,
+                "failure_stage": None,
+                "rollback_available": False,
+                "completed_at_unix": time.time(),
+                "note": "Verify media manually; no automatic rollback exists.",
+            }
+        )
 
     except Exception as e:
         job.status = BuildStatus.FAILED
@@ -866,6 +916,19 @@ def _run_build_job(job: BuildJob, request: Dict[str, Any]):
         job.rollback_available = False
         _log(job, f"Build FAILED at stage {job.failure_stage}: {e}")
         _log(job, "Rollback: not available — manual recovery may be required if the disk was partially written.")
+        append_record(
+            {
+                "event": "job_failed",
+                "job_id": job.job_id,
+                "recipe_id": job.recipe_id,
+                "target_device_path": job.target_device,
+                "failure_stage": job.failure_stage,
+                "error": str(e),
+                "rollback_available": False,
+                "failed_at_unix": time.time(),
+                "recovery": "Do not assume rollback. Re-scan disks, re-run safety check on a new target, or use BootForge desktop for guided recovery.",
+            }
+        )
         logger.exception(f"Build job {job.job_id} failed")
 
 
@@ -883,6 +946,17 @@ def start_build(request: Dict[str, Any]) -> Dict[str, Any]:
         try:
             require_destructive_usb_native(dry_run=False)
         except DestructiveOperationNotSupported as e:
+            append_record(
+                {
+                    "event": "job_rejected",
+                    "recipe_id": recipe_id,
+                    "target_device_path": device_path,
+                    "reason": "destructive_usb_write_native_false",
+                    "error": str(e),
+                    "rollback_available": False,
+                    "rejected_at_unix": time.time(),
+                }
+            )
             return {
                 "job_id": "",
                 "status": "failed",
@@ -893,6 +967,16 @@ def start_build(request: Dict[str, Any]) -> Dict[str, Any]:
 
     # Validate token for non-dry-run
     if not dry_run and not confirmation_token.startswith("PHX-"):
+        append_record(
+            {
+                "event": "job_rejected",
+                "recipe_id": recipe_id,
+                "target_device_path": device_path,
+                "reason": "invalid_confirmation_token",
+                "rollback_available": False,
+                "rejected_at_unix": time.time(),
+            }
+        )
         return {
             "job_id": "",
             "status": "failed",
@@ -903,6 +987,16 @@ def start_build(request: Dict[str, Any]) -> Dict[str, Any]:
 
     recipe = RECIPES.get(recipe_id)
     if not recipe:
+        append_record(
+            {
+                "event": "job_rejected",
+                "recipe_id": recipe_id,
+                "target_device_path": device_path,
+                "reason": "unknown_recipe",
+                "rollback_available": False,
+                "rejected_at_unix": time.time(),
+            }
+        )
         return {
             "job_id": "",
             "status": "failed",

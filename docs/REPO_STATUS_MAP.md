@@ -12,10 +12,12 @@ Hard labels for humans and tooling. **Canonical** = ship and patch here first.
 | `docs/` | **Canonical** | Architecture + audits |
 | `website/` | **Canonical (non-core)** | Flask demo / marketing |
 | `main.py` (root) | **Canonical** | Entry → `desktop/main.py` |
-| `requirements.txt` (root) | **Canonical** | BootForge + web deps |
-| `backend/requirements.txt` | **Canonical** | FastAPI runtime |
+| `requirements.txt` (root) | **Canonical** | BootForge + web deps + `-e packages/phoenix_safety` |
+| `packages/phoenix_safety/` | **Canonical** | Shared `SafetyValidator` — single implementation |
+| `backend/requirements.txt` | **Canonical** | FastAPI runtime + editable phoenix-safety |
 | `server/api.py` (Flask) | **Deprecated** | Use `backend/`; path fixed to `desktop/src` |
-| `server/_core/`, root `package.json` | **Experimental / template** | Separate Expo+Node stack; not Phoenix USB core |
+| `server/_core/`, root `package.json` | **Experimental / template** | See **`ROOT_NONCORE_NOTICE.md`**, **`experimental/README.md`** |
+| `experimental/` | **Pointer / isolation doc** | Documents where non-core template material belongs |
 | `mobile/` | **Deprecated** | Use `phoenix-core-mobile/` |
 | `legacy/` | **Archive** | No feature work; reference only |
 | `legacy/bootable_usb/BootForge/` | **Archive (duplicate)** | Do not sync with `desktop/` |

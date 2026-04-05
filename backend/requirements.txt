@@ -1,4 +1,7 @@
 # Phoenix Core FastAPI backend (backend/main.py)
+# Install from repo root so path resolves: pip install -r backend/requirements.txt
+-e ../packages/phoenix_safety
+
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 pydantic>=2.0.0

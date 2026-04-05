@@ -16,7 +16,7 @@ This document is **normative** for Phoenix Core. Code and APIs should align with
 - **Authority:** **Orchestration, validation surface, and remote/mobile control** against the **host** that runs the server.
 - **Rule:** Destructive jobs are **blocked** unless:
   - host **platform capabilities** allow native write (`destructive_usb_write_native`), **or** `dry_run=true`;
-  - **canonical safety schema** passes (delegates to BootForge `SafetyValidator` via `backend/core/safety_bridge.py`);
+  - **canonical safety schema** passes (delegates to **`phoenix_safety`** `SafetyValidator` via `backend/core/safety_bridge.py`);
   - valid **confirmation token** from `/api/safety-check`.
 - **Not authoritative for:** Implies **no disk rollback** after partial writes — see `docs/SAFETY_MODEL.md`.
 

@@ -35,6 +35,7 @@ from core.oclp_integration import (
 )
 from core.platform_caps import platform_caps
 from core.platform_guard import require_destructive_usb_native, DestructiveOperationNotSupported, explain_block
+from core.audit_store import read_recent, export_jsonl_path, AUDIT_SCHEMA_VERSION
 
 # ─── App Setup ────────────────────────────────────────────────────────────────
 
@@ -358,6 +359,26 @@ async def list_build_jobs():
             for j in jobs
         ],
         "total": len(jobs),
+    }
+
+
+@app.get("/api/audit/jobs/recent", tags=["Audit"])
+async def audit_recent(limit: int = Query(100, ge=1, le=500)):
+    """Recent durable audit records (destructive job preflight, rejections, outcomes)."""
+    return {
+        "audit_schema_version": AUDIT_SCHEMA_VERSION,
+        "records": read_recent(limit),
+        "export_path": str(export_jsonl_path()),
+    }
+
+
+@app.get("/api/audit/export/path", tags=["Audit"])
+async def audit_export_path():
+    """Absolute path to the active JSONL audit log (for operator export)."""
+    return {
+        "audit_schema_version": AUDIT_SCHEMA_VERSION,
+        "path": str(export_jsonl_path()),
+        "format": "jsonl",
     }
 
 
