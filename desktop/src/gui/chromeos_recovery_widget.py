@@ -172,6 +172,6 @@ class ChromeosRecoveryWidget(QWidget):
             self,
             "Download complete",
             f"Recovery ZIP saved.\n\n{self.last_zip_path}\n\n"
-            "Unzip to get the .bin, then write to USB with your platform tool. "
-            "BootForge full USB imaging for Chrome OS is not run from this recipe.",
+            "Optional: in USB Deployment Builder, tab 5, enable flash to USB and confirm warnings "
+            "to write from BootForge. Or unzip the .bin and use Chromebook Recovery Utility or another verified tool.",
         )

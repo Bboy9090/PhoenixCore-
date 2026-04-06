@@ -19,7 +19,7 @@ Default index URL (override with `CHROMEOS_RECOVERY_INDEX_URL`):
 ## Operator safety
 
 - **Wrong board = wrong recovery** and can fail or damage the device. Always confirm the **board** matches the Chromebook (recovery screen, `chrome://system`, or manufacturer documentation).
-- Download automation **does not write to USB**. Writing a raw recovery image to a USB is still a **destructive** operation and must go through your normal safety + audit path.
+- Download automation **does not write to USB by default**. Writing a raw recovery image to a USB is **destructive**. BootForge can optionally perform a **gated raw** write (extract `.bin` from the ZIP, then write to a whole **removable** USB block device) only after explicit confirmations and the same prerequisite checks as other destructive flows.
 
 ## CLI
 
@@ -51,8 +51,9 @@ sel = select_recovery_for_board(index, "octopus")
 1. Open **USB Deployment Builder** (from the app menu that shows the recipe manager, or wherever `USBRecipeManagerWidget` is exposed).
 2. Tab **1. Recipe** → select **Chrome OS Recovery (download)**.
 3. Tab **Chrome OS recovery** → enter **board** codename → **Download recovery ZIP**.
-4. When the download finishes, **Build USB Drive** confirms the ZIP path and reminds you to unzip and write the `.bin` (BootForge does not run the full partition pipeline for this recipe).
+4. **Default (no USB write):** tab **5. Device** → leave **flash** unchecked → **Confirm recovery ZIP** shows the path and manual recovery steps.
+5. **Optional raw write from BootForge:** tab **5. Device** → check **“Chrome OS: … flash recovery .bin to selected USB”** → select the correct **removable** USB → **Flash recovery to USB** → complete confirmations (device name + final token). BootForge extracts the single `.bin` from the ZIP, checks size against the USB when possible, then runs a raw block write (with optional verify). You need **root/sudo** (Linux/macOS) or **Administrator** (Windows) per `SafetyValidator` prerequisites.
 
 ## Unzipping and writing to USB
 
-Recovery downloads are **`.zip`** files containing a `.bin` image. Unzip, then use your platform’s **verified** imaging flow (same rules as other raw disk images). Automating `dd` to a removable device is intentionally **not** bundled in this download-only step.
+Recovery downloads are **`.zip`** files containing a `.bin` image. You can unzip manually and use your platform’s **verified** imaging flow, or use BootForge’s gated flash path above. The Python helper `extract_chromeos_recovery_bin()` extracts the lone `.bin` when the ZIP contains exactly one `.bin` member.

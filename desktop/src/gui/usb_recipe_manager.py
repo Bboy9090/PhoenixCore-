@@ -23,7 +23,8 @@ from src.core.usb_builder import (
     BuildProgress, DeploymentType, PartitionScheme, FileSystem
 )
 from src.gui.chromeos_recovery_widget import ChromeosRecoveryWidget
-from src.core.disk_manager import DiskInfo
+from src.core.disk_manager import DiskInfo, DiskWriter, WriteProgress
+from src.core.chromeos_recovery import extract_chromeos_recovery_bin, ChromeosRecoveryError
 from src.core.safety_validator import SafetyValidator, SafetyLevel, ValidationResult
 from src.core.config import Config
 from src.core.hardware_detector import HardwareDetector, DetectedHardware, DetectionConfidence
@@ -773,10 +774,18 @@ class USBRecipeManagerWidget(QWidget):
         self.selected_device: Optional[str] = None
         self.source_files: Dict[str, str] = {}
         self.chromeos_recovery_widget: Optional[ChromeosRecoveryWidget] = None
+        self.chromeos_flash_to_usb: bool = False
+        self._chromeos_extracted_bin: Optional[str] = None
         
         self._setup_ui()
         self._load_data()
         self._setup_connections()
+        self._chrome_disk_writer = DiskWriter()
+        self._chrome_disk_writer.progress_updated.connect(self._on_chromeos_disk_progress)
+        self._chrome_disk_writer.operation_started.connect(
+            lambda desc: self.progress_widget.add_log_message("INFO", desc)
+        )
+        self._chrome_disk_writer.operation_completed.connect(self._on_chromeos_write_completed)
     
     def _setup_ui(self):
         """Setup main UI"""
@@ -919,6 +928,14 @@ class USBRecipeManagerWidget(QWidget):
         warning.setStyleSheet("color: #FF6B35; font-weight: bold;")
         warning.setWordWrap(True)
         layout.addWidget(warning)
+
+        self.chromeos_flash_checkbox = QCheckBox(
+            "Chrome OS: after download, flash recovery .bin to selected USB (destructive — gated confirmations)"
+        )
+        self.chromeos_flash_checkbox.setEnabled(False)
+        self.chromeos_flash_checkbox.setChecked(False)
+        self.chromeos_flash_checkbox.stateChanged.connect(self._on_chromeos_flash_toggled)
+        layout.addWidget(self.chromeos_flash_checkbox)
         
         return widget
     
@@ -1017,12 +1034,21 @@ class USBRecipeManagerWidget(QWidget):
             if recipe.deployment_type == DeploymentType.CHROMEOS_RECOVERY and self.chromeos_recovery_widget:
                 self.chromeos_recovery_widget.reset_for_new_recipe()
                 self.source_files.pop("chromeos_recovery.zip", None)
+                self._chromeos_extracted_bin = None
+                self.chromeos_flash_to_usb = False
+                if hasattr(self, "chromeos_flash_checkbox"):
+                    self.chromeos_flash_checkbox.setChecked(False)
+            elif hasattr(self, "chromeos_flash_checkbox"):
+                self.chromeos_flash_checkbox.setChecked(False)
+                self.chromeos_flash_to_usb = False
+                self._chromeos_extracted_bin = None
         
         self._update_build_button()
 
     def _on_chromeos_recovery_downloaded(self, zip_path: str, board: str):
         """Wire downloaded recovery ZIP into source_files for recipe readiness."""
         self.source_files["chromeos_recovery.zip"] = zip_path
+        self._chromeos_extracted_bin = None
         self.progress_widget.add_log_message(
             "INFO",
             f"Chrome OS recovery ZIP ready for board {board}: {zip_path}",
@@ -1055,6 +1081,13 @@ class USBRecipeManagerWidget(QWidget):
             self.selected_device = device.path
             self._update_device_details(device)
             self._update_build_button()
+
+    def _on_chromeos_flash_toggled(self, _state: int) -> None:
+        self.chromeos_flash_to_usb = (
+            hasattr(self, "chromeos_flash_checkbox")
+            and self.chromeos_flash_checkbox.isChecked()
+        )
+        self._update_build_button()
     
     def _update_device_details(self, device: DiskInfo):
         """Update device details display"""
@@ -1072,6 +1105,12 @@ class USBRecipeManagerWidget(QWidget):
         recipe = next((r for r in recipes if r.name == self.selected_recipe), None)
         is_chromeos = recipe and recipe.deployment_type == DeploymentType.CHROMEOS_RECOVERY
 
+        if hasattr(self, "chromeos_flash_checkbox"):
+            self.chromeos_flash_checkbox.setEnabled(bool(is_chromeos))
+            if not is_chromeos:
+                self.chromeos_flash_checkbox.setChecked(False)
+                self.chromeos_flash_to_usb = False
+
         # Check basic selections (Chrome OS recovery does not use USB build pipeline)
         if is_chromeos:
             basic_ready = bool(self.selected_recipe and self.selected_profile)
@@ -1084,8 +1123,14 @@ class USBRecipeManagerWidget(QWidget):
                 zip_ok = False
             os_images_ready = zip_ok
             traditional_files_ready = True
-            ready = basic_ready and os_images_ready
+            flash = self.chromeos_flash_to_usb
+            device_ok = bool(self.selected_device) if flash else True
+            ready = basic_ready and os_images_ready and device_ok
+            self.build_btn.setText(
+                "Flash recovery to USB" if flash else "Confirm recovery ZIP (no USB write)"
+            )
         else:
+            self.build_btn.setText("Build USB Drive")
             basic_ready = all(
                 [
                     self.selected_recipe,
@@ -1102,9 +1147,13 @@ class USBRecipeManagerWidget(QWidget):
         # Update status message
         if ready:
             status_msg = (
-                "✅ Chrome OS recovery ZIP ready (use tab Chrome OS recovery if needed)"
-                if is_chromeos
-                else "✅ Ready to build USB drive"
+                "✅ Chrome OS: ready to flash recovery to USB"
+                if is_chromeos and self.chromeos_flash_to_usb
+                else (
+                    "✅ Chrome OS recovery ZIP ready (enable flash + pick USB to write)"
+                    if is_chromeos
+                    else "✅ Ready to build USB drive"
+                )
             )
         elif not basic_ready:
             missing = []
@@ -1115,6 +1164,8 @@ class USBRecipeManagerWidget(QWidget):
             if not is_chromeos and not self.selected_device:
                 missing.append("USB device")
             status_msg = f"Please select: {', '.join(missing)}"
+        elif is_chromeos and self.chromeos_flash_to_usb and not self.selected_device:
+            status_msg = "⏳ Chrome OS flash: select a removable USB device (tab 5)"
         elif not os_images_ready:
             status_msg = (
                 "⏳ Download recovery ZIP on tab Chrome OS recovery"
@@ -1135,30 +1186,7 @@ class USBRecipeManagerWidget(QWidget):
             recipes = self.storage_builder.get_available_recipes()
             recipe = next((r for r in recipes if r.name == self.selected_recipe), None)
             if recipe and recipe.deployment_type == DeploymentType.CHROMEOS_RECOVERY:
-                if not self.selected_recipe or not self.selected_profile:
-                    QMessageBox.warning(self, "Missing Selection", "Select recipe and hardware profile.")
-                    return
-                zp = self.source_files.get("chromeos_recovery.zip", "")
-                if not zp or not os.path.isfile(zp):
-                    QMessageBox.warning(
-                        self,
-                        "Recovery ZIP required",
-                        "Use the Chrome OS recovery tab to download the recovery ZIP for your board first.",
-                    )
-                    return
-                self.progress_widget.add_log_message(
-                    "INFO",
-                    f"Chrome OS recovery: recipe selected; ZIP on disk: {zp}. No USB build — unzip and write .bin with your OS tools.",
-                )
-                QMessageBox.information(
-                    self,
-                    "Chrome OS recovery",
-                    "BootForge has saved the recovery ZIP.\n\n"
-                    f"{zp}\n\n"
-                    "Unzip to extract the .bin image, then write it to a USB using your platform’s "
-                    "recommended tool (e.g. Chromebook Recovery Utility or dd). "
-                    "This recipe does not run the full partition/USB builder.",
-                )
+                self._start_chromeos_flow()
                 return
 
             # Validate selections with proper type checking
@@ -1284,12 +1312,246 @@ class USBRecipeManagerWidget(QWidget):
             self.logger.error(f"Error starting build: {e}")
             self.progress_widget.add_log_message("ERROR", f"Build start error: {str(e)}")
             QMessageBox.critical(self, "Build Error", f"Failed to start build: {str(e)}")
+
+    def _chromeos_device_capacity_bytes(self, device_path: str) -> Optional[int]:
+        """Best-effort size for the selected list entry (partition path or whole-disk path)."""
+        if not self.disk_manager:
+            return None
+        try:
+            for d in self.disk_manager.get_removable_drives():
+                if d.path == device_path:
+                    return d.size_bytes
+            for d in self.disk_manager.get_all_storage_drives(include_system_drives=True):
+                if d.path == device_path:
+                    return d.size_bytes
+        except Exception:
+            return None
+        return None
+
+    def _start_chromeos_flow(self) -> None:
+        """Download-only info, or gated raw flash of extracted .bin via DiskWriter."""
+        if not self.selected_recipe or not self.selected_profile:
+            QMessageBox.warning(self, "Missing Selection", "Select recipe and hardware profile.")
+            return
+        zp = self.source_files.get("chromeos_recovery.zip", "")
+        if not zp or not os.path.isfile(zp):
+            QMessageBox.warning(
+                self,
+                "Recovery ZIP required",
+                "Use the Chrome OS recovery tab to download the recovery ZIP for your board first.",
+            )
+            return
+
+        if not self.chromeos_flash_to_usb:
+            self.progress_widget.add_log_message(
+                "INFO",
+                f"Chrome OS recovery: ZIP on disk: {zp}. No USB write — unzip and write .bin manually if preferred.",
+            )
+            QMessageBox.information(
+                self,
+                "Chrome OS recovery",
+                "BootForge has saved the recovery ZIP.\n\n"
+                f"{zp}\n\n"
+                "To write from this machine: enable “flash recovery .bin to USB” under tab 5, select a USB, "
+                "and confirm the warnings. Or unzip and use your platform’s tool (e.g. Chromebook Recovery Utility).",
+            )
+            return
+
+        if not self.selected_device:
+            QMessageBox.warning(self, "USB required", "Select a removable USB device (tab 5) before flashing.")
+            return
+
+        self.progress_widget.add_log_message("INFO", "Chrome OS: starting safety checks before raw recovery write…")
+        self._run_chromeos_flash_pipeline(zp)
+
+    def _run_chromeos_flash_pipeline(self, zip_path: str) -> None:
+        assert self.selected_device is not None
+        device_path = self.selected_device
+
+        if self._chrome_disk_writer.isRunning():
+            QMessageBox.warning(self, "Busy", "A write operation is already in progress.")
+            return
+
+        device_risk = self.safety_validator.validate_device_safety(device_path)
+
+        if device_risk.overall_risk == ValidationResult.BLOCKED:
+            QMessageBox.critical(
+                self,
+                "🚫 OPERATION BLOCKED FOR SAFETY 🚫",
+                f"Device: {device_path}\n"
+                f"Size: {device_risk.size_gb:.1f}GB\n\n"
+                f"Risk Factors:\n"
+                + "\n".join([f"• {factor}" for factor in device_risk.risk_factors])
+                + "\n\nThis device is not safe for a raw recovery write.",
+            )
+            self.progress_widget.add_log_message("ERROR", f"BLOCKED device: {device_path}")
+            return
+
+        if device_risk.overall_risk == ValidationResult.DANGEROUS:
+            QMessageBox.critical(
+                self,
+                "⚠️ DANGEROUS DEVICE DETECTED ⚠️",
+                f"Device: {device_path} ({device_risk.size_gb:.1f}GB)\n\n"
+                f"Risk Factors:\n"
+                + "\n".join([f"• {factor}" for factor in device_risk.risk_factors])
+                + "\n\nOPERATION BLOCKED FOR SAFETY",
+            )
+            self.progress_widget.add_log_message("ERROR", f"DANGEROUS device blocked: {device_path}")
+            return
+
+        prereq_checks = self.safety_validator.validate_prerequisites()
+        blocked_checks = [c for c in prereq_checks if c.result == ValidationResult.BLOCKED]
+        if blocked_checks:
+            error_msg = "❌ MISSING PREREQUISITES:\n" + "\n".join(
+                [f"• {c.name}: {c.message}" for c in blocked_checks]
+            )
+            QMessageBox.critical(self, "Missing Prerequisites", error_msg)
+            for c in blocked_checks:
+                self.progress_widget.add_log_message("ERROR", f"Missing prerequisite: {c.name}")
+            return
+
+        zip_only = {"chromeos_recovery.zip": zip_path}
+        source_checks = self.safety_validator.validate_source_files(zip_only)
+        blocked_sources = [c for c in source_checks if c.result == ValidationResult.BLOCKED]
+        if blocked_sources:
+            error_msg = "❌ SOURCE FILE ISSUES:\n" + "\n".join(
+                [f"• {c.name}: {c.message}" for c in blocked_sources]
+            )
+            QMessageBox.critical(self, "Source File Issues", error_msg)
+            return
+
+        self.progress_widget.add_log_message("INFO", "✅ Prerequisite checks passed for Chrome OS flash")
+
+        if device_risk.overall_risk == ValidationResult.WARNING:
+            warning_msg = (
+                f"⚠️ WARNING: Device has risk factors\n\n"
+                f"Device: {device_path} ({device_risk.size_gb:.1f}GB)\n\n"
+                f"Risk Factors:\n"
+                + "\n".join([f"• {factor}" for factor in device_risk.risk_factors])
+                + "\n\nThis will PERMANENTLY ERASE all data on the device.\n\n"
+                f"To confirm, type the device name: {os.path.basename(device_path)}"
+            )
+            text, ok = QInputDialog.getText(self, "⚠️ Confirm Risky Operation", warning_msg)
+            device_name = os.path.basename(device_path)
+            if not ok or text != device_name:
+                self.progress_widget.add_log_message("INFO", "Operation cancelled - failed device name confirmation")
+                return
+
+        device_basename = os.path.basename(device_path)
+        final_confirmation = (
+            "🚨 CHROME OS RECOVERY — RAW DISK WRITE 🚨\n\n"
+            "This writes the recovery .bin to the ENTIRE USB block device.\n"
+            "There is no rollback.\n\n"
+            f"Device: {device_path}\n"
+            f"Size: {device_risk.size_gb:.1f} GB\n"
+            f"Recipe: {self.selected_recipe}\n"
+            f"Profile: {self.selected_profile}\n\n"
+            f"Type EXACTLY this token to proceed: {device_basename}"
+        )
+        text, ok = QInputDialog.getText(self, "Final Confirmation Required", final_confirmation)
+        if not ok or text != device_basename:
+            self.progress_widget.add_log_message("INFO", "Operation cancelled - failed final confirmation")
+            return
+
+        board_guess = "recovery"
+        if self.chromeos_recovery_widget and self.chromeos_recovery_widget.last_board:
+            board_guess = self.chromeos_recovery_widget.last_board
+
+        extract_root = self.config.app_dir / "chromeos_recovery" / "extracted"
+        try:
+            bin_path = extract_chromeos_recovery_bin(
+                Path(zip_path),
+                extract_root,
+                safe_stem=board_guess,
+            )
+        except ChromeosRecoveryError as e:
+            self.progress_widget.add_log_message("ERROR", f"ZIP extract failed: {e}")
+            QMessageBox.critical(self, "Extract failed", str(e))
+            return
+
+        self._chromeos_extracted_bin = str(bin_path)
+        self.progress_widget.add_log_message("INFO", f"Extracted recovery image: {bin_path}")
+
+        bin_size = os.path.getsize(bin_path)
+        cap = self._chromeos_device_capacity_bytes(device_path)
+        if cap is not None and bin_size > cap:
+            QMessageBox.critical(
+                self,
+                "Image too large",
+                f"Recovery image ({bin_size / (1024**3):.2f} GiB) is larger than the selected device "
+                f"({cap / (1024**3):.2f} GiB). Use a larger USB drive.",
+            )
+            self.progress_widget.add_log_message("ERROR", "Recovery .bin larger than USB capacity")
+            return
+        if cap is None:
+            self.progress_widget.add_log_message(
+                "WARNING",
+                "Could not verify USB capacity against image size; proceeding only after your confirmation.",
+            )
+
+        verify = (
+            QMessageBox.question(
+                self,
+                "Verify after write",
+                "Verify written data after the flash? (Slower but checks SHA256 match for the written size.)",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            == QMessageBox.StandardButton.Yes
+        )
+
+        self._chrome_disk_writer.verify_after_write = verify
+        self.build_btn.setEnabled(False)
+        self.cancel_btn.setEnabled(True)
+        if hasattr(self, "chromeos_flash_checkbox"):
+            self.chromeos_flash_checkbox.setEnabled(False)
+
+        self.progress_widget.add_log_message(
+            "INFO",
+            f"Starting raw write to {device_path} (verify={'on' if verify else 'off'})",
+        )
+        self._chrome_disk_writer.write_image(str(bin_path), device_path, verify=verify)
+
+    def _on_chromeos_disk_progress(self, progress: WriteProgress) -> None:
+        """Map DiskWriter progress to the build progress panel."""
+        try:
+            bp = BuildProgress(
+                current_step="Chrome OS recovery write",
+                step_number=1,
+                total_steps=1,
+                step_progress=progress.percentage,
+                overall_progress=progress.percentage,
+                speed_mbps=progress.speed_mbps,
+                eta_seconds=progress.eta_seconds,
+                detailed_status=progress.current_operation,
+            )
+            self.progress_widget.update_progress(bp)
+        except Exception as e:
+            self.logger.debug(f"Chrome OS progress mapping: {e}")
+
+    def _on_chromeos_write_completed(self, success: bool, message: str) -> None:
+        self.cancel_btn.setEnabled(False)
+        if hasattr(self, "chromeos_flash_checkbox"):
+            self.chromeos_flash_checkbox.setEnabled(True)
+        self._update_build_button()
+
+        if success:
+            self.progress_widget.add_log_message("INFO", message)
+            QMessageBox.information(self, "Chrome OS recovery", message)
+            self.logger.info(f"Chrome OS flash: {message}")
+        else:
+            self.progress_widget.add_log_message("ERROR", message)
+            QMessageBox.critical(self, "Chrome OS flash failed", message)
+            self.logger.error(f"Chrome OS flash failed: {message}")
     
     def _cancel_build(self):
         """Cancel current build"""
         try:
             if hasattr(self.storage_builder, 'builder'):
                 self.storage_builder.builder.cancel_build()
+            if self._chrome_disk_writer.isRunning():
+                self._chrome_disk_writer.cancel_operation()
+                self.progress_widget.add_log_message("INFO", "Chrome OS write cancel requested")
             
             self.build_btn.setEnabled(True)
             self.cancel_btn.setEnabled(False)

@@ -1,5 +1,10 @@
 """Tests for Chrome OS recovery metadata selection (no network)."""
 
+import tempfile
+import zipfile
+from pathlib import Path
+
+from src.core.chromeos_recovery.extract import extract_chromeos_recovery_bin
 from src.core.chromeos_recovery.index import (
     ChromeosRecoveryError,
     pick_latest_stable_image,
@@ -65,3 +70,30 @@ def test_unknown_board_raises():
         assert False, "expected ChromeosRecoveryError"
     except ChromeosRecoveryError as e:
         assert "Unknown board" in str(e)
+
+
+def test_extract_chromeos_recovery_bin_single_member():
+    with tempfile.TemporaryDirectory() as tmp:
+        zpath = Path(tmp) / "rec.zip"
+        inner = Path(tmp) / "payload.bin"
+        inner.write_bytes(b"chromeos-bin-test-bytes" * 100)
+        with zipfile.ZipFile(zpath, "w") as zf:
+            zf.write(inner, "chromeos_123_recovery_stable-channel.bin")
+
+        out_dir = Path(tmp) / "out"
+        got = extract_chromeos_recovery_bin(zpath, out_dir, safe_stem="octopus")
+        assert got.name == "octopus_recovery.bin"
+        assert got.read_bytes() == inner.read_bytes()
+
+
+def test_extract_raises_on_multiple_bin():
+    with tempfile.TemporaryDirectory() as tmp:
+        zpath = Path(tmp) / "rec.zip"
+        with zipfile.ZipFile(zpath, "w") as zf:
+            zf.writestr("a.bin", b"a")
+            zf.writestr("b.bin", b"b")
+        try:
+            extract_chromeos_recovery_bin(zpath, Path(tmp) / "out", safe_stem="x")
+            assert False, "expected ChromeosRecoveryError"
+        except ChromeosRecoveryError as e:
+            assert "Multiple" in str(e)
