@@ -37,18 +37,18 @@ pub fn now_utc_rfc3339() -> String {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HostInfo {
-    pub os: String,        // "windows", "linux", "macos"
+    pub os: String, // "windows", "linux", "macos"
     pub os_version: String,
     pub machine: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Disk {
-    pub id: String,                // stable id per provider
+    pub id: String, // stable id per provider
     pub friendly_name: String,
     pub size_bytes: u64,
     pub removable: bool,
-    pub is_system_disk: bool,      // provider best-effort
+    pub is_system_disk: bool, // provider best-effort
     pub partitions: Vec<Partition>,
 }
 
@@ -108,6 +108,10 @@ pub trait ImagingProvider {
     type Reader;
 
     fn open_read_only(&self, disk_id: &str) -> CoreResult<Self::Reader>;
-    fn read_exact(&self, reader: &mut Self::Reader, offset: u64, length: u64)
-        -> CoreResult<Vec<u8>>;
+    fn read_exact(
+        &self,
+        reader: &mut Self::Reader,
+        offset: u64,
+        length: u64,
+    ) -> CoreResult<Vec<u8>>;
 }

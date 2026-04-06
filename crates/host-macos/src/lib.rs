@@ -27,12 +27,7 @@ fn enumerate_disks() -> Result<Vec<Disk>> {
         if !mount.device.starts_with("/dev/") {
             continue;
         }
-        let device_name = mount
-            .device
-            .split('/')
-            .last()
-            .unwrap_or("")
-            .to_string();
+        let device_name = mount.device.split('/').last().unwrap_or("").to_string();
         if device_name.is_empty() {
             continue;
         }
@@ -152,7 +147,15 @@ fn sysctl_string(name: &str) -> Option<String> {
 
     let c_name = CString::new(name).ok()?;
     let mut size = 0usize;
-    let res = unsafe { sysctlbyname(c_name.as_ptr(), ptr::null_mut(), &mut size, ptr::null_mut(), 0) };
+    let res = unsafe {
+        sysctlbyname(
+            c_name.as_ptr(),
+            ptr::null_mut(),
+            &mut size,
+            ptr::null_mut(),
+            0,
+        )
+    };
     if res != 0 || size == 0 {
         return None;
     }

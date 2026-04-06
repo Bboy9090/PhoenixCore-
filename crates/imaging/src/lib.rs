@@ -54,7 +54,11 @@ pub fn make_chunk_plan(total_size: u64, chunk_size_bytes: u64) -> ChunkPlan {
     while offset < total_size {
         let remaining = total_size - offset;
         let size = remaining.min(chunk_size_bytes);
-        chunks.push(Chunk { index, offset, size });
+        chunks.push(Chunk {
+            index,
+            offset,
+            size,
+        });
         offset += size;
         index += 1;
     }
@@ -139,16 +143,15 @@ pub fn hash_disk_readonly_physicaldrive_with_progress(
 
         for chunk in plan.chunks.iter().take(limit) {
             let mut new_pos = 0i64;
-            let ok_seek = SetFilePointerEx(
-                handle,
-                chunk.offset as i64,
-                Some(&mut new_pos),
-                FILE_BEGIN,
-            )
-            .as_bool();
+            let ok_seek =
+                SetFilePointerEx(handle, chunk.offset as i64, Some(&mut new_pos), FILE_BEGIN)
+                    .as_bool();
             if !ok_seek {
                 CloseHandle(handle);
-                return Err(anyhow!("SetFilePointerEx failed at offset {}", chunk.offset));
+                return Err(anyhow!(
+                    "SetFilePointerEx failed at offset {}",
+                    chunk.offset
+                ));
             }
 
             if chunk.size > u32::MAX as u64 {
@@ -227,8 +230,8 @@ pub fn hash_device_readonly(
     if chunk_size == 0 {
         return Err(anyhow!("chunk_size must be greater than zero"));
     }
-    let mut file = File::open(device_path)
-        .map_err(|err| anyhow!("open {} failed: {}", device_path, err))?;
+    let mut file =
+        File::open(device_path).map_err(|err| anyhow!("open {} failed: {}", device_path, err))?;
     let plan = make_chunk_plan(total_size, chunk_size);
     let limit = max_chunks.unwrap_or(u64::MAX) as usize;
     let mut results = Vec::new();

@@ -10,9 +10,9 @@ use windows::Win32::Storage::FileSystem::{
     OPEN_EXISTING,
 };
 use windows::Win32::System::Ioctl::{
-    DeviceIoControl, DRIVE_LAYOUT_INFORMATION_EX, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
-    IOCTL_DISK_GET_DRIVE_LAYOUT_EX, IOCTL_STORAGE_QUERY_PROPERTY, PARTITION_INFORMATION_EX,
-    STORAGE_PROPERTY_QUERY, StorageDeviceProperty, STORAGE_QUERY_TYPE,
+    DeviceIoControl, StorageDeviceProperty, DRIVE_LAYOUT_INFORMATION_EX,
+    IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, IOCTL_DISK_GET_DRIVE_LAYOUT_EX, IOCTL_STORAGE_QUERY_PROPERTY,
+    PARTITION_INFORMATION_EX, STORAGE_PROPERTY_QUERY, STORAGE_QUERY_TYPE,
 };
 use windows::Win32::System::SystemInformation::{GetComputerNameW, GetVersionExW, OSVERSIONINFOW};
 
@@ -116,13 +116,21 @@ fn query_friendly_and_removable(handle: HANDLE) -> Result<(String, bool)> {
         let tail = &buf[off..];
         let end = tail.iter().position(|&b| b == 0).unwrap_or(tail.len());
         let s = String::from_utf8_lossy(&tail[..end]).trim().to_string();
-        if s.is_empty() { None } else { Some(s) }
+        if s.is_empty() {
+            None
+        } else {
+            Some(s)
+        }
     }
 
     let vendor = read_cstr(&out, vendor_off).unwrap_or_default();
     let product = read_cstr(&out, prod_off).unwrap_or_default();
     let name = format!("{} {}", vendor, product).trim().to_string();
-    let name = if name.is_empty() { "Unknown Disk".to_string() } else { name };
+    let name = if name.is_empty() {
+        "Unknown Disk".to_string()
+    } else {
+        name
+    };
 
     Ok((name, removable))
 }
@@ -162,8 +170,8 @@ pub fn enumerate_physical_disks() -> Result<Vec<Disk>> {
         };
 
         let size_bytes = query_size_bytes(handle).unwrap_or(0);
-        let (friendly, removable) = query_friendly_and_removable(handle)
-            .unwrap_or(("Unknown Disk".to_string(), false));
+        let (friendly, removable) =
+            query_friendly_and_removable(handle).unwrap_or(("Unknown Disk".to_string(), false));
 
         unsafe {
             CloseHandle(handle);
@@ -226,8 +234,7 @@ pub fn enumerate_partitions(disk_number: u32) -> Result<Vec<PartitionEntry>> {
     let mut partitions = Vec::new();
 
     for idx in 0..count {
-        let entry: PARTITION_INFORMATION_EX =
-            unsafe { *first.add(idx) };
+        let entry: PARTITION_INFORMATION_EX = unsafe { *first.add(idx) };
         if entry.PartitionNumber == 0 {
             continue;
         }

@@ -1,24 +1,28 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
-use phoenix_imaging::{HashProgress, ProgressObserver};
-use phoenix_workflow_engine::{
-    run_disk_hash_report, run_unix_installer_usb, run_windows_apply_image,
-    run_windows_installer_usb, validate_workflow_definition, DiskHashReportParams,
-    UnixInstallerUsbParams, WindowsApplyImageParams, WindowsInstallerUsbParams,
-    run_stage_bootloader, BootloaderStageParams, run_macos_kext_stage, MacosKextStageParams,
-};
-use phoenix_host_windows::format::parse_filesystem;
 use phoenix_content::{
     export_pack_zip, load_pack_manifest, load_workflow_definition, pack_signature_exists,
-    resolve_pack_workflows, resolve_windows_image, sign_pack_manifest,
-    verify_pack_manifest, PACK_SCHEMA_VERSION,
+    resolve_pack_workflows, resolve_windows_image, sign_pack_manifest, verify_pack_manifest,
+    PACK_SCHEMA_VERSION,
 };
-use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use phoenix_core::{DeviceGraph, WorkflowDefinition};
-use phoenix_legacy_patcher::{LegacyPatchParams, run_legacy_patch};
+use phoenix_host_windows::format::parse_filesystem;
+use phoenix_imaging::{HashProgress, ProgressObserver};
+use phoenix_legacy_patcher::{run_legacy_patch, LegacyPatchParams};
+use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
+use phoenix_workflow_engine::{
+    run_disk_hash_report, run_macos_kext_stage, run_stage_bootloader, run_unix_installer_usb,
+    run_windows_apply_image, run_windows_installer_usb, validate_workflow_definition,
+    BootloaderStageParams, DiskHashReportParams, MacosKextStageParams, UnixInstallerUsbParams,
+    WindowsApplyImageParams, WindowsInstallerUsbParams,
+};
 
 #[derive(Parser)]
-#[command(name = "phoenix-cli", version, about = "Phoenix Core CLI (Windows-first)")]
+#[command(
+    name = "phoenix-cli",
+    version,
+    about = "Phoenix Core CLI (Windows-first)"
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Commands,
@@ -770,10 +774,7 @@ fn main() -> Result<()> {
                     )?
                 } else {
                     phoenix_imaging::hash_disk_readonly_physicaldrive(
-                        &disk,
-                        size_bytes,
-                        chunk_size,
-                        max_chunks,
+                        &disk, size_bytes, chunk_size, max_chunks,
                     )?
                 };
                 for (index, hash) in hashes {
@@ -870,7 +871,11 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::WimApply { path, index, target } => {
+        Commands::WimApply {
+            path,
+            index,
+            target,
+        } => {
             #[cfg(windows)]
             {
                 let (image_path, _prepared) = resolve_windows_image(path)?;
@@ -1460,7 +1465,9 @@ impl ProgressObserver for CliProgress {
         if percent >= self.last_percent + 5 || percent == 100 {
             println!(
                 "progress: {}% (chunk {}/{})",
-                percent, progress.chunk_index + 1, progress.total_chunks
+                percent,
+                progress.chunk_index + 1,
+                progress.total_chunks
             );
             self.last_percent = percent;
         }

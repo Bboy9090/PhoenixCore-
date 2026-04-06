@@ -304,9 +304,7 @@ fn mount_iso(_path: &Path) -> Result<PreparedSource> {
 fn is_wim(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
-        .map(|ext| {
-            ext.eq_ignore_ascii_case("wim") || ext.eq_ignore_ascii_case("esd")
-        })
+        .map(|ext| ext.eq_ignore_ascii_case("wim") || ext.eq_ignore_ascii_case("esd"))
         .unwrap_or(false)
 }
 
@@ -324,10 +322,9 @@ mod windows_impl {
     use windows::Win32::Storage::Vhd::{
         AttachVirtualDisk, DetachVirtualDisk, OpenVirtualDisk, ATTACH_VIRTUAL_DISK_FLAG_READ_ONLY,
         ATTACH_VIRTUAL_DISK_PARAMETERS, ATTACH_VIRTUAL_DISK_VERSION_1,
-        DETACH_VIRTUAL_DISK_FLAG_NONE, OPEN_VIRTUAL_DISK_FLAG_NONE,
-        OPEN_VIRTUAL_DISK_PARAMETERS, OPEN_VIRTUAL_DISK_VERSION_1, VIRTUAL_DISK_ACCESS_READ,
-        VIRTUAL_STORAGE_TYPE, VIRTUAL_STORAGE_TYPE_DEVICE_ISO,
-        VIRTUAL_STORAGE_TYPE_VENDOR_MICROSOFT,
+        DETACH_VIRTUAL_DISK_FLAG_NONE, OPEN_VIRTUAL_DISK_FLAG_NONE, OPEN_VIRTUAL_DISK_PARAMETERS,
+        OPEN_VIRTUAL_DISK_VERSION_1, VIRTUAL_DISK_ACCESS_READ, VIRTUAL_STORAGE_TYPE,
+        VIRTUAL_STORAGE_TYPE_DEVICE_ISO, VIRTUAL_STORAGE_TYPE_VENDOR_MICROSOFT,
     };
 
     pub fn mount_iso(path: &Path) -> Result<PreparedSource> {

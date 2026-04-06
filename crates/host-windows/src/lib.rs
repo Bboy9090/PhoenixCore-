@@ -3,14 +3,14 @@ use phoenix_core::{now_utc_rfc3339, DeviceGraph, HostInfo, Partition};
 
 #[cfg(windows)]
 pub mod format;
+#[cfg(not(windows))]
+mod format_stub;
 #[cfg(windows)]
 pub mod space;
 #[cfg(windows)]
 mod volumes;
 #[cfg(windows)]
 mod win;
-#[cfg(not(windows))]
-mod format_stub;
 #[cfg(not(windows))]
 pub use format_stub as format;
 #[cfg(not(windows))]

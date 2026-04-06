@@ -189,11 +189,10 @@ pub fn enumerate_volume_mounts() -> Result<Vec<VolumeMount>> {
 
         let size_bytes = get_volume_size(&root).unwrap_or(0);
 
-        let (disk_number, offset_bytes, length_bytes) =
-            match volume_extent_for_drive(letter) {
-                Ok(value) => value,
-                Err(_) => continue,
-            };
+        let (disk_number, offset_bytes, length_bytes) = match volume_extent_for_drive(letter) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
 
         let volume_id = format!("Drive{}", letter);
         mounts.push(VolumeMount {

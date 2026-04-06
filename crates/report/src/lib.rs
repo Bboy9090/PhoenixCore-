@@ -178,7 +178,11 @@ fn build_manifest(
         let data = fs::read(path)?;
         let hash = Sha256::digest(&data);
         entries.push(ManifestEntry {
-            path: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            path: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
             bytes: data.len() as u64,
             sha256: to_hex(&hash),
         });
@@ -187,7 +191,11 @@ fn build_manifest(
         let data = fs::read(path)?;
         let hash = Sha256::digest(&data);
         entries.push(ManifestEntry {
-            path: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            path: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
             bytes: data.len() as u64,
             sha256: to_hex(&hash),
         });

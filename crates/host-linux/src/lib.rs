@@ -29,12 +29,12 @@ fn enumerate_disks() -> Result<Vec<Disk>> {
             .map(|sectors| sectors.saturating_mul(512))
             .unwrap_or(0);
         let removable = read_u64(entry.path().join("removable")).unwrap_or(0) == 1;
-        let model = read_string(entry.path().join("device/model"))
-            .unwrap_or_else(|| disk_name.clone());
+        let model =
+            read_string(entry.path().join("device/model")).unwrap_or_else(|| disk_name.clone());
         let partitions = enumerate_partitions(&disk_name, entry.path(), &mounts, &labels)?;
-        let is_system_disk = partitions.iter().any(|partition| {
-            partition.mount_points.iter().any(|mount| mount == "/")
-        });
+        let is_system_disk = partitions
+            .iter()
+            .any(|partition| partition.mount_points.iter().any(|mount| mount == "/"));
         disks.push(Disk {
             id: disk_name,
             friendly_name: model,
@@ -66,7 +66,10 @@ fn enumerate_partitions(
             .map(|sectors| sectors.saturating_mul(512))
             .unwrap_or(0);
         let mount_infos = mounts.get(&part_name).cloned().unwrap_or_default();
-        let mount_points = mount_infos.iter().map(|info| info.mount_point.clone()).collect();
+        let mount_points = mount_infos
+            .iter()
+            .map(|info| info.mount_point.clone())
+            .collect();
         let fs_type = mount_infos.first().map(|info| info.fs_type.clone());
         let label = labels.get(&part_name).cloned();
         partitions.push(Partition {
@@ -114,7 +117,10 @@ fn read_mounts() -> HashMap<String, Vec<MountInfo>> {
         if name.is_empty() {
             continue;
         }
-        mounts.entry(name).or_default().push(MountInfo { mount_point, fs_type });
+        mounts.entry(name).or_default().push(MountInfo {
+            mount_point,
+            fs_type,
+        });
     }
     mounts
 }
@@ -126,7 +132,10 @@ fn read_labels() -> HashMap<String, String> {
         for entry in entries.flatten() {
             if let Ok(target) = fs::read_link(entry.path()) {
                 if let Some(name) = target.file_name().and_then(|v| v.to_str()) {
-                    labels.insert(name.to_string(), entry.file_name().to_string_lossy().to_string());
+                    labels.insert(
+                        name.to_string(),
+                        entry.file_name().to_string_lossy().to_string(),
+                    );
                 }
             }
         }
@@ -169,7 +178,9 @@ fn read_machine() -> String {
 }
 
 fn read_string(path: impl AsRef<Path>) -> Option<String> {
-    fs::read_to_string(path).ok().map(|value| value.trim().to_string())
+    fs::read_to_string(path)
+        .ok()
+        .map(|value| value.trim().to_string())
 }
 
 fn read_u64(path: impl AsRef<Path>) -> Option<u64> {
