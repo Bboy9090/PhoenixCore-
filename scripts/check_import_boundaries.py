@@ -11,6 +11,7 @@ Excluded: experimental/, legacy/ (by path prefix under repo root)
 from __future__ import annotations
 
 import ast
+import re
 import sys
 from pathlib import Path
 
@@ -27,6 +28,8 @@ SKIP_PATH_PARTS = frozenset(
         "__pycache__",
     }
 )
+
+ALLOW_RE = re.compile(r"#\s*import-boundary:\s*allow\s+(.+?)\s*$")
 
 
 def _first_segment(mod: str) -> str:
@@ -58,6 +61,31 @@ def imports_in_file(path: Path) -> list[tuple[int, str, str]]:
     return out
 
 
+def _allowed_for_line(src_lines: list[str], lineno: int, imported: str) -> bool:
+    """
+    Return True if the given import is explicitly allowed on this line.
+
+    Syntax (on the same line as the import):
+      # import-boundary: allow server
+      # import-boundary: allow server.api
+      # import-boundary: allow *
+    """
+    if lineno <= 0 or lineno > len(src_lines):
+        return False
+    line = src_lines[lineno - 1]
+    m = ALLOW_RE.search(line)
+    if not m:
+        return False
+    allow_expr = m.group(1).strip()
+    if allow_expr == "*":
+        return True
+    imported = imported.strip()
+    root = _first_segment(imported)
+    if allow_expr == root or imported == allow_expr or imported.startswith(allow_expr + "."):
+        return True
+    return False
+
+
 def should_skip(path: Path, root: Path) -> bool:
     rel = path.relative_to(root)
     for part in rel.parts:
@@ -77,12 +105,19 @@ def main() -> int:
         for path in base.rglob("*.py"):
             if should_skip(path, repo):
                 continue
+            try:
+                src_lines = path.read_text(encoding="utf-8").splitlines()
+            except OSError as e:
+                violations.append(f"{path.relative_to(repo)}:0: error: {e}")
+                continue
             for lineno, kind, mod in imports_in_file(path):
                 if kind in ("error", "syntax"):
                     violations.append(f"{path.relative_to(repo)}:{lineno}: {kind}: {mod}")
                     continue
                 seg = _first_segment(mod)
                 if seg in FORBIDDEN_ROOTS:
+                    if _allowed_for_line(src_lines, lineno, mod):
+                        continue
                     violations.append(
                         f"{path.relative_to(repo)}:{lineno}: forbidden {kind} '{mod}' "
                         f"(cannot import from '{seg}' in canonical tree)"

@@ -22,6 +22,8 @@ def test_audit_append_indexes_sqlite():
         audit_store.append_record({"event": "test_index", "job_id": "job-abc"})
         db = Path(td) / "audit_index.sqlite3"
         assert db.exists()
+        # WAL is the default for better reliability under concurrent reads.
+        assert audit_store._sqlite_journal_mode() == "wal"
         rows = audit_store.query_audit(job_id="job-abc", limit=5)
         assert len(rows) == 1
         assert rows[0]["event"] == "test_index"

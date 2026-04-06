@@ -44,7 +44,7 @@
 
 **Files:** `docs/REPO_STATUS_MAP.md`, `mobile/README.md`, `README.md`
 
-**Unresolved:** Root `package.json` template not deleted (would break unknown consumers); documented as experimental.
+**Unresolved:** Non-core template not deleted (it was later moved under `experimental/root-app-template/` in Final Cleanup); documented as experimental.
 
 ---
 

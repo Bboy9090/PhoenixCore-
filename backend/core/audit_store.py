@@ -17,6 +17,13 @@ from typing import Any, Dict, List, Optional
 
 AUDIT_SCHEMA_VERSION = "1.1.0"
 
+SQLITE_JOURNAL_MODE = os.environ.get("PHOENIX_AUDIT_SQLITE_JOURNAL_MODE", "wal").strip().lower()
+
+
+def _sqlite_journal_mode() -> str:
+    """Configured SQLite journal mode (lowercased)."""
+    return SQLITE_JOURNAL_MODE
+
 
 def _audit_dir() -> Path:
     raw = os.environ.get("PHOENIX_AUDIT_DIR", "").strip()
@@ -54,6 +61,13 @@ def _rotate_if_needed(path: Path) -> Path:
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
+    # WAL improves resilience under concurrent readers/writers (e.g., API + operator queries)
+    # without changing the JSONL source-of-truth model. Allow opt-out via env for portability.
+    if SQLITE_JOURNAL_MODE:
+        try:
+            conn.execute(f"PRAGMA journal_mode={SQLITE_JOURNAL_MODE}")
+        except sqlite3.Error:
+            pass
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS audit_events (

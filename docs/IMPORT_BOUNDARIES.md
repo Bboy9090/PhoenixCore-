@@ -18,4 +18,10 @@ CI runs this after **`scripts/ci_truth_enforcement.sh`** (which also runs **`gre
 
 ## Whitelist
 
-To allow a rare exception, add a documented waiver in this file and a `# import-boundary: allow server.X` comment next to the import (future: parse comments). **Current policy: no waivers.**
+To allow a rare exception, add an inline waiver **on the same line** as the import:
+
+- `# import-boundary: allow server` (allow any `server.*` import on that line)
+- `# import-boundary: allow server.api` (allow that subtree on that line)
+- `# import-boundary: allow *` (allow anything on that line; avoid unless unavoidable)
+
+Policy: keep waivers **rare**, **line-scoped**, and **reviewed**.

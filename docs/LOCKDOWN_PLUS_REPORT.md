@@ -34,15 +34,15 @@
 
 ## P3 — Physical drift isolation
 
-**What changed:** **`ROOT_NONCORE_NOTICE.md`**, **`experimental/README.md`** (pointer for non-core template); **`README.md`** repo map + link; **`docs/REPO_STATUS_MAP.md`** updated for **`packages/phoenix_safety`** and notices. (No move of root `package.json` — would break pnpm lock consumers.)
+**What changed:** **`ROOT_NONCORE_NOTICE.md`**, **`experimental/README.md`**, **`ROOT_APP_TEMPLATE.redirect.md`**; **`README.md`** repo map + link; **`docs/REPO_STATUS_MAP.md`** updated. The non-core Expo/pnpm/tRPC template was physically moved under **`experimental/root-app-template/`** (no longer at repo root).
 
-**Why:** Cold-checkout clarity without breaking unknown tooling.
+**Why:** Cold-checkout clarity: the repo root now shows canonical Python/Rust/mobile paths first.
 
-**Files:** `ROOT_NONCORE_NOTICE.md`, `experimental/README.md`, `README.md`, `docs/REPO_STATUS_MAP.md`
+**Files:** `ROOT_NONCORE_NOTICE.md`, `experimental/README.md`, `ROOT_APP_TEMPLATE.redirect.md`, `README.md`, `docs/REPO_STATUS_MAP.md`, `experimental/root-app-template/**`
 
-**Risks:** Root template still present until explicitly archived in a later change.
+**Risks:** External tooling that assumed root `pnpm dev` must now run from `experimental/root-app-template/`.
 
-**Next:** Move root Expo template into `experimental/root-app-template/` in a dedicated migration PR.
+**Next:** Optional: sweep/retire old docs that still mention running pnpm from repo root.
 
 ---
 

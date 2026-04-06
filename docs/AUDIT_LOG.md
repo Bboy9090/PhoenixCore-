@@ -7,6 +7,8 @@
 
 **Auto-recovery:** On API **startup** (`lifespan`) and before **indexed** reads (`query_audit`, `audit_summary_for_jobs`), **`ensure_audit_index()`** runs: if any **`destructive_jobs*.jsonl`** is newer than the DB, or the DB is missing/corrupt, the index is **rebuilt from JSONL**. You can still call **`POST /api/audit/rebuild-index`** manually.
 
+**SQLite mode:** By default, the index uses **WAL** journaling for better durability under concurrent reads. To disable, set `PHOENIX_AUDIT_SQLITE_WAL=0`.
+
 ## Location
 
 - Default: **`~/.phoenix_core/audit/`**

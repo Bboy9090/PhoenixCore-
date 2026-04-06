@@ -1451,7 +1451,7 @@ def _create_graphics_actions(model_data: Dict[str, Any]) -> List[PatchAction]:
             reversible=True,
             requires_reboot=True,
             conditions=PatchCondition(
-                os_version="1[1-4]\..*",  # macOS 11-14
+                os_version=r"1[1-4]\..*",  # macOS 11-14
                 required_firmware="UEFI"
             )
         )
@@ -1585,7 +1585,7 @@ def _get_supported_macos_versions(models: List[Dict[str, Any]]) -> List[str]:
             pattern = version.replace(".", r"\.") + r"\..*"
         else:
             # Single number version
-            pattern = f"{version}\..*"
+            pattern = fr"{version}\..*"
         version_patterns.append(pattern)
     
     return version_patterns

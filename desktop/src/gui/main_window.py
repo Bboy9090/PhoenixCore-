@@ -33,6 +33,26 @@ from src.gui.icon_manager import icon_manager
 from src.gui.modern_theme import BootForgeTheme
 
 
+def _repo_root_for_docs() -> Path:
+    """
+    Best-effort repository root resolver for linking docs from the desktop UI.
+    Prefers PHOENIX_REPO_ROOT when set; otherwise walks upwards looking for a
+    repository marker (README + backend/ + desktop/). Falls back to desktop dir.
+    """
+    env = (sys.environ.get("PHOENIX_REPO_ROOT") if hasattr(sys, "environ") else None)  # type: ignore[attr-defined]
+    if env:
+        p = Path(env).expanduser()
+        if p.exists():
+            return p.resolve()
+
+    here = Path(__file__).resolve()
+    for parent in [here.parent] + list(here.parents):
+        if (parent / "backend").is_dir() and (parent / "desktop").is_dir() and (parent / "README.md").exists():
+            return parent
+    # desktop/src/gui/main_window.py -> desktop/
+    return here.parents[2]
+
+
 class BootForgeMainWindow(QMainWindow):
     """Main application window"""
     
@@ -956,7 +976,6 @@ class BootForgeMainWindow(QMainWindow):
         """Show documentation"""
         from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextBrowser, QPushButton, QHBoxLayout
         import webbrowser
-        from pathlib import Path
         
         self.logger.info("Documentation requested")
         
@@ -984,8 +1003,11 @@ class BootForgeMainWindow(QMainWindow):
         """)
         
         # Load documentation content
-        readme_path = Path(__file__).parent.parent.parent / "README.md"
-        replit_md_path = Path(__file__).parent.parent.parent / "replit.md"
+        repo_root = _repo_root_for_docs()
+        readme_path = repo_root / "README.md"
+        # Old BootForge UI referenced a legacy replit guide that no longer exists at repo root.
+        # Prefer a stable doc entry point in docs/ and only link it when present.
+        docs_index = repo_root / "docs" / "README.md"
         
         doc_content = f"""
         <h1 style="color: {BootForgeTheme.COLORS['primary']};">🔥 BootForge Documentation</h1>
@@ -1043,7 +1065,7 @@ class BootForgeMainWindow(QMainWindow):
         <h2 style="color: {BootForgeTheme.COLORS['accent']};">Additional Resources</h2>
         <p style="line-height: 1.6;">
         • Project documentation: <a href="file:///{readme_path}" style="color: {BootForgeTheme.COLORS['primary']};">README.md</a><br>
-        • Configuration guide: <a href="file:///{replit_md_path}" style="color: {BootForgeTheme.COLORS['primary']};">replit.md</a><br>
+        {"• Documentation index: <a href=\"file:///" + str(docs_index) + "\" style=\"color: " + BootForgeTheme.COLORS['primary'] + ";\">docs/README.md</a><br>" if docs_index.exists() else ""}
         • OpenCore Legacy Patcher: <a href="https://dortania.github.io/OpenCore-Legacy-Patcher/" style="color: {BootForgeTheme.COLORS['primary']};">dortania.github.io</a>
         </p>
         

@@ -36,15 +36,15 @@
 
 **What changed:** **`CONFIG_ROOT_TEMPLATE.md`** tombstone; **`experimental/README.md`** points at root template; **`ROOT_NONCORE_NOTICE`** links barrier. **`README`** / **`REPO_STATUS_MAP`** reference stabilization doc.
 
-**Why:** Stronger cold-checkout guardrails without moving root `package.json` (breaks unknown consumers).
+**Why:** Stronger cold-checkout guardrails prior to physically moving the non-core template.
 
 **Files:** `CONFIG_ROOT_TEMPLATE.md`, `experimental/README.md`, `ROOT_NONCORE_NOTICE.md`, `README.md`, `docs/REPO_STATUS_MAP.md`
 
 **Migration:** None.
 
-**Risks:** Root template still physically co-located.
+**Risks:** None beyond doc drift (template was later moved in Final Cleanup).
 
-**Next:** Dedicated PR to move template under `experimental/root-app-template/`.
+**Next:** Optional doc sweep to remove any remaining “root pnpm” guidance.
 
 ---
 
