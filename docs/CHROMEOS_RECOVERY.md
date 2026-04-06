@@ -46,6 +46,13 @@ sel = select_recovery_for_board(index, "octopus")
 # sel.url -> dl.google.com recovery ZIP
 ```
 
+## BootForge GUI
+
+1. Open **USB Deployment Builder** (from the app menu that shows the recipe manager, or wherever `USBRecipeManagerWidget` is exposed).
+2. Tab **1. Recipe** → select **Chrome OS Recovery (download)**.
+3. Tab **Chrome OS recovery** → enter **board** codename → **Download recovery ZIP**.
+4. When the download finishes, **Build USB Drive** confirms the ZIP path and reminds you to unzip and write the `.bin` (BootForge does not run the full partition pipeline for this recipe).
+
 ## Unzipping and writing to USB
 
 Recovery downloads are **`.zip`** files containing a `.bin` image. Unzip, then use your platform’s **verified** imaging flow (same rules as other raw disk images). Automating `dd` to a removable device is intentionally **not** bundled in this download-only step.

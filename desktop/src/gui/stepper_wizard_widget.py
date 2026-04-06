@@ -2363,7 +2363,8 @@ class StorageConfigurationStepView(StepView):
         recipes = [
             DeploymentRecipe.create_macos_oclp_recipe(),
             DeploymentRecipe.create_windows_unattended_recipe(),
-            DeploymentRecipe.create_linux_automated_recipe()
+            DeploymentRecipe.create_linux_automated_recipe(),
+            DeploymentRecipe.create_chromeos_recovery_recipe(),
         ]
         
         # Create recipe cards
@@ -2435,7 +2436,12 @@ class StorageConfigurationStepView(StepView):
             hw_platform = getattr(self.detected_hardware, 'platform', 'unknown').lower()
             model = getattr(self.detected_hardware, 'system_model', '') or ''
             plat_key = 'mac' if hw_platform in ('mac', 'macos', 'darwin') else hw_platform
-            recipe_plat = {DeploymentType.MACOS_OCLP: 'mac', DeploymentType.WINDOWS_UNATTENDED: 'windows', DeploymentType.LINUX_AUTOMATED: 'linux'}.get(recipe.deployment_type, '')
+            recipe_plat = {
+                DeploymentType.MACOS_OCLP: 'mac',
+                DeploymentType.WINDOWS_UNATTENDED: 'windows',
+                DeploymentType.LINUX_AUTOMATED: 'linux',
+                DeploymentType.CHROMEOS_RECOVERY: 'chromeos',
+            }.get(recipe.deployment_type, '')
             match = any(getattr(p, 'platform', '') == plat_key or getattr(p, 'model', '') == model for p in compatible)
             is_compatible = match or (recipe_plat == plat_key)
             reason = f"Recipe {recipe.deployment_type.value}, detected {model or plat_key}"

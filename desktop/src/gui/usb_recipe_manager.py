@@ -22,6 +22,7 @@ from src.core.usb_builder import (
     StorageBuilderEngine, DeploymentRecipe, HardwareProfile,
     BuildProgress, DeploymentType, PartitionScheme, FileSystem
 )
+from src.gui.chromeos_recovery_widget import ChromeosRecoveryWidget
 from src.core.disk_manager import DiskInfo
 from src.core.safety_validator import SafetyValidator, SafetyLevel, ValidationResult
 from src.core.config import Config
@@ -100,6 +101,8 @@ class RecipeSelectionWidget(QWidget):
                 item.setBackground(QColor("#FF6B35"))
             elif recipe.deployment_type == DeploymentType.LINUX_AUTOMATED:
                 item.setBackground(QColor("#28A745"))
+            elif recipe.deployment_type == DeploymentType.CHROMEOS_RECOVERY:
+                item.setBackground(QColor("#7C4DFF"))
             else:
                 item.setBackground(QColor("#6C757D"))
             
@@ -769,6 +772,7 @@ class USBRecipeManagerWidget(QWidget):
         self.selected_profile: Optional[str] = None
         self.selected_device: Optional[str] = None
         self.source_files: Dict[str, str] = {}
+        self.chromeos_recovery_widget: Optional[ChromeosRecoveryWidget] = None
         
         self._setup_ui()
         self._load_data()
@@ -846,6 +850,12 @@ class USBRecipeManagerWidget(QWidget):
         # Recipe tab
         self.recipe_widget = RecipeSelectionWidget()
         tab_widget.addTab(self.recipe_widget, "1. Recipe")
+
+        # Chrome OS recovery (download automation)
+        self.chromeos_recovery_widget = ChromeosRecoveryWidget(
+            cache_dir=self.config.app_dir / "chromeos_recovery"
+        )
+        tab_widget.addTab(self.chromeos_recovery_widget, "Chrome OS recovery")
         
         # Hardware tab
         self.hardware_widget = HardwareProfileWidget()
@@ -945,6 +955,10 @@ class USBRecipeManagerWidget(QWidget):
         """Setup signal connections"""
         # Recipe selection
         self.recipe_widget.recipe_selected.connect(self._on_recipe_selected)
+        if self.chromeos_recovery_widget:
+            self.chromeos_recovery_widget.chromeos_download_finished.connect(
+                self._on_chromeos_recovery_downloaded
+            )
         
         # Hardware selection
         self.hardware_widget.profile_selected.connect(self._on_profile_selected)
@@ -999,7 +1013,20 @@ class USBRecipeManagerWidget(QWidget):
             
             # Set only optional files for traditional file selection (secondary)
             self.files_widget.set_required_files([], recipe.optional_files)
+
+            if recipe.deployment_type == DeploymentType.CHROMEOS_RECOVERY and self.chromeos_recovery_widget:
+                self.chromeos_recovery_widget.reset_for_new_recipe()
+                self.source_files.pop("chromeos_recovery.zip", None)
         
+        self._update_build_button()
+
+    def _on_chromeos_recovery_downloaded(self, zip_path: str, board: str):
+        """Wire downloaded recovery ZIP into source_files for recipe readiness."""
+        self.source_files["chromeos_recovery.zip"] = zip_path
+        self.progress_widget.add_log_message(
+            "INFO",
+            f"Chrome OS recovery ZIP ready for board {board}: {zip_path}",
+        )
         self._update_build_button()
     
     def _on_profile_selected(self, profile_name: str):
@@ -1041,36 +1068,59 @@ class USBRecipeManagerWidget(QWidget):
     
     def _update_build_button(self):
         """Update build button state"""
-        # Check basic selections
-        basic_ready = all([
-            self.selected_recipe,
-            self.selected_profile,
-            self.selected_device
-        ])
-        
-        # Check if OS images are ready
-        os_images_ready = self.os_image_widget.is_ready()
-        
-        # Check if traditional files are ready (now only optional files)
-        traditional_files_ready = self.files_widget.is_ready()
-        
-        # Overall readiness: basic selections + OS images ready
-        # Traditional files are now optional since required files come from OS images
-        ready = basic_ready and os_images_ready
+        recipes = self.storage_builder.get_available_recipes()
+        recipe = next((r for r in recipes if r.name == self.selected_recipe), None)
+        is_chromeos = recipe and recipe.deployment_type == DeploymentType.CHROMEOS_RECOVERY
+
+        # Check basic selections (Chrome OS recovery does not use USB build pipeline)
+        if is_chromeos:
+            basic_ready = bool(self.selected_recipe and self.selected_profile)
+            zip_ok = bool(self.source_files.get("chromeos_recovery.zip"))
+            try:
+                zp = self.source_files.get("chromeos_recovery.zip", "")
+                if zp and not os.path.isfile(zp):
+                    zip_ok = False
+            except Exception:
+                zip_ok = False
+            os_images_ready = zip_ok
+            traditional_files_ready = True
+            ready = basic_ready and os_images_ready
+        else:
+            basic_ready = all(
+                [
+                    self.selected_recipe,
+                    self.selected_profile,
+                    self.selected_device,
+                ]
+            )
+            os_images_ready = self.os_image_widget.is_ready()
+            traditional_files_ready = self.files_widget.is_ready()
+            ready = basic_ready and os_images_ready
         
         self.build_btn.setEnabled(ready)
         
         # Update status message
         if ready:
-            status_msg = "✅ Ready to build USB drive"
+            status_msg = (
+                "✅ Chrome OS recovery ZIP ready (use tab Chrome OS recovery if needed)"
+                if is_chromeos
+                else "✅ Ready to build USB drive"
+            )
         elif not basic_ready:
             missing = []
-            if not self.selected_recipe: missing.append("recipe")
-            if not self.selected_profile: missing.append("hardware profile")
-            if not self.selected_device: missing.append("target device")
+            if not self.selected_recipe:
+                missing.append("recipe")
+            if not self.selected_profile:
+                missing.append("hardware profile")
+            if not is_chromeos and not self.selected_device:
+                missing.append("USB device")
             status_msg = f"Please select: {', '.join(missing)}"
         elif not os_images_ready:
-            status_msg = "⏳ Waiting for OS images to be assigned and verified"
+            status_msg = (
+                "⏳ Download recovery ZIP on tab Chrome OS recovery"
+                if is_chromeos
+                else "⏳ Waiting for OS images to be assigned and verified"
+            )
         else:
             status_msg = "⚙️ Ready (some optional files may be missing)"
         
@@ -1082,6 +1132,35 @@ class USBRecipeManagerWidget(QWidget):
     def _start_build(self):
         """Start USB build process with comprehensive safety validation"""
         try:
+            recipes = self.storage_builder.get_available_recipes()
+            recipe = next((r for r in recipes if r.name == self.selected_recipe), None)
+            if recipe and recipe.deployment_type == DeploymentType.CHROMEOS_RECOVERY:
+                if not self.selected_recipe or not self.selected_profile:
+                    QMessageBox.warning(self, "Missing Selection", "Select recipe and hardware profile.")
+                    return
+                zp = self.source_files.get("chromeos_recovery.zip", "")
+                if not zp or not os.path.isfile(zp):
+                    QMessageBox.warning(
+                        self,
+                        "Recovery ZIP required",
+                        "Use the Chrome OS recovery tab to download the recovery ZIP for your board first.",
+                    )
+                    return
+                self.progress_widget.add_log_message(
+                    "INFO",
+                    f"Chrome OS recovery: recipe selected; ZIP on disk: {zp}. No USB build — unzip and write .bin with your OS tools.",
+                )
+                QMessageBox.information(
+                    self,
+                    "Chrome OS recovery",
+                    "BootForge has saved the recovery ZIP.\n\n"
+                    f"{zp}\n\n"
+                    "Unzip to extract the .bin image, then write it to a USB using your platform’s "
+                    "recommended tool (e.g. Chromebook Recovery Utility or dd). "
+                    "This recipe does not run the full partition/USB builder.",
+                )
+                return
+
             # Validate selections with proper type checking
             if not self.selected_recipe or not self.selected_device or not self.selected_profile:
                 QMessageBox.warning(self, "Missing Selection", "Please complete all selections before building.")

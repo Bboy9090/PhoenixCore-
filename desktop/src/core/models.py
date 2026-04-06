@@ -33,6 +33,7 @@ class DeploymentType(Enum):
     LINUX_AUTOMATED = "linux_automated"
     CUSTOM_PAYLOAD = "custom_payload"
     MULTIBOOT = "multiboot"  # Multi-boot system with GRUB
+    CHROMEOS_RECOVERY = "chromeos_recovery"  # Chrome OS recovery image (download + prepare USB separately)
 
 
 @dataclass
@@ -209,6 +210,28 @@ class DeploymentRecipe:
             optional_files=["config.json", "additional_files.zip"]
         )
     
+    @classmethod
+    def create_chromeos_recovery_recipe(cls) -> "DeploymentRecipe":
+        """Chrome OS recovery: download official recovery ZIP via board index (see docs/CHROMEOS_RECOVERY.md)."""
+        return cls(
+            name="Chrome OS Recovery (download)",
+            description=(
+                "Download a Chrome OS recovery image for your Chromebook board (codename). "
+                "Wrong board can fail recovery—confirm against the device. "
+                "After download, write the extracted .bin to USB using your platform tools (see docs)."
+            ),
+            deployment_type=DeploymentType.CHROMEOS_RECOVERY,
+            partition_scheme=PartitionScheme.GPT,
+            partitions=[
+                PartitionInfo("Data", -1, FileSystem.EXFAT, bootable=False, label="RECOVERY"),
+            ],
+            hardware_profiles=["generic_x64", "generic_linux_x64"],
+            required_files=["chromeos_recovery.zip"],
+            optional_files=[],
+            verification_steps=["verify_board_matches_device"],
+            metadata={"chromeos_recovery": True},
+        )
+
     @classmethod
     def create_multiboot_recipe(cls) -> 'DeploymentRecipe':
         """Create multi-boot deployment recipe with GRUB bootloader"""

@@ -1827,6 +1827,10 @@ class StorageBuilderEngine:
         # Multi-boot recipe
         multiboot_recipe = DeploymentRecipe.create_multiboot_recipe()
         self.recipes[multiboot_recipe.name] = multiboot_recipe
+
+        # Chrome OS recovery (download-first; see docs/CHROMEOS_RECOVERY.md)
+        chromeos_recipe = DeploymentRecipe.create_chromeos_recovery_recipe()
+        self.recipes[chromeos_recipe.name] = chromeos_recipe
         
         self.logger.info(f"Loaded {len(self.recipes)} built-in recipes")
     
