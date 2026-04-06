@@ -8,6 +8,8 @@ Phoenix Core is a professional, cross-platform OS deployment system. This reposi
 
 **Which binary to run:** [`docs/CANONICAL_RUNTIME.md`](docs/CANONICAL_RUNTIME.md).
 
+**Chrome OS recovery (download automation):** [`docs/CHROMEOS_RECOVERY.md`](docs/CHROMEOS_RECOVERY.md) · CLI: `python3 scripts/chromeos_recovery_download.py --help`
+
 > **Non-core template:** The Expo / pnpm / tRPC workspace lives under **[`experimental/root-app-template/`](experimental/root-app-template/)** (not at repo root). For Phoenix mobile + USB remote control, use **`phoenix-core-mobile/`** with **`backend/`** FastAPI. See **[`ROOT_APP_TEMPLATE.redirect.md`](ROOT_APP_TEMPLATE.redirect.md)**.
 
 ---
