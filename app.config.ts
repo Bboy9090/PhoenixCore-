@@ -32,10 +32,14 @@ const env = {
   appSlug: "phoenix-core-mobile",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "https://d2xsxph8kpxj0f.cloudfront.net/310519663121761052/Ckayyn9SVaz8UPGNyasERW/phoenix-icon-ATo5ZCr6C7vhNdYPC8PYL3.png",
+  logoUrl: "",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
+  // Production API URL - update when deploying to production
+  apiUrl: process.env.EXPO_PUBLIC_API_URL || "https://phoenixdrive-api.herokuapp.com",
+  // WebSocket URL for real-time progress tracking
+  wsUrl: process.env.EXPO_PUBLIC_WS_URL || "wss://phoenixdrive-api.herokuapp.com",
 };
 
 const config: ExpoConfig = {
@@ -129,7 +133,7 @@ const config: ExpoConfig = {
       "expo-build-properties",
       {
         ios: {
-          deploymentTarget: "14.0",
+          deploymentTarget: "15.1",
           useFrameworks: "static",
         },
         android: {
