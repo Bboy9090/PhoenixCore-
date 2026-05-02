@@ -1034,7 +1034,8 @@ class USBRecipeManagerWidget(QWidget):
     
     def _update_device_details(self, device: DiskInfo):
         """Update device details display"""
-        self.device_path_label.setText(device.path)
+        # Show the normalized whole-disk path so the UI matches the write target
+        self.device_path_label.setText(self._normalize_to_base_device(device.path))
         
         size_gb = device.size_bytes / (1024**3)
         self.device_size_label.setText(f"{size_gb:.1f} GB")
