@@ -967,7 +967,10 @@ class USBRecipeManagerWidget(QWidget):
             
             for device in devices:
                 size_gb = device.size_bytes / (1024**3)
-                item_text = f"{device.name} - {size_gb:.1f} GB"
+                # Show the normalized whole-disk path so users know exactly
+                # which device block node will be written to.
+                normalized_path = self._normalize_to_base_device(device.path)
+                item_text = f"{device.name} ({normalized_path}) - {size_gb:.1f} GB"
                 
                 item = QListWidgetItem(item_text)
                 item.setData(Qt.ItemDataRole.UserRole, device)
