@@ -8,7 +8,13 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
+      - name: Support longpaths
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v4
+        with:
+          submodules: false
+          persist-credentials: false
+          clean: true
 
       - uses: dtolnay/rust-toolchain@v1
         with:

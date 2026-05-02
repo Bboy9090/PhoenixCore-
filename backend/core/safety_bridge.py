@@ -36,7 +36,8 @@ def run_device_safety(device_path: str) -> Tuple[bool, Dict[str, Any], List[str]
 
     if not _VALIDATOR_AVAILABLE:
         errors.append(
-            "phoenix_safety package not installed. Run: pip install -e packages/phoenix_safety"
+            "phoenix_safety package not installed. "
+            "Run: pip install -r requirements.txt  (or for backend-only: pip install -r backend/requirements.txt)"
         )
         return False, {}, errors, warnings
 

@@ -1073,12 +1073,35 @@ class USBRecipeManagerWidget(QWidget):
         self.source_files.update(files)
         self._update_build_button()
     
+    @staticmethod
+    def _normalize_to_base_device(path: str) -> str:
+        """Normalize a partition path to the whole-disk device node.
+
+        On Linux, strips trailing digit(s) (e.g. /dev/sdb1 → /dev/sdb,
+        /dev/nvme0n1p1 → /dev/nvme0n1).  On macOS, strips the trailing 's<N>'
+        slice suffix (e.g. /dev/disk2s1 → /dev/disk2).  Returns the input
+        unchanged when it already looks like a whole-disk path or the platform
+        is not recognised.
+        """
+        import re, sys as _sys
+        if _sys.platform == "darwin":
+            # /dev/diskNsM -> /dev/diskN
+            m = re.match(r'^(/dev/disk\d+)s\d+$', path)
+            if m:
+                return m.group(1)
+        else:
+            # Linux: /dev/sdXN -> /dev/sdX  or  /dev/nvme0n1pN -> /dev/nvme0n1
+            m = re.match(r'^(/dev/(?:nvme\d+n\d+|[a-z]+))\d+$', path)
+            if m:
+                return m.group(1)
+        return path
+
     def _on_device_selected(self):
         """Handle device selection"""
         current_item = self.device_list.currentItem()
         if current_item:
             device = current_item.data(Qt.ItemDataRole.UserRole)
-            self.selected_device = device.path
+            self.selected_device = self._normalize_to_base_device(device.path)
             self._update_device_details(device)
             self._update_build_button()
 
@@ -1366,8 +1389,8 @@ class USBRecipeManagerWidget(QWidget):
 
     def _run_chromeos_flash_pipeline(self, zip_path: str) -> None:
         assert self.selected_device is not None
-        device_path = self.selected_device
-
+        # Always target the whole-disk device, not a partition
+        device_path = self._normalize_to_base_device(self.selected_device)
         if self._chrome_disk_writer.isRunning():
             QMessageBox.warning(self, "Busy", "A write operation is already in progress.")
             return

@@ -46,7 +46,7 @@ jobs:
         shell: bash
 
       - name: Run Python tests
-        run: python -m pytest tests/
+        run: PYTHONPATH=desktop:desktop/src python -m pytest tests/
         shell: bash
 
       - name: Truth enforcement (lockdown plus)

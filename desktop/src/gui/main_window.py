@@ -4,6 +4,7 @@ PyQt6 GUI implementation for the main application window
 """
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Optional, List
@@ -39,7 +40,7 @@ def _repo_root_for_docs() -> Path:
     Prefers PHOENIX_REPO_ROOT when set; otherwise walks upwards looking for a
     repository marker (README + backend/ + desktop/). Falls back to desktop dir.
     """
-    env = (sys.environ.get("PHOENIX_REPO_ROOT") if hasattr(sys, "environ") else None)  # type: ignore[attr-defined]
+    env = os.environ.get("PHOENIX_REPO_ROOT")
     if env:
         p = Path(env).expanduser()
         if p.exists():

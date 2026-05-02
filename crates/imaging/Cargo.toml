@@ -1,11 +1,11 @@
 [package]
 name = "phoenix-imaging"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 anyhow = "1"
-sha2 = "0.10"
+sha2 = "0.11.0-rc.5"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.56", features = [

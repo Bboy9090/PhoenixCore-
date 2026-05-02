@@ -78,8 +78,8 @@ def main():
     print("\n📦 Creating BootForge Tools USB...\n")
     
     # Check if we're in the right directory
-    if not Path("main.py").exists():
-        print("❌ Error: Please run this from the BootForge directory")
+    if not Path("desktop/main.py").exists():
+        print("❌ Error: Please run this from the PhoenixCore directory")
         sys.exit(1)
     
     # Import and run the builder

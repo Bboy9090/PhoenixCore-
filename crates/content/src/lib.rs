@@ -297,6 +297,7 @@ fn mount_iso(path: &Path) -> Result<PreparedSource> {
 }
 
 #[cfg(not(windows))]
+#[cfg(not(windows))]
 fn mount_iso(_path: &Path) -> Result<PreparedSource> {
     Err(anyhow!("ISO mounting requires Windows"))
 }
@@ -445,4 +446,4 @@ mod windows_impl {
 }
 
 #[cfg(not(windows))]
-struct IsoMount;
+// struct IsoMount definition is handled in windows_impl and cfg(not(windows))

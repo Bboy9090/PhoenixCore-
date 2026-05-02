@@ -50,8 +50,8 @@ jobs:
         with:
           name: usb-toolkit
           path: |
-            dist/BootForge-Bootable-USB.zip
-            bootable_usb/
+            legacy/dist/BootForge-Bootable-USB.zip
+            legacy/bootable_usb/
 
   build-mobile-web:
     name: Mobile (Web Build)
@@ -67,7 +67,7 @@ jobs:
           cache-dependency-path: phoenix-core-mobile/package-lock.json
       - run: |
           cd phoenix-core-mobile
-          npm ci
+          npm install
           npx expo export --platform web
       - uses: actions/upload-artifact@v4
         with:
