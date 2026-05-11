@@ -1,113 +1,74 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use time::format_description::well_known::Rfc3339;
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-pub const DEVICE_GRAPH_SCHEMA_VERSION: &str = "1.1.0";
-pub const WORKFLOW_SCHEMA_VERSION: &str = "1.0.0";
-pub const CONTRACTS_VERSION: &str = "1.0.0";
+pub mod rescue;
+pub mod capability;
+pub mod orchestrator;
+pub mod downloader;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeviceGraph {
     pub schema_version: String,
-    pub graph_id: Uuid,
-    pub generated_at_utc: String,
-    pub host: HostInfo,
+    pub run_id: Uuid,
+    pub timestamp: DateTime<Utc>,
+    pub host_info: HostInfo,
     pub disks: Vec<Disk>,
 }
 
-impl DeviceGraph {
-    pub fn new(host: HostInfo, disks: Vec<Disk>, generated_at_utc: String) -> Self {
+impl Default for DeviceGraph {
+    fn default() -> Self {
         Self {
-            schema_version: DEVICE_GRAPH_SCHEMA_VERSION.to_string(),
-            graph_id: Uuid::new_v4(),
-            generated_at_utc,
-            host,
-            disks,
+            schema_version: "1.0.0".to_string(),
+            run_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            host_info: HostInfo::default(),
+            disks: Vec::new(),
         }
     }
 }
 
-pub fn now_utc_rfc3339() -> String {
-    OffsetDateTime::now_utc()
-        .format(&Rfc3339)
-        .unwrap_or_else(|_| "unknown".to_string())
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct HostInfo {
-    pub os: String,        // "windows", "linux", "macos"
-    pub os_version: String,
-    pub machine: String,
+    pub hostname: String,
+    pub os: String,
+    pub arch: String,
+    pub kernel_version: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Disk {
-    pub id: String,                // stable id per provider
-    pub friendly_name: String,
+    pub id: String, // e.g. \\.\PhysicalDrive0
+    pub friendly_name: Option<String>,
     pub size_bytes: u64,
     pub removable: bool,
-    pub is_system_disk: bool,      // provider best-effort
-    pub partitions: Vec<Partition>,
+    pub is_system_disk: bool,
+    pub volumes: Vec<Volume>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Partition {
-    pub id: String,
+pub struct Volume {
+    pub id: String, // Stable ID if possible
     pub label: Option<String>,
-    pub fs: Option<String>,
+    pub filesystem: Option<String>,
     pub size_bytes: u64,
-    pub mount_points: Vec<String>,
+    pub mount_points: Vec<String>, // Drive letters on Windows
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct WorkflowDefinition {
-    pub schema_version: String,
-    pub name: String,
-    pub steps: Vec<WorkflowStep>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct WorkflowStep {
-    pub id: String,
-    pub action: String,
-    pub params: Value,
-}
-
-impl WorkflowDefinition {
-    pub fn new(name: impl Into<String>, steps: Vec<WorkflowStep>) -> Self {
-        Self {
-            schema_version: WORKFLOW_SCHEMA_VERSION.to_string(),
-            name: name.into(),
-            steps,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CoreError {
+pub struct RunReport {
+    pub run_id: Uuid,
+    pub timestamp: DateTime<Utc>,
+    pub status: String,
     pub message: String,
 }
 
-impl CoreError {
-    pub fn new(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
+impl DeviceGraph {
+    pub fn to_json(&self, pretty: bool) -> Result<String, serde_json::Error> {
+        if pretty {
+            serde_json::to_string_pretty(self)
+        } else {
+            serde_json::to_string(self)
         }
     }
-}
-
-pub type CoreResult<T> = std::result::Result<T, CoreError>;
-
-pub trait HostProvider {
-    fn device_graph(&self) -> CoreResult<DeviceGraph>;
-}
-
-pub trait ImagingProvider {
-    type Reader;
-
-    fn open_read_only(&self, disk_id: &str) -> CoreResult<Self::Reader>;
-    fn read_exact(&self, reader: &mut Self::Reader, offset: u64, length: u64)
-        -> CoreResult<Vec<u8>>;
 }
