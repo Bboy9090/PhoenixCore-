@@ -16,9 +16,50 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, Blueprint
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Import Boot Camp modules
+try:
+    from server.bootcamp.api import bootcamp_bp
+    from server.bootcamp.mac_detector import MacDetector
+    from server.bootcamp.driver_manager import DriverManager
+    from server.bootcamp.recovery import DriverRecoveryOrchestrator
+    BOOTCAMP_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Boot Camp modules not available: {e}")
+    BOOTCAMP_AVAILABLE = False
+
+# Import admin modules
+try:
+    from server.admin.dashboard import admin_bp
+    from server.admin.auth import get_auth_manager, create_auth_routes
+    ADMIN_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Admin modules not available: {e}")
+    ADMIN_AVAILABLE = False
+
+# Import monitoring modules
+try:
+    from server.monitoring import (
+        init_sentry,
+        init_datadog,
+        create_sentry_middleware,
+        create_datadog_middleware,
+        SentryMetrics,
+        DatadogMetrics,
+    )
+    MONITORING_AVAILABLE = True
+except ImportError:
+    MONITORING_AVAILABLE = False
 
 # Add PhoenixCore to path
 PHOENIX_CORE_PATH = Path(__file__).parent.parent.parent / "PhoenixCore-"
@@ -26,29 +67,87 @@ if PHOENIX_CORE_PATH.exists():
     sys.path.insert(0, str(PHOENIX_CORE_PATH))
 
 # Try importing PhoenixCore modules
+PHOENIX_CORE_AVAILABLE = False
+PHOENIX_CORE_MODULES = {}
+
 try:
-    from src.core.hardware_detector import (
+    # Try to import from bootable_usb/BootForge structure
+    from bootable_usb.BootForge.src.core.hardware_detector import (
         PlatformDetector, WindowsDetector, MacOSDetector, LinuxDetector,
         DetectedHardware, DetectionConfidence
     )
-    from src.core.disk_manager import DiskManager, DiskInfo, WriteProgress
-    from src.core.safety_validator import SafetyValidator, SafetyLevel, ValidationResult
-    from src.core.os_image_manager import OSImageManager, OSImageInfo, ImageStatus
-    from src.core.usb_builder import USBBuilder
-    from src.core.models import DeploymentRecipe, DeploymentType, PartitionScheme
+    from bootable_usb.BootForge.src.core.disk_manager import DiskManager, DiskInfo, WriteProgress
+    from bootable_usb.BootForge.src.core.safety_validator import SafetyValidator, SafetyLevel, ValidationResult
+    from bootable_usb.BootForge.src.core.os_image_manager import OSImageManager, OSImageInfo, ImageStatus
+    from bootable_usb.BootForge.src.core.usb_builder import USBBuilder
+    from bootable_usb.BootForge.src.core.models import DeploymentRecipe, DeploymentType, PartitionScheme
+    
     PHOENIX_CORE_AVAILABLE = True
+    PHOENIX_CORE_MODULES = {
+        'hardware_detector': (PlatformDetector, WindowsDetector, MacOSDetector, LinuxDetector, DetectedHardware, DetectionConfidence),
+        'disk_manager': (DiskManager, DiskInfo, WriteProgress),
+        'safety_validator': (SafetyValidator, SafetyLevel, ValidationResult),
+        'os_image_manager': (OSImageManager, OSImageInfo, ImageStatus),
+        'usb_builder': USBBuilder,
+        'models': (DeploymentRecipe, DeploymentType, PartitionScheme)
+    }
+    logger.info("✓ PhoenixCore modules loaded successfully from bootable_usb/BootForge")
+
 except ImportError as e:
-    print(f"Warning: PhoenixCore modules not available: {e}")
+    logger.warning(f"PhoenixCore modules not available from bootable_usb/BootForge: {e}")
+    logger.info("Using mock implementations for development/testing")
     PHOENIX_CORE_AVAILABLE = False
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Initialize Flask app
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+# Register Boot Camp blueprint
+if BOOTCAMP_AVAILABLE:
+    app.register_blueprint(bootcamp_bp, url_prefix='/api/v1')
+    logger.info("✓ Boot Camp API endpoints registered")
+
+# Register Admin blueprint and auth routes
+if ADMIN_AVAILABLE:
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    create_auth_routes(app)
+    logger.info("✓ Admin dashboard and auth endpoints registered")
+else:
+    logger.warning("Boot Camp API endpoints not available")
+
+# Initialize monitoring
+if MONITORING_AVAILABLE:
+    try:
+        sentry_initialized = init_sentry(app)
+        if sentry_initialized:
+            create_sentry_middleware(app)
+            logger.info("✓ Sentry error tracking initialized")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Sentry: {e}")
+    
+    try:
+        datadog_initialized = init_datadog(app)
+        if datadog_initialized:
+            create_datadog_middleware(app)
+            logger.info("✓ Datadog performance monitoring initialized")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Datadog: {e}")
+else:
+    logger.info("Monitoring modules not available")
+
+# Boot Camp state
+bootcamp_installations: Dict[str, Dict[str, Any]] = {}
+bootcamp_mac_detector = None
+bootcamp_driver_manager = None
+bootcamp_recovery = None
+
+if BOOTCAMP_AVAILABLE:
+    try:
+        bootcamp_mac_detector = MacDetector()
+        bootcamp_driver_manager = DriverManager()
+        bootcamp_recovery = DriverRecoveryOrchestrator()
+        logger.info("✓ Boot Camp components initialized")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Boot Camp components: {e}")
 
 # Global state
 class BuildState(Enum):
@@ -85,10 +184,18 @@ build_threads: Dict[str, threading.Thread] = {}
 @app.route('/api/v1/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    if MONITORING_AVAILABLE:
+        try:
+            from server.monitoring import track_metric
+            track_metric('phoenix.health_check', 1, 'counter')
+        except Exception as e:
+            logger.debug(f"Failed to track health check metric: {e}")
+    
     return jsonify({
         "status": "ok",
         "version": "1.0.0",
         "phoenix_core_available": PHOENIX_CORE_AVAILABLE,
+        "monitoring_available": MONITORING_AVAILABLE,
         "timestamp": datetime.utcnow().isoformat()
     })
 
@@ -96,6 +203,13 @@ def health_check():
 def detect_hardware():
     """Detect hardware on current system"""
     if not PHOENIX_CORE_AVAILABLE:
+        if MONITORING_AVAILABLE:
+            try:
+                from server.monitoring import capture_message
+                capture_message("Hardware detection failed: PhoenixCore unavailable", level='error')
+            except Exception as e:
+                logger.debug(f"Failed to capture error: {e}")
+        
         return jsonify({
             "status": "error",
             "error_code": "PHOENIX_CORE_UNAVAILABLE",

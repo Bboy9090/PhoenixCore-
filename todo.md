@@ -15,7 +15,7 @@
 - [x] Build Device Compatibility Result sub-screen (integrated into Wizard)
 - [x] Build Recipe Export functionality
 - [x] Build Article Detail sub-screen
-- [x] Implement AsyncStorage persistence for recipes and bookmarks (use-async-storage.ts)
+- [ ] Implement AsyncStorage persistence for recipes and bookmarks
 - [x] Generate custom app logo
 - [x] Update app.config.ts with branding
 - [x] Final polish and testing (15/15 unit tests passing)
@@ -98,7 +98,7 @@
 - [x] Add error prevention (confirm before destructive actions) - confirmation-dialog.tsx
 - [x] Add success celebrations (confetti, success messages) - success-screen.tsx
 - [x] Simplify Knowledge Base with "Getting Started" section
-- [x] Add video tutorials (embedded or links) (video-tutorials.tsx)
+- [ ] Add video tutorials (embedded or links)
 - [ ] Test with non-technical users
 - [ ] Gather feedback and iterate
 
@@ -236,19 +236,10 @@
 - [x] Create nginx.conf for production proxy
 - [x] Create deploy-heroku.sh automation script
 - [x] Create HEROKU_QUICK_START.md guide
-- [x] Create comprehensive Heroku deployment guide (HEROKU_PRODUCTION_DEPLOYMENT.md)
-- [x] Create desktop app build and distribution guide (BUILD_AND_DISTRIBUTE.md)
-- [x] Create E2E test execution guide (E2E_TEST_GUIDE.md)
-- [x] Create automated Heroku deployment script (deploy-heroku-automated.sh)
-- [x] Create automated desktop build script (build-all-platforms.sh)
-- [x] Create automated E2E test runner (run-e2e-tests.sh)
-- [x] Update app.config.ts with production API URL
-- [ ] Execute Heroku deployment
-- [x] Create comprehensive build execution guide (BUILD_EXECUTION_GUIDE.md)
-- [x] Create build quick start guide (BUILD_QUICK_START.md)
-- [ ] Execute desktop app builds for all platforms
-- [ ] Run E2E tests against production
+- [ ] Deploy to Heroku (or chosen platform)
 - [ ] Configure custom domain
+- [ ] Test production API endpoints
+- [ ] Update mobile app with production API URL
 
 ### API Documentation & Monitoring
 - [x] Create OpenAPI 3.0 specification (openapi.yaml)
@@ -420,17 +411,3 @@
 - [ ] Test admin dashboard real-time updates
 - [ ] Load test WebSocket connections
 - [ ] Test email delivery reliability
-
-
-## Phase 10: Apple Developer & Mac Build
-
-- [x] Apple Developer Account created ($99/year)
-- [x] Create comprehensive Mac build guide (BUILD_ON_MAC_WITH_APPLE_DEV.md)
-- [ ] Create App Store Connect entry for iOS app
-- [ ] Generate iOS certificates and provisioning profiles
-- [ ] Build desktop app on Mac with code signing
-- [ ] Create DMG installer with notarization
-- [ ] Submit iOS app to App Store for review
-- [ ] Monitor App Store review status
-- [ ] Release iOS app to App Store
-- [ ] Build and distribute desktop app for macOS

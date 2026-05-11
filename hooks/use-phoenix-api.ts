@@ -1,5 +1,5 @@
 /**
- * Hook for interacting with Bobby's PhoenixDrive Backend API
+ * Hook for interacting with PhoenixCore Industrial Backend API
  * Provides hardware detection, USB device enumeration, recipe building, and build progress tracking
  */
 
