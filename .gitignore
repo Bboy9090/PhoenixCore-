@@ -1,75 +1,115 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# PhoenixCore hygiene rules
+# Keep source, docs, manifests, and lockfiles tracked.
+# Keep generated dependencies, build outputs, caches, binary bundles, and local secrets out of Git.
 
-# dependencies
+# Dependency directories
 node_modules/
+**/node_modules/
+.pnpm-store/
+.yarn/
+.npm/
 
-# Expo
+# JavaScript / TypeScript / Expo outputs
 .expo/
+**/.expo/
+.next/
+**/.next/
 dist/
+**/dist/
+build/
+**/build/
 web-build/
+coverage/
+**/coverage/
+*.tsbuildinfo
 expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
+nativewind-env.d.ts
 .metro-health-check*
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# Generated native mobile projects
+/ios/
+/android/
+**/ios/
+**/android/
+.kotlin/
+**/.kotlin/
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
 
-# macOS
-.DS_Store
+# Rust outputs
+target/
+**/target/
+**/*.rs.bk
+
+# Python outputs
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*$py.class
+.pytest_cache/
+**/.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# PyInstaller and packaged app outputs
+*.toc
+*.pkg
+*.pyz
+*.spec.bak
+
+# Generated archives and large bundles
+*.zip
+*.7z
+*.rar
+*.tgz
+*.tar
+*.tar.gz
+*.gz
+*.iso
+*.dmg
+*.img
+*.msi
+*.exe
+*.appx
+*.AppImage
+
+# Runtime reports, logs, and scratch data
+reports/
+logs/
+*.log
+*.tmp
+*.temp
+.cache/
+**/.cache/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.template
 *.pem
+*.key
+*.crt
+*.cer
+*.pfx
 
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android
-
-# IDE
+# IDE and OS files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Logs
-logs
-*.log
-
-# OS
+.DS_Store
 Thumbs.db
+Desktop.ini
 
-# Build files
-*.tgz
-*.tar.gz
-.cache/
-
-# Webdev artifacts (checkpoint zips, migrations, etc.)
+# App templates and local webdev artifacts
+app-example/
 .webdev/
-
-# Rust
-/target
-**/*.rs.bk
-reports/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
