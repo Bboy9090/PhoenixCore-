@@ -1,0 +1,67 @@
+# PhoenixCore repository normalization
+
+* text=auto
+
+# Source and docs
+.gitattributes text eol=lf
+.gitignore text eol=lf
+.editorconfig text eol=lf
+.gitkeep text eol=lf
+**/.gitkeep text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.jsonc text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.rs text eol=lf
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.sh text eol=lf
+*.command text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets and generated packages
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.pdf binary
+*.pptx binary
+*.zip binary
+*.7z binary
+*.tar binary
+*.gz binary
+*.tgz binary
+*.iso binary
+*.dmg binary
+*.img binary
+*.pkg binary
+*.pyz binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.msi binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Keep generated dependency trees out of language statistics if one is ever added locally.
+**/node_modules/** linguist-generated=true
+**/dist/** linguist-generated=true
+**/build/** linguist-generated=true
+**/target/** linguist-generated=true
