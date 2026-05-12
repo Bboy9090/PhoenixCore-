@@ -247,7 +247,7 @@ export class PhoenixAgentClient {
   }
 
   executeOperationPlaceholder(request: OperationExecuteRequest): Promise<OperationStatusResponse> {
-    // TODO(PR7+): Wire this only after Phoenix Agent has real policy checks,
+    // TODO(PR8+): Wire this only after Phoenix Agent has real policy checks,
     // Rust safety gates, audit logging, preview freshness checks, and tests.
     if (this.placeholderMode) {
       return Promise.resolve({
@@ -256,7 +256,7 @@ export class PhoenixAgentClient {
         operation_type: "placeholder",
         status: "not_implemented",
         progress_percent: 0,
-        current_step: "Execution is intentionally not implemented in PR6.",
+        current_step: "Execution is intentionally not implemented in this contract scaffold.",
         created_at: new Date(0).toISOString(),
         warnings: [
           "Phoenix Agent execution is contract-only. No destructive operation was requested."

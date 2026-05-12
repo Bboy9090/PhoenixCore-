@@ -4,8 +4,34 @@ info:
   version: 0.1.0
   description: >
     Contract-only Phoenix Agent API. PR6 defines the boundary for apps,
-    BootForge, Phoenix Key, and future backend migration. It does not implement
-    destructive system operations.
+    BootForge, Phoenix Key, and future backend migration. PR7 maps existing
+    backend, server, website, mobile prototype, and TypeScript client surfaces
+    to this boundary. It does not implement destructive system operations.
+x-phoenix-route-mapping:
+  inventory: docs/contracts/backend-route-inventory.md
+  mapping: docs/contracts/agent-route-mapping.md
+  source_surfaces:
+    - backend/main.py
+    - server/main.py
+    - server/api.py
+    - server/api_modern.py
+    - server/api_fastapi.py
+    - server/routers/bootcamp.py
+    - server/routers/admin.py
+    - server/bootcamp/api.py
+    - server/admin/auth.py
+    - server/admin/dashboard.py
+    - server/_core/index.ts
+    - server/_core/oauth.ts
+    - server/routers.ts
+    - server/openapi.yaml
+    - website/web_server.py
+    - services/api.ts
+    - mobile/src/services/api.ts
+    - phoenix-core-mobile/lib/api.ts
+    - phoenix-core-mobile/lib/api/phoenix-enterprise-client.ts
+    - phoenix-core-mobile/lib/api/multi_device_routes.py
+    - phoenix-core-mobile/lib/api/usb_creation_routes.py
 servers:
   - url: http://localhost:7788
     description: Local Phoenix Agent development endpoint placeholder

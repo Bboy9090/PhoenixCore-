@@ -4,6 +4,8 @@ Phoenix Agent is the local API bridge for Phoenix Platform apps.
 
 This contract defines the first stable surface for Phoenix Control Center, Phoenix Mobile, BootForge, and Phoenix Key. It is intentionally conservative: operation execution is present only as a placeholder contract and must not be wired to destructive behavior until safety gates and tests exist.
 
+PR7 maps existing `backend/`, `server/`, website, mobile prototype, and TypeScript client surfaces to this contract. See `backend-route-inventory.md` for the current route inventory and `agent-route-mapping.md` for the migration target decisions.
+
 ## Consumers
 
 - Phoenix Control Center calls Phoenix Agent for system state, devices, previews, operations, logs, and report bundles.
@@ -46,10 +48,17 @@ Only non-destructive previews are allowed until implementation PRs add safety-ba
 Existing code that may migrate later:
 
 - `backend/main.py` and `backend/` route logic.
-- `server/main.py`, `server/api_fastapi.py`, `server/_core/index.ts`, and `server/routers/*`.
-- `services/api.ts` and mobile API clients, after reconciling types with this contract.
+- `server/main.py`, `server/api_fastapi.py`, `server/api.py`, `server/api_modern.py`, `server/bootcamp/*`, `server/admin/*`, and `server/routers/*`.
+- `services/api.ts`, `mobile/src/services/api.ts`, and `phoenix-core-mobile/lib/api*.ts`, after reconciling types with this contract.
 - `desktop/src/core/*`, `desktop/src/recovery/*`, and `desktop/src/imaging/*` workflows.
 - `crates/safety`, `crates/imaging`, `crates/workflow-engine`, `crates/report`, and host crates.
+
+Existing code that should not become Phoenix Agent core without a separate decision:
+
+- `server/_core/oauth.ts` and generated Express/tRPC auth routes.
+- `website/web_server.py` download, install, and demo routes.
+- `server/admin/*` dashboard/auth routes, except possible future report or operation-history concepts.
+- `phoenix-core-mobile/lib/api/multi_device_routes.py` remote command and bulk operation routes until a fleet trust model exists.
 
 Not implemented in PR6:
 

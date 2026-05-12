@@ -2,6 +2,27 @@
   "schema_version": "0.1.0",
   "agent_contract": "phoenix-agent-api",
   "status": "contract_only",
+  "route_mapping": {
+    "mapped_in_pr": "PR7",
+    "inventory_document": "docs/contracts/backend-route-inventory.md",
+    "mapping_document": "docs/contracts/agent-route-mapping.md",
+    "source_families": [
+      "backend/main.py",
+      "server/main.py",
+      "server/api.py",
+      "server/api_modern.py",
+      "server/api_fastapi.py",
+      "server/routers",
+      "server/bootcamp",
+      "server/admin",
+      "server/_core",
+      "server/openapi.yaml",
+      "website/web_server.py",
+      "services/api.ts",
+      "mobile/src/services/api.ts",
+      "phoenix-core-mobile/lib/api*"
+    ]
+  },
   "safety_model": {
     "preview_required": true,
     "system_disks_protected_by_default": true,
