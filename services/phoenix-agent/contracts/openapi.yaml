@@ -1,0 +1,673 @@
+openapi: 3.0.3
+info:
+  title: Phoenix Agent API
+  version: 0.1.0
+  description: >
+    Contract-only Phoenix Agent API. PR6 defines the boundary for apps,
+    BootForge, Phoenix Key, and future backend migration. It does not implement
+    destructive system operations.
+servers:
+  - url: http://localhost:7788
+    description: Local Phoenix Agent development endpoint placeholder
+tags:
+  - name: Health
+  - name: System
+  - name: Devices
+  - name: Safety
+  - name: Operations
+  - name: Exports
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Check Phoenix Agent availability.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Agent health state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentHealth"
+        default:
+          $ref: "#/components/responses/Error"
+  /system/summary:
+    get:
+      tags:
+        - System
+      summary: Read host and Agent summary.
+      operationId: getSystemSummary
+      responses:
+        "200":
+          description: Host and Agent summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemSummary"
+        default:
+          $ref: "#/components/responses/Error"
+  /devices:
+    get:
+      tags:
+        - Devices
+      summary: List known storage devices with explicit identity.
+      operationId: listDevices
+      responses:
+        "200":
+          description: Device list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /devices/removable:
+    get:
+      tags:
+        - Devices
+      summary: List removable device candidates.
+      operationId: listRemovableDrives
+      responses:
+        "200":
+          description: Removable device list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /safety/evaluate:
+    post:
+      tags:
+        - Safety
+      summary: Evaluate safety gates for a proposed operation.
+      operationId: evaluateSafety
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafetyEvaluationRequest"
+      responses:
+        "200":
+          description: Safety gate result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyEvaluationResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /operations/preview:
+    post:
+      tags:
+        - Operations
+      summary: Create a non-destructive operation preview.
+      operationId: previewOperation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationPreviewRequest"
+      responses:
+        "200":
+          description: Operation preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationPreviewResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /operations/execute:
+    post:
+      tags:
+        - Operations
+      summary: Placeholder for future execution after preview.
+      description: >
+        This endpoint is contract-only in PR6. Implementations must return
+        operation.not_implemented until safety-backed execution is explicitly
+        wired in a later PR.
+      operationId: executeOperationPlaceholder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OperationExecuteRequest"
+      responses:
+        "202":
+          description: Future accepted operation response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationStatusResponse"
+        "501":
+          description: Placeholder not implemented.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /operations/{operation_id}:
+    get:
+      tags:
+        - Operations
+      summary: Read operation status.
+      operationId: getOperationStatus
+      parameters:
+        - name: operation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operation status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationStatusResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /logs/export:
+    get:
+      tags:
+        - Exports
+      summary: Placeholder for log export.
+      operationId: exportLogsPlaceholder
+      parameters:
+        - name: operation_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Future log export metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogExportResponse"
+        "501":
+          description: Placeholder not implemented.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /reports/bundle:
+    post:
+      tags:
+        - Exports
+      summary: Placeholder for report bundle creation.
+      operationId: createReportBundlePlaceholder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportBundleRequest"
+      responses:
+        "200":
+          description: Future report bundle metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportBundleResponse"
+        "501":
+          description: Placeholder not implemented.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  responses:
+    Error:
+      description: Error response.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    AgentHealth:
+      type: object
+      required:
+        - status
+        - version
+        - contract_version
+        - implementation_status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - degraded
+            - not_ready
+        version:
+          type: string
+        contract_version:
+          type: string
+        implementation_status:
+          type: string
+          enum:
+            - contract_only
+            - partial
+            - active
+        timestamp:
+          type: string
+          format: date-time
+        capabilities:
+          type: array
+          items:
+            type: string
+    SystemSummary:
+      type: object
+      required:
+        - host
+        - agent
+        - safety
+      properties:
+        host:
+          $ref: "#/components/schemas/HostSummary"
+        agent:
+          $ref: "#/components/schemas/AgentHealth"
+        safety:
+          $ref: "#/components/schemas/SafetyPolicySummary"
+    HostSummary:
+      type: object
+      required:
+        - os
+        - arch
+        - hostname
+      properties:
+        os:
+          type: string
+        os_version:
+          type: string
+        arch:
+          type: string
+        hostname:
+          type: string
+        is_live_environment:
+          type: boolean
+        desktop_session:
+          type: string
+          nullable: true
+    SafetyPolicySummary:
+      type: object
+      required:
+        - preview_required_for_destructive_operations
+        - system_disks_protected_by_default
+        - explicit_device_identity_required
+      properties:
+        preview_required_for_destructive_operations:
+          type: boolean
+        system_disks_protected_by_default:
+          type: boolean
+        explicit_device_identity_required:
+          type: boolean
+        policy_version:
+          type: string
+    DeviceListResponse:
+      type: object
+      required:
+        - devices
+        - scan_id
+        - timestamp
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Device"
+        scan_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    Device:
+      type: object
+      required:
+        - device_id
+        - display_name
+        - size_bytes
+        - removable
+        - system_disk
+        - read_only
+        - partition_count
+        - identity_fingerprint
+        - risk_level
+      properties:
+        device_id:
+          type: string
+        display_name:
+          type: string
+        stable_path:
+          type: string
+          nullable: true
+        physical_path:
+          type: string
+          nullable: true
+        serial:
+          type: string
+          nullable: true
+        vendor:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        removable:
+          type: boolean
+        system_disk:
+          type: boolean
+        read_only:
+          type: boolean
+        bus:
+          type: string
+          nullable: true
+        partition_count:
+          type: integer
+          minimum: 0
+        identity_fingerprint:
+          type: string
+        risk_level:
+          $ref: "#/components/schemas/RiskLevel"
+        warnings:
+          type: array
+          items:
+            type: string
+    OperationPreviewRequest:
+      type: object
+      required:
+        - operation_type
+      properties:
+        operation_type:
+          type: string
+        target_device:
+          $ref: "#/components/schemas/DeviceRef"
+        parameters:
+          type: object
+          additionalProperties: true
+        requested_by:
+          type: string
+        dry_run:
+          type: boolean
+          default: true
+    OperationPreviewResponse:
+      type: object
+      required:
+        - preview_id
+        - operation_type
+        - status
+        - risk_level
+        - required_gates
+        - expires_at
+        - safety_token
+      properties:
+        preview_id:
+          type: string
+        operation_type:
+          type: string
+        status:
+          type: string
+          enum:
+            - previewed
+            - blocked
+            - not_implemented
+        risk_level:
+          $ref: "#/components/schemas/RiskLevel"
+        target_device:
+          $ref: "#/components/schemas/Device"
+        required_gates:
+          type: array
+          items:
+            $ref: "#/components/schemas/SafetyGateResult"
+        warnings:
+          type: array
+          items:
+            type: string
+        proposed_changes:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type: string
+          format: date-time
+        safety_token:
+          type: string
+        correlation_id:
+          type: string
+    OperationExecuteRequest:
+      type: object
+      required:
+        - preview_id
+        - safety_token
+        - acknowledged_risk
+      properties:
+        preview_id:
+          type: string
+        safety_token:
+          type: string
+        acknowledged_risk:
+          type: boolean
+        target_device:
+          $ref: "#/components/schemas/DeviceRef"
+        idempotency_key:
+          type: string
+    OperationStatusResponse:
+      type: object
+      required:
+        - operation_id
+        - status
+        - operation_type
+        - created_at
+      properties:
+        operation_id:
+          type: string
+        preview_id:
+          type: string
+        operation_type:
+          type: string
+        status:
+          $ref: "#/components/schemas/OperationState"
+        progress_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+        current_step:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        warnings:
+          type: array
+          items:
+            type: string
+        error:
+          $ref: "#/components/schemas/AgentError"
+    SafetyEvaluationRequest:
+      type: object
+      required:
+        - operation_type
+      properties:
+        operation_type:
+          type: string
+        target_device:
+          $ref: "#/components/schemas/DeviceRef"
+        parameters:
+          type: object
+          additionalProperties: true
+    SafetyEvaluationResponse:
+      type: object
+      required:
+        - safe_to_proceed
+        - risk_level
+        - gates
+      properties:
+        safe_to_proceed:
+          type: boolean
+        risk_level:
+          $ref: "#/components/schemas/RiskLevel"
+        gates:
+          type: array
+          items:
+            $ref: "#/components/schemas/SafetyGateResult"
+        warnings:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            type: string
+    SafetyGateResult:
+      type: object
+      required:
+        - gate
+        - status
+      properties:
+        gate:
+          type: string
+        status:
+          type: string
+          enum:
+            - passed
+            - failed
+            - warning
+            - not_evaluated
+        message:
+          type: string
+        evidence:
+          type: object
+          additionalProperties: true
+    DeviceRef:
+      type: object
+      required:
+        - device_id
+        - identity_fingerprint
+      properties:
+        device_id:
+          type: string
+        identity_fingerprint:
+          type: string
+        stable_path:
+          type: string
+          nullable: true
+    ReportBundleRequest:
+      type: object
+      properties:
+        operation_id:
+          type: string
+        include_logs:
+          type: boolean
+          default: true
+        include_device_snapshot:
+          type: boolean
+          default: true
+        redaction_level:
+          type: string
+          enum:
+            - standard
+            - strict
+    ReportBundleResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - not_implemented
+            - queued
+            - ready
+        report_id:
+          type: string
+          nullable: true
+        download_url:
+          type: string
+          nullable: true
+        correlation_id:
+          type: string
+    LogExportResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - not_implemented
+            - ready
+        operation_id:
+          type: string
+          nullable: true
+        download_url:
+          type: string
+          nullable: true
+        correlation_id:
+          type: string
+    RiskLevel:
+      type: string
+      enum:
+        - low
+        - medium
+        - high
+        - critical
+    OperationState:
+      type: string
+      enum:
+        - requested
+        - previewed
+        - blocked
+        - ready_for_execution
+        - queued
+        - running
+        - succeeded
+        - failed
+        - cancelled
+        - not_implemented
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: "#/components/schemas/AgentError"
+    AgentError:
+      type: object
+      required:
+        - code
+        - message
+        - severity
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum:
+            - info
+            - warning
+            - error
+            - critical
+        details:
+          type: object
+          additionalProperties: true
+        correlation_id:
+          type: string

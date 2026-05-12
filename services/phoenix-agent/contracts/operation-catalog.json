@@ -1,0 +1,159 @@
+{
+  "schema_version": "0.1.0",
+  "agent_contract": "phoenix-agent-api",
+  "status": "contract_only",
+  "safety_model": {
+    "preview_required": true,
+    "system_disks_protected_by_default": true,
+    "explicit_device_identity_required": true,
+    "ui_apps_may_request_only": true,
+    "agent_owns_policy_checks": true,
+    "rust_crates_own_low_level_safety": true
+  },
+  "operations": [
+    {
+      "operation_type": "media.create_boot_usb",
+      "owner": "BootForge",
+      "dangerous": true,
+      "execution_status": "placeholder",
+      "preview_required": true,
+      "requires_device": true,
+      "required_gates": [
+        "device.identity",
+        "device.not_system_disk",
+        "device.removable_or_policy_exception",
+        "image.verified",
+        "user.confirmation",
+        "audit.started"
+      ],
+      "future_sources": [
+        "desktop/src/core/usb_builder.py",
+        "crates/imaging",
+        "crates/safety",
+        "crates/host-*"
+      ]
+    },
+    {
+      "operation_type": "media.verify_image",
+      "owner": "BootForge",
+      "dangerous": false,
+      "execution_status": "placeholder",
+      "preview_required": false,
+      "requires_device": false,
+      "required_gates": [
+        "image.checksum_available",
+        "audit.started"
+      ],
+      "future_sources": [
+        "desktop/src/core/os_image_manager.py",
+        "crates/imaging"
+      ]
+    },
+    {
+      "operation_type": "disk.inspect",
+      "owner": "Phoenix Agent",
+      "dangerous": false,
+      "execution_status": "placeholder",
+      "preview_required": false,
+      "requires_device": true,
+      "required_gates": [
+        "device.identity"
+      ],
+      "future_sources": [
+        "backend/core/device_scanner.py",
+        "desktop/src/core/disk_manager.py",
+        "crates/host-*"
+      ]
+    },
+    {
+      "operation_type": "disk.repair_preview",
+      "owner": "BootForge",
+      "dangerous": true,
+      "execution_status": "placeholder",
+      "preview_required": true,
+      "requires_device": true,
+      "required_gates": [
+        "device.identity",
+        "device.not_system_disk",
+        "repair.non_destructive_preview",
+        "user.confirmation"
+      ],
+      "future_sources": [
+        "desktop/src/recovery",
+        "crates/safety",
+        "crates/workflow-engine"
+      ]
+    },
+    {
+      "operation_type": "bootcamp.prepare_drivers",
+      "owner": "BootForge",
+      "dangerous": true,
+      "execution_status": "placeholder",
+      "preview_required": true,
+      "requires_device": true,
+      "required_gates": [
+        "device.identity",
+        "driver.source_verified",
+        "host.platform_supported",
+        "user.confirmation"
+      ],
+      "future_sources": [
+        "server/bootcamp",
+        "legacy/bootcamp"
+      ]
+    },
+    {
+      "operation_type": "oclp.evaluate",
+      "owner": "BootForge",
+      "dangerous": false,
+      "execution_status": "placeholder",
+      "preview_required": false,
+      "requires_device": false,
+      "required_gates": [
+        "oclp.version_known",
+        "host.model_detected"
+      ],
+      "future_sources": [
+        "desktop/src/core/oclp_*",
+        "desktop/src/gui/oclp_wizard.py",
+        "third_party/OpenCore-Legacy-Patcher"
+      ]
+    },
+    {
+      "operation_type": "phoenix_key.prepare_rescue",
+      "owner": "Phoenix Key",
+      "dangerous": true,
+      "execution_status": "placeholder",
+      "preview_required": true,
+      "requires_device": true,
+      "required_gates": [
+        "device.identity",
+        "device.not_system_disk",
+        "rescue.profile_valid",
+        "user.confirmation"
+      ],
+      "future_sources": [
+        "docs/phoenix_key_legendary_blueprint.md",
+        "desktop/src/recovery",
+        "crates/workflow-engine"
+      ]
+    },
+    {
+      "operation_type": "report.collect_diagnostics",
+      "owner": "Phoenix Agent",
+      "dangerous": false,
+      "execution_status": "placeholder",
+      "preview_required": false,
+      "requires_device": false,
+      "required_gates": [
+        "report.redaction_policy",
+        "audit.started"
+      ],
+      "future_sources": [
+        "crates/report",
+        "desktop/src/plugins/diagnostics.py",
+        "tests/test_phoenix_docs_builder.py"
+      ]
+    }
+  ]
+}
