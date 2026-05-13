@@ -24,6 +24,13 @@ PR7 route mapping additions:
 - `../../docs/contracts/agent-route-mapping.md` maps current route families to Phoenix Agent endpoints and operation types.
 - `contracts/openapi.yaml` and `contracts/operation-catalog.json` now reference the PR7 mapping documents.
 
+PR8 mock service additions:
+
+- `src/` contains a TypeScript mock Phoenix Agent service with non-destructive `/v1` endpoints.
+- `tests/` contains contract tests proving health, mock device reads, preview-only behavior, blocked commits, and safety shape stability.
+- `package.json` and `tsconfig.json` define local build, typecheck, test, and dev scripts.
+- The mock service is not a migration target for old routes yet; it is a safe skeleton body for future implementation PRs.
+
 Migration guidance:
 
 - `services/api.ts` may migrate only after it is reconciled with this contract as a typed Phoenix Agent client or generated SDK.
@@ -42,3 +49,4 @@ Not migrated yet:
 - Phoenix Key rescue workflows.
 - Report bundle generation.
 - Log export implementation.
+- Real device scanning and operation persistence.

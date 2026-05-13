@@ -6,7 +6,9 @@ info:
     Contract-only Phoenix Agent API. PR6 defines the boundary for apps,
     BootForge, Phoenix Key, and future backend migration. PR7 maps existing
     backend, server, website, mobile prototype, and TypeScript client surfaces
-    to this boundary. It does not implement destructive system operations.
+    to this boundary. PR8 adds a non-destructive TypeScript mock service
+    skeleton for /v1 endpoints. It does not implement destructive system
+    operations.
 x-phoenix-route-mapping:
   inventory: docs/contracts/backend-route-inventory.md
   mapping: docs/contracts/agent-route-mapping.md
@@ -56,6 +58,170 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AgentHealth"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/system/status:
+    get:
+      tags:
+        - System
+      summary: Read non-destructive mock system status.
+      operationId: getV1SystemStatus
+      responses:
+        "200":
+          description: Mock system status.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/devices:
+    get:
+      tags:
+        - Devices
+      summary: List mock devices only.
+      operationId: listV1MockDevices
+      responses:
+        "200":
+          description: Mock device list.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/devices/{id}:
+    get:
+      tags:
+        - Devices
+      summary: Read mock device detail.
+      operationId: getV1MockDevice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Mock device detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404":
+          description: Mock device not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/operations/catalog:
+    get:
+      tags:
+        - Operations
+      summary: Read safe static operation catalog.
+      operationId: getV1OperationCatalog
+      responses:
+        "200":
+          description: Safe static operation catalog.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/operations/preview:
+    post:
+      tags:
+        - Operations
+      summary: Create a non-destructive mock preview.
+      operationId: previewV1Operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Preview-only response.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/operations/commit:
+    post:
+      tags:
+        - Operations
+      summary: Reject operation commits in the PR8 mock service.
+      operationId: rejectV1OperationCommit
+      description: >
+        PR8 is preview-first and mock-only. This endpoint rejects commits and
+        returns a stable blocked operation response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "403":
+          description: Dangerous operation blocked.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "409":
+          description: Commit path disabled for the mock service.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/safety/policy:
+    get:
+      tags:
+        - Safety
+      summary: Read preview-first safety policy.
+      operationId: getV1SafetyPolicy
+      responses:
+        "200":
+          description: Preview-first mock safety policy.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/safety/blocked-operations:
+    get:
+      tags:
+        - Safety
+      summary: List blocked destructive operations.
+      operationId: getV1BlockedOperations
+      responses:
+        "200":
+          description: Blocked destructive operations.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
         default:
           $ref: "#/components/responses/Error"
   /system/summary:

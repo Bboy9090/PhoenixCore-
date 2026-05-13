@@ -23,6 +23,47 @@
       "phoenix-core-mobile/lib/api*"
     ]
   },
+  "mock_service": {
+    "implemented_in_pr": "PR8",
+    "non_destructive": true,
+    "preview_first_only": true,
+    "commit_enabled": false,
+    "implemented_endpoints": [
+      "GET /health",
+      "GET /v1/system/status",
+      "GET /v1/devices",
+      "GET /v1/devices/{id}",
+      "GET /v1/operations/catalog",
+      "POST /v1/operations/preview",
+      "POST /v1/operations/commit",
+      "GET /v1/safety/policy",
+      "GET /v1/safety/blocked-operations"
+    ]
+  },
+  "required_future_gates": [
+    "policy approval",
+    "Rust safety gate",
+    "device fingerprint",
+    "preview freshness",
+    "audit log",
+    "dry-run verification",
+    "explicit user confirmation",
+    "test coverage"
+  ],
+  "blocked_operations": [
+    "usb.build",
+    "usb.erase",
+    "disk.erase",
+    "disk.mount",
+    "disk.unmount",
+    "bootcamp.install",
+    "oclp.patch",
+    "workflow.run",
+    "remote.command",
+    "bulk.operation",
+    "firmware.flash",
+    "restore.write"
+  ],
   "safety_model": {
     "preview_required": true,
     "system_disks_protected_by_default": true,
