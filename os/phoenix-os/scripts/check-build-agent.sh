@@ -126,16 +126,17 @@ if [[ "$runtime" == "podman" ]]; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$script_dir/verify-container.sh" ]]; then
-  pass "Found helper: os/phoenix-os/scripts/verify-container.sh"
+container_dir="$(cd "$script_dir/../container" 2>/dev/null && pwd || true)"
+if [[ -n "$container_dir" && -f "$container_dir/verify-container.sh" ]]; then
+  pass "Found helper: os/phoenix-os/container/verify-container.sh"
 else
-  warn "Missing helper: os/phoenix-os/scripts/verify-container.sh"
+  warn "Missing helper: os/phoenix-os/container/verify-container.sh"
 fi
 
-if [[ -f "$script_dir/build-container.sh" ]]; then
-  pass "Found helper: os/phoenix-os/scripts/build-container.sh"
+if [[ -n "$container_dir" && -f "$container_dir/build-container.sh" ]]; then
+  pass "Found helper: os/phoenix-os/container/build-container.sh"
 else
-  warn "Missing helper: os/phoenix-os/scripts/build-container.sh"
+  warn "Missing helper: os/phoenix-os/container/build-container.sh"
 fi
 
 if [[ "$check_privileged" -eq 1 && "$runtime" != "none" ]]; then

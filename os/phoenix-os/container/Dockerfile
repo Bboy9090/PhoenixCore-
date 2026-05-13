@@ -1,0 +1,41 @@
+# Phoenix OS OCI builder.
+#
+# This image contains live-build tooling only. Host orchestration stays in the
+# wrapper scripts so the container cannot format disks or discover host devices.
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    ca-certificates \
+    coreutils \
+    curl \
+    debootstrap \
+    dosfstools \
+    file \
+    findutils \
+    git \
+    grep \
+    grub-efi-amd64-bin \
+    grub-pc-bin \
+    isolinux \
+    live-build \
+    mtools \
+    rsync \
+    sed \
+    squashfs-tools \
+    sudo \
+    syslinux-common \
+    tar \
+    xorriso \
+    xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -s /bin/bash phoenix-builder \
+    && echo "phoenix-builder ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/phoenix-builder \
+    && chmod 0440 /etc/sudoers.d/phoenix-builder
+
+WORKDIR /workspace/os/phoenix-os
+
+CMD ["bash"]

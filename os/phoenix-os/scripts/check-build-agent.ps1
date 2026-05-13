@@ -128,21 +128,22 @@ else {
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$verifyScript = Join-Path $scriptDir "verify-container.sh"
-$buildScript = Join-Path $scriptDir "build-container.sh"
+$containerDir = Join-Path (Split-Path -Parent $scriptDir) "container"
+$verifyScript = Join-Path $containerDir "verify-container.sh"
+$buildScript = Join-Path $containerDir "build-container.sh"
 
 if (Test-Path $verifyScript) {
-    Pass "Found helper: os/phoenix-os/scripts/verify-container.sh"
+    Pass "Found helper: os/phoenix-os/container/verify-container.sh"
 }
 else {
-    Warn "Missing helper: os/phoenix-os/scripts/verify-container.sh"
+    Warn "Missing helper: os/phoenix-os/container/verify-container.sh"
 }
 
 if (Test-Path $buildScript) {
-    Pass "Found helper: os/phoenix-os/scripts/build-container.sh"
+    Pass "Found helper: os/phoenix-os/container/build-container.sh"
 }
 else {
-    Warn "Missing helper: os/phoenix-os/scripts/build-container.sh"
+    Warn "Missing helper: os/phoenix-os/container/build-container.sh"
 }
 
 if ($CheckWSLDocker.IsPresent -and $null -ne $wslCmd) {

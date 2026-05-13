@@ -1,0 +1,21 @@
+services:
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: phoenix-os-builder:pr22
+    platform: ${PHOENIX_OS_PLATFORM:-linux/amd64}
+    privileged: true
+    working_dir: /workspace/os/phoenix-os
+    environment:
+      BUILD_ENV: oci
+      PHOENIX_OS_ARTIFACT_DIR: /workspace/os/phoenix-os/build
+    volumes:
+      - type: bind
+        source: ../../..
+        target: /workspace
+        read_only: true
+      - type: bind
+        source: ../build
+        target: /workspace/os/phoenix-os/build
+        read_only: false

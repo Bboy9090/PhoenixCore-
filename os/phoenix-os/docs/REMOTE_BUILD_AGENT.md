@@ -61,13 +61,13 @@ From local machine:
 ssh <user>@<vm-hostname-or-ip>
 cd ~/src/phoenixcore-
 bash os/phoenix-os/scripts/check-build-agent.sh
-bash os/phoenix-os/scripts/verify-container.sh
-bash os/phoenix-os/scripts/build-container.sh
+bash os/phoenix-os/container/verify-container.sh
+bash os/phoenix-os/container/build-container.sh
 ```
 
 Notes:
 
-- `verify-container.sh` and `build-container.sh` must exist in the checkout (from PR20+).
+- `verify-container.sh` and `build-container.sh` must exist under `os/phoenix-os/container/`.
 - Do not claim ISO output unless `build-container.sh` actually completes successfully.
 
 ## Artifact Retrieval Path

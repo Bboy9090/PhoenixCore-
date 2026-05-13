@@ -39,7 +39,7 @@ Based on prior blocker context (Windows/BootCamp host without active Docker/Podm
 ## Remaining Blockers
 
 - No active container runtime in host PATH blocks truthful ISO build claims.
-- `verify-container.sh` / `build-container.sh` must be present and executable in target checkout (from PR20+ artifacts/branch state).
+- `verify-container.sh` / `build-container.sh` must be present and executable under `os/phoenix-os/container/`.
 - Any ISO claim remains blocked until container verification and build scripts run successfully on an active runtime.
 
 ## Next Recommended PR

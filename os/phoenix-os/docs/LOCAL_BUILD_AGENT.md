@@ -22,11 +22,11 @@ bash os/phoenix-os/scripts/check-build-agent.sh
 .\os\phoenix-os\scripts\check-build-agent.ps1
 ```
 
-If PR20 helper scripts are present, local container checks/builds are:
+Local container checks/builds are:
 
 ```bash
-bash os/phoenix-os/scripts/verify-container.sh
-bash os/phoenix-os/scripts/build-container.sh
+bash os/phoenix-os/container/verify-container.sh
+bash os/phoenix-os/container/build-container.sh
 ```
 
 ## 1) Windows 11 + WSL2 + Docker Desktop
@@ -121,11 +121,9 @@ bash os/phoenix-os/scripts/check-build-agent.sh --check-privileged
 
 ### C. Run Phoenix OS container checks/builds
 
-If available from PR20:
-
 ```bash
-bash os/phoenix-os/scripts/verify-container.sh
-bash os/phoenix-os/scripts/build-container.sh
+bash os/phoenix-os/container/verify-container.sh
+bash os/phoenix-os/container/build-container.sh
 ```
 
 ## 3) macOS (Docker Desktop)
@@ -148,10 +146,8 @@ bash os/phoenix-os/scripts/check-build-agent.sh
 bash os/phoenix-os/scripts/check-build-agent.sh --check-privileged
 ```
 
-If available from PR20:
-
 ```bash
-bash os/phoenix-os/scripts/verify-container.sh
+bash os/phoenix-os/container/verify-container.sh
 ```
 
 ### D. Current macOS limitations
