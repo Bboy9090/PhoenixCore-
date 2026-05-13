@@ -1,0 +1,35 @@
+{
+  "version": "1.1.0",
+  "operations": [
+    {
+      "id": "disk.format",
+      "risk": "destructive",
+      "gates": ["preview", "identity", "safety_eval", "confirmation", "audit"],
+      "rollback": false
+    },
+    {
+      "id": "disk.repartition",
+      "risk": "destructive",
+      "gates": ["preview", "identity", "safety_eval", "confirmation", "audit"],
+      "rollback": false
+    },
+    {
+      "id": "driver.deploy",
+      "risk": "privileged",
+      "gates": ["identity", "safety_eval", "audit"],
+      "rollback": true
+    },
+    {
+      "id": "efi.stage",
+      "risk": "firmware_adjacent",
+      "gates": ["preview", "identity", "safety_eval", "confirmation", "audit"],
+      "rollback": true
+    },
+    {
+      "id": "system.interrogate",
+      "risk": "read_only",
+      "gates": ["identity"],
+      "rollback": false
+    }
+  ]
+}

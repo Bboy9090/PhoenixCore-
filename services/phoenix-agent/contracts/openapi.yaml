@@ -1,0 +1,69 @@
+openapi: 3.0.0
+info:
+  title: Phoenix Agent API
+  version: 1.1.0
+  description: Hardened system operation lifecycle API.
+paths:
+  /operation/preview:
+    post:
+      summary: Generate an impact report for a proposed operation.
+      responses:
+        '200':
+          description: Impact report generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImpactReport'
+  /operation/execute:
+    post:
+      summary: Initiate a safety-gated system operation.
+      parameters:
+        - name: PHX-TOKEN
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Operation initiated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+  /operation/status/{jobId}:
+    get:
+      summary: Retrieve the current status and logs for a job.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job status retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+components:
+  schemas:
+    ImpactReport:
+      type: object
+      properties:
+        operationId: { type: string }
+        riskLevel: { type: string, enum: [read_only, preview_only, privileged, destructive, firmware_adjacent] }
+        proposedChanges: { type: array, items: { type: string } }
+        safetyRequirements: { type: array, items: { type: string } }
+    JobResponse:
+      type: object
+      properties:
+        jobId: { type: string }
+        status: { type: string }
+    JobStatus:
+      type: object
+      properties:
+        jobId: { type: string }
+        state: { type: string }
+        progress: { type: integer }
+        logs: { type: array, items: { type: string } }

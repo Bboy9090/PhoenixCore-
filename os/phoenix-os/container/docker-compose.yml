@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: phoenix-os-builder:latest
+    privileged: true # Required for live-build mount/chroot operations
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - ../../../:/workspace:rw
+    working_dir: /workspace/os/phoenix-os
+    environment:
+      - BUILD_ENV=oci

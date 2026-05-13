@@ -1,0 +1,30 @@
+# Phoenix OS - KDE Plasma & Wayland
+# Foundation: Wayland-first desktop experience
+
+# Display Server & Wayland
+wayland-protocols
+weston
+plasma-workspace-wayland
+kwin-wayland
+xwayland
+
+# Desktop Environment
+kde-standard
+plasma-desktop
+plasma-nm
+plasma-pa
+powerdevil
+kscreen
+sddm
+
+# Core Apps
+konsole
+dolphin
+ark
+kate
+
+# Theming (Placeholders for Phoenix Branding)
+breeze
+breeze-cursor-theme
+breeze-icon-theme
+plasma-theme-oxygen

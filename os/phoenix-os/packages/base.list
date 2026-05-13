@@ -1,0 +1,37 @@
+# Phoenix OS - Base System Packages
+# Target: Debian/Ubuntu Live Foundation
+
+# Kernel and Boot
+linux-image-amd64
+live-boot
+live-config
+live-config-systemd
+
+# Core Utilities
+systemd
+systemd-sysv
+udev
+kmod
+base-files
+base-passwd
+bash
+coreutils
+findutils
+grep
+gzip
+sed
+tar
+util-linux
+
+# Networking
+network-manager
+iproute2
+iputils-ping
+curl
+wget
+ca-certificates
+
+# Security
+sudo
+iptables
+nftables
