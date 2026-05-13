@@ -5,9 +5,10 @@ pub fn build_device_graph() -> Result<DeviceGraph> {
     #[cfg(target_os = "macos")]
     {
         let host = HostInfo {
+            hostname: read_machine(),
             os: "macos".to_string(),
-            os_version: read_os_version(),
-            machine: read_machine(),
+            arch: std::env::consts::ARCH.to_string(),
+            kernel_version: read_os_version(),
         };
         let disks = enumerate_disks()?;
         Ok(DeviceGraph::new(host, disks, now_utc_rfc3339()))
@@ -43,24 +44,27 @@ fn enumerate_disks() -> Result<Vec<Disk>> {
             size_bytes: 0,
             removable: false,
             is_system_disk: false,
+            volumes: Vec::new(),
             partitions: Vec::new(),
         });
 
         let partition = Partition {
             id: device_name,
             label: None,
-            fs: Some(mount.fs_type.clone()),
             size_bytes: mount.size_bytes,
             mount_points: vec![mount.mount_point.clone()],
+            fs: Some(mount.fs_type.clone()),
         };
         entry.size_bytes = entry.size_bytes.saturating_add(mount.size_bytes);
+        entry.volumes.push(partition.clone());
+        entry.partitions.push(partition);
         if mount.mount_point == "/" {
             entry.is_system_disk = true;
         }
         if mount.mount_point.starts_with("/Volumes/") {
             entry.removable = true;
         }
-        entry.partitions.push(partition);
+        entry.volumes.push(partition);
     }
 
     Ok(disks.into_values().collect())

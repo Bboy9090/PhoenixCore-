@@ -9,6 +9,7 @@ use uuid::Uuid;
 use zip::write::FileOptions;
 use zip::ZipWriter;
 
+#[derive(Debug, Clone)]
 pub struct ReportPaths {
     pub run_id: String,
     pub root: PathBuf,
@@ -77,9 +78,9 @@ pub fn create_report_bundle_with_meta_signing_and_artifacts(
 
     let mut meta = serde_json::json!({
         "run_id": run_id,
-        "schema_version": graph.schema_version,
-        "generated_at_utc": graph.generated_at_utc,
-        "host": graph.host,
+        "schema_version": &graph.schema_version,
+        "generated_at_utc": &graph.timestamp,
+        "host": &graph.host_info,
         "disk_count": graph.disks.len()
     });
     if let Some(extra) = extra_meta {

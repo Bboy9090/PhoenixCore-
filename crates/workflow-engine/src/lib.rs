@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use serde::Serialize;
 use phoenix_report::{
     create_report_bundle_with_meta_and_signing, create_report_bundle_with_meta_signing_and_artifacts,
     ReportArtifact, ReportPaths,
@@ -1609,10 +1610,10 @@ pub fn run_windows_apply_image(params: &WindowsApplyImageParams) -> Result<Windo
             fs::create_dir_all(&params.target_dir).context("create target dir")?;
         }
         if let Some(expected) = image_info.total_bytes {
-            if let Ok(free_bytes) = free_space_bytes(&params.target_dir.display().to_string()) {
+            if let Ok(Some(free_bytes)) = free_space_bytes(params.target_dir.as_path()) {
                 if free_bytes < expected {
                     return Err(anyhow!(
-                        "insufficient free space: required {}, available {}",
+                        "insufficient free space: required {}, available {:?}",
                         expected,
                         free_bytes
                     ));
@@ -2165,7 +2166,7 @@ fn max_file_size(entries: &[FileEntry]) -> u64 {
     entries.iter().map(|entry| entry.size).max().unwrap_or(0)
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize)]
 struct CopyManifestEntry {
     path: String,
     bytes: u64,
@@ -2612,7 +2613,7 @@ fn build_kext_stage_params(
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let target_mount = PathBuf::from(require_string(value, "target_mount")?);
     let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
+        default_report.display().to_string().as_str()
     }));
     let target_subdir = optional_string(value, "target_subdir").map(PathBuf::from);
 

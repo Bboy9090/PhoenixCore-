@@ -6,9 +6,10 @@ use std::path::{Path, PathBuf};
 
 pub fn build_device_graph() -> Result<DeviceGraph> {
     let host = HostInfo {
+        hostname: read_machine(),
         os: "linux".to_string(),
-        os_version: read_os_release(),
-        machine: read_machine(),
+        arch: std::env::consts::ARCH.to_string(),
+        kernel_version: read_os_release(),
     };
     let disks = enumerate_disks()?;
     Ok(DeviceGraph::new(host, disks, now_utc_rfc3339()))
@@ -41,6 +42,7 @@ fn enumerate_disks() -> Result<Vec<Disk>> {
             size_bytes,
             removable,
             is_system_disk,
+            volumes: partitions.clone(),
             partitions,
         });
     }

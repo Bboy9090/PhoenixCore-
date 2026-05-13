@@ -312,8 +312,30 @@ fn is_wim(path: &Path) -> bool {
 }
 
 #[cfg(windows)]
+#[derive(Debug)]
+struct IsoMount {
+    handle: windows::Win32::Foundation::HANDLE,
+}
+
+#[cfg(windows)]
+impl Drop for IsoMount {
+    fn drop(&mut self) {
+        use windows::Win32::Storage::Vhd::{DetachVirtualDisk, DETACH_VIRTUAL_DISK_FLAG_NONE};
+        use windows::Win32::Foundation::CloseHandle;
+        unsafe {
+            let _ = DetachVirtualDisk(self.handle, DETACH_VIRTUAL_DISK_FLAG_NONE, 0);
+            let _ = CloseHandle(self.handle);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+#[derive(Debug)]
+struct IsoMount;
+
+#[cfg(windows)]
 mod windows_impl {
-    use super::{PreparedSource, SourceKind};
+    use super::{PreparedSource, SourceKind, IsoMount};
     use anyhow::{anyhow, Result};
     use std::collections::HashSet;
     use std::path::{Path, PathBuf};
@@ -342,20 +364,6 @@ mod windows_impl {
             kind: SourceKind::Iso,
             _mount: Some(IsoMount { handle }),
         })
-    }
-
-    #[derive(Debug)]
-    struct IsoMount {
-        handle: HANDLE,
-    }
-
-    impl Drop for IsoMount {
-        fn drop(&mut self) {
-            unsafe {
-                let _ = DetachVirtualDisk(self.handle, DETACH_VIRTUAL_DISK_FLAG_NONE, 0);
-                let _ = CloseHandle(self.handle);
-            }
-        }
     }
 
     fn open_virtual_disk(path: &Path) -> Result<HANDLE> {
@@ -448,5 +456,3 @@ mod windows_impl {
     }
 }
 
-#[cfg(not(windows))]
-// struct IsoMount definition is handled in windows_impl and cfg(not(windows))

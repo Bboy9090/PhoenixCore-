@@ -15,7 +15,7 @@ pub fn build_device_graph() -> Result<DeviceGraph> {
 
 #[cfg(windows)]
 fn get_host_info() -> Result<HostInfo> {
-    use windows::Win32::System::SystemInformation::{GetComputerNameW, GetSystemInfo};
+    // use windows::Win32::System::SystemInformation::{GetComputerNameW, GetSystemInfo};
     // ... Windows implementation ...
     Ok(HostInfo {
         hostname: "Windows-Host".to_string(), // Placeholder for now
@@ -37,28 +37,31 @@ fn get_host_info() -> Result<HostInfo> {
 
 #[cfg(windows)]
 fn get_disks() -> Result<Vec<Disk>> {
-    use windows::Win32::Storage::FileSystem::{GetLogicalDrives, GetVolumeInformationW, GetDriveTypeW};
-    use windows::Win32::Foundation::HANDLE;
+    // use windows::Win32::Storage::FileSystem::{GetLogicalDrives, GetVolumeInformationW, GetDriveTypeW};
+    // use windows::Win32::Foundation::HANDLE;
     // Real implementation would iterate PhysicalDrive0..N
     // This is a placeholder that identifies the structure for Pass B
     let mut disks = Vec::new();
     
     // Sample "System Disk" logic
+    let volumes = vec![
+        Volume {
+            id: "C:".to_string(),
+            label: Some("OS".to_string()),
+            fs: Some("NTFS".to_string()),
+            size_bytes: 400 * 1024 * 1024 * 1024,
+            mount_points: vec!["C:".to_string()],
+        }
+    ];
+
     disks.push(Disk {
         id: "\\\\.\\PhysicalDrive0".to_string(),
-        friendly_name: Some("System SSD".to_string()),
+        friendly_name: "System SSD".to_string(),
         size_bytes: 512 * 1024 * 1024 * 1024, // 512GB
         removable: false,
         is_system_disk: true,
-        volumes: vec![
-            Volume {
-                id: "C:".to_string(),
-                label: Some("OS".to_string()),
-                filesystem: Some("NTFS".to_string()),
-                size_bytes: 400 * 1024 * 1024 * 1024,
-                mount_points: vec!["C:".to_string()],
-            }
-        ],
+        volumes: volumes.clone(),
+        partitions: volumes,
     });
 
     Ok(disks)

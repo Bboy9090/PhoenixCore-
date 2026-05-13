@@ -2,8 +2,18 @@
 members = [
     "crates/core",
     "crates/host-windows",
+    "crates/host-linux",
+    "crates/host-macos",
     "crates/imaging",
     "crates/safety",
+    "crates/bootloader-core",
+    "crates/content",
+    "crates/fs-fat32",
+    "crates/legacy-patcher",
+    "crates/plugin-sdk",
+    "crates/report",
+    "crates/wim",
+    "crates/workflow-engine",
     "apps/cli",
 ]
 resolver = "2"
