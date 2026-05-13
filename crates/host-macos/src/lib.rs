@@ -1,14 +1,10 @@
 use anyhow::{anyhow, Result};
-use phoenix_core::{now_utc_rfc3339, DeviceGraph, Disk, HostInfo, Partition};
+use phoenix_core::{now_utc_rfc3339, DeviceGraph, Disk, HostInfo, Partition, Volume};
 
 pub fn build_device_graph() -> Result<DeviceGraph> {
     #[cfg(target_os = "macos")]
     {
-        let host = HostInfo {
-            os: "macos".to_string(),
-            os_version: read_os_version(),
-            machine: read_machine(),
-        };
+        let host = HostInfo::new("macos", read_os_version(), read_machine());
         let disks = enumerate_disks()?;
         Ok(DeviceGraph::new(host, disks, now_utc_rfc3339()))
     }
@@ -39,10 +35,11 @@ fn enumerate_disks() -> Result<Vec<Disk>> {
         let disk_id = split_disk_id(&device_name);
         let entry = disks.entry(disk_id.clone()).or_insert_with(|| Disk {
             id: disk_id.clone(),
-            friendly_name: disk_id.clone(),
+            friendly_name: Some(disk_id.clone()),
             size_bytes: 0,
             removable: false,
             is_system_disk: false,
+            volumes: Vec::new(),
             partitions: Vec::new(),
         });
 
@@ -60,6 +57,7 @@ fn enumerate_disks() -> Result<Vec<Disk>> {
         if mount.mount_point.starts_with("/Volumes/") {
             entry.removable = true;
         }
+        entry.volumes.push(Volume::from(&partition));
         entry.partitions.push(partition);
     }
 

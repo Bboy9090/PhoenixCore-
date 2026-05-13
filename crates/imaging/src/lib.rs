@@ -1,5 +1,5 @@
 use sha2::{Sha256, Digest};
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use indicatif::{ProgressBar, ProgressStyle};
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
@@ -29,6 +29,164 @@ impl ChunkPlan {
             chunk_size,
             total_chunks,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct PlannedChunk {
+    pub index: u64,
+    pub offset: u64,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ImageWriteResult {
+    pub bytes_written: u64,
+    pub sha256: String,
+    pub verify_ok: Option<bool>,
+}
+
+pub fn make_chunk_plan(total_size: u64, chunk_size: u64) -> Vec<PlannedChunk> {
+    if total_size == 0 || chunk_size == 0 {
+        return Vec::new();
+    }
+
+    let mut chunks = Vec::new();
+    let mut offset = 0u64;
+    let mut index = 0u64;
+    while offset < total_size {
+        let size = chunk_size.min(total_size - offset);
+        chunks.push(PlannedChunk {
+            index,
+            offset,
+            size,
+        });
+        offset = offset.saturating_add(size);
+        index = index.saturating_add(1);
+    }
+    chunks
+}
+
+pub fn hash_device_readonly(
+    device_path: &str,
+    total_size: u64,
+    chunk_size: u64,
+    max_chunks: Option<u64>,
+) -> Result<Vec<(u64, String)>> {
+    if chunk_size == 0 {
+        anyhow::bail!("chunk_size must be greater than zero");
+    }
+    let chunk_size = usize::try_from(chunk_size).context("chunk_size too large")?;
+    let plan = ChunkPlan::new(total_size, chunk_size);
+    let max_chunks = max_chunks.map(|value| value as usize);
+    let hashes = hash_disk_chunks(device_path, &plan, max_chunks)?;
+    Ok(hashes
+        .into_iter()
+        .map(|hash| (hash.index as u64, hash.hash))
+        .collect())
+}
+
+pub fn hash_disk_readonly_physicaldrive(
+    disk_id: &str,
+    total_size: u64,
+    chunk_size: u64,
+    max_chunks: Option<u64>,
+) -> Result<Vec<(u64, String)>> {
+    let disk_path = windows_physical_drive_path(disk_id);
+    hash_device_readonly(&disk_path, total_size, chunk_size, max_chunks)
+}
+
+pub fn write_image_to_device(
+    source_image: impl AsRef<std::path::Path>,
+    target_device: impl AsRef<std::path::Path>,
+    chunk_size: u64,
+    verify: bool,
+) -> Result<ImageWriteResult> {
+    if chunk_size == 0 {
+        anyhow::bail!("chunk_size must be greater than zero");
+    }
+
+    let mut source = std::fs::File::open(source_image.as_ref())
+        .with_context(|| format!("open source image {}", source_image.as_ref().display()))?;
+    let mut target = std::fs::OpenOptions::new()
+        .write(true)
+        .open(target_device.as_ref())
+        .with_context(|| format!("open target device {}", target_device.as_ref().display()))?;
+
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0u8; usize::try_from(chunk_size).context("chunk_size too large")?];
+    let mut bytes_written = 0u64;
+
+    loop {
+        let read = source.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        target.write_all(&buffer[..read])?;
+        hasher.update(&buffer[..read]);
+        bytes_written = bytes_written.saturating_add(read as u64);
+    }
+    target.flush()?;
+
+    let sha256 = format!("{:x}", hasher.finalize());
+    let verify_ok = if verify {
+        Some(verify_device_prefix(
+            source_image.as_ref(),
+            target_device.as_ref(),
+            bytes_written,
+            chunk_size,
+            &sha256,
+        )?)
+    } else {
+        None
+    };
+
+    Ok(ImageWriteResult {
+        bytes_written,
+        sha256,
+        verify_ok,
+    })
+}
+
+fn verify_device_prefix(
+    source_image: &std::path::Path,
+    target_device: &std::path::Path,
+    bytes_to_verify: u64,
+    chunk_size: u64,
+    expected_sha256: &str,
+) -> Result<bool> {
+    let source_sha = hash_file_prefix(source_image, bytes_to_verify, chunk_size)?;
+    let target_sha = hash_file_prefix(target_device, bytes_to_verify, chunk_size)?;
+    Ok(source_sha == expected_sha256 && source_sha == target_sha)
+}
+
+fn hash_file_prefix(path: &std::path::Path, bytes_to_hash: u64, chunk_size: u64) -> Result<String> {
+    let mut file = std::fs::File::open(path)
+        .with_context(|| format!("open {}", path.display()))?;
+    let mut remaining = bytes_to_hash;
+    let mut buffer = vec![0u8; usize::try_from(chunk_size).context("chunk_size too large")?];
+    let mut hasher = Sha256::new();
+
+    while remaining > 0 {
+        let limit = remaining.min(buffer.len() as u64) as usize;
+        let read = file.read(&mut buffer[..limit])?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+        remaining -= read as u64;
+    }
+
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn windows_physical_drive_path(disk_id: &str) -> String {
+    if disk_id.starts_with(r"\\.\") {
+        disk_id.to_string()
+    } else if disk_id.to_ascii_lowercase().starts_with("physicaldrive") {
+        format!(r"\\.\{}", disk_id)
+    } else {
+        format!(r"\\.\PhysicalDrive{}", disk_id)
     }
 }
 

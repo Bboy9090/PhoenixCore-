@@ -7,6 +7,16 @@ pub enum FileSystem {
     ExFat,
 }
 
+impl FileSystem {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            FileSystem::Fat32 => "FAT32",
+            FileSystem::Ntfs => "NTFS",
+            FileSystem::ExFat => "exFAT",
+        }
+    }
+}
+
 pub fn parse_filesystem(_value: &str) -> Option<FileSystem> {
     match _value.trim().to_ascii_lowercase().as_str() {
         "fat32" => Some(FileSystem::Fat32),

@@ -15,7 +15,7 @@ pub fn free_space_bytes(path: &str) -> Result<u64> {
             Some(&mut total_free),
         )
     };
-    if ok.as_bool() {
+    if ok.is_ok() {
         Ok(free)
     } else {
         Err(anyhow!("GetDiskFreeSpaceExW failed"))

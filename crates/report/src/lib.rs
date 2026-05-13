@@ -9,6 +9,7 @@ use uuid::Uuid;
 use zip::write::FileOptions;
 use zip::ZipWriter;
 
+#[derive(Debug, Clone)]
 pub struct ReportPaths {
     pub run_id: String,
     pub root: PathBuf,

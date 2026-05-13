@@ -1,9 +1,19 @@
 [workspace]
 members = [
+    "apps/cli",
+    "crates/bootloader-core",
+    "crates/content",
     "crates/core",
+    "crates/fs-fat32",
+    "crates/host-linux",
+    "crates/host-macos",
     "crates/host-windows",
     "crates/imaging",
+    "crates/legacy-patcher",
+    "crates/plugin-sdk",
+    "crates/report",
     "crates/safety",
-    "apps/cli",
+    "crates/wim",
+    "crates/workflow-engine",
 ]
 resolver = "2"

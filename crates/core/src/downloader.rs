@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use anyhow::{Result, Context};
+use anyhow::Result;
 use std::path::PathBuf;
 use std::fs;
 use sha2::{Sha256, Digest};

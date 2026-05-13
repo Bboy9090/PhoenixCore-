@@ -1,15 +1,11 @@
 use anyhow::{Context, Result};
-use phoenix_core::{now_utc_rfc3339, DeviceGraph, Disk, HostInfo, Partition};
+use phoenix_core::{now_utc_rfc3339, DeviceGraph, Disk, HostInfo, Partition, Volume};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 pub fn build_device_graph() -> Result<DeviceGraph> {
-    let host = HostInfo {
-        os: "linux".to_string(),
-        os_version: read_os_release(),
-        machine: read_machine(),
-    };
+    let host = HostInfo::new("linux", read_os_release(), read_machine());
     let disks = enumerate_disks()?;
     Ok(DeviceGraph::new(host, disks, now_utc_rfc3339()))
 }
@@ -35,12 +31,14 @@ fn enumerate_disks() -> Result<Vec<Disk>> {
         let is_system_disk = partitions.iter().any(|partition| {
             partition.mount_points.iter().any(|mount| mount == "/")
         });
+        let volumes = partitions.iter().map(Volume::from).collect();
         disks.push(Disk {
             id: disk_name,
-            friendly_name: model,
+            friendly_name: Some(model),
             size_bytes,
             removable,
             is_system_disk,
+            volumes,
             partitions,
         });
     }

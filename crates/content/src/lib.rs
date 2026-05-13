@@ -292,11 +292,34 @@ fn is_iso(path: &Path) -> bool {
 }
 
 #[cfg(windows)]
+#[derive(Debug)]
+struct IsoMount {
+    handle: windows::Win32::Foundation::HANDLE,
+}
+
+#[cfg(windows)]
+impl Drop for IsoMount {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = windows::Win32::Storage::Vhd::DetachVirtualDisk(
+                self.handle,
+                windows::Win32::Storage::Vhd::DETACH_VIRTUAL_DISK_FLAG_NONE,
+                0,
+            );
+            let _ = windows::Win32::Foundation::CloseHandle(self.handle);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+#[derive(Debug)]
+struct IsoMount;
+
+#[cfg(windows)]
 fn mount_iso(path: &Path) -> Result<PreparedSource> {
     windows_impl::mount_iso(path)
 }
 
-#[cfg(not(windows))]
 #[cfg(not(windows))]
 fn mount_iso(_path: &Path) -> Result<PreparedSource> {
     Err(anyhow!("ISO mounting requires Windows"))
@@ -313,19 +336,18 @@ fn is_wim(path: &Path) -> bool {
 
 #[cfg(windows)]
 mod windows_impl {
-    use super::{PreparedSource, SourceKind};
+    use super::{IsoMount, PreparedSource, SourceKind};
     use anyhow::{anyhow, Result};
     use std::collections::HashSet;
     use std::path::{Path, PathBuf};
     use std::time::{Duration, Instant};
 
     use windows::core::PCWSTR;
-    use windows::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
+    use windows::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE};
     use windows::Win32::Storage::FileSystem::GetLogicalDrives;
     use windows::Win32::Storage::Vhd::{
-        AttachVirtualDisk, DetachVirtualDisk, OpenVirtualDisk, ATTACH_VIRTUAL_DISK_FLAG_READ_ONLY,
-        ATTACH_VIRTUAL_DISK_PARAMETERS, ATTACH_VIRTUAL_DISK_VERSION_1,
-        DETACH_VIRTUAL_DISK_FLAG_NONE, OPEN_VIRTUAL_DISK_FLAG_NONE,
+        AttachVirtualDisk, OpenVirtualDisk, ATTACH_VIRTUAL_DISK_FLAG_READ_ONLY,
+        ATTACH_VIRTUAL_DISK_PARAMETERS, ATTACH_VIRTUAL_DISK_VERSION_1, OPEN_VIRTUAL_DISK_FLAG_NONE,
         OPEN_VIRTUAL_DISK_PARAMETERS, OPEN_VIRTUAL_DISK_VERSION_1, VIRTUAL_DISK_ACCESS_READ,
         VIRTUAL_STORAGE_TYPE, VIRTUAL_STORAGE_TYPE_DEVICE_ISO,
         VIRTUAL_STORAGE_TYPE_VENDOR_MICROSOFT,
@@ -342,20 +364,6 @@ mod windows_impl {
             kind: SourceKind::Iso,
             _mount: Some(IsoMount { handle }),
         })
-    }
-
-    #[derive(Debug)]
-    struct IsoMount {
-        handle: HANDLE,
-    }
-
-    impl Drop for IsoMount {
-        fn drop(&mut self) {
-            unsafe {
-                let _ = DetachVirtualDisk(self.handle, DETACH_VIRTUAL_DISK_FLAG_NONE, 0);
-                let _ = CloseHandle(self.handle);
-            }
-        }
     }
 
     fn open_virtual_disk(path: &Path) -> Result<HANDLE> {
@@ -447,6 +455,3 @@ mod windows_impl {
             .collect()
     }
 }
-
-#[cfg(not(windows))]
-// struct IsoMount definition is handled in windows_impl and cfg(not(windows))

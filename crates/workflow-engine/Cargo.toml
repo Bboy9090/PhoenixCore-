@@ -15,6 +15,7 @@ phoenix-fs-fat32 = { path = "../fs-fat32" }
 phoenix-report = { path = "../report" }
 phoenix-safety = { path = "../safety" }
 phoenix-wim = { path = "../wim" }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11.0-rc.5"
 libc = "1.0.0-alpha.2"

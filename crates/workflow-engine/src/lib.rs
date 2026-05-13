@@ -6,7 +6,6 @@ use phoenix_report::{
 use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
 use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
 use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
-use phoenix_host_windows::space::free_space_bytes;
 use phoenix_imaging::{
     hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan,
     write_image_to_device,
@@ -353,7 +352,7 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
             return Err(anyhow!("no mounted volume found for {}", disk.id));
         }
 
-        if let Ok(free_bytes) = free_space_bytes(&target_mount.display().to_string()) {
+        if let Some(free_bytes) = free_space_bytes(&target_mount)? {
             if free_bytes < total_bytes {
                 return Err(anyhow!(
                     "insufficient free space: required {}, available {}",
@@ -1609,7 +1608,7 @@ pub fn run_windows_apply_image(params: &WindowsApplyImageParams) -> Result<Windo
             fs::create_dir_all(&params.target_dir).context("create target dir")?;
         }
         if let Some(expected) = image_info.total_bytes {
-            if let Ok(free_bytes) = free_space_bytes(&params.target_dir.display().to_string()) {
+            if let Some(free_bytes) = free_space_bytes(&params.target_dir)? {
                 if free_bytes < expected {
                     return Err(anyhow!(
                         "insufficient free space: required {}, available {}",
@@ -2093,6 +2092,41 @@ fn run_asr_restore(source: &Path, target_device: &Path) -> Result<()> {
     )
 }
 
+#[cfg(not(target_os = "macos"))]
+fn is_macos_app(_path: &Path) -> bool {
+    false
+}
+
+#[cfg(not(target_os = "macos"))]
+struct MountedDmg {
+    mount_point: PathBuf,
+}
+
+#[cfg(not(target_os = "macos"))]
+fn mount_dmg(_path: &Path) -> Result<MountedDmg> {
+    Err(anyhow!("macos installer workflow requires macOS"))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn find_install_app(_root: &Path) -> Option<PathBuf> {
+    None
+}
+
+#[cfg(not(target_os = "macos"))]
+fn erase_disk(_target_device: &Path, _fs: &str, _name: &str) -> Result<()> {
+    Err(anyhow!("macos installer workflow requires macOS"))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn run_createinstallmedia(_app: &Path, _target_volume: &Path) -> Result<()> {
+    Err(anyhow!("macos installer workflow requires macOS"))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn run_asr_restore(_source: &Path, _target_device: &Path) -> Result<()> {
+    Err(anyhow!("macos installer workflow requires macOS"))
+}
+
 #[cfg(target_os = "macos")]
 fn run_cmd(cmd: &str, args: &[&str]) -> Result<()> {
     let output = std::process::Command::new(cmd)
@@ -2395,12 +2429,18 @@ fn default_driver_target() -> PathBuf {
     PathBuf::from(r"sources\$OEM$\$1\Drivers")
 }
 
+fn report_base_path(value: &serde_json::Value, default_report: &Path) -> PathBuf {
+    PathBuf::from(
+        optional_string(value, "report_base")
+            .map(str::to_owned)
+            .unwrap_or_else(|| default_report.display().to_string()),
+    )
+}
+
 fn build_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<WindowsInstallerUsbParams> {
     let target_disk_id = require_string(value, "target_disk_id")?;
     let source_path = PathBuf::from(require_string(value, "source_path")?);
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
     let filesystem = parse_filesystem_value(optional_string(value, "filesystem").unwrap_or("fat32"))?;
     let label = optional_string(value, "label").map(str::to_string);
 
@@ -2425,9 +2465,7 @@ fn build_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<
 fn build_apply_params(value: &serde_json::Value, default_report: &Path) -> Result<WindowsApplyImageParams> {
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let target_dir = PathBuf::from(require_string(value, "target_dir")?);
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
     let image_index = require_u32(value, "image_index")?;
 
     Ok(WindowsApplyImageParams {
@@ -2450,9 +2488,7 @@ fn build_verify_params(value: &serde_json::Value) -> Result<(PathBuf, Option<Str
 
 fn build_hash_params(value: &serde_json::Value, default_report: &Path) -> Result<DiskHashReportParams> {
     let disk_id = require_string(value, "disk_id")?;
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
     let chunk_size = value
         .get("chunk_size")
         .and_then(|v| v.as_u64())
@@ -2470,9 +2506,7 @@ fn build_hash_params(value: &serde_json::Value, default_report: &Path) -> Result
 fn build_unix_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<UnixInstallerUsbParams> {
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let target_mount = PathBuf::from(require_string(value, "target_mount")?);
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
 
     Ok(UnixInstallerUsbParams {
         source_path,
@@ -2494,9 +2528,7 @@ fn build_unix_write_params(
 ) -> Result<UnixWriteImageParams> {
     let source_image = PathBuf::from(require_string(value, "source_image")?);
     let target_device = PathBuf::from(require_string(value, "target_device")?);
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
     let chunk_size = value
         .get("chunk_size")
         .and_then(|v| v.as_u64())
@@ -2520,9 +2552,7 @@ fn build_unix_boot_params(
 ) -> Result<UnixBootPrepParams> {
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let target_mount = PathBuf::from(require_string(value, "target_mount")?);
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
 
     Ok(UnixBootPrepParams {
         source_path,
@@ -2541,9 +2571,7 @@ fn build_macos_installer_params(
 ) -> Result<MacosInstallerUsbParams> {
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let target_device = PathBuf::from(require_string(value, "target_device")?);
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
     let volume_name = optional_string(value, "volume_name")
         .unwrap_or("PHOENIX-MACOS")
         .to_string();
@@ -2569,9 +2597,7 @@ fn build_stage_bootloader_params(
 ) -> Result<BootloaderStageParams> {
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let target_mount = PathBuf::from(require_string(value, "target_mount")?);
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
     let target_subdir = optional_string(value, "target_subdir").map(PathBuf::from);
 
     Ok(BootloaderStageParams {
@@ -2591,9 +2617,7 @@ fn build_legacy_patch_params(
     default_report: &Path,
 ) -> Result<phoenix_legacy_patcher::LegacyPatchParams> {
     let source_path = PathBuf::from(require_string(value, "source_path")?);
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
     Ok(phoenix_legacy_patcher::LegacyPatchParams {
         source_path,
         report_base,
@@ -2611,9 +2635,7 @@ fn build_kext_stage_params(
 ) -> Result<MacosKextStageParams> {
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let target_mount = PathBuf::from(require_string(value, "target_mount")?);
-    let report_base = PathBuf::from(optional_string(value, "report_base").unwrap_or_else(|| {
-        default_report.display().to_string()
-    }));
+    let report_base = report_base_path(value, default_report);
     let target_subdir = optional_string(value, "target_subdir").map(PathBuf::from);
 
     Ok(MacosKextStageParams {

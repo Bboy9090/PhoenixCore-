@@ -141,8 +141,10 @@ fn update_plist_arrays(value: &mut Value, keys: &[&str], entry: &str) -> bool {
 
 fn find_array_mut<'a>(value: &'a mut Value, key: &str) -> Option<&'a mut Vec<Value>> {
     let dict = value.as_dictionary_mut()?;
-    let entry = dict.entry(key.to_string()).or_insert_with(|| Value::Array(Vec::new()));
-    entry.as_array_mut()
+    if !dict.contains_key(key) {
+        dict.insert(key.to_string(), Value::Array(Vec::new()));
+    }
+    dict.get_mut(key)?.as_array_mut()
 }
 
 fn find_install_app(root: &Path) -> Option<PathBuf> {

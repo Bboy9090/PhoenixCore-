@@ -13,3 +13,4 @@ phoenix-core = { path = "../core" }
 phoenix-host-windows = { path = "../host-windows" }
 phoenix-host-linux = { path = "../host-linux" }
 phoenix-host-macos = { path = "../host-macos" }
+serde_json = "1"

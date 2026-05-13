@@ -5,24 +5,36 @@ use std::sync::atomic::{AtomicI8, Ordering};
 use std::time::{Duration, Instant};
 
 use windows::core::{GUID, PCSTR, PCWSTR};
-use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, INVALID_HANDLE_VALUE};
+use windows::Win32::Foundation::{CloseHandle, FreeLibrary, BOOL, BOOLEAN, HANDLE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, GetLogicalDrives, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_GENERIC_WRITE,
     FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
+use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Ioctl::{
-    DeviceIoControl, CREATE_DISK, CREATE_DISK_GPT, DRIVE_LAYOUT_INFORMATION_EX,
+    CREATE_DISK, CREATE_DISK_GPT, DRIVE_LAYOUT_INFORMATION_EX,
     DRIVE_LAYOUT_INFORMATION_GPT, IOCTL_DISK_CREATE_DISK, IOCTL_DISK_SET_DRIVE_LAYOUT_EX,
     IOCTL_DISK_UPDATE_PROPERTIES, PARTITION_INFORMATION_EX, PARTITION_INFORMATION_GPT,
-    PARTITION_STYLE_GPT,
+    GPT_ATTRIBUTES, PARTITION_STYLE_GPT,
 };
-use windows::Win32::System::LibraryLoader::{FreeLibrary, GetProcAddress, LoadLibraryW};
+use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
 use uuid::Uuid;
 
 const FMIFS_DONE: u32 = 0;
 const FMIFS_HARDDISK: u32 = 0x0C;
 static FORMAT_RESULT: AtomicI8 = AtomicI8::new(-1);
 
+type FormatExFn = unsafe extern "system" fn(
+    PCWSTR,
+    u32,
+    PCWSTR,
+    PCWSTR,
+    BOOL,
+    u32,
+    Option<unsafe extern "system" fn(u32, u32, *mut c_void) -> u32>,
+);
+
+#[derive(Debug, Clone, Copy)]
 pub enum FileSystem {
     Fat32,
     Ntfs,
@@ -112,7 +124,7 @@ fn create_single_gpt_partition(disk_number: u32, disk_size: u64, label: Option<&
     }
 
     let mut layout: DRIVE_LAYOUT_INFORMATION_EX = unsafe { std::mem::zeroed() };
-    layout.PartitionStyle = PARTITION_STYLE_GPT;
+    layout.PartitionStyle = PARTITION_STYLE_GPT.0 as u32;
     layout.PartitionCount = 1;
     unsafe {
         layout.Anonymous.Gpt = DRIVE_LAYOUT_INFORMATION_GPT {
@@ -129,12 +141,12 @@ fn create_single_gpt_partition(disk_number: u32, disk_size: u64, label: Option<&
     entry.StartingOffset = alignment as i64;
     entry.PartitionLength = usable as i64;
     entry.PartitionNumber = 1;
-    entry.RewritePartition = BOOL(1);
+    entry.RewritePartition = BOOLEAN(1);
     unsafe {
         entry.Anonymous.Gpt = PARTITION_INFORMATION_GPT {
             PartitionType: GUID::from_u128(0xEBD0A0A2_B9E5_4433_87C0_68B6B72699C7),
             PartitionId: partition_id,
-            Attributes: 0,
+            Attributes: GPT_ATTRIBUTES(0),
             Name: gpt_name_from_label(label),
         };
         layout.PartitionEntry[0] = entry;
@@ -151,7 +163,7 @@ fn create_single_gpt_partition(disk_number: u32, disk_size: u64, label: Option<&
             None,
             None,
         );
-        if !ok.as_bool() {
+        if ok.is_err() {
             CloseHandle(handle);
             return Err(anyhow!("IOCTL_DISK_SET_DRIVE_LAYOUT_EX failed"));
         }
@@ -166,7 +178,7 @@ fn create_single_gpt_partition(disk_number: u32, disk_size: u64, label: Option<&
             None,
             None,
         );
-        if !ok.as_bool() {
+        if ok.is_err() {
             CloseHandle(handle);
             return Err(anyhow!("IOCTL_DISK_UPDATE_PROPERTIES failed"));
         }
@@ -197,7 +209,7 @@ fn initialize_gpt(handle: HANDLE, disk_id: GUID) -> Result<()> {
             None,
             None,
         );
-        if !ok.as_bool() {
+        if ok.is_err() {
             return Err(anyhow!("IOCTL_DISK_CREATE_DISK failed"));
         }
     }
@@ -207,18 +219,18 @@ fn initialize_gpt(handle: HANDLE, disk_id: GUID) -> Result<()> {
 fn format_volume(drive_letter: char, fs: FileSystem, label: Option<&str>, quick: bool) -> Result<()> {
     FORMAT_RESULT.store(-1, Ordering::SeqCst);
 
-    let module = unsafe { LoadLibraryW(PCWSTR(wide("fmifs.dll").as_ptr())) };
-    if module.0 == 0 {
-        return Err(anyhow!("failed to load fmifs.dll"));
-    }
+    let module = unsafe { LoadLibraryW(PCWSTR(wide("fmifs.dll").as_ptr())) }
+        .map_err(|error| anyhow!("failed to load fmifs.dll: {:?}", error))?;
 
     let proc = unsafe { GetProcAddress(module, PCSTR(b"FormatEx\0".as_ptr())) };
     if proc.is_none() {
-        unsafe { FreeLibrary(module) };
+        unsafe {
+            let _ = FreeLibrary(module);
+        }
         return Err(anyhow!("FormatEx not found in fmifs.dll"));
     }
 
-    let format_ex: FormatExFn = unsafe { std::mem::transmute(proc) };
+    let format_ex: FormatExFn = unsafe { std::mem::transmute(proc.unwrap()) };
     let drive_root = format!("{}:\\", drive_letter);
     let fs_name = fs.as_str().to_string();
     let label = label.unwrap_or("PHOENIX");
@@ -233,7 +245,7 @@ fn format_volume(drive_letter: char, fs: FileSystem, label: Option<&str>, quick:
             0,
             Some(format_callback),
         );
-        FreeLibrary(module);
+        let _ = FreeLibrary(module);
     }
 
     match FORMAT_RESULT.load(Ordering::SeqCst) {
@@ -250,17 +262,14 @@ fn open_physical_drive_rw(n: u32) -> Result<HANDLE> {
     unsafe {
         let handle = CreateFileW(
             PCWSTR(w.as_ptr()),
-            FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+            (FILE_GENERIC_READ | FILE_GENERIC_WRITE).0,
             FILE_SHARE_READ | FILE_SHARE_WRITE,
             None,
             OPEN_EXISTING,
             FILE_ATTRIBUTE_NORMAL,
             None,
-        );
-
-        if handle == INVALID_HANDLE_VALUE {
-            return Err(anyhow!("CreateFileW failed for {}", path));
-        }
+        )
+        .map_err(|error| anyhow!("CreateFileW failed for {}: {:?}", path, error))?;
 
         Ok(handle)
     }
