@@ -1,0 +1,46 @@
+// Phoenix OS — Polkit Rules
+// File: /etc/polkit-1/rules.d/50-phoenix-disk-ops.rules
+//
+// Grants the phoenix user (live session) permission to run disk
+// diagnostic commands (smartctl, nvme, hdparm) without a password
+// prompt. Destructive disk operations (dd, mkfs, parted write) still
+// require explicit invocation and are not covered here.
+//
+// This rule applies ONLY when the session is an active local session
+// (i.e., the live desktop session). It does not apply to remote sessions.
+
+polkit.addRule(function(action, subject) {
+    // Allow phoenix user to run smartmontools commands without password
+    if ((action.id == "org.freedesktop.policykit.exec") &&
+        subject.user == "phoenix" &&
+        subject.local == true &&
+        subject.active == true) {
+
+        // Only allow specific safe diagnostic binaries
+        var cmd = action.lookup("command_line");
+        var safeCommands = [
+            "/usr/bin/smartctl",
+            "/usr/sbin/smartctl",
+            "/usr/bin/nvme",
+            "/usr/sbin/nvme",
+            "/usr/sbin/hdparm",
+            "/usr/bin/lshw",
+            "/usr/sbin/lshw",
+        ];
+
+        for (var i = 0; i < safeCommands.length; i++) {
+            if (cmd && cmd.indexOf(safeCommands[i]) === 0) {
+                return polkit.Result.YES;
+            }
+        }
+    }
+
+    // GParted: require authentication (not passwordless — intentional)
+    // The password prompt is a safety gate for partition operations
+    if (action.id == "org.gnome.gparted" ||
+        action.id == "org.kde.kpmcore.externalcommand.helper") {
+        if (subject.local == true && subject.active == true) {
+            return polkit.Result.AUTH_SELF;
+        }
+    }
+});
