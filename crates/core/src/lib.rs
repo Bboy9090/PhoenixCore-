@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub mod capability;
+pub mod dashboard;
 pub mod downloader;
 pub mod orchestrator;
 pub mod rescue;

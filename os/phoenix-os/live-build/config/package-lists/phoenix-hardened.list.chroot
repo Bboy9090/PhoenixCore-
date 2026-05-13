@@ -1,0 +1,123 @@
+
+#
+# ============================================================
+# Data recovery, file rescue, and forensic tools.
+# Database recovery
+# Deleted file recovery (filesystem-aware)
+# Disk benchmarking and stress
+# Disk imaging and cloning
+# Disk imaging with error handling
+# Disk information and inspection
+# Disk partitioning, imaging, cloning, and health monitoring tools.
+# Disk sector and raw analysis
+# Email and document recovery
+# Encrypted volume recovery support
+# File recovery
+# File: live-build/package-lists/030-disk-tools.list.chroot
+# File: live-build/package-lists/050-recovery-tools.list.chroot
+# Filesystem creation (broad format support for repair)
+# Forensic and analysis tools
+# LVM management
+# Log recovery and analysis
+# Media recovery
+# Memory and RAM recovery/diagnostics
+# NOTE: hashcat and john are included for legitimate recovery use.
+# No tool in this list is configured to auto-select a target disk.
+# Note: ext2/3/4 tools are in e2fsprogs (repair-tools list)
+# Optical media
+# Partitioning (CLI)
+# Partitioning (GUI)
+# Phoenix OS Core Packages
+# Phoenix OS does not support or condone unauthorized access.
+# Phoenix OS — Data Recovery Tools Package List
+# Phoenix OS — Disk Tools Package List
+# PhotoRec is bundled with testdisk — recovers photos, docs, videos by signature
+# RAID management
+# S.M.A.R.T. monitoring and disk health
+# SAFETY REMINDER: Phoenix OS enforces a safety model for disk operations.
+# See docs/security-model.md for full policy details.
+# These cover additional filesystem types:
+# These tools are the core of Phoenix OS's recovery mission.
+# USB and removable media
+aureport           # Linux audit system report generator
+autopsy            # TODO: Autopsy GUI (large; consider as optional Flatpak)
+balena-etcher      # TODO: Add as Flatpak in 070-flatpak.list or via AppImage
+binwalk            # Firmware and binary analysis/extraction
+bless              # GUI hex editor
+blkid              # Block device identification
+bonnie++           # Filesystem benchmark
+brasero            # Disc burning GUI (GNOME, but usable on KDE)
+ca-certificates
+cdrdao             # CD/DVD recording
+cryptsetup         # (also in disk-tools; LUKS volume management)
+cryptsetup         # LUKS full-disk encryption management
+curl
+dc3dd              # (also in disk-tools; forensic dd with hashing)
+dc3dd              # Enhanced dd for forensic imaging (with hashing)
+ddrescue           # (also in disk-tools; primary tool for failing drive imaging)
+ddrescue           # GNU ddrescue: recovers data from failing drives
+dmraid             # Device-mapper RAID (Intel RST, NVIDIA nForce RAID)
+dvdbackup          # DVD backup utility
+exiftool           # Read/write EXIF data (media file analysis)
+ext4magic          # More powerful ext3/ext4 deleted file recovery
+extundelete        # Recover deleted files from ext3/ext4 filesystems
+fatcat             # FAT filesystem deleted file recovery and analysis
+fdisk              # Classic MBR partition tool (also handles GPT)
+fio                # Flexible I/O tester: storage benchmarking
+firmware-iwlwifi
+firmware-linux
+firmware-linux-nonfree
+firmware-realtek
+foremost           # File carving by file header/footer signatures
+gdisk              # GPT fdisk: GPT-aware partition tool (gdisk, sgdisk, cgdisk)
+genisoimage        # ISO creation
+ghex               # GNOME hex editor (usable on KDE)
+git
+gparted            # GParted: graphical partition editor (gold standard)
+hashcat            # Password recovery (for legally-owned encrypted volumes)
+hdparm             # ATA disk parameters: speed test, power management
+hexyl              # Hex viewer with visual byte classification
+htop
+iozone3            # File system benchmark
+john               # John the Ripper: password auditing
+jpeg-archive       # JPEG optimization (useful for recovering partially-written images)
+kde-standard
+last               # Login history from wtmp
+libimage-exiftool-perl  # Perl ExifTool library
+libpst-utils       # Outlook PST file extraction (readpst)
+logwatch           # (also in repair-tools)
+lsblk              # (part of util-linux, should already be present)
+lvm2               # Logical Volume Manager
+magicrescue        # Recovers files by "magic bytes" recipes
+mdadm              # Linux software RAID management
+memtest86+         # RAM testing (GRUB-level; also runnable post-boot)
+mp3val             # MP3 validation and repair
+mpack              # MIME message packing/unpacking
+network-manager-gnome
+ntfsundelete       # NTFS deleted file recovery (part of ntfs-3g)
+nvme-cli           # NVMe management CLI (nvme list, nvme smart-log, etc.)
+partclone          # Partition-level cloning (filesystem-aware)
+parted             # GNU parted: scriptable partition management
+partimage          # Partition imaging tool
+pciutils
+pgdump             # TODO: Add PostgreSQL recovery tools if demand warrants
+plasma-workspace-wayland
+safecopy           # Alternative to dd for damaged media
+safecopy           # Copy files/devices, skipping bad sectors gracefully
+scalpel            # High-performance file carver (faster than foremost for large disks)
+sfdisk             # Scriptable partition table tool
+sleuthkit          # The Sleuth Kit: filesystem forensic analysis
+smartmontools      # smartctl, smartd — ATA and NVMe S.M.A.R.T.
+sqlite3            # SQLite database inspection and repair
+squashfs-tools     # SquashFS: inspect and create squashfs (ISO/live analysis)
+strings            # Extract printable strings from binary files
+testdisk           # (also in repair-tools; handles partition + file recovery)
+unar               # Universal archive extractor (handles corrupted archives)
+usb-creator-gtk    # Ubuntu USB startup disk creator
+usbutils
+util-linux         # Core disk utilities: lsblk, blkid, losetup, mount, etc.
+vim
+wayland-protocols
+wipefs             # Wipe filesystem signatures (requires confirmation in UI)
+xxd                # Hex dump utility
+plymouth\nplymouth-themes\nsddm\n
