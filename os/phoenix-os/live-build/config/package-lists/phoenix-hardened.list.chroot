@@ -120,4 +120,6 @@ vim
 wayland-protocols
 wipefs             # Wipe filesystem signatures (requires confirmation in UI)
 xxd                # Hex dump utility
-plymouth\nplymouth-themes\nsddm\n
+plymouth
+plymouth-themes
+sddm

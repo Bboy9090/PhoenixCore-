@@ -39,8 +39,21 @@ rm -rf "$BUILD_WORK_DIR"
 mkdir -p "$BUILD_WORK_DIR"
 
 # Copy the configuration and package lists to the writable area
-# Using rsync to preserve the structure
 rsync -a "$LIVE_BUILD_DIR/" "$BUILD_WORK_DIR/"
+
+echo "[INFO] Staging branding assets and safety rules..."
+# Ensure directories exist
+mkdir -p "$BUILD_WORK_DIR/config/includes.chroot/usr/share/plymouth/themes"
+mkdir -p "$BUILD_WORK_DIR/config/includes.chroot/usr/share/sddm/themes"
+
+# Copy harvested themes if they exist
+if [ -d "$PHOENIX_OS_DIR/branding/plymouth/phoenix" ]; then
+    cp -r "$PHOENIX_OS_DIR/branding/plymouth/phoenix" "$BUILD_WORK_DIR/config/includes.chroot/usr/share/plymouth/themes/"
+fi
+
+if [ -d "$PHOENIX_OS_DIR/branding/sddm/phoenix" ]; then
+    cp -r "$PHOENIX_OS_DIR/branding/sddm/phoenix" "$BUILD_WORK_DIR/config/includes.chroot/usr/share/sddm/themes/"
+fi
 
 echo "[INFO] Running live-build from $BUILD_WORK_DIR."
 START_TIME=$(date +%s)
