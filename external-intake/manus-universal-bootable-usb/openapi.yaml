@@ -1,0 +1,970 @@
+openapi: 3.0.0
+info:
+  title: Bobby's PhoenixDrive API
+  description: |
+    Comprehensive API for multi-boot USB creation, hardware detection, and device management.
+    
+    **Features:**
+    - Hardware detection and compatibility analysis
+    - USB device enumeration and validation
+    - Multi-OS recipe building and validation
+    - Real-time build progress streaming via WebSocket
+    - Multi-layer safety validation
+    - QR code recipe export/import
+    
+    **Authentication:** Bearer token in Authorization header
+    
+    **Rate Limiting:** 
+    - Standard endpoints: 10 req/s
+    - Build endpoints: 2 req/s
+    - WebSocket: Unlimited
+  version: 1.0.0
+  contact:
+    name: Bobby's PhoenixDrive Support
+    url: https://github.com/Bboy9090/PhoenixCore-
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  x-logo:
+    url: https://example.com/logo.png
+    altText: PhoenixDrive Logo
+
+servers:
+  - url: https://api.phoenixdrive.app/api/v1
+    description: Production API
+    variables:
+      protocol:
+        default: https
+  - url: http://localhost:5000/api/v1
+    description: Local development server
+
+tags:
+  - name: Health
+    description: API health and status endpoints
+  - name: Hardware
+    description: Hardware detection and compatibility
+  - name: USB
+    description: USB device management and building
+  - name: Recipe
+    description: Recipe creation, validation, and management
+  - name: Safety
+    description: Safety validation and checks
+  - name: Build
+    description: Build execution and progress tracking
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Returns API health status and version information
+      operationId: getHealth
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+                    example: 1.0.0
+                  phoenix_core_available:
+                    type: boolean
+                  timestamp:
+                    type: string
+                    format: date-time
+        '503':
+          description: API is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hardware/detect:
+    post:
+      tags:
+        - Hardware
+      summary: Detect system hardware
+      description: Analyzes system hardware and returns compatible operating systems
+      operationId: detectHardware
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                include_gpu:
+                  type: boolean
+                  default: true
+                include_network:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Hardware detected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardwareDetectionResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Hardware detection failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /usb/devices:
+    get:
+      tags:
+        - USB
+      summary: List USB devices
+      description: Returns list of connected USB devices with detailed information
+      operationId: listUSBDevices
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: include_internal
+          in: query
+          description: Include internal storage devices
+          schema:
+            type: boolean
+            default: false
+        - name: min_size_gb
+          in: query
+          description: Filter by minimum size in GB
+          schema:
+            type: number
+            default: 1
+      responses:
+        '200':
+          description: USB devices listed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/USBDevicesResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list USB devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /usb/devices/{device_id}:
+    get:
+      tags:
+        - USB
+      summary: Get USB device details
+      description: Returns detailed information about a specific USB device
+      operationId: getUSBDevice
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: USB device identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/USBDevice'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to retrieve device details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /recipe/build:
+    post:
+      tags:
+        - Recipe
+      summary: Build USB recipe
+      description: Creates a multi-boot USB recipe based on specifications
+      operationId: buildRecipe
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeBuildRequest'
+      responses:
+        '200':
+          description: Recipe built successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeResponse'
+        '400':
+          description: Invalid recipe parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Recipe validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '500':
+          description: Recipe building failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /recipe/validate:
+    post:
+      tags:
+        - Recipe
+      summary: Validate recipe
+      description: Validates a recipe for compatibility and safety
+      operationId: validateRecipe
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeValidationRequest'
+      responses:
+        '200':
+          description: Recipe validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeValidationResponse'
+        '400':
+          description: Invalid recipe format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /safety/check:
+    post:
+      tags:
+        - Safety
+      summary: Run safety checks
+      description: Performs multi-layer safety validation before build execution
+      operationId: runSafetyCheck
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SafetyCheckRequest'
+      responses:
+        '200':
+          description: Safety checks completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafetyCheckResponse'
+        '400':
+          description: Invalid safety check parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Safety check failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafetyCheckFailure'
+        '500':
+          description: Safety check error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /usb/build:
+    post:
+      tags:
+        - Build
+      summary: Start USB build
+      description: Initiates USB build process with real-time progress tracking
+      operationId: startUSBBuild
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildStartRequest'
+      responses:
+        '202':
+          description: Build started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildStartResponse'
+        '400':
+          description: Invalid build parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Device already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Build start failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /usb/build/{build_id}/status:
+    get:
+      tags:
+        - Build
+      summary: Get build status
+      description: Returns current build progress and status
+      operationId: getBuildStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: build_id
+          in: path
+          required: true
+          description: Build identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Build status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildStatusResponse'
+        '404':
+          description: Build not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to retrieve build status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /usb/build/{build_id}/cancel:
+    post:
+      tags:
+        - Build
+      summary: Cancel build
+      description: Cancels an ongoing build process
+      operationId: cancelBuild
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: build_id
+          in: path
+          required: true
+          description: Build identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Build cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [cancelled]
+                  build_id:
+                    type: string
+        '404':
+          description: Build not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Build cannot be cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to cancel build
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ws/build/{build_id}:
+    get:
+      tags:
+        - Build
+      summary: WebSocket build progress stream
+      description: |
+        WebSocket endpoint for real-time build progress updates.
+        
+        **Connection:**
+        - Protocol: ws:// or wss://
+        - Path: /ws/build/{build_id}
+        - Query params: ?token=<bearer_token>
+        
+        **Messages:**
+        - Type: progress - Build progress update
+        - Type: complete - Build completed
+        - Type: error - Build error
+        - Type: cancelled - Build cancelled
+      operationId: streamBuildProgress
+      parameters:
+        - name: build_id
+          in: path
+          required: true
+          description: Build identifier
+          schema:
+            type: string
+      responses:
+        '101':
+          description: WebSocket connection established
+        '400':
+          description: Invalid build ID or token
+        '404':
+          description: Build not found
+        '500':
+          description: WebSocket connection failed
+
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - status
+        - error
+        - message
+      properties:
+        status:
+          type: string
+          enum: [error]
+        error:
+          type: string
+          description: Error code
+          example: HARDWARE_DETECTION_FAILED
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+
+    ValidationError:
+      type: object
+      required:
+        - status
+        - error
+        - message
+        - validation_errors
+      properties:
+        status:
+          type: string
+          enum: [validation_error]
+        error:
+          type: string
+        message:
+          type: string
+        validation_errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+              value:
+                type: string
+
+    HardwareDetectionResponse:
+      type: object
+      required:
+        - status
+        - device_id
+        - hardware
+        - compatible_os
+      properties:
+        status:
+          type: string
+          enum: [success]
+        device_id:
+          type: string
+          description: Unique device identifier
+        detected_at:
+          type: string
+          format: date-time
+        hardware:
+          type: object
+          properties:
+            system:
+              type: object
+              properties:
+                manufacturer:
+                  type: string
+                model:
+                  type: string
+                serial_number:
+                  type: string
+            cpu:
+              type: object
+              properties:
+                name:
+                  type: string
+                manufacturer:
+                  type: string
+                architecture:
+                  type: string
+                cores:
+                  type: integer
+                threads:
+                  type: integer
+            memory:
+              type: object
+              properties:
+                total_gb:
+                  type: number
+                modules:
+                  type: array
+            gpu:
+              type: array
+            storage:
+              type: array
+            network:
+              type: array
+        compatible_os:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              compatibility_score:
+                type: number
+                minimum: 0
+                maximum: 100
+        incompatible_os:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              reason:
+                type: string
+
+    USBDevice:
+      type: object
+      required:
+        - device_id
+        - path
+        - name
+        - size_gb
+      properties:
+        device_id:
+          type: string
+        path:
+          type: string
+          example: /dev/sdb
+        name:
+          type: string
+          example: Kingston DataTraveler
+        size_gb:
+          type: number
+        filesystem:
+          type: string
+          example: FAT32
+        vendor:
+          type: string
+        model:
+          type: string
+        serial:
+          type: string
+        is_removable:
+          type: boolean
+        is_mounted:
+          type: boolean
+        mountpoint:
+          type: string
+        health_status:
+          type: string
+          enum: [good, warning, critical]
+        write_speed_mbps:
+          type: number
+        read_speed_mbps:
+          type: number
+
+    USBDevicesResponse:
+      type: object
+      required:
+        - status
+        - devices
+        - total_devices
+      properties:
+        status:
+          type: string
+          enum: [success]
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/USBDevice'
+        total_devices:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    RecipeBuildRequest:
+      type: object
+      required:
+        - name
+        - deployment_type
+        - os_selections
+        - target_device_id
+        - target_device_size_gb
+      properties:
+        name:
+          type: string
+          example: Multi-Boot USB - 2 OS(es)
+        deployment_type:
+          type: string
+          enum: [single, multi-boot, recovery]
+        os_selections:
+          type: array
+          items:
+            type: string
+          example: [windows11, ubuntu22]
+        target_device_id:
+          type: string
+        target_device_size_gb:
+          type: number
+        target_device_path:
+          type: string
+        tool_selections:
+          type: array
+          items:
+            type: string
+          example: [ventoy]
+        partition_scheme:
+          type: string
+          enum: [mbr, gpt, hybrid]
+          default: gpt
+        bootloader_type:
+          type: string
+          enum: [legacy, uefi, both]
+          default: uefi
+        safety_level:
+          type: string
+          enum: [low, medium, high]
+          default: high
+        dry_run:
+          type: boolean
+          default: false
+
+    RecipeResponse:
+      type: object
+      required:
+        - status
+        - recipe
+      properties:
+        status:
+          type: string
+          enum: [success]
+        recipe:
+          type: object
+          properties:
+            recipe_id:
+              type: string
+            name:
+              type: string
+            version:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+            deployment_type:
+              type: string
+            target_device:
+              type: object
+            partitions:
+              type: array
+            os_images:
+              type: array
+            tools:
+              type: array
+            safety:
+              type: object
+
+    RecipeValidationRequest:
+      type: object
+      required:
+        - recipe
+        - target_device_id
+        - target_device_size_gb
+      properties:
+        recipe:
+          type: object
+        target_device_id:
+          type: string
+        target_device_size_gb:
+          type: number
+        target_device_path:
+          type: string
+
+    RecipeValidationResponse:
+      type: object
+      required:
+        - status
+        - valid
+      properties:
+        status:
+          type: string
+          enum: [success]
+        valid:
+          type: boolean
+        warnings:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            type: string
+        estimated_time:
+          type: string
+          example: 15 minutes
+        estimated_size:
+          type: string
+          example: 5.5 GB
+
+    SafetyCheckRequest:
+      type: object
+      required:
+        - recipe
+        - target_device_id
+        - target_device_path
+      properties:
+        recipe:
+          type: object
+        target_device_id:
+          type: string
+        target_device_path:
+          type: string
+
+    SafetyCheckResponse:
+      type: object
+      required:
+        - status
+        - safe
+        - checks
+        - risk_level
+      properties:
+        status:
+          type: string
+          enum: [success]
+        safe:
+          type: boolean
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+                enum: [passed, warning, failed]
+              message:
+                type: string
+        risk_level:
+          type: string
+          enum: [low, medium, high, critical]
+        requires_confirmation:
+          type: boolean
+
+    SafetyCheckFailure:
+      type: object
+      required:
+        - status
+        - error
+        - message
+        - failed_checks
+      properties:
+        status:
+          type: string
+          enum: [safety_check_failed]
+        error:
+          type: string
+        message:
+          type: string
+        failed_checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              reason:
+                type: string
+
+    BuildStartRequest:
+      type: object
+      required:
+        - recipe_id
+        - device_path
+      properties:
+        recipe_id:
+          type: string
+        device_path:
+          type: string
+        dry_run:
+          type: boolean
+          default: false
+
+    BuildStartResponse:
+      type: object
+      required:
+        - status
+        - build_id
+        - recipe_id
+        - started_at
+      properties:
+        status:
+          type: string
+          enum: [started]
+        build_id:
+          type: string
+        recipe_id:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        estimated_duration_minutes:
+          type: number
+        ws_url:
+          type: string
+          format: uri
+          example: wss://api.phoenixdrive.app/ws/build/build-001
+
+    BuildStatusResponse:
+      type: object
+      required:
+        - build_id
+        - state
+        - overall_progress
+      properties:
+        build_id:
+          type: string
+        recipe_id:
+          type: string
+        state:
+          type: string
+          enum: [queued, initializing, writing, verifying, complete, error, cancelled]
+        stage:
+          type: string
+        stage_progress:
+          type: number
+          minimum: 0
+          maximum: 100
+        overall_progress:
+          type: number
+          minimum: 0
+          maximum: 100
+        current_operation:
+          type: string
+        speed_mbps:
+          type: number
+        eta_seconds:
+          type: integer
+        bytes_written:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        error_message:
+          type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from authentication endpoint
+
+x-tagGroups:
+  - name: Core Operations
+    tags:
+      - Health
+      - Hardware
+      - USB
+      - Recipe
+  - name: Advanced Features
+    tags:
+      - Safety
+      - Build

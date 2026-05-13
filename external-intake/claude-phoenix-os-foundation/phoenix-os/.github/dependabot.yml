@@ -1,0 +1,56 @@
+version: 2
+updates:
+  # Rust crates (phoenix-control-center)
+  - package-ecosystem: "cargo"
+    directory: "/apps/phoenix-control-center"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "rust"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Rust crates (phoenix-recovery)
+  - package-ecosystem: "cargo"
+    directory: "/apps/phoenix-recovery"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "rust"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Rust crates (bootforge-launcher)
+  - package-ecosystem: "cargo"
+    directory: "/apps/bootforge-launcher"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "rust"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # npm (phoenix-control-center frontend)
+  - package-ecosystem: "npm"
+    directory: "/apps/phoenix-control-center"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "frontend"]
+    commit-message:
+      prefix: "chore(deps)"
+    # Group minor/patch updates to reduce noise
+    groups:
+      react:
+        patterns: ["react", "react-dom", "@types/react*"]
+      tauri:
+        patterns: ["@tauri-apps/*"]
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels: ["dependencies", "ci"]
+    commit-message:
+      prefix: "chore(ci)"

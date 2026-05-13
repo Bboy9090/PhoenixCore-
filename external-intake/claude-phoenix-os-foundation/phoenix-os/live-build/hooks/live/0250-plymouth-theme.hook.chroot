@@ -1,0 +1,59 @@
+#!/bin/sh
+# Phoenix OS — Chroot Hook: Plymouth Theme Installation
+# File: live-build/hooks/live/0250-plymouth-theme.hook.chroot
+#
+# Installs the Phoenix Plymouth theme from branding/ into the chroot
+# and sets it as the default boot splash.
+
+set -e
+
+THEME_SRC="/phoenix-branding/plymouth"
+THEME_DEST="/usr/share/plymouth/themes/phoenix"
+
+echo "[Phoenix Hook] Installing Plymouth theme"
+
+# The branding/plymouth/ directory is bind-mounted or copied into the
+# chroot by live-build via includes.chroot mechanism.
+# For this hook, we reference the path where it'll land.
+
+SCRIPT_DIR="/usr/share/plymouth/themes/phoenix"
+
+if [ ! -d "${SCRIPT_DIR}" ]; then
+    mkdir -p "${SCRIPT_DIR}"
+fi
+
+# Copy phoenix.plymouth descriptor (if present in chroot)
+if [ -f "/tmp/phoenix-branding/phoenix.plymouth" ]; then
+    cp /tmp/phoenix-branding/phoenix.plymouth "${SCRIPT_DIR}/"
+    cp /tmp/phoenix-branding/phoenix.script   "${SCRIPT_DIR}/"
+fi
+
+# Register the theme with Plymouth alternatives system
+if command -v update-alternatives >/dev/null 2>&1; then
+    update-alternatives --install \
+        /usr/share/plymouth/themes/default.plymouth \
+        default.plymouth \
+        "${SCRIPT_DIR}/phoenix.plymouth" \
+        200 \
+    2>/dev/null || true
+
+    update-alternatives --set \
+        default.plymouth \
+        "${SCRIPT_DIR}/phoenix.plymouth" \
+    2>/dev/null || true
+fi
+
+# Set in /etc/plymouth/plymouthd.conf
+mkdir -p /etc/plymouth
+cat > /etc/plymouth/plymouthd.conf << 'PLYM'
+[Daemon]
+Theme=phoenix
+ShowDelay=0
+PLYM
+
+# Regenerate initramfs to include the new Plymouth theme
+if command -v update-initramfs >/dev/null 2>&1; then
+    update-initramfs -u 2>/dev/null || true
+fi
+
+echo "[Phoenix Hook] Plymouth theme installed: phoenix"

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "bootforge-launcher",
+  "version": "0.1.0",
+  "identifier": "io.phoenix-os.bootforge",
+  "build": {
+    "frontendDist": "../ui/dist",
+    "devUrl":       "http://localhost:5175",
+    "beforeDevCommand":   "npm --prefix ../ui run dev",
+    "beforeBuildCommand": "npm --prefix ../ui run build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "title":    "BootForge Launcher",
+        "width":    860,
+        "height":   600,
+        "minWidth": 700,
+        "minHeight":480,
+        "resizable":   true,
+        "fullscreen":  false,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active":  true,
+    "targets": "deb",
+    "icon":    ["icons/32x32.png", "icons/128x128.png"],
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libssl-dev", "usbutils"]
+      }
+    }
+  }
+}

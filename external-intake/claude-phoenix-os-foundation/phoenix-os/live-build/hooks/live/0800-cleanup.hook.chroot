@@ -1,0 +1,49 @@
+#!/bin/sh
+# Phoenix OS — Chroot Hook: Pre-ISO Cleanup
+# File: live-build/hooks/live/0800-cleanup.hook.chroot
+#
+# Removes build artifacts and unnecessary files from the chroot
+# before the squashfs is compressed. Reduces ISO size.
+
+set -e
+
+echo "[Phoenix Hook] Running pre-ISO cleanup"
+
+# Remove apt package cache (saves ~200–500 MB in the squashfs)
+apt-get clean
+rm -rf /var/cache/apt/archives/*.deb
+rm -rf /var/cache/apt/archives/partial/
+
+# Remove pip cache
+rm -rf /root/.cache/pip /home/*/.cache/pip 2>/dev/null || true
+
+# Remove thumbnail cache
+rm -rf /home/*/.cache/thumbnails 2>/dev/null || true
+rm -rf /root/.cache/thumbnails 2>/dev/null || true
+
+# Remove locale files we don't need (keep en, fr, de, es, pt)
+# This saves ~80 MB; adjust if you want more locales
+find /usr/share/locale -mindepth 1 -maxdepth 1 -type d \
+    ! -name "en*" ! -name "fr*" ! -name "de*" ! -name "es*" ! -name "pt*" \
+    -exec rm -rf {} + 2>/dev/null || true
+
+# Remove man pages for build tools not needed in live session
+# (keep man pages for repair tools)
+rm -rf /usr/share/man/man?/gcc* 2>/dev/null || true
+rm -rf /usr/share/man/man?/make* 2>/dev/null || true
+
+# Remove Python __pycache__
+find /usr/lib/python3 -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+find /usr/lib/python3 -name "*.pyc" -delete 2>/dev/null || true
+
+# Remove dpkg documentation (not needed in live session)
+rm -rf /usr/share/doc/*/changelog.Debian.gz 2>/dev/null || true
+
+# Zero out log files (they'll be created fresh in the live session)
+find /var/log -type f -exec truncate -s 0 {} \; 2>/dev/null || true
+
+# Remove any stale SSH host keys (regenerated on first boot)
+rm -f /etc/ssh/ssh_host_* 2>/dev/null || true
+
+echo "[Phoenix Hook] Cleanup complete"
+du -sh / 2>/dev/null | head -1 | awk '{print "[Phoenix Hook] Chroot size after cleanup: " $1}'

@@ -1,0 +1,31 @@
+# Phoenix OS Disk Safety Policy — udev rules
+# File: /etc/udev/rules.d/90-phoenix-disk-policy.rules
+#
+# Prevents auto-mounting of internal disks in the live session.
+# See /usr/share/doc/phoenix-tools/security-model.md for policy rationale.
+#
+# To reload without rebooting: sudo udevadm control --reload-rules && sudo udevadm trigger
+
+# Internal SATA drives: disable auto-mount
+SUBSYSTEM=="block", ENV{ID_BUS}=="ata", ENV{DEVTYPE}=="disk", \
+    ENV{UDISKS_AUTO}="0", ENV{UDISKS_IGNORE}="0"
+
+# Internal SATA partitions
+SUBSYSTEM=="block", KERNEL=="sd[a-z][0-9]*", ENV{ID_BUS}=="ata", \
+    ENV{UDISKS_AUTO}="0"
+
+# Internal NVMe drives: disable auto-mount
+SUBSYSTEM=="block", ENV{ID_BUS}=="nvme", ENV{DEVTYPE}=="disk", \
+    ENV{UDISKS_AUTO}="0", ENV{UDISKS_IGNORE}="0"
+
+# Internal NVMe partitions
+SUBSYSTEM=="block", KERNEL=="nvme[0-9]*n[0-9]*p[0-9]*", \
+    ENV{UDISKS_AUTO}="0"
+
+# USB storage: allow normal auto-mount (expected for live session workflow)
+SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", \
+    ENV{UDISKS_AUTO}="1"
+
+# SD cards: allow auto-mount
+SUBSYSTEM=="block", KERNEL=="mmcblk[0-9]*p[0-9]*", \
+    ENV{UDISKS_AUTO}="1"

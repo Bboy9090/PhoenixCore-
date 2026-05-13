@@ -1,0 +1,358 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Bobby's PhoenixDrive Recipe Schema",
+  "description": "JSON schema for USB deployment recipes",
+  "type": "object",
+  "required": [
+    "version",
+    "id",
+    "name",
+    "createdAt",
+    "targetDevice",
+    "partitions"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Recipe schema version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "examples": ["1.0.0"]
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique recipe identifier (UUID)",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable recipe name",
+      "minLength": 1,
+      "maxLength": 255,
+      "examples": ["Windows 11 Installation USB"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed recipe description",
+      "maxLength": 1000
+    },
+    "createdAt": {
+      "type": "string",
+      "description": "ISO 8601 timestamp when recipe was created",
+      "format": "date-time"
+    },
+    "createdBy": {
+      "type": "string",
+      "description": "Source application that created the recipe",
+      "examples": ["mobile-app-v6.0", "desktop-consumer-v1.0"]
+    },
+    "targetDevice": {
+      "type": "object",
+      "description": "Target USB device specifications",
+      "required": ["size", "filesystem"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["usb_drive", "external_ssd", "external_hdd"],
+          "description": "Type of target device"
+        },
+        "size": {
+          "type": "string",
+          "description": "Device size (e.g., '32GB')",
+          "pattern": "^\\d+\\.?\\d*(GB|TB)$"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "description": "Device size in bytes",
+          "minimum": 0
+        },
+        "filesystem": {
+          "type": "string",
+          "enum": ["MBR", "GPT", "HYBRID"],
+          "description": "Partition table type"
+        }
+      }
+    },
+    "bootloader": {
+      "type": "object",
+      "description": "Bootloader configuration",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["grub2", "grub", "syslinux", "uefi"],
+          "description": "Bootloader type"
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Boot menu timeout in seconds",
+          "minimum": 0,
+          "maximum": 300
+        },
+        "entries": {
+          "type": "array",
+          "description": "Boot menu entries",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Boot entry label"
+              },
+              "partition": {
+                "type": "string",
+                "description": "Partition ID to boot"
+              }
+            }
+          }
+        }
+      }
+    },
+    "partitions": {
+      "type": "array",
+      "description": "Partition configuration",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "size", "filesystem", "bootable"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique partition identifier",
+            "examples": ["windows-11", "linux-mint", "efi-boot"]
+          },
+          "label": {
+            "type": "string",
+            "description": "Partition label/name",
+            "maxLength": 32
+          },
+          "size": {
+            "type": "string",
+            "description": "Partition size (e.g., '15GB')",
+            "pattern": "^\\d+\\.?\\d*(GB|TB|MB)$"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "description": "Partition size in bytes",
+            "minimum": 0
+          },
+          "filesystem": {
+            "type": "string",
+            "enum": ["NTFS", "FAT32", "ext4", "ext3", "btrfs", "xfs", "exFAT"],
+            "description": "Filesystem type"
+          },
+          "bootable": {
+            "type": "boolean",
+            "description": "Whether partition is bootable"
+          },
+          "os": {
+            "type": "object",
+            "description": "Operating system to install on this partition",
+            "properties": {
+              "name": {
+                "type": "string",
+                "enum": ["Windows", "Linux", "ChromeOS", "macOS"],
+                "description": "OS name"
+              },
+              "version": {
+                "type": "string",
+                "description": "OS version",
+                "examples": ["11", "22.04", "37", "Flex"]
+              },
+              "arch": {
+                "type": "string",
+                "enum": ["x86-64", "arm64", "i386"],
+                "description": "CPU architecture"
+              },
+              "iso": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to ISO image"
+              },
+              "checksum": {
+                "type": "string",
+                "description": "ISO checksum for verification",
+                "examples": ["sha256:abc123...", "md5:def456..."]
+              },
+              "checksumType": {
+                "type": "string",
+                "enum": ["sha256", "sha512", "md5"],
+                "description": "Checksum algorithm"
+              }
+            }
+          }
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "description": "Additional tools to include",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Tool identifier",
+            "examples": ["gparted", "windows-recovery", "disk-utility"]
+          },
+          "name": {
+            "type": "string",
+            "description": "Tool display name"
+          },
+          "version": {
+            "type": "string",
+            "description": "Tool version"
+          },
+          "size": {
+            "type": "string",
+            "description": "Tool size (e.g., '500MB')",
+            "pattern": "^\\d+\\.?\\d*(MB|GB)$"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "What the tool is used for"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Download URL for tool"
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "description": "Safety and validation settings",
+      "properties": {
+        "requiresConfirmation": {
+          "type": "boolean",
+          "description": "Whether user confirmation is required before build"
+        },
+        "warningLevel": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "Safety warning level"
+        },
+        "dataLossRisk": {
+          "type": "string",
+          "description": "Description of potential data loss"
+        },
+        "verifyAfterWrite": {
+          "type": "boolean",
+          "description": "Whether to verify written data after build"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata",
+      "properties": {
+        "hardwareProfile": {
+          "type": "string",
+          "description": "Target hardware profile",
+          "examples": ["laptop-x86-64", "desktop-x86-64", "mac-arm64"]
+        },
+        "createdByApp": {
+          "type": "string",
+          "description": "Application that created the recipe"
+        },
+        "sourceDevice": {
+          "type": "string",
+          "description": "Device that created the recipe",
+          "examples": ["iPhone 15 Pro", "MacBook Pro 16\""]
+        },
+        "estimatedBuildTime": {
+          "type": "string",
+          "description": "Estimated build time",
+          "examples": ["15 minutes", "30 minutes"]
+        },
+        "totalSize": {
+          "type": "string",
+          "description": "Total recipe size",
+          "pattern": "^\\d+\\.?\\d*(GB|TB)$"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Recipe tags for organization",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": "1.0.0",
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Windows 11 Installation USB",
+      "description": "Bootable USB for Windows 11 installation",
+      "createdAt": "2026-04-01T12:00:00Z",
+      "createdBy": "mobile-app-v6.0",
+      "targetDevice": {
+        "type": "usb_drive",
+        "size": "32GB",
+        "sizeBytes": 34359738368,
+        "filesystem": "GPT"
+      },
+      "bootloader": {
+        "type": "uefi",
+        "timeout": 10,
+        "entries": [
+          {
+            "label": "Windows 11",
+            "partition": "windows-11"
+          }
+        ]
+      },
+      "partitions": [
+        {
+          "id": "efi-boot",
+          "label": "EFI Boot",
+          "size": "1GB",
+          "sizeBytes": 1073741824,
+          "filesystem": "FAT32",
+          "bootable": true
+        },
+        {
+          "id": "windows-11",
+          "label": "Windows 11",
+          "size": "15GB",
+          "sizeBytes": 16106127360,
+          "filesystem": "NTFS",
+          "bootable": true,
+          "os": {
+            "name": "Windows",
+            "version": "11",
+            "arch": "x86-64",
+            "iso": "https://example.com/windows11.iso",
+            "checksum": "sha256:abc123...",
+            "checksumType": "sha256"
+          }
+        }
+      ],
+      "tools": [
+        {
+          "id": "windows-recovery",
+          "name": "Windows Recovery Environment",
+          "version": "Latest",
+          "size": "500MB",
+          "purpose": "System recovery and repair",
+          "url": "https://example.com/winre.iso"
+        }
+      ],
+      "safety": {
+        "requiresConfirmation": true,
+        "warningLevel": "medium",
+        "dataLossRisk": "Will erase USB device",
+        "verifyAfterWrite": true
+      },
+      "metadata": {
+        "hardwareProfile": "laptop-x86-64",
+        "createdByApp": "mobile-app-v6.0",
+        "sourceDevice": "iPhone 15 Pro",
+        "estimatedBuildTime": "15 minutes",
+        "totalSize": "16GB",
+        "tags": ["windows", "installation", "x86-64"]
+      }
+    }
+  ]
+}

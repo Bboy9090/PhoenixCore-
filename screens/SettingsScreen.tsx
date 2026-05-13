@@ -1,1 +1,396 @@
-/**\n * Phoenix Core - Settings Screen\n * Backend configuration, diagnostics, and app settings\n */\n\nimport React, { useEffect, useState } from 'react';\nimport {\n  View,\n  Text,\n  ScrollView,\n  StyleSheet,\n  TouchableOpacity,\n  TextInput,\n  ActivityIndicator,\n  Alert,\n} from 'react-native';\nimport { Colors, Spacing, Typography, BorderRadius, Shadows } from '../utils/theme';\nimport api, { DiagnosticsResult } from '../services/api';\n\nexport default function SettingsScreen() {\n  const [backendUrl, setBackendUrl] = useState(api.getBaseURL());\n  const [isConnected, setIsConnected] = useState(false);\n  const [testing, setTesting] = useState(false);\n  const [diagnostics, setDiagnostics] = useState<DiagnosticsResult | null>(null);\n  const [showDiagnostics, setShowDiagnostics] = useState(false);\n\n  useEffect(() => {\n    testConnection();\n  }, []);\n\n  const testConnection = async () => {\n    setTesting(true);\n    try {\n      const connected = await api.ping();\n      setIsConnected(connected);\n    } catch (err) {\n      setIsConnected(false);\n    } finally {\n      setTesting(false);\n    }\n  };\n\n  const handleUpdateBackendUrl = () => {\n    if (!backendUrl.startsWith('http')) {\n      Alert.alert('Invalid URL', 'URL must start with http:// or https://');\n      return;\n    }\n    api.setBaseURL(backendUrl);\n    testConnection();\n    Alert.alert('Success', 'Backend URL updated');\n  };\n\n  const handleRunDiagnostics = async () => {\n    setTesting(true);\n    try {\n      const result = await api.runDiagnostics();\n      setDiagnostics(result);\n      setShowDiagnostics(true);\n    } catch (err) {\n      Alert.alert('Error', 'Failed to run diagnostics');\n    } finally {\n      setTesting(false);\n    }\n  };\n\n  return (\n    <ScrollView style={styles.container}>\n      {/* Header */}\n      <View style={styles.header}>\n        <Text style={styles.headerTitle}>Settings</Text>\n      </View>\n\n      {/* Backend Configuration */}\n      <View style={styles.section}>\n        <Text style={styles.sectionTitle}>Backend Configuration</Text>\n\n        {/* Connection Status */}\n        <View style={styles.statusCard}>\n          <View style={styles.statusIndicator}>\n            <View\n              style={[\n                styles.statusDot,\n                { backgroundColor: isConnected ? Colors.status.success : Colors.status.error },\n              ]}\n            />\n            <Text style={styles.statusLabel}>\n              {isConnected ? 'Connected' : 'Disconnected'}\n            </Text>\n          </View>\n          <TouchableOpacity\n            style={styles.testButton}\n            onPress={testConnection}\n            disabled={testing}\n          >\n            <Text style={styles.testButtonText}>\n              {testing ? '⏳' : '🔄'} Test\n            </Text>\n          </TouchableOpacity>\n        </View>\n\n        {/* Backend URL Input */}\n        <View style={styles.inputGroup}>\n          <Text style={styles.inputLabel}>Backend URL</Text>\n          <TextInput\n            style={styles.textInput}\n            value={backendUrl}\n            onChangeText={setBackendUrl}\n            placeholder=\"http://localhost:8000\"\n            placeholderTextColor={Colors.text.muted}\n          />\n          <TouchableOpacity\n            style={styles.updateButton}\n            onPress={handleUpdateBackendUrl}\n          >\n            <Text style={styles.updateButtonText}>Update URL</Text>\n          </TouchableOpacity>\n        </View>\n      </View>\n\n      {/* System Diagnostics */}\n      <View style={styles.section}>\n        <Text style={styles.sectionTitle}>System Diagnostics</Text>\n        <TouchableOpacity\n          style={styles.diagnosticsButton}\n          onPress={handleRunDiagnostics}\n          disabled={testing}\n        >\n          <Text style={styles.diagnosticsButtonText}>\n            {testing ? '⏳ Running...' : '🔧 Run Diagnostics'}\n          </Text>\n        </TouchableOpacity>\n      </View>\n\n      {/* Diagnostics Results */}\n      {showDiagnostics && diagnostics && (\n        <View style={styles.section}>\n          <Text style={styles.sectionTitle}>Diagnostics Results</Text>\n\n          {/* Overall Status */}\n          <View style={styles.diagnosticsCard}>\n            <Text style={styles.diagnosticsLabel}>Overall Status</Text>\n            <Text\n              style={[\n                styles.diagnosticsValue,\n                {\n                  color:\n                    diagnostics.overall_status === 'healthy'\n                      ? Colors.status.success\n                      : Colors.status.warning,\n                },\n              ]}\n            >\n              {diagnostics.overall_status.toUpperCase()}\n            </Text>\n          </View>\n\n          {/* Platform */}\n          <View style={styles.diagnosticsCard}>\n            <Text style={styles.diagnosticsLabel}>Platform</Text>\n            <Text style={styles.diagnosticsValue}>{diagnostics.platform}</Text>\n          </View>\n\n          {/* Checks */}\n          <View style={styles.checksSection}>\n            <Text style={styles.checksTitle}>System Checks</Text>\n            {Object.entries(diagnostics.checks).map(([key, value]) => (\n              <CheckItem key={key} name={key} data={value} />\n            ))}\n          </View>\n        </View>\n      )}\n\n      {/* About */}\n      <View style={styles.section}>\n        <Text style={styles.sectionTitle}>About</Text>\n        <View style={styles.aboutCard}>\n          <Text style={styles.aboutText}>Phoenix Core Mobile</Text>\n          <Text style={styles.aboutVersion}>Version 2.0.0</Text>\n          <Text style={styles.aboutDescription}>\n            Professional cross-platform OS deployment tool with real USB creation capabilities\n          </Text>\n        </View>\n      </View>\n\n      <View style={{ height: Spacing.xl }} />\n    </ScrollView>\n  );\n}\n\ninterface CheckItemProps {\n  name: string;\n  data: any;\n}\n\nfunction CheckItem({ name, data }: CheckItemProps) {\n  const isOk = data.status === 'ok' || data.status === 'available';\n\n  return (\n    <View style={styles.checkItem}>\n      <View style={styles.checkHeader}>\n        <Text style={styles.checkIcon}>{isOk ? '✓' : '⚠'}</Text>\n        <Text style={styles.checkName}>{name}</Text>\n      </View>\n      <Text style={styles.checkStatus}>\n        {data.status || data.message || 'OK'}\n      </Text>\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: Colors.bg.primary,\n  },\n  header: {\n    padding: Spacing.xl,\n    paddingBottom: Spacing.base,\n  },\n  headerTitle: {\n    fontSize: Typography.size['2xl'],\n    fontWeight: Typography.weight.bold,\n    color: Colors.text.primary,\n  },\n  section: {\n    padding: Spacing.base,\n    marginBottom: Spacing.md,\n  },\n  sectionTitle: {\n    fontSize: Typography.size.lg,\n    fontWeight: Typography.weight.bold,\n    color: Colors.text.primary,\n    marginBottom: Spacing.md,\n    marginLeft: Spacing.sm,\n  },\n  statusCard: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    flexDirection: 'row',\n    justifyContent: 'space-between',\n    alignItems: 'center',\n    marginBottom: Spacing.md,\n    borderWidth: 1,\n    borderColor: Colors.border.default,\n    ...Shadows.md,\n  },\n  statusIndicator: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: Spacing.sm,\n  },\n  statusDot: {\n    width: 12,\n    height: 12,\n    borderRadius: 6,\n  },\n  statusLabel: {\n    fontSize: Typography.size.md,\n    fontWeight: Typography.weight.semibold,\n    color: Colors.text.primary,\n  },\n  testButton: {\n    paddingHorizontal: Spacing.md,\n    paddingVertical: Spacing.sm,\n    backgroundColor: Colors.bg.tertiary,\n    borderRadius: BorderRadius.sm,\n  },\n  testButtonText: {\n    fontSize: Typography.size.md,\n    fontWeight: Typography.weight.semibold,\n    color: Colors.accent.primary,\n  },\n  inputGroup: {\n    marginBottom: Spacing.md,\n  },\n  inputLabel: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n    marginBottom: Spacing.sm,\n    marginLeft: Spacing.sm,\n  },\n  textInput: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    borderWidth: 1,\n    borderColor: Colors.border.default,\n    padding: Spacing.base,\n    color: Colors.text.primary,\n    fontSize: Typography.size.md,\n    marginBottom: Spacing.sm,\n  },\n  updateButton: {\n    backgroundColor: Colors.accent.primary,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n  },\n  updateButtonText: {\n    color: Colors.bg.primary,\n    fontWeight: Typography.weight.bold,\n    fontSize: Typography.size.md,\n    textAlign: 'center',\n  },\n  diagnosticsButton: {\n    backgroundColor: Colors.accent.primary,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    marginBottom: Spacing.md,\n  },\n  diagnosticsButtonText: {\n    color: Colors.bg.primary,\n    fontWeight: Typography.weight.bold,\n    fontSize: Typography.size.md,\n    textAlign: 'center',\n  },\n  diagnosticsCard: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    marginBottom: Spacing.md,\n    borderWidth: 1,\n    borderColor: Colors.border.default,\n  },\n  diagnosticsLabel: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n    marginBottom: Spacing.xs,\n  },\n  diagnosticsValue: {\n    fontSize: Typography.size.lg,\n    fontWeight: Typography.weight.bold,\n    color: Colors.accent.primary,\n  },\n  checksSection: {\n    marginBottom: Spacing.md,\n  },\n  checksTitle: {\n    fontSize: Typography.size.md,\n    fontWeight: Typography.weight.bold,\n    color: Colors.text.primary,\n    marginBottom: Spacing.md,\n  },\n  checkItem: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    marginBottom: Spacing.sm,\n    borderWidth: 1,\n    borderColor: Colors.border.default,\n  },\n  checkHeader: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: Spacing.sm,\n    marginBottom: Spacing.xs,\n  },\n  checkIcon: {\n    fontSize: Typography.size.lg,\n  },\n  checkName: {\n    fontSize: Typography.size.md,\n    fontWeight: Typography.weight.semibold,\n    color: Colors.text.primary,\n  },\n  checkStatus: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n    marginLeft: Spacing.lg,\n  },\n  aboutCard: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    borderWidth: 1,\n    borderColor: Colors.border.accent,\n    alignItems: 'center',\n  },\n  aboutText: {\n    fontSize: Typography.size.lg,\n    fontWeight: Typography.weight.bold,\n    color: Colors.accent.primary,\n    marginBottom: Spacing.xs,\n  },\n  aboutVersion: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n    marginBottom: Spacing.md,\n  },\n  aboutDescription: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.secondary,\n    textAlign: 'center',\n    lineHeight: 20,\n  },\n});\n
+/**
+ * Phoenix Core - Settings Screen
+ * Backend configuration, diagnostics, and app settings
+ */
+
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { Colors, Spacing, Typography, BorderRadius, Shadows } from '../utils/theme';
+import api, { DiagnosticsResult } from '../services/api';
+
+export default function SettingsScreen() {
+  const [backendUrl, setBackendUrl] = useState(api.getBaseURL());
+  const [isConnected, setIsConnected] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsResult | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  useEffect(() => {
+    testConnection();
+  }, []);
+
+  const testConnection = async () => {
+    setTesting(true);
+    try {
+      const connected = await api.ping();
+      setIsConnected(connected);
+    } catch (err) {
+      setIsConnected(false);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleUpdateBackendUrl = () => {
+    if (!backendUrl.startsWith('http')) {
+      Alert.alert('Invalid URL', 'URL must start with http:// or https://');
+      return;
+    }
+    api.setBaseURL(backendUrl);
+    testConnection();
+    Alert.alert('Success', 'Backend URL updated');
+  };
+
+  const handleRunDiagnostics = async () => {
+    setTesting(true);
+    try {
+      const result = await api.runDiagnostics();
+      setDiagnostics(result);
+      setShowDiagnostics(true);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to run diagnostics');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Settings</Text>
+      </View>
+
+      {/* Backend Configuration */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Backend Configuration</Text>
+
+        {/* Connection Status */}
+        <View style={styles.statusCard}>
+          <View style={styles.statusIndicator}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: isConnected ? Colors.status.success : Colors.status.error },
+              ]}
+            />
+            <Text style={styles.statusLabel}>
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={testConnection}
+            disabled={testing}
+          >
+            <Text style={styles.testButtonText}>
+              {testing ? '⏳' : '🔄'} Test
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Backend URL Input */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Backend URL</Text>
+          <TextInput
+            style={styles.textInput}
+            value={backendUrl}
+            onChangeText={setBackendUrl}
+            placeholder="http://localhost:8000"
+            placeholderTextColor={Colors.text.muted}
+          />
+          <TouchableOpacity
+            style={styles.updateButton}
+            onPress={handleUpdateBackendUrl}
+          >
+            <Text style={styles.updateButtonText}>Update URL</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* System Diagnostics */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>System Diagnostics</Text>
+        <TouchableOpacity
+          style={styles.diagnosticsButton}
+          onPress={handleRunDiagnostics}
+          disabled={testing}
+        >
+          <Text style={styles.diagnosticsButtonText}>
+            {testing ? '⏳ Running...' : '🔧 Run Diagnostics'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Diagnostics Results */}
+      {showDiagnostics && diagnostics && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Diagnostics Results</Text>
+
+          {/* Overall Status */}
+          <View style={styles.diagnosticsCard}>
+            <Text style={styles.diagnosticsLabel}>Overall Status</Text>
+            <Text
+              style={[
+                styles.diagnosticsValue,
+                {
+                  color:
+                    diagnostics.overall_status === 'healthy'
+                      ? Colors.status.success
+                      : Colors.status.warning,
+                },
+              ]}
+            >
+              {diagnostics.overall_status.toUpperCase()}
+            </Text>
+          </View>
+
+          {/* Platform */}
+          <View style={styles.diagnosticsCard}>
+            <Text style={styles.diagnosticsLabel}>Platform</Text>
+            <Text style={styles.diagnosticsValue}>{diagnostics.platform}</Text>
+          </View>
+
+          {/* Checks */}
+          <View style={styles.checksSection}>
+            <Text style={styles.checksTitle}>System Checks</Text>
+            {Object.entries(diagnostics.checks).map(([key, value]) => (
+              <CheckItem key={key} name={key} data={value} />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* About */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>About</Text>
+        <View style={styles.aboutCard}>
+          <Text style={styles.aboutText}>Phoenix Core Mobile</Text>
+          <Text style={styles.aboutVersion}>Version 2.0.0</Text>
+          <Text style={styles.aboutDescription}>
+            Professional cross-platform OS deployment tool with real USB creation capabilities
+          </Text>
+        </View>
+      </View>
+
+      <View style={{ height: Spacing.xl }} />
+    </ScrollView>
+  );
+}
+
+interface CheckItemProps {
+  name: string;
+  data: any;
+}
+
+function CheckItem({ name, data }: CheckItemProps) {
+  const isOk = data.status === 'ok' || data.status === 'available';
+
+  return (
+    <View style={styles.checkItem}>
+      <View style={styles.checkHeader}>
+        <Text style={styles.checkIcon}>{isOk ? '✓' : '⚠'}</Text>
+        <Text style={styles.checkName}>{name}</Text>
+      </View>
+      <Text style={styles.checkStatus}>
+        {data.status || data.message || 'OK'}
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.bg.primary,
+  },
+  header: {
+    padding: Spacing.xl,
+    paddingBottom: Spacing.base,
+  },
+  headerTitle: {
+    fontSize: Typography.size['2xl'],
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+  },
+  section: {
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    fontSize: Typography.size.lg,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.md,
+    marginLeft: Spacing.sm,
+  },
+  statusCard: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+    ...Shadows.md,
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  statusLabel: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.text.primary,
+  },
+  testButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.bg.tertiary,
+    borderRadius: BorderRadius.sm,
+  },
+  testButtonText: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.accent.primary,
+  },
+  inputGroup: {
+    marginBottom: Spacing.md,
+  },
+  inputLabel: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+    marginBottom: Spacing.sm,
+    marginLeft: Spacing.sm,
+  },
+  textInput: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+    padding: Spacing.base,
+    color: Colors.text.primary,
+    fontSize: Typography.size.md,
+    marginBottom: Spacing.sm,
+  },
+  updateButton: {
+    backgroundColor: Colors.accent.primary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+  },
+  updateButtonText: {
+    color: Colors.bg.primary,
+    fontWeight: Typography.weight.bold,
+    fontSize: Typography.size.md,
+    textAlign: 'center',
+  },
+  diagnosticsButton: {
+    backgroundColor: Colors.accent.primary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+  },
+  diagnosticsButtonText: {
+    color: Colors.bg.primary,
+    fontWeight: Typography.weight.bold,
+    fontSize: Typography.size.md,
+    textAlign: 'center',
+  },
+  diagnosticsCard: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+  },
+  diagnosticsLabel: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+    marginBottom: Spacing.xs,
+  },
+  diagnosticsValue: {
+    fontSize: Typography.size.lg,
+    fontWeight: Typography.weight.bold,
+    color: Colors.accent.primary,
+  },
+  checksSection: {
+    marginBottom: Spacing.md,
+  },
+  checksTitle: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.md,
+  },
+  checkItem: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+  },
+  checkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  checkIcon: {
+    fontSize: Typography.size.lg,
+  },
+  checkName: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.text.primary,
+  },
+  checkStatus: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+    marginLeft: Spacing.lg,
+  },
+  aboutCard: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.border.accent,
+    alignItems: 'center',
+  },
+  aboutText: {
+    fontSize: Typography.size.lg,
+    fontWeight: Typography.weight.bold,
+    color: Colors.accent.primary,
+    marginBottom: Spacing.xs,
+  },
+  aboutVersion: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+    marginBottom: Spacing.md,
+  },
+  aboutDescription: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+});
+

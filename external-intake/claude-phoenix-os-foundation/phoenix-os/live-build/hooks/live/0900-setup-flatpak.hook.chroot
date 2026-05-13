@@ -1,0 +1,42 @@
+#!/bin/sh
+# Phoenix OS — Flatpak and Flathub Setup Hook
+# File: live-build/hooks/live/0900-setup-flatpak.hook.chroot
+#
+# Configures Flatpak with the Flathub repository.
+# Note: We add the repo but do NOT install Flatpak apps at build time.
+# This keeps the ISO size manageable. Apps are installed post-boot.
+
+set -e
+
+echo "[Phoenix Hook] Configuring Flatpak"
+
+# Verify flatpak is installed
+if ! command -v flatpak >/dev/null 2>&1; then
+    echo "[Phoenix Hook] WARNING: flatpak not found in chroot. Skipping Flatpak setup."
+    exit 0
+fi
+
+# Add Flathub as the system-wide Flatpak remote
+# Using --if-not-exists to be idempotent
+flatpak remote-add --if-not-exists --system flathub \
+    https://dl.flathub.org/repo/flathub.flatpakrepo || {
+    echo "[Phoenix Hook] WARNING: Could not add Flathub remote (network may not be available during build)."
+    echo "[Phoenix Hook] Flathub will be configured on first boot via phoenix-welcome."
+}
+
+# Create a Flathub repo file for offline configuration fallback
+mkdir -p /etc/flatpak/remotes.d
+cat > /etc/flatpak/remotes.d/flathub.flatpakrepo << 'FLATPAKREPO'
+[Flatpak Repo]
+Title=Flathub
+Name=flathub
+Url=https://dl.flathub.org/repo/
+Homepage=https://flathub.org
+Comment=Central repository of Flatpak applications
+Description=Flathub is the home of hundreds of apps which can be easily installed on any Linux distribution.
+Icon=https://dl.flathub.org/repo/logo.svg
+GPGKey=mQINBFlD2sABEADsiUZUOYBg1UdDaWkEdJYkTSZD68214m8Q1fbrP5AptaUfCl8KYKFMNoAJRBud9GHS4tFMBaBGGsM0ygMCkC4VXMEnxsKl3CXRP4lzAkEBurlBQLiI9QIY9r9wB+7tP1hLkZeGBq5Hm6Vl7wMBJMf7aJA
+FLATPAKREPO
+
+echo "[Phoenix Hook] Flatpak configuration complete"
+echo "[Phoenix Hook] Flathub remote configured. Apps install post-boot via Discover."

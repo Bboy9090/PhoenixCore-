@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Phoenix OS
+Description=Phoenix OS boot splash theme — ember rising animation
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/phoenix
+ScriptFile=/usr/share/plymouth/themes/phoenix/phoenix.script

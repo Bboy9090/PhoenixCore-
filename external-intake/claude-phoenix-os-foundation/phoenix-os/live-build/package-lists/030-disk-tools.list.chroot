@@ -1,0 +1,84 @@
+# Phoenix OS — Disk Tools Package List
+# File: live-build/package-lists/030-disk-tools.list.chroot
+#
+# Disk partitioning, imaging, cloning, and health monitoring tools.
+#
+# SAFETY REMINDER: Phoenix OS enforces a safety model for disk operations.
+# No tool in this list is configured to auto-select a target disk.
+# See docs/security-model.md for full policy details.
+
+# ============================================================
+# Partitioning (GUI)
+# ============================================================
+gparted            # GParted: graphical partition editor (gold standard)
+
+# ============================================================
+# Partitioning (CLI)
+# ============================================================
+parted             # GNU parted: scriptable partition management
+gdisk              # GPT fdisk: GPT-aware partition tool (gdisk, sgdisk, cgdisk)
+fdisk              # Classic MBR partition tool (also handles GPT)
+sfdisk             # Scriptable partition table tool
+
+# ============================================================
+# Disk imaging and cloning
+# ============================================================
+ddrescue           # GNU ddrescue: recovers data from failing drives
+dc3dd              # Enhanced dd for forensic imaging (with hashing)
+partclone          # Partition-level cloning (filesystem-aware)
+partimage          # Partition imaging tool
+
+# ============================================================
+# S.M.A.R.T. monitoring and disk health
+# ============================================================
+smartmontools      # smartctl, smartd — ATA and NVMe S.M.A.R.T.
+nvme-cli           # NVMe management CLI (nvme list, nvme smart-log, etc.)
+hdparm             # ATA disk parameters: speed test, power management
+
+# ============================================================
+# RAID management
+# ============================================================
+mdadm              # Linux software RAID management
+dmraid             # Device-mapper RAID (Intel RST, NVIDIA nForce RAID)
+
+# ============================================================
+# LVM management
+# ============================================================
+lvm2               # Logical Volume Manager
+
+# ============================================================
+# Filesystem creation (broad format support for repair)
+# ============================================================
+# Note: ext2/3/4 tools are in e2fsprogs (repair-tools list)
+# These cover additional filesystem types:
+squashfs-tools     # SquashFS: inspect and create squashfs (ISO/live analysis)
+cryptsetup         # LUKS full-disk encryption management
+
+# ============================================================
+# Disk benchmarking and stress
+# ============================================================
+fio                # Flexible I/O tester: storage benchmarking
+bonnie++           # Filesystem benchmark
+iozone3            # File system benchmark
+
+# ============================================================
+# Disk information and inspection
+# ============================================================
+lsblk              # (part of util-linux, should already be present)
+blkid              # Block device identification
+util-linux         # Core disk utilities: lsblk, blkid, losetup, mount, etc.
+wipefs             # Wipe filesystem signatures (requires confirmation in UI)
+
+# ============================================================
+# USB and removable media
+# ============================================================
+usb-creator-gtk    # Ubuntu USB startup disk creator
+balena-etcher      # TODO: Add as Flatpak in 070-flatpak.list or via AppImage
+
+# ============================================================
+# Optical media
+# ============================================================
+cdrdao             # CD/DVD recording
+dvdbackup          # DVD backup utility
+genisoimage        # ISO creation
+brasero            # Disc burning GUI (GNOME, but usable on KDE)

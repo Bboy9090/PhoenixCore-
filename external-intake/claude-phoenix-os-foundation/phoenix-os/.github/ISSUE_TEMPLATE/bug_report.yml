@@ -1,0 +1,76 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in Phoenix OS
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: search existing issues to avoid duplicates.
+        **Security vulnerabilities**: email security@phoenix-os.io instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: Phoenix OS Version
+      description: Found in the ISO filename or `cat /etc/os-release`
+      placeholder: "e.g. 0.1.0-alpha"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Live ISO (USB boot)
+        - Installed system
+        - QEMU virtual machine
+        - Other VM
+    validations:
+      required: true
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware
+      description: Paste output of `inxi -Faz` or describe CPU/RAM/storage/GPU
+      placeholder: "inxi -Faz output here"
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Boot the ISO
+        2. Open Phoenix Control Center
+        3. Click on "Disks"
+        4. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: |
+        Paste relevant output from:
+        - `/var/log/phoenix/`
+        - `journalctl -b --no-pager -n 100`
+        - `dmesg | tail -50`
+      render: shell

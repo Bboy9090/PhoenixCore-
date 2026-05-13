@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Install Phoenix OS
+GenericName=System Installer
+Comment=Install Phoenix OS permanently to your hard drive
+Exec=sh -c "pkexec calamares"
+Icon=calamares
+Terminal=false
+Categories=System;
+Keywords=install;installer;setup;
+StartupNotify=true

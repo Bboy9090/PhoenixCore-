@@ -1,0 +1,13 @@
+# Phoenix OS — APT Configuration
+# File: /etc/apt/apt.conf.d/99-phoenix
+
+# Disable translation downloads (not needed, saves bandwidth during builds)
+Acquire::Languages "none";
+
+# Keep apt output clean during ISO build
+Dpkg::Use-Pty "0";
+
+# Do not install recommended packages beyond what's explicitly listed
+# (Override with apt install --install-recommends when needed)
+APT::Install-Recommends "0";
+APT::Install-Suggests "0";

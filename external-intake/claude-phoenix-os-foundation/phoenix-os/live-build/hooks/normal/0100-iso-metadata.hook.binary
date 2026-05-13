@@ -1,0 +1,37 @@
+#!/bin/bash
+# Phoenix OS — Binary Hook: ISO Metadata
+# File: live-build/hooks/normal/0100-iso-metadata.hook.binary
+#
+# Runs after chroot stage, before ISO assembly.
+# Writes Phoenix OS metadata files to the ISO root.
+
+set -euo pipefail
+
+PHOENIX_VERSION="${PHOENIX_VERSION:-$(cat /phoenix-version 2>/dev/null || echo "0.1.0-alpha")}"
+BUILD_DATE="$(date -u '+%Y-%m-%d')"
+BUILD_TS="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+echo "[Phoenix Hook] Writing ISO metadata (version: ${PHOENIX_VERSION})"
+
+# Write .disk/info — shown by some installers and live-boot
+mkdir -p binary/.disk
+cat > binary/.disk/info << EOF
+Phoenix OS ${PHOENIX_VERSION} "${BUILD_DATE}" - Release amd64
+EOF
+
+cat > binary/.disk/release_notes_url << EOF
+https://github.com/your-org/phoenix-os/releases/tag/v${PHOENIX_VERSION}
+EOF
+
+# Write a plaintext release file to the ISO root for easy identification
+cat > binary/phoenix-release.txt << EOF
+Phoenix OS
+Version  : ${PHOENIX_VERSION}
+Built    : ${BUILD_TS}
+Arch     : amd64
+Base     : Ubuntu 24.04 LTS (Noble Numbat)
+Desktop  : KDE Plasma 6
+Installer: Calamares
+EOF
+
+echo "[Phoenix Hook] ISO metadata written"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Phoenix Control Center
+GenericName=System Control Center
+Comment=Repair, diagnostics, and system control for Phoenix OS
+Exec=phoenix-control-center
+Icon=phoenix-control-center
+Terminal=false
+Categories=System;Settings;
+Keywords=repair;recovery;disk;diagnostics;smart;hardware;
+StartupNotify=true
+StartupWMClass=phoenix-control-center

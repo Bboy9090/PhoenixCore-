@@ -1,0 +1,99 @@
+# Phoenix OS — Plymouth Boot Splash Script
+# File: branding/plymouth/phoenix.script
+#
+# Animates an ember/flame rising effect on the boot screen.
+# Uses the Plymouth script module (no video codec dependency).
+#
+# Color palette from docs/branding.md:
+#   Forge Black:   #0D0F12  (background)
+#   Phoenix Amber: #F58C1F  (primary accent / flame)
+#   Flame:         #D94215  (deep ember)
+
+# ---- Screen setup ----
+screen_width  = Window.GetWidth();
+screen_height = Window.GetHeight();
+
+# Background: Forge Black
+Window.SetBackgroundTopColor(0.051, 0.059, 0.071);   # #0D0F12
+Window.SetBackgroundBottomColor(0.051, 0.059, 0.071);
+
+# ---- Load images ----
+# These PNG files must be in the same directory as this script.
+# See branding/boot-logo/ for source vectors.
+logo_image   = Image("phoenix-logo-boot.png");
+ember_image  = Image("ember-particle.png");
+
+# ---- Logo sprite ----
+logo_sprite = Sprite(logo_image);
+
+# Center the logo horizontally, position in upper third
+logo_x = (screen_width  - logo_image.GetWidth())  / 2;
+logo_y = (screen_height - logo_image.GetHeight()) / 2 - 60;
+
+logo_sprite.SetPosition(logo_x, logo_y, 1);
+logo_sprite.SetOpacity(0);
+
+# ---- Progress bar ----
+# Amber bar at the bottom of the screen
+progress_bar_height = 3;
+progress_bar_y      = screen_height - 60;
+progress_bar_max_width = screen_width * 0.4;
+progress_bar_x_start   = (screen_width - progress_bar_max_width) / 2;
+
+bar_bg = Rectangle(
+    progress_bar_x_start,
+    progress_bar_y,
+    progress_bar_max_width,
+    progress_bar_height
+);
+bar_bg.SetFillColor(0.165, 0.196, 0.235, 0.3);  # Subtle background
+
+bar_fill = Rectangle(
+    progress_bar_x_start,
+    progress_bar_y,
+    0,
+    progress_bar_height
+);
+bar_fill.SetFillColor(0.961, 0.549, 0.122, 1.0);  # Phoenix Amber #F58C1F
+
+# ---- Animation state ----
+frame = 0;
+logo_fade_in_frames = 30;   # ~1 second at 30fps
+progress = 0.0;
+
+# ---- Refresh callback (called ~30x per second) ----
+fun refresh_callback() {
+    frame++;
+
+    # Fade in the logo over the first 30 frames
+    if (frame <= logo_fade_in_frames) {
+        opacity = frame / logo_fade_in_frames;
+        logo_sprite.SetOpacity(opacity);
+    } else {
+        logo_sprite.SetOpacity(1.0);
+    }
+
+    # Animate progress bar with a pulsing fill
+    # In real boot, Plymouth.GetProgress() returns actual boot progress (0.0 - 1.0)
+    boot_progress = Plymouth.GetBootProgress();
+    bar_fill.SetWidth(progress_bar_max_width * boot_progress);
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# ---- Boot message callback ----
+fun message_callback(text) {
+    # Messages are suppressed in Phoenix OS splash (quiet boot)
+    # Debug: Uncomment to show messages during development
+    # label = Label(text);
+    # label.SetPosition(20, screen_height - 40, 2);
+}
+
+Plymouth.SetMessageFunction(message_callback);
+
+# ---- Normal exit (boot complete) ----
+fun quit_callback() {
+    logo_sprite.SetOpacity(0);
+}
+
+Plymouth.SetQuitFunction(quit_callback);

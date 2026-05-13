@@ -1,0 +1,27 @@
+# Phoenix OS — GRUB Configuration
+# File: /etc/default/grub
+#
+# Applied to the live session image via live-build/includes.chroot/
+# The Calamares installer writes its own version during installation.
+#
+# To update the live session GRUB: run update-grub (requires rebuilding the ISO).
+
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=5
+GRUB_TIMEOUT_STYLE=menu
+GRUB_DISTRIBUTOR="Phoenix OS"
+
+# Boot parameters for live session
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 udev.log_level=3"
+GRUB_CMDLINE_LINUX=""
+
+# Phoenix GRUB theme
+GRUB_THEME="/boot/grub/themes/phoenix/theme.txt"
+
+# Disable OS prober in live session (prevents scanning internal disks)
+GRUB_DISABLE_OS_PROBER=true
+
+# Use graphical terminal (required for theme to display)
+GRUB_TERMINAL_OUTPUT="gfxterm"
+GRUB_GFXMODE="auto"
+GRUB_GFXPAYLOAD_LINUX="keep"

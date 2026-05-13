@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Phoenix Recovery
+GenericName=Data Recovery
+Comment=Guided data rescue and system repair workflows
+Exec=phoenix-recovery
+Icon=phoenix-recovery
+Terminal=false
+Categories=System;
+Keywords=recovery;rescue;data;disk;fsck;repair;files;
+StartupNotify=true
+StartupWMClass=phoenix-recovery

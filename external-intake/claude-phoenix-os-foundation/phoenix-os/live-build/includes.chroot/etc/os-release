@@ -1,0 +1,12 @@
+NAME="Phoenix OS"
+VERSION="0.1.0-alpha (Ember)"
+ID=phoenix
+ID_LIKE=ubuntu
+PRETTY_NAME="Phoenix OS 0.1.0-alpha"
+VERSION_ID="0.1"
+HOME_URL="https://phoenix-os.io"
+SUPPORT_URL="https://docs.phoenix-os.io"
+BUG_REPORT_URL="https://github.com/your-org/phoenix-os/issues"
+PRIVACY_POLICY_URL="https://phoenix-os.io/privacy"
+UBUNTU_CODENAME=noble
+PHOENIX_CODENAME=ember

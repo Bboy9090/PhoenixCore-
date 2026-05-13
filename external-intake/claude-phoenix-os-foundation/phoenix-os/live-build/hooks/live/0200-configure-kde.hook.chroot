@@ -1,0 +1,102 @@
+#!/bin/sh
+# Phoenix OS — KDE Session Configuration Hook
+# File: live-build/hooks/live/0200-configure-kde.hook.chroot
+#
+# Configures KDE Plasma for the live session.
+# Sets Phoenix theme, auto-login, and default applications.
+
+set -e
+
+echo "[Phoenix Hook] Configuring KDE Plasma session"
+
+# Configure SDDM for auto-login to the phoenix user
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/phoenix-autologin.conf << 'SDDM'
+[Autologin]
+User=phoenix
+Session=plasma
+Relogin=false
+
+[Theme]
+Current=phoenix
+
+[General]
+HaltCommand=/sbin/shutdown -h -P now
+RebootCommand=/sbin/shutdown -r now
+SDDM
+
+# Configure KDE Plasma defaults for the phoenix user
+# These go into /etc/skel so they're applied to the live user home
+mkdir -p /etc/skel/.config
+mkdir -p /etc/skel/.local/share
+
+# KDE global settings
+cat > /etc/skel/.config/kdeglobals << 'KDEGLOBALS'
+[Colors:Button]
+BackgroundAlternate=30,37,46
+BackgroundNormal=22,29,38
+DecorationFocus=245,140,31
+DecorationHover=245,140,31
+ForegroundActive=245,140,31
+ForegroundInactive=138,146,158
+ForegroundNeutral=245,140,31
+ForegroundNormal=232,234,240
+ForegroundPositive=61,184,130
+ForegroundVisited=138,146,158
+
+[General]
+ColorScheme=PhoenixDark
+Name=Phoenix Dark
+shadeSortColumn=true
+widgetStyle=kvantum
+
+[Icons]
+Theme=Papirus-Dark
+
+[KDE]
+LookAndFeelPackage=org.kde.breezedark.desktop
+SingleClick=false
+
+[WM]
+activeBackground=13,15,18
+activeForeground=232,234,240
+KDEGLOBALS
+
+# KWin window manager settings
+cat > /etc/skel/.config/kwinrc << 'KWINRC'
+[Compositing]
+Backend=OpenGL
+Enabled=true
+GLCore=true
+OpenGLIsUnsafe=false
+
+[Windows]
+FocusPolicy=ClickToFocus
+TitlebarDoubleClickCommand=Maximize
+KWINRC
+
+# Plasma shell config
+cat > /etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc << 'PLASMA'
+# Phoenix OS default Plasma layout
+# TODO: Define panel layout with Phoenix-specific widgets
+# Populated by phoenix-theme package installer
+PLASMA
+
+# KDE autostart: Phoenix Welcome on first login
+mkdir -p /etc/skel/.config/autostart
+cat > /etc/skel/.config/autostart/phoenix-welcome.desktop << 'WELCOME'
+[Desktop Entry]
+Type=Application
+Name=Phoenix Welcome
+Exec=phoenix-welcome
+Terminal=false
+X-KDE-autostart-condition=phoenix-welcome:General:FirstRun:true
+WELCOME
+
+# Apply skel to existing phoenix user
+if [ -d /home/phoenix ]; then
+    cp -rn /etc/skel/. /home/phoenix/ 2>/dev/null || true
+    chown -R phoenix:phoenix /home/phoenix
+fi
+
+echo "[Phoenix Hook] KDE configuration complete"

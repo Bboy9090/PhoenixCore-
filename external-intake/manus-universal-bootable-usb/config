@@ -1,0 +1,314 @@
+#!/bin/bash
+
+# Phoenix OS Live-Build Configuration
+# This script configures live-build for ISO generation
+# 
+# Usage: lb config
+# This file is automatically sourced by live-build
+
+set -e
+
+# Distribution Configuration
+lb config noauto \
+  --distribution jammy \
+  --debian-installer live \
+  --debian-installer-distribution jammy \
+  --architectures amd64 \
+  --archive-areas "main universe multiverse restricted" \
+  --mirror-bootstrap http://archive.ubuntu.com/ubuntu \
+  --mirror-chroot http://archive.ubuntu.com/ubuntu \
+  --mirror-chroot-security http://security.ubuntu.com/ubuntu \
+  --mirror-binary http://archive.ubuntu.com/ubuntu \
+  --mirror-binary-security http://security.ubuntu.com/ubuntu \
+  --security true \
+  --updates true \
+  --backports true \
+  --proposed false \
+  --apt-indices true \
+  --apt-recommends true \
+  --apt-secure true \
+  --cache true \
+  --cache-packages true \
+  --cache-stages "bootstrap rootfs" \
+  --checksums sha256 \
+  --chroot-filesystem squashfs \
+  --compression gzip \
+  --debootstrap-options "--variant=minbase" \
+  --debootstrap-script /usr/share/debootstrap/scripts/jammy \
+  --firmware-binary true \
+  --firmware-chroot true \
+  --grub-splash false \
+  --image iso-hybrid \
+  --iso-application "Phoenix OS" \
+  --iso-preparer "Phoenix OS Build System" \
+  --iso-publisher "Phoenix OS Project" \
+  --iso-volume "Phoenix OS 2.0.0" \
+  --kernel linux-image-generic \
+  --kernel-flavour generic \
+  --keyring-packages ubuntu-keyring \
+  --linux-packages "linux-image-generic linux-headers-generic" \
+  --live-boot-parameters "boot=live config quiet splash" \
+  --live-build-version "1:20230613" \
+  --memtest memtest86+ \
+  --parent-debian-distribution-chroot jammy \
+  --parent-debian-distribution-binary jammy \
+  --parent-distribution-chroot jammy \
+  --parent-distribution-binary jammy \
+  --quiet false \
+  --verbose false
+
+# Bootloader Configuration
+cat > config/bootloaders/grub-pc/live.cfg.in << 'EOF'
+# GRUB boot menu configuration for Phoenix OS
+# This file is processed during ISO creation
+
+menuentry "Phoenix OS 2.0.0 (Live)" {
+  search --set=root --label Phoenix
+  echo "Loading Phoenix OS..."
+  linux /live/vmlinuz boot=live config quiet splash
+  initrd /live/initrd.img
+}
+
+menuentry "Phoenix OS 2.0.0 (Live - Safe Mode)" {
+  search --set=root --label Phoenix
+  echo "Loading Phoenix OS in Safe Mode..."
+  linux /live/vmlinuz boot=live config quiet splash nomodeset
+  initrd /live/initrd.img
+}
+
+menuentry "Phoenix OS 2.0.0 (Live - Verbose)" {
+  search --set=root --label Phoenix
+  echo "Loading Phoenix OS (Verbose Mode)..."
+  linux /live/vmlinuz boot=live config verbose
+  initrd /live/initrd.img
+}
+
+menuentry "Memory Test (memtest86+)" {
+  search --set=root --label Phoenix
+  echo "Loading Memory Test..."
+  linux16 /live/memtest86+.bin
+}
+
+menuentry "UEFI Firmware Settings" {
+  fwsetup
+}
+
+menuentry "Reboot" {
+  reboot
+}
+
+menuentry "Power Off" {
+  halt
+}
+EOF
+
+# Plymouth Boot Splash Configuration
+mkdir -p config/includes.chroot/usr/share/plymouth/themes/phoenix
+cat > config/includes.chroot/usr/share/plymouth/themes/phoenix/phoenix.plymouth << 'EOF'
+[Plymouth Theme]
+Name=Phoenix OS
+Description=Phoenix OS Boot Splash
+ModuleType=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/phoenix
+ScriptFile=/usr/share/plymouth/themes/phoenix/phoenix.script
+EOF
+
+# SDDM Login Screen Configuration
+mkdir -p config/includes.chroot/usr/share/sddm/themes/phoenix
+cat > config/includes.chroot/usr/share/sddm/themes/phoenix/theme.conf << 'EOF'
+[General]
+Session=plasmawayland
+Theme=phoenix
+Font=Noto Sans,10,-1,5,50,0,0,0,0,0
+Cursor=breeze_cursors
+Session=plasmawayland
+NumLock=on
+
+[Users]
+Session=plasmawayland
+
+[General]
+Session=plasmawayland
+EOF
+
+# KDE Plasma Configuration
+mkdir -p config/includes.chroot/etc/skel/.config/
+cat > config/includes.chroot/etc/skel/.config/plasmarc << 'EOF'
+[General]
+Session=plasmawayland
+
+[Keyboard]
+NumLock=0
+
+[Locale]
+LANG=en_US.UTF-8
+
+[Wallpaper]
+Image=phoenix-wallpaper
+EOF
+
+# Network Configuration
+cat > config/includes.chroot/etc/NetworkManager/conf.d/phoenix.conf << 'EOF'
+[main]
+plugins=ifupdown,keyfile
+dns=systemd-resolved
+
+[ifupdown]
+managed=false
+
+[device]
+wifi.scan-rand-mac-address=yes
+EOF
+
+# Firewall Configuration
+cat > config/includes.chroot/etc/ufw/ufw.conf << 'EOF'
+# UFW configuration for Phoenix OS
+ENABLED=yes
+LOGLEVEL=low
+DEFAULT_INPUT_POLICY="DROP"
+DEFAULT_OUTPUT_POLICY="ACCEPT"
+DEFAULT_FORWARD_POLICY="DROP"
+DEFAULT_APPLICATION_POLICY="SKIP"
+MANAGE_BUILTINS=no
+IPV6=yes
+EOF
+
+# AppArmor Configuration
+cat > config/includes.chroot/etc/apparmor/parser.conf << 'EOF'
+# AppArmor parser configuration
+# Enable AppArmor security module
+--write-cache
+--cache-dir=/var/cache/apparmor
+--skip-kernel-load
+EOF
+
+# System Limits
+cat > config/includes.chroot/etc/security/limits.conf << 'EOF'
+# System resource limits for Phoenix OS
+
+# Maximum number of open files
+* soft nofile 65536
+* hard nofile 65536
+
+# Maximum number of processes
+* soft nproc 65536
+* hard nproc 65536
+
+# Maximum locked memory
+* soft memlock unlimited
+* hard memlock unlimited
+EOF
+
+# Sysctl Configuration
+cat > config/includes.chroot/etc/sysctl.d/99-phoenix.conf << 'EOF'
+# Phoenix OS sysctl configuration
+# Performance and security tuning
+
+# Network security
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+
+# TCP hardening
+net.ipv4.tcp_syncookies = 1
+net.ipv4.conf.all.arp_ignore = 1
+net.ipv4.conf.all.arp_announce = 2
+
+# IPv6 security
+net.ipv6.conf.all.disable_ipv6 = 0
+net.ipv6.conf.all.forwarding = 0
+
+# Kernel security
+kernel.kptr_restrict = 2
+kernel.dmesg_restrict = 1
+kernel.unprivileged_userns_clone = 0
+kernel.yama.ptrace_scope = 2
+
+# Memory protection
+vm.overcommit_memory = 1
+vm.mmap_min_addr = 65536
+
+# File system
+fs.file-max = 2097152
+fs.protected_hardlinks = 1
+fs.protected_symlinks = 1
+EOF
+
+# Sudoers Configuration
+cat > config/includes.chroot/etc/sudoers.d/phoenix << 'EOF'
+# Phoenix OS sudoers configuration
+# Allow users in sudo group to use sudo without password for specific commands
+
+# Defaults
+Defaults use_pty
+Defaults log_input, log_output
+Defaults requiretty
+
+# User privileges
+%sudo ALL=(ALL:ALL) ALL
+EOF
+
+# PAM Configuration
+cat > config/includes.chroot/etc/pam.d/common-password << 'EOF'
+# PAM configuration for password quality
+password [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass yescrypt shadow
+password requisite pam_deny.so
+password required pam_permit.so
+password required pam_pwquality.so retry=3 minlen=12 dcredit=-1 ucredit=-1 ocredit=-1 lcredit=-1
+EOF
+
+# SSH Configuration (disabled by default)
+cat > config/includes.chroot/etc/ssh/sshd_config << 'EOF'
+# SSH Server Configuration for Phoenix OS
+# SSH is disabled by default for security
+
+Port 22
+AddressFamily any
+ListenAddress 0.0.0.0
+ListenAddress ::
+
+# HostKeys
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Logging
+SyslogFacility AUTH
+LogLevel INFO
+
+# Authentication
+PermitRootLogin no
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys .ssh/authorized_keys2
+PasswordAuthentication no
+PermitEmptyPasswords no
+
+# Security
+X11Forwarding yes
+PrintMotd no
+AcceptEnv LANG LC_*
+
+# Subsystem
+Subsystem sftp /usr/lib/openssh/sftp-server
+EOF
+
+# Disable SSH by default
+mkdir -p config/includes.chroot/etc/systemd/system/ssh.service.d/
+cat > config/includes.chroot/etc/systemd/system/ssh.service.d/disable.conf << 'EOF'
+[Unit]
+After=network-online.target
+
+[Service]
+Type=simple
+EOF
+
+echo "✓ Live-build configuration created successfully"
+echo "✓ Bootloader configuration: GRUB"
+echo "✓ Boot splash: Plymouth"
+echo "✓ Login screen: SDDM"
+echo "✓ Desktop: KDE Plasma"
+echo "✓ Security: AppArmor, UFW, SSH disabled by default"

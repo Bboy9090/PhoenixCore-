@@ -1,0 +1,5 @@
+#!/bin/bash
+# phoenix-welcome — post-installation script
+set -e
+chmod +x /usr/local/bin/phoenix-welcome
+echo "phoenix-welcome: Welcome application installed."

@@ -1,0 +1,97 @@
+#!/bin/sh
+# Phoenix OS — live-build configuration
+# This file is sourced by lb commands. It defines the core build parameters.
+# Do not call lb directly from development; use scripts/build-iso.sh instead.
+
+set -e
+
+# ============================================================
+# Distribution and mirror settings
+# ============================================================
+
+# Ubuntu 24.04 LTS (Noble Numbat)
+LB_DISTRIBUTION="noble"
+LB_PARENT_DISTRIBUTION="noble"
+
+# Primary Ubuntu archive mirror
+LB_MIRROR_BOOTSTRAP="http://archive.ubuntu.com/ubuntu/"
+LB_MIRROR_CHROOT="http://archive.ubuntu.com/ubuntu/"
+LB_MIRROR_BINARY="http://archive.ubuntu.com/ubuntu/"
+LB_MIRROR_CHROOT_SECURITY="http://security.ubuntu.com/ubuntu/"
+LB_MIRROR_BINARY_SECURITY="http://security.ubuntu.com/ubuntu/"
+
+# APT archive areas
+LB_ARCHIVE_AREAS="main restricted universe multiverse"
+
+# ============================================================
+# Architecture
+# ============================================================
+
+# Overridden by ARCH environment variable in build-iso.sh
+LB_ARCHITECTURE="${ARCH:-amd64}"
+
+# ============================================================
+# Image type
+# ============================================================
+
+LB_IMAGE_TYPE="iso-hybrid"
+
+# ============================================================
+# Bootloader
+# ============================================================
+
+# Use GRUB for both EFI and BIOS boot
+LB_BOOTLOADERS="grub-pc grub-efi"
+
+# Kernel command line additions for live session
+LB_BOOTAPPEND_LIVE="boot=live components quiet splash noeject"
+LB_BOOTAPPEND_LIVE_FAILSAFE="boot=live components noeject memtest noapic noapm nodma nomce nolapic nomodeset nosmp nosplash vga=normal"
+LB_BOOTAPPEND_INSTALL="quiet"
+
+# ============================================================
+# Compression
+# ============================================================
+
+# xz compression for squashfs — best ratio, acceptable build time
+LB_COMPRESSION="xz"
+LB_CACHE_PACKAGES="true"
+
+# ============================================================
+# ISO metadata
+# ============================================================
+
+LB_ISO_APPLICATION="Phoenix OS"
+LB_ISO_PREPARER="Phoenix OS Build System"
+LB_ISO_PUBLISHER="Phoenix OS Project"
+LB_ISO_VOLUME="Phoenix OS"
+
+# ============================================================
+# Live user
+# ============================================================
+
+LB_LIVE_USER="phoenix"
+LB_LIVE_HOSTNAME="phoenix"
+
+# ============================================================
+# Chroot settings
+# ============================================================
+
+# Use Ubuntu's casper live system (compatible with live-build on Ubuntu)
+LB_INITRAMFS="casper"
+LB_DEBIAN_INSTALLER="false"
+
+# Include apt package lists
+LB_APT_INDICES="false"
+LB_APT_RECOMMENDS="true"
+LB_APT_SECURE="true"
+
+# ============================================================
+# Build system options
+# ============================================================
+
+LB_BUILD_WITH_CHROOT="true"
+LB_CACHE="true"
+LB_CACHE_STAGES="bootstrap"
+
+# Verbose output (set LB_VERBOSE=1 in environment to enable)
+LB_VERBOSITY="${LB_VERBOSE:-}"

@@ -1,0 +1,22 @@
+#!/bin/bash
+# phoenix-tools — post-installation script
+set -e
+
+# Reload udev rules
+if command -v udevadm >/dev/null 2>&1; then
+    udevadm control --reload-rules 2>/dev/null || true
+    udevadm trigger 2>/dev/null || true
+fi
+
+# Ensure log directory exists with correct permissions
+mkdir -p /var/log/phoenix
+chmod 775 /var/log/phoenix
+# In installed system, restrict to phoenix group
+if getent group phoenix >/dev/null 2>&1; then
+    chown root:phoenix /var/log/phoenix
+fi
+
+# Make CLI tools executable
+chmod +x /usr/local/bin/phoenix-sysinfo
+
+echo "phoenix-tools: System tools and policies installed."

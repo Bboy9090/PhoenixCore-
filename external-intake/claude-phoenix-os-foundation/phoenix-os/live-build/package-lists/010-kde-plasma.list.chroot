@@ -1,0 +1,124 @@
+# Phoenix OS — KDE Plasma 6 Desktop Package List
+# File: live-build/package-lists/010-kde-plasma.list.chroot
+#
+# KDE Plasma is the primary and only supported desktop for Phoenix OS.
+# We install a curated set rather than the full kubuntu-desktop metapackage
+# to maintain tighter control over what ships in the image.
+
+# ============================================================
+# Plasma shell and core
+# ============================================================
+plasma-desktop
+plasma-workspace
+plasma-framework
+kwin-x11
+kwin-wayland
+kde-plasma-desktop
+
+# ============================================================
+# Display manager
+# ============================================================
+sddm
+sddm-theme-breeze
+
+# ============================================================
+# KDE system configuration
+# ============================================================
+systemsettings
+kde-config-gtk-style
+kde-config-gtk-style-preview
+plasma-systemmonitor
+ksysguard
+
+# ============================================================
+# KDE file management
+# ============================================================
+dolphin
+dolphin-plugins
+kdegraphics-thumbnailers
+ffmpegthumbs
+ark
+
+# ============================================================
+# KDE terminal
+# ============================================================
+konsole
+
+# ============================================================
+# KDE text editor
+# ============================================================
+kate
+
+# ============================================================
+# KDE network tools
+# ============================================================
+plasma-nm
+plasma-pa
+
+# ============================================================
+# KDE Bluetooth support
+# ============================================================
+bluedevil
+bluez
+bluez-tools
+
+# ============================================================
+# KDE printing
+# ============================================================
+print-manager
+cups
+system-config-printer
+
+# ============================================================
+# KDE device management (critical for repair work)
+# ============================================================
+kdeconnect
+kde-spectacle
+kde-partitionmanager
+
+# ============================================================
+# KDE accessibility
+# ============================================================
+orca
+kmag
+
+# ============================================================
+# KDE theming
+# ============================================================
+breeze
+breeze-gtk-theme
+kio-extras
+plasma-widgets-addons
+plasma-vault
+
+# ============================================================
+# Kvantum for Qt theming
+# ============================================================
+qt5-style-kvantum
+qt5-style-kvantum-themes
+
+# ============================================================
+# Fonts (KDE-relevant)
+# ============================================================
+fonts-noto
+fonts-noto-mono
+fonts-ibm-plex
+fonts-dejavu-core
+fonts-liberation
+
+# ============================================================
+# Wayland support
+# ============================================================
+xwayland
+wayland-protocols
+libwayland-client0
+
+# ============================================================
+# X11 fallback support
+# ============================================================
+xorg
+xserver-xorg
+xserver-xorg-video-all
+x11-utils
+x11-xserver-utils
+xinput

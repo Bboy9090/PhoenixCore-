@@ -1,0 +1,33 @@
+#!/bin/sh
+# Phoenix OS — Firewall Configuration Hook
+# File: live-build/hooks/live/0400-configure-firewall.hook.chroot
+#
+# Sets up ufw with secure defaults for the live session.
+# All incoming connections are denied by default.
+# Outgoing connections are allowed (needed for apt, curl, network tools).
+
+set -e
+
+echo "[Phoenix Hook] Configuring firewall (ufw)"
+
+if ! command -v ufw >/dev/null 2>&1; then
+    echo "[Phoenix Hook] WARNING: ufw not found. Skipping firewall configuration."
+    exit 0
+fi
+
+# Reset to clean state
+ufw --force reset
+
+# Default policies
+ufw default deny incoming
+ufw default allow outgoing
+ufw default disabled routed
+
+# Allow established/related connections
+# (ufw handles this with stateful rules automatically)
+
+# Enable ufw
+ufw --force enable
+
+echo "[Phoenix Hook] Firewall configured: deny incoming, allow outgoing"
+echo "[Phoenix Hook] To open a port in the live session: sudo ufw allow <port>"

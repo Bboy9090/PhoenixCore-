@@ -1,0 +1,43 @@
+# Phoenix OS — Custom Application Package List
+# File: live-build/package-lists/080-phoenix-apps.list.chroot
+#
+# Phoenix OS custom applications.
+# These packages are built from source in the packages/ directory
+# and copied to live-build/config/packages.chroot/ before the build.
+# See scripts/package-debs.sh for the build process.
+#
+# If these packages are not yet built, the ISO build will fail at the
+# chroot install stage. Run scripts/package-debs.sh first.
+
+# ============================================================
+# Phoenix OS custom packages
+# ============================================================
+phoenix-theme               # KDE Plasma color scheme, icons, and Kvantum theme
+phoenix-tools               # System helper scripts and polkit policies
+phoenix-welcome             # First-boot welcome application
+phoenix-control-center      # Unified repair, diagnostics, and control center
+
+# ============================================================
+# Dependencies for Phoenix custom apps
+# ============================================================
+# These are runtime dependencies that may not be pulled automatically
+# if the .deb packages are locally-built without full dependency resolution.
+
+# For phoenix-control-center (Tauri/WebKit2GTK runtime):
+libwebkit2gtk-4.1-0         # WebKit2GTK runtime for Tauri apps
+libjavascriptcoregtk-4.1-0  # JavaScript engine for WebKit
+
+# For phoenix-welcome (Qt6/KDE Kirigami):
+kirigami2-dev               # Kirigami2 framework (runtime; -dev has runtime deps)
+qml-module-org-kde-kirigami2 # Kirigami2 QML module
+
+# For disk tool polkit integration:
+policykit-1                 # Polkit daemon
+polkit-kde-agent-1          # KDE polkit authentication agent
+
+# ============================================================
+# Phoenix tools runtime dependencies
+# ============================================================
+smartmontools               # Required by phoenix-control-center disk health
+nvme-cli                    # Required by phoenix-control-center NVMe support
+lm-sensors                  # Required by phoenix-control-center thermal monitoring

@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
     coreutils \
+    cpio \
     curl \
     debootstrap \
     dosfstools \
@@ -17,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     findutils \
     git \
     grep \
+    grub-common \
     grub-efi-amd64-bin \
     grub-pc-bin \
     isolinux \

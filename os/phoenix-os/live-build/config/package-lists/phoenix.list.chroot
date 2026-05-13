@@ -1,0 +1,16 @@
+# Phoenix OS Core Packages
+kde-standard
+wayland-protocols
+plasma-workspace-wayland
+network-manager-gnome
+ca-certificates
+curl
+git
+vim
+htop
+pciutils
+usbutils
+firmware-linux
+firmware-linux-nonfree
+firmware-iwlwifi
+firmware-realtek

@@ -1,0 +1,55 @@
+[package]
+name = "phoenix-control-center"
+version = "0.1.0"
+description = "Phoenix OS Control Center — unified repair, diagnostics, and system control"
+authors = ["Phoenix OS Project <build@phoenix-os.io>"]
+license = "MIT"
+repository = "https://github.com/your-org/phoenix-os"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "phoenix_control_center_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "phoenix-control-center"
+path = "src/main.rs"
+
+[dependencies]
+# Tauri 2 — desktop app framework
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+
+# Serialization — for IPC between Rust backend and React frontend
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Async runtime — for non-blocking system calls
+tokio = { version = "1", features = ["full"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# System information
+sysinfo = "0.30"  # Cross-platform system info (CPU, memory, processes)
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[profile.release]
+# Optimize for size in release builds (smaller binary in the .deb)
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

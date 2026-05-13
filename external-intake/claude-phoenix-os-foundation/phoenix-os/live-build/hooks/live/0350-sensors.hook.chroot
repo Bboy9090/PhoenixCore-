@@ -1,0 +1,29 @@
+#!/bin/sh
+# Phoenix OS — Hook: Hardware Sensors Setup
+# File: live-build/hooks/live/0350-sensors.hook.chroot
+#
+# Configures lm-sensors for automatic hardware temperature detection.
+# Runs sensors-detect in automatic mode (no interactive prompts).
+
+set -e
+
+echo "[Phoenix Hook] Configuring hardware sensors"
+
+if ! command -v sensors-detect >/dev/null 2>&1; then
+    echo "[Phoenix Hook] WARNING: sensors-detect not found (lm-sensors not installed?)"
+    exit 0
+fi
+
+# Auto-detect sensors without prompts
+# 'yes' answers YES to all detection questions
+yes | sensors-detect --auto 2>/dev/null || true
+
+# Load detected modules now (for live session)
+if [ -f /etc/modules-load.d/lm_sensors.conf ]; then
+    while IFS= read -r module; do
+        [[ "${module}" =~ ^#|^$ ]] && continue
+        modprobe "${module}" 2>/dev/null || true
+    done < /etc/modules-load.d/lm_sensors.conf
+fi
+
+echo "[Phoenix Hook] Sensors configured"

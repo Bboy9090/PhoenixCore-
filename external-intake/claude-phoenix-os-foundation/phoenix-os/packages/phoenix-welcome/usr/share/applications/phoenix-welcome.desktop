@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Phoenix Welcome
+GenericName=Welcome Screen
+Comment=First-boot welcome and system overview for Phoenix OS
+Exec=phoenix-welcome
+Icon=phoenix-welcome
+Terminal=false
+Categories=System;
+Keywords=welcome;onboarding;setup;phoenix;
+NoDisplay=true
+X-KDE-autostart-condition=phoenix-welcome:General:FirstRun:true

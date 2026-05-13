@@ -11,11 +11,19 @@ PROJECT_NAME="${PHOENIX_OS_COMPOSE_PROJECT:-phoenix-os-oci}"
 SERVICE_NAME="${PHOENIX_OS_BUILDER_SERVICE:-builder}"
 
 compose() {
-  docker compose \
-    -f "$COMPOSE_FILE" \
-    --project-directory "$SCRIPT_DIR" \
-    --project-name "$PROJECT_NAME" \
-    "$@"
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    docker compose \
+      -f "$COMPOSE_FILE" \
+      --project-directory "$SCRIPT_DIR" \
+      --project-name "$PROJECT_NAME" \
+      "$@"
+  else
+    docker-compose \
+      -f "$COMPOSE_FILE" \
+      --project-directory "$SCRIPT_DIR" \
+      --project-name "$PROJECT_NAME" \
+      "$@"
+  fi
 }
 
 require_host_tools() {
@@ -24,13 +32,13 @@ require_host_tools() {
     exit 1
   fi
 
-  if ! docker compose version >/dev/null 2>&1; then
-    echo "[FAIL] Docker Compose v2 is not available via 'docker compose'."
+  if ! docker compose version >/dev/null 2>&1 && ! command -v docker-compose >/dev/null 2>&1; then
+    echo "[FAIL] Neither 'docker compose' (v2) nor 'docker-compose' (v1/v2 standalone) is available."
     exit 1
   fi
 
   if ! docker info >/dev/null 2>&1; then
-    echo "[FAIL] Docker daemon is not reachable."
+    echo "[FAIL] Docker daemon is not reachable or permission denied."
     exit 1
   fi
 }
@@ -57,6 +65,8 @@ main() {
     echo "[TOOL] debootstrap: $(debootstrap --version 2>&1 | head -n 1)"
     echo "[TOOL] xorriso: $(xorriso -version 2>&1 | head -n 1)"
     echo "[TOOL] mksquashfs: $(mksquashfs -version 2>&1 | head -n 1)"
+    echo "[TOOL] cpio: $(cpio --version 2>&1 | head -n 1)"
+    echo "[TOOL] grub-mkrescue: $(grub-mkrescue --version 2>&1 | head -n 1)"
   '
 
   echo "[INFO] Running Phoenix OS build skeleton verifier inside the builder..."

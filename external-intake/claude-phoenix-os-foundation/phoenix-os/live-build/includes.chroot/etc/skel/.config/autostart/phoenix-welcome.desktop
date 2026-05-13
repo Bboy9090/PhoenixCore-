@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Phoenix Welcome
+Exec=phoenix-welcome
+Terminal=false
+X-KDE-autostart-condition=phoenix-welcome:General:FirstRun:true

@@ -1,0 +1,17 @@
+Package: phoenix-control-center
+Version: 0.1.0
+Architecture: amd64
+Maintainer: Phoenix OS Project <build@phoenix-os.io>
+Depends: libwebkit2gtk-4.1-0, smartmontools, nvme-cli, lm-sensors, policykit-1, polkit-kde-agent-1
+Section: misc
+Priority: optional
+Description: Phoenix OS Control Center
+ Unified repair, diagnostics, and system control application.
+ The primary tool for Phoenix OS repair and recovery workflows.
+ Features:
+  - Disk health: S.M.A.R.T. data, NVMe health, temperature
+  - System diagnostics: CPU, memory, thermal, storage
+  - Network status and configuration
+  - Service management (systemd unit control)
+  - Phoenix Key integration
+  - Repair workflow launcher

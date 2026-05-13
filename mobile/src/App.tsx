@@ -1,1 +1,83 @@
-/**\n * Phoenix Core Mobile App\n * Main entry point with bottom tab navigation\n */\n\nimport React from 'react';\nimport { NavigationContainer } from '@react-navigation/native';\nimport { createBottomTabNavigator } from '@react-navigation/bottom-tabs';\nimport { MaterialCommunityIcons } from '@expo/vector-icons';\nimport { Colors } from './utils/theme';\n\n// Screens\nimport DashboardScreen from './screens/DashboardScreen';\nimport DevicesScreen from './screens/DevicesScreen';\nimport BuildScreen from './screens/BuildScreen';\nimport SettingsScreen from './screens/SettingsScreen';\n\nconst Tab = createBottomTabNavigator();\n\nexport default function App() {\n  return (\n    <NavigationContainer>\n      <Tab.Navigator\n        screenOptions={{\n          headerShown: false,\n          tabBarStyle: {\n            backgroundColor: Colors.bg.secondary,\n            borderTopColor: Colors.border.default,\n            borderTopWidth: 1,\n          },\n          tabBarActiveTintColor: Colors.accent.primary,\n          tabBarInactiveTintColor: Colors.text.tertiary,\n          tabBarLabelStyle: {\n            fontSize: 12,\n            fontWeight: '600',\n          },\n        }}\n      >\n        <Tab.Screen\n          name=\"Dashboard\"\n          component={DashboardScreen}\n          options={{\n            tabBarLabel: 'Dashboard',\n            tabBarIcon: ({ color, size }) => (\n              <MaterialCommunityIcons name=\"speedometer\" color={color} size={size} />\n            ),\n          }}\n        />\n        <Tab.Screen\n          name=\"Devices\"\n          component={DevicesScreen}\n          options={{\n            tabBarLabel: 'Devices',\n            tabBarIcon: ({ color, size }) => (\n              <MaterialCommunityIcons name=\"usb-port\" color={color} size={size} />\n            ),\n          }}\n        />\n        <Tab.Screen\n          name=\"Build\"\n          component={BuildScreen}\n          options={{\n            tabBarLabel: 'Build USB',\n            tabBarIcon: ({ color, size }) => (\n              <MaterialCommunityIcons name=\"lightning-bolt\" color={color} size={size} />\n            ),\n          }}\n        />\n        <Tab.Screen\n          name=\"Settings\"\n          component={SettingsScreen}\n          options={{\n            tabBarLabel: 'Settings',\n            tabBarIcon: ({ color, size }) => (\n              <MaterialCommunityIcons name=\"cog\" color={color} size={size} />\n            ),\n          }}\n        />\n      </Tab.Navigator>\n    </NavigationContainer>\n  );\n}\n
+/**
+ * Phoenix Core Mobile App
+ * Main entry point with bottom tab navigation
+ */
+
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Colors } from './utils/theme';
+
+// Screens
+import DashboardScreen from './screens/DashboardScreen';
+import DevicesScreen from './screens/DevicesScreen';
+import BuildScreen from './screens/BuildScreen';
+import SettingsScreen from './screens/SettingsScreen';
+
+const Tab = createBottomTabNavigator();
+
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: Colors.bg.secondary,
+            borderTopColor: Colors.border.default,
+            borderTopWidth: 1,
+          },
+          tabBarActiveTintColor: Colors.accent.primary,
+          tabBarInactiveTintColor: Colors.text.tertiary,
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '600',
+          },
+        }}
+      >
+        <Tab.Screen
+          name="Dashboard"
+          component={DashboardScreen}
+          options={{
+            tabBarLabel: 'Dashboard',
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="speedometer" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Devices"
+          component={DevicesScreen}
+          options={{
+            tabBarLabel: 'Devices',
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="usb-port" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Build"
+          component={BuildScreen}
+          options={{
+            tabBarLabel: 'Build USB',
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="lightning-bolt" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            tabBarLabel: 'Settings',
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="cog" color={color} size={size} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
+    </NavigationContainer>
+  );
+}
+

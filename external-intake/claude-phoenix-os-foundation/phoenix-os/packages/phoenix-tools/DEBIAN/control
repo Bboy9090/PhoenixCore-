@@ -1,0 +1,15 @@
+Package: phoenix-tools
+Version: 0.1.0
+Architecture: all
+Maintainer: Phoenix OS Project <build@phoenix-os.io>
+Depends: smartmontools, nvme-cli, lm-sensors, ufw, policykit-1
+Section: misc
+Priority: optional
+Description: Phoenix OS System Tools and Helpers
+ System-level helper scripts, polkit policies, and udev rules for Phoenix OS.
+ Includes:
+  - Disk operation safety rules (udev + udisks2 policy)
+  - Polkit policies for privileged disk operations
+  - Phoenix disk audit logging service
+  - Shell utilities for repair workflows
+  - System information gathering scripts

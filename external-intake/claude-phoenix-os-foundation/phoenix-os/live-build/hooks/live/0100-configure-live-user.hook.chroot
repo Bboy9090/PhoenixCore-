@@ -1,0 +1,45 @@
+#!/bin/sh
+# Phoenix OS — Live User Configuration Hook
+# File: live-build/hooks/live/0100-configure-live-user.hook.chroot
+#
+# This hook runs inside the chroot after packages are installed.
+# It configures the live session user account and environment.
+
+set -e
+
+echo "[Phoenix Hook] Configuring live user: phoenix"
+
+# Create the phoenix user if it doesn't exist
+# (casper creates 'ubuntu' by default; we rename/reconfigure)
+if ! id phoenix >/dev/null 2>&1; then
+    useradd -m -s /bin/bash -G sudo,audio,video,plugdev,cdrom,disk,netdev phoenix
+fi
+
+# Set a blank password for the live user (no login prompt)
+passwd -d phoenix
+
+# Allow phoenix to run sudo without password in live session
+cat > /etc/sudoers.d/phoenix-live << 'SUDOERS'
+# Phoenix OS live session: passwordless sudo for live user
+# This file is only present in the live session; installed systems
+# use standard sudo password requirements.
+phoenix ALL=(ALL) NOPASSWD: ALL
+SUDOERS
+chmod 440 /etc/sudoers.d/phoenix-live
+
+# Set up live user home directory from skel
+cp -r /etc/skel/. /home/phoenix/ 2>/dev/null || true
+chown -R phoenix:phoenix /home/phoenix
+
+# Set hostname
+echo "phoenix" > /etc/hostname
+
+# Configure locale
+echo "LANG=en_US.UTF-8" > /etc/default/locale
+echo "LC_ALL=en_US.UTF-8" >> /etc/default/locale
+
+# Create Phoenix log directory
+mkdir -p /var/log/phoenix
+chown phoenix:phoenix /var/log/phoenix
+
+echo "[Phoenix Hook] Live user configuration complete"

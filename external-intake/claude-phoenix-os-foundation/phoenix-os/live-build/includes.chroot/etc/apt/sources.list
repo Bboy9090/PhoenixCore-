@@ -1,0 +1,10 @@
+# Phoenix OS — APT Sources
+# File: /etc/apt/sources.list
+#
+# Ubuntu 24.04 LTS (Noble Numbat) package sources.
+# Includes main, restricted, universe, and multiverse.
+
+deb http://archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse

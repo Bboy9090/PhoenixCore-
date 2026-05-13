@@ -1,0 +1,58 @@
+{
+  "name": "phoenix-control-center",
+  "version": "2.0.0",
+  "description": "Professional system management and recovery tools for Phoenix OS",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:debug": "tauri build --debug",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "format": "prettier --write src",
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^1.5.3",
+    "@tauri-apps/plugin-shell": "^0.1.0",
+    "@tauri-apps/plugin-fs": "^0.1.0",
+    "@tauri-apps/plugin-http": "^0.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "zustand": "^4.4.1",
+    "axios": "^1.6.2",
+    "clsx": "^2.0.0",
+    "tailwindcss": "^3.4.0",
+    "lucide-react": "^0.294.0",
+    "recharts": "^2.10.3",
+    "react-hot-toast": "^2.4.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.8",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@types/node": "^20.10.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@typescript-eslint/eslint-plugin": "^6.13.2",
+    "@typescript-eslint/parser": "^6.13.2",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vitest": "^1.0.4",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

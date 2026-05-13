@@ -1,0 +1,16 @@
+#!/bin/bash
+# phoenix-theme — pre-removal script
+set -e
+
+# Remove Plymouth alternative
+if command -v update-alternatives >/dev/null 2>&1; then
+    update-alternatives --remove default.plymouth \
+        /usr/share/plymouth/themes/phoenix/phoenix.plymouth 2>/dev/null || true
+fi
+
+# Restore Plymouth to default
+if command -v update-initramfs >/dev/null 2>&1; then
+    update-initramfs -u 2>/dev/null || true
+fi
+
+echo "phoenix-theme: Removed."

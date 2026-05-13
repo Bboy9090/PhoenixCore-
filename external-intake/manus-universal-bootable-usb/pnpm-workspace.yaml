@@ -1,0 +1,6 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+shared-workspace-lockfile: true
+shamefully-hoist: false

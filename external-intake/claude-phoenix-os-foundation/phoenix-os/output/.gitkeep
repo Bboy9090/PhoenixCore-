@@ -1,0 +1,10 @@
+# This directory receives built ISO files.
+# It is intentionally kept in version control (empty) so the directory
+# exists on clone without needing to be created manually.
+#
+# Files placed here by build-iso.sh:
+#   phoenix-os-<version>-<arch>.iso
+#   SHA256SUMS
+#   SHA256SUMS.gpg  (after signing)
+#   lb-config-<timestamp>.log
+#   lb-build-<timestamp>.log

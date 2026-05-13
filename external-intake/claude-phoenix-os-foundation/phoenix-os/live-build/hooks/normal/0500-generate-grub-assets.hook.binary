@@ -1,0 +1,54 @@
+#!/bin/bash
+# Phoenix OS — Binary Hook: Generate GRUB Theme Assets
+# File: live-build/hooks/normal/0500-generate-grub-assets.hook.binary
+#
+# Runs after the chroot stage, before ISO assembly.
+# Generates minimal GRUB theme PNG assets using ImageMagick (convert)
+# so the theme works without requiring manually-created PNGs in the repo.
+#
+# In production: replace these generated assets with designed PNGs from
+# the branding team (see live-build/includes.chroot/boot/grub/themes/phoenix/README.md)
+
+set -euo pipefail
+
+THEME_DIR="binary/boot/grub/themes/phoenix"
+
+echo "[Phoenix Hook] Generating GRUB theme assets"
+
+# Verify ImageMagick is available on build host
+if ! command -v convert >/dev/null 2>&1; then
+    echo "[Phoenix Hook] WARNING: ImageMagick not found. GRUB theme will lack PNG assets."
+    echo "[Phoenix Hook] Install with: sudo apt install imagemagick"
+    exit 0
+fi
+
+mkdir -p "${THEME_DIR}"
+
+# Background: dark forge black with amber radial glow (bottom-left)
+if [ ! -f "${THEME_DIR}/background.png" ]; then
+    convert -size 1920x1080 \
+        \( xc:"#0D0F12" \) \
+        \( radial-gradient:"#1A0F05"-"#0D0F12" -gravity SouthWest -geometry +0+0 \) \
+        -compose screen -composite \
+        "${THEME_DIR}/background.png" 2>/dev/null && \
+        echo "[Phoenix Hook]   background.png generated" || \
+        echo "[Phoenix Hook]   WARNING: background.png generation failed"
+fi
+
+# Selected item highlight PNGs (amber #F58C1F)
+if [ ! -f "${THEME_DIR}/select_l.png" ]; then
+    convert -size 8x28 xc:"#F58C1F" "${THEME_DIR}/select_l.png" 2>/dev/null && \
+        echo "[Phoenix Hook]   select_l.png generated" || true
+fi
+
+if [ ! -f "${THEME_DIR}/select_r.png" ]; then
+    convert -size 8x28 xc:"#F58C1F" "${THEME_DIR}/select_r.png" 2>/dev/null && \
+        echo "[Phoenix Hook]   select_r.png generated" || true
+fi
+
+if [ ! -f "${THEME_DIR}/select_c.png" ]; then
+    convert -size 1x28 xc:"#1A1F26" "${THEME_DIR}/select_c.png" 2>/dev/null && \
+        echo "[Phoenix Hook]   select_c.png generated" || true
+fi
+
+echo "[Phoenix Hook] GRUB theme assets ready"

@@ -52,9 +52,11 @@ export default function HomeScreen() {
               <IconSymbol name="flame.fill" size={36} color="#FFFFFF" />
               <Text style={styles.heroBadge}>Bobby's PhoenixDrive</Text>
             </View>
-            <Text style={styles.heroTitle}>Any Device.{"\n"}Any OS. Fixed.</Text>
+            <Text style={styles.heroTitle}>Any Device.{"
+"}Any OS. Fixed.</Text>
             <Text style={styles.heroSubtitle}>
-              Bobby's got your back. Plug it in, boot it up,{"\n"}
+              Bobby's got your back. Plug it in, boot it up,{"
+"}
               problem over in a jiffy.
             </Text>
             <Pressable

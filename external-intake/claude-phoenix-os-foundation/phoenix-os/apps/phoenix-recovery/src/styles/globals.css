@@ -1,0 +1,41 @@
+/* Phoenix OS Recovery — Global Stylesheet */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --forge-black:   #0D0F12;
+  --ember-dark:    #161A1F;
+  --ash-grey:      #1E2329;
+  --graphite:      #2A2F38;
+  --bone-white:    #E8EAF0;
+  --slate:         #8A929E;
+  --cinder:        #4A515C;
+  --amber:         #F58C1F;
+  --flame:         #D94215;
+  --forge-green:   #3DB882;
+  --yellow:        #F5C842;
+  --critical-red:  #E03A3A;
+  --tech-blue:     #4A90D9;
+  --font-mono:     'IBM Plex Mono', monospace;
+  --font-display:  'Rajdhani', system-ui, sans-serif;
+}
+
+html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+
+body {
+  background: var(--forge-black);
+  color: var(--bone-white);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: var(--forge-black); }
+::-webkit-scrollbar-thumb  { background: var(--graphite); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--slate); }
+::selection { background: var(--amber); color: var(--forge-black); }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+button { cursor: pointer; }

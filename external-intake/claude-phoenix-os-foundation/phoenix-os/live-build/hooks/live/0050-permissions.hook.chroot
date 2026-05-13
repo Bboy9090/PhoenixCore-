@@ -1,0 +1,28 @@
+#!/bin/bash
+# Phoenix OS — Hook: Set correct permissions on phoenix scripts
+# File: live-build/hooks/live/0050-permissions.hook.chroot
+#
+# Ensures all Phoenix-installed shell scripts are executable.
+# Runs early (0050) so subsequent hooks can rely on correct permissions.
+
+set -e
+
+echo "[Phoenix Hook] Setting script permissions"
+
+# Scripts installed by phoenix-tools package
+for script in \
+    /usr/local/bin/phoenix-sysinfo \
+    /usr/local/bin/phoenix-open-terminal \
+    /usr/local/bin/phoenix-welcome; do
+    if [ -f "${script}" ]; then
+        chmod +x "${script}"
+        echo "[Phoenix Hook]   chmod +x ${script}"
+    fi
+done
+
+# Profile script must be readable by all
+if [ -f /etc/profile.d/phoenix-env.sh ]; then
+    chmod 644 /etc/profile.d/phoenix-env.sh
+fi
+
+echo "[Phoenix Hook] Permissions set"

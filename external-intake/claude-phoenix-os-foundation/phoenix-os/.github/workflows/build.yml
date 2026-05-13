@@ -1,0 +1,228 @@
+name: Phoenix OS — Build & Validate
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:     [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      build_iso:
+        description: 'Build full ISO (slow — ~40 min)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  # ============================================================
+  # Job 1: Validate repo structure and scripts
+  # ============================================================
+  validate:
+    name: Validate Repository
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify script syntax (bash -n)
+        run: |
+          echo "Checking shell scripts..."
+          find . -name "*.sh" -o -name "*.hook.chroot" -o -name "*.hook.binary" | \
+            while read f; do
+              bash -n "$f" && echo "  OK: $f" || { echo "  FAIL: $f"; exit 1; }
+            done
+
+      - name: Verify package control files
+        run: |
+          echo "Checking DEBIAN/control files..."
+          find packages/ -name "control" | while read f; do
+            # Check required fields
+            for field in Package Version Architecture Maintainer Description; do
+              if ! grep -q "^${field}:" "$f"; then
+                echo "FAIL: $f missing field: $field"
+                exit 1
+              fi
+            done
+            echo "  OK: $f"
+          done
+
+      - name: Verify package lists (no obviously broken package names)
+        run: |
+          echo "Checking package lists..."
+          find live-build/package-lists/ -name "*.list.chroot" | while read f; do
+            # Check for lines with spaces (invalid package names)
+            if grep -qE "^[a-zA-Z][a-zA-Z0-9.+-]+ [a-zA-Z]" "$f"; then
+              echo "WARNING: $f may have lines with multiple package names (use one per line)"
+            fi
+            echo "  OK: $f"
+          done
+
+      - name: Check for required files
+        run: |
+          required_files=(
+            "README.md"
+            "ROADMAP.md"
+            "RELEASE_CHECKLIST.md"
+            "VERSION"
+            "scripts/build-iso.sh"
+            "scripts/verify-host.sh"
+            "scripts/clean.sh"
+            "scripts/package-debs.sh"
+            "live-build/config/common"
+            "installer/calamares-config/settings.conf"
+            "docs/architecture.md"
+            "docs/security-model.md"
+          )
+          for f in "${required_files[@]}"; do
+            if [[ -f "$f" ]]; then
+              echo "  OK: $f"
+            else
+              echo "  MISSING: $f"
+              exit 1
+            fi
+          done
+
+  # ============================================================
+  # Job 2: Build and test Rust backend
+  # ============================================================
+  rust:
+    name: Build Rust Apps
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            pkg-config
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/phoenix-control-center/target
+            apps/phoenix-recovery/target
+            apps/bootforge-launcher/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Cargo fmt check — phoenix-control-center
+        working-directory: apps/phoenix-control-center
+        run: cargo fmt --check
+
+      - name: Cargo clippy — phoenix-control-center
+        working-directory: apps/phoenix-control-center
+        run: cargo clippy -- -D warnings
+
+      - name: Cargo build — phoenix-control-center
+        working-directory: apps/phoenix-control-center
+        run: cargo build
+
+      - name: Cargo build — phoenix-recovery
+        working-directory: apps/phoenix-recovery
+        run: cargo build
+
+      - name: Cargo build — bootforge-launcher
+        working-directory: apps/bootforge-launcher
+        run: cargo build
+
+  # ============================================================
+  # Job 3: Build and lint React frontend
+  # ============================================================
+  frontend:
+    name: Build React Frontend
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/phoenix-control-center/package.json
+
+      - name: Install dependencies
+        working-directory: apps/phoenix-control-center
+        run: npm install
+
+      - name: TypeScript check
+        working-directory: apps/phoenix-control-center
+        run: npx tsc --noEmit
+
+      - name: Vite build
+        working-directory: apps/phoenix-control-center
+        run: npm run build
+
+  # ============================================================
+  # Job 4: Full ISO build (manual trigger or tag push only)
+  # ============================================================
+  build-iso:
+    name: Build Live ISO
+    runs-on: ubuntu-24.04
+    if: |
+      github.event_name == 'workflow_dispatch' && inputs.build_iso == 'true' ||
+      startsWith(github.ref, 'refs/tags/v')
+    needs: [validate, rust, frontend]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install live-build and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            live-build debootstrap squashfs-tools xorriso \
+            grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed \
+            shim-signed mtools dosfstools isolinux syslinux-common \
+            memtest86+ dpkg-dev fakeroot devscripts
+
+      - name: Build custom .deb packages
+        run: sudo ./scripts/package-debs.sh
+
+      - name: Build ISO
+        run: |
+          PHOENIX_VERSION=$(cat VERSION) sudo ./scripts/build-iso.sh
+        timeout-minutes: 60
+
+      - name: Run ISO validation
+        run: ./tests/iso-validation/validate-iso.sh output/phoenix-os-*.iso
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-os-iso-${{ github.sha }}
+          path: |
+            output/phoenix-os-*.iso
+            output/SHA256SUMS
+          retention-days: 7
+
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            output/phoenix-os-*.iso
+            output/SHA256SUMS
+          generate_release_notes: true
+          draft: true

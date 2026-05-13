@@ -1,0 +1,35 @@
+#!/bin/bash
+# Phoenix OS — Terminal Launcher
+# File: /usr/local/bin/phoenix-open-terminal
+#
+# Opens a terminal with the Phoenix environment configured.
+# Used by Phoenix Control Center's "Open Terminal" quick action.
+#
+# Tries Konsole first (KDE native), then xterm as fallback.
+
+set -euo pipefail
+
+TITLE="${1:-Phoenix OS Terminal}"
+
+# Source phoenix environment helpers if available
+if [ -f /etc/profile.d/phoenix-env.sh ]; then
+    source /etc/profile.d/phoenix-env.sh
+fi
+
+if command -v konsole >/dev/null 2>&1; then
+    exec konsole \
+        --title "${TITLE}" \
+        --profile "Phoenix" \
+        2>/dev/null
+elif command -v xterm >/dev/null 2>&1; then
+    exec xterm \
+        -title "${TITLE}" \
+        -fg "#E8EAF0" \
+        -bg "#0D0F12" \
+        -fa "IBM Plex Mono" \
+        -fs 13 \
+        2>/dev/null
+else
+    notify-send "Phoenix OS" "No terminal emulator found. Install konsole." 2>/dev/null || true
+    exit 1
+fi

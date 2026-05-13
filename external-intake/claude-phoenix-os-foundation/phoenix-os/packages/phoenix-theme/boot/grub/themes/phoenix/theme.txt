@@ -1,0 +1,75 @@
+# Phoenix OS — GRUB Theme
+# File: /boot/grub/themes/phoenix/theme.txt
+#
+# GRUB 2 graphical theme for Phoenix OS.
+# Dark Forge Black background, Phoenix Amber accent.
+# Compatible with grub2-theme-preview for testing.
+#
+# Test locally: grub2-theme-preview live-build/includes.chroot/boot/grub/themes/phoenix/
+
+# ---- Global settings ----
+desktop-color:    "#0D0F12"
+desktop-image:    "background.png"
+title-color:      "#F58C1F"
+title-text:       "Phoenix OS"
+title-font:       "Rajdhani Bold 20"
+message-font:     "IBM Plex Mono Regular 12"
+message-color:    "#8A929E"
+terminal-font:    "IBM Plex Mono Regular 13"
+
+# ---- Boot menu ----
++ boot_menu {
+  left            = 15%
+  top             = 20%
+  width           = 70%
+  height          = 55%
+  item_color      = "#8A929E"
+  item_font       = "IBM Plex Mono Regular 13"
+  selected_item_color   = "#E8EAF0"
+  selected_item_font    = "IBM Plex Mono Medium 13"
+  selected_item_pixmap_style = "select_*.png"
+  item_height     = 28
+  item_padding    = 14
+  item_spacing    = 4
+  scrollbar_width = 4
+  scrollbar_thumbw = 4
+  scrollbar_color  = "#2A2F38"
+  scrollbar_thumb_color = "#F58C1F"
+}
+
+# ---- Progress bar (timeout countdown) ----
++ progress_bar {
+  id         = "__timeout__"
+  left       = 15%
+  top        = 80%
+  width      = 70%
+  height     = 3
+  fg_color   = "#F58C1F"
+  bg_color   = "#2A2F38"
+  border_color = "#2A2F38"
+}
+
+# ---- Countdown text ----
++ label {
+  id         = "__timeout__"
+  left       = 15%
+  top        = 84%
+  width      = 70%
+  height     = 20
+  color      = "#4A515C"
+  font       = "IBM Plex Mono Regular 11"
+  align      = "center"
+  text       = "Booting in %d seconds…"
+}
+
+# ---- Phoenix wordmark ----
++ label {
+  left       = 15%
+  top        = 10%
+  width      = 70%
+  height     = 32
+  color      = "#F58C1F"
+  font       = "Rajdhani SemiBold 18"
+  align      = "center"
+  text       = "PHOENIX OS"
+}

@@ -91,7 +91,9 @@ export default function KnowledgeScreen() {
 
           {/* Article Content */}
           <View style={styles.articleBody}>
-            {selectedArticle.content.split("\n\n").map((paragraph, idx) => {
+            {selectedArticle.content.split("
+
+").map((paragraph, idx) => {
               if (paragraph.startsWith("**") && paragraph.endsWith("**")) {
                 const heading = paragraph.replace(/\*\*/g, "");
                 return (
@@ -116,7 +118,8 @@ export default function KnowledgeScreen() {
                   </View>
                 );
               }
-              if (paragraph.includes("  ") && paragraph.includes("\n")) {
+              if (paragraph.includes("  ") && paragraph.includes("
+")) {
                 return (
                   <View key={idx} style={[styles.codeBlock, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <Text style={[styles.codeText, { color: colors.foreground }]}>

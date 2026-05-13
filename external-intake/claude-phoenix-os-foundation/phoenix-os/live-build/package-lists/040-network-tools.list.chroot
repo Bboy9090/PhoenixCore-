@@ -1,0 +1,61 @@
+# Phoenix OS — Network Tools Package List
+# File: live-build/package-lists/040-network-tools.list.chroot
+
+# ============================================================
+# Network diagnostics
+# ============================================================
+nmap               # Network scanner and port auditor
+netcat-openbsd     # TCP/UDP Swiss Army knife
+traceroute         # Classic traceroute
+mtr                # My Traceroute: combines ping + traceroute
+iperf3             # Network bandwidth measurement
+ethtool            # Ethernet device settings and diagnostics
+iw                 # Wi-Fi device configuration (nl80211)
+wireless-tools     # iwconfig, iwlist (legacy Wi-Fi tools)
+aircrack-ng        # Wi-Fi network auditing (legal use: own networks)
+
+# ============================================================
+# Network configuration
+# ============================================================
+network-manager    # (already in base; listed for clarity)
+nm-connection-editor  # NetworkManager GUI editor
+network-manager-gnome # nm-applet (used by KDE NM plasmoid as backend)
+wpasupplicant      # WPA/WPA2 supplicant for Wi-Fi
+bridge-utils       # Ethernet bridge configuration
+
+# ============================================================
+# Network file transfer and remote access
+# ============================================================
+openssh-client     # SSH client (client only — server is NOT included)
+rsync              # (also in base list; keep for clarity)
+sshfs              # Mount remote filesystems over SSH
+lftp               # Sophisticated FTP/SFTP/HTTP client
+curl               # (already in base)
+wget               # (already in base)
+
+# ============================================================
+# Network services for repair scenarios
+# ============================================================
+# Note: These are deliberately NOT enabled/started by default.
+# A repair technician can start them explicitly when needed.
+samba              # Windows file sharing (SMB/CIFS) — for data retrieval
+cifs-utils         # Mount Windows shares (mount.cifs)
+nfs-common         # NFS client
+
+# ============================================================
+# Network analysis
+# ============================================================
+wireshark          # Packet capture and analysis (GUI)
+tshark             # Wireshark CLI
+tcpdump            # Command-line packet capture
+
+# ============================================================
+# Wake-on-LAN
+# ============================================================
+wakeonlan          # Send WoL magic packets
+
+# ============================================================
+# Proxy and tunneling (useful for secure repair sessions)
+# ============================================================
+proxychains4       # Route connections through proxy
+socat              # Multipurpose relay (TCP/UDP/files)

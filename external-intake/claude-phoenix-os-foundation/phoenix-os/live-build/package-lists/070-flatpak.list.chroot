@@ -1,0 +1,51 @@
+# Phoenix OS — Flatpak Support Package List
+# File: live-build/package-lists/070-flatpak.list.chroot
+#
+# Flatpak runtime packages. The Flathub repository is configured
+# via the hook: live-build/hooks/live/0900-setup-flatpak.hook.chroot
+# Actual Flatpak apps are NOT pre-installed in the ISO to keep image size
+# manageable. Users install them post-boot via Discover or flatpak CLI.
+
+# ============================================================
+# Flatpak runtime
+# ============================================================
+flatpak                     # Flatpak application sandboxing runtime
+flatpak-xdg-utils           # XDG portal utilities for Flatpak
+xdg-desktop-portal          # Portal framework (required by Flatpak on Wayland)
+xdg-desktop-portal-kde      # KDE implementation of XDG desktop portals
+xdg-utils                   # XDG utilities (xdg-open, xdg-mime, etc.)
+
+# ============================================================
+# KDE Discover (Flatpak GUI frontend)
+# ============================================================
+plasma-discover             # KDE software center
+plasma-discover-backend-flatpak  # Flatpak backend for Discover
+
+# ============================================================
+# AppImage support (bonus format support for creator tools)
+# ============================================================
+libfuse2                    # FUSE2 (required by most AppImages)
+fuse3                       # FUSE3 (for newer AppImages)
+
+# ============================================================
+# Notes on Flatpak app recommendations
+# ============================================================
+# The following Flatpak apps are recommended for installation post-boot
+# and are documented in Phoenix Welcome. They are NOT pre-installed.
+#
+# Creative tools:
+#   org.gimp.GIMP                    - Image editing
+#   org.inkscape.Inkscape            - Vector graphics
+#   org.blender.Blender              - 3D creation suite
+#   org.kde.kdenlive                 - Video editing
+#   org.audacityteam.Audacity        - Audio editing
+#   org.libreoffice.LibreOffice      - Office suite
+#
+# Repair and developer tools:
+#   io.balena.etcher                 - USB image writer (Balena Etcher)
+#   com.github.Eloston.UngoogledChromium - Browser for research
+#   org.wireshark.Wireshark          - Packet analysis (GUI)
+#
+# Phoenix OS custom apps (installed as .deb, not Flatpak):
+#   phoenix-control-center           - Installed via phoenix-control-center.deb
+#   phoenix-recovery                 - Installed via phoenix-recovery.deb

@@ -75,7 +75,9 @@ export default function BuilderScreen() {
     };
 
     if (Platform.OS === "web") {
-      alert("Recipe exported! In the full app, this would generate a JSON file for Bobby's PhoenixDrive desktop builder.\n\n" + JSON.stringify(recipe, null, 2).substring(0, 500));
+      alert("Recipe exported! In the full app, this would generate a JSON file for Bobby's PhoenixDrive desktop builder.
+
+" + JSON.stringify(recipe, null, 2).substring(0, 500));
     } else {
       Alert.alert(
         "Recipe Exported",

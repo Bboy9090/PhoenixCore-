@@ -1,0 +1,69 @@
+# Phoenix OS — Firmware Package List
+# File: live-build/package-lists/060-firmware.list.chroot
+#
+# Firmware packages for broad hardware support.
+# Phoenix OS targets professional repair scenarios across many hardware configs.
+
+# ============================================================
+# General firmware collection
+# ============================================================
+linux-firmware              # Comprehensive firmware collection (Intel, AMD, Broadcom, etc.)
+firmware-linux-free         # Free (GPL-compatible) firmware
+
+# ============================================================
+# CPU microcode
+# ============================================================
+intel-microcode             # Intel CPU microcode updates (security patches)
+amd64-microcode             # AMD CPU microcode updates
+
+# ============================================================
+# Network interface firmware
+# ============================================================
+firmware-iwlwifi            # Intel Wi-Fi (all modern Intel wireless)
+firmware-atheros            # Qualcomm/Atheros Wi-Fi and Ethernet
+firmware-realtek            # Realtek Wi-Fi (RTL8xxx series) and Ethernet
+firmware-brcm80211          # Broadcom Wi-Fi (BCM4xxx series)
+firmware-bnx2               # Broadcom NetXtreme II Ethernet
+firmware-bnx2x              # Broadcom NetXtreme II 10Gbps Ethernet
+firmware-ti-connectivity    # Texas Instruments wireless
+
+# ============================================================
+# GPU firmware
+# ============================================================
+# AMD GPU firmware is included in linux-firmware.
+# NVIDIA firmware for open kernel module:
+firmware-misc-nonfree       # Miscellaneous nonfree firmware (includes some NVIDIA blobs)
+
+# ============================================================
+# NVIDIA driver (open kernel module variant)
+# ============================================================
+# Included for repair scenarios on NVIDIA-equipped machines.
+# The open kernel module variant supports Turing (GTX 1650+) and newer.
+nvidia-driver-535-open      # NVIDIA open kernel module driver
+# TODO: Evaluate nvidia-driver-550-open for 24.04 final release
+
+# ============================================================
+# Firmware update support
+# ============================================================
+fwupd                       # Firmware update daemon (supports LVFS)
+fwupd-signed                # Signed firmware update support
+udisks2                     # Disk management daemon (required by fwupd)
+
+# ============================================================
+# Bluetooth firmware
+# ============================================================
+bluetooth                   # BlueZ Bluetooth stack
+bluez-firmware              # Firmware for Broadcom Bluetooth
+
+# ============================================================
+# ARM64 firmware (for ARM64 builds)
+# ============================================================
+# ARM64: u-boot-tools        # U-Boot utilities for ARM board support
+# ARM64: arm-trusted-firmware # ARM Trusted Firmware (for specific boards)
+# ARM64: raspi-firmware       # Raspberry Pi firmware (for RPi targets)
+
+# ============================================================
+# Storage controller firmware
+# ============================================================
+# Most storage controller firmware is included in linux-firmware.
+# No additional packages required for standard SATA/NVMe/USB controllers.

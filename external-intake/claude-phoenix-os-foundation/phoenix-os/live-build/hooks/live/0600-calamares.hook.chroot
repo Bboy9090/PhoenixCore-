@@ -1,0 +1,49 @@
+#!/bin/bash
+# Phoenix OS — Hook: Install Calamares Installer Desktop Entry
+# File: live-build/hooks/live/0600-calamares.hook.chroot
+#
+# Creates a desktop shortcut for the Calamares installer and configures
+# it to launch with elevated privileges via pkexec.
+
+set -e
+
+echo "[Phoenix Hook] Configuring Calamares installer"
+
+# Create Calamares desktop entry
+cat > /usr/share/applications/calamares.desktop << 'DESKTOP'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Install Phoenix OS
+GenericName=System Installer
+Comment=Install Phoenix OS to your hard drive
+Exec=sh -c "pkexec calamares"
+Icon=calamares
+Terminal=false
+Categories=System;
+Keywords=install;installer;setup;
+StartupNotify=true
+DESKTOP
+
+# Also place on Desktop for easy access in live session
+mkdir -p /home/phoenix/Desktop 2>/dev/null || true
+cp /usr/share/applications/calamares.desktop /home/phoenix/Desktop/
+chmod +x /home/phoenix/Desktop/calamares.desktop
+chown -R phoenix:phoenix /home/phoenix/Desktop/ 2>/dev/null || true
+
+# Create polkit rule allowing phoenix user to run calamares without password prompt
+mkdir -p /etc/polkit-1/rules.d/
+cat > /etc/polkit-1/rules.d/49-calamares.rules << 'POLKIT'
+// Allow live session user to launch Calamares installer
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        action.lookup("program").indexOf("calamares") !== -1 &&
+        subject.user == "phoenix" &&
+        subject.local == true &&
+        subject.active == true) {
+        return polkit.Result.YES;
+    }
+});
+POLKIT
+
+echo "[Phoenix Hook] Calamares installer configured"

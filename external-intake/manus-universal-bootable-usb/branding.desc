@@ -1,0 +1,38 @@
+# Calamares Branding Configuration for Phoenix OS
+
+---
+componentName: phoenix
+
+strings:
+    productName: Phoenix OS
+    shortProductName: Phoenix
+    version: 2.0.0
+    shortVersion: 2.0.0
+    versionedName: Phoenix OS 2.0.0
+    shortVersionedName: Phoenix 2.0.0
+    bootloaderEntryName: Phoenix OS
+    productUrl: https://github.com/Bboy9090/phoenix-os
+    supportUrl: https://github.com/Bboy9090/phoenix-os/issues
+    knownIssuesUrl: https://github.com/Bboy9090/phoenix-os/issues
+    releaseNotesUrl: https://github.com/Bboy9090/phoenix-os/releases
+    donateUrl: https://github.com/sponsors/Bboy9090
+
+images:
+    productLogo: phoenix-logo.png
+    productIcon: phoenix-icon.png
+    productWallpaper: phoenix-wallpaper.png
+
+slideshow:
+    enabled: true
+    slides: slides.qml
+
+colors:
+    primary: "#FF6B35"
+    secondary: "#004E89"
+    accent: "#F7931E"
+
+fonts:
+    default: Noto Sans
+    monospace: Noto Mono
+
+style: breeze-dark

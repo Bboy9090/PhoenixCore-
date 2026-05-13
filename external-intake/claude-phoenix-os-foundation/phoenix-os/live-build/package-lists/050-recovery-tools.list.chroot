@@ -1,0 +1,88 @@
+# Phoenix OS — Data Recovery Tools Package List
+# File: live-build/package-lists/050-recovery-tools.list.chroot
+#
+# Data recovery, file rescue, and forensic tools.
+# These tools are the core of Phoenix OS's recovery mission.
+
+# ============================================================
+# File recovery
+# ============================================================
+testdisk           # (also in repair-tools; handles partition + file recovery)
+# PhotoRec is bundled with testdisk — recovers photos, docs, videos by signature
+foremost           # File carving by file header/footer signatures
+scalpel            # High-performance file carver (faster than foremost for large disks)
+magicrescue        # Recovers files by "magic bytes" recipes
+safecopy           # Copy files/devices, skipping bad sectors gracefully
+
+# ============================================================
+# Deleted file recovery (filesystem-aware)
+# ============================================================
+extundelete        # Recover deleted files from ext3/ext4 filesystems
+ext4magic          # More powerful ext3/ext4 deleted file recovery
+fatcat             # FAT filesystem deleted file recovery and analysis
+ntfsundelete       # NTFS deleted file recovery (part of ntfs-3g)
+
+# ============================================================
+# Disk imaging with error handling
+# ============================================================
+ddrescue           # (also in disk-tools; primary tool for failing drive imaging)
+safecopy           # Alternative to dd for damaged media
+dc3dd              # (also in disk-tools; forensic dd with hashing)
+
+# ============================================================
+# Memory and RAM recovery/diagnostics
+# ============================================================
+memtest86+         # RAM testing (GRUB-level; also runnable post-boot)
+
+# ============================================================
+# Database recovery
+# ============================================================
+sqlite3            # SQLite database inspection and repair
+pgdump             # TODO: Add PostgreSQL recovery tools if demand warrants
+
+# ============================================================
+# Email and document recovery
+# ============================================================
+libpst-utils       # Outlook PST file extraction (readpst)
+mpack              # MIME message packing/unpacking
+unar               # Universal archive extractor (handles corrupted archives)
+
+# ============================================================
+# Media recovery
+# ============================================================
+mp3val             # MP3 validation and repair
+jpeg-archive       # JPEG optimization (useful for recovering partially-written images)
+exiftool           # Read/write EXIF data (media file analysis)
+libimage-exiftool-perl  # Perl ExifTool library
+
+# ============================================================
+# Forensic and analysis tools
+# ============================================================
+sleuthkit          # The Sleuth Kit: filesystem forensic analysis
+autopsy            # TODO: Autopsy GUI (large; consider as optional Flatpak)
+binwalk            # Firmware and binary analysis/extraction
+hexyl              # Hex viewer with visual byte classification
+xxd                # Hex dump utility
+strings            # Extract printable strings from binary files
+
+# ============================================================
+# Disk sector and raw analysis
+# ============================================================
+bless              # GUI hex editor
+ghex               # GNOME hex editor (usable on KDE)
+
+# ============================================================
+# Encrypted volume recovery support
+# ============================================================
+cryptsetup         # (also in disk-tools; LUKS volume management)
+hashcat            # Password recovery (for legally-owned encrypted volumes)
+john               # John the Ripper: password auditing
+# NOTE: hashcat and john are included for legitimate recovery use.
+# Phoenix OS does not support or condone unauthorized access.
+
+# ============================================================
+# Log recovery and analysis
+# ============================================================
+logwatch           # (also in repair-tools)
+last               # Login history from wtmp
+aureport           # Linux audit system report generator

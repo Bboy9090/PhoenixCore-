@@ -126,7 +126,8 @@ export default function USBBuilderAPIScreen() {
       });
 
       if (!result.valid) {
-        Alert.alert('Validation Failed', result.errors.map((e: any) => e.message).join('\n'));
+        Alert.alert('Validation Failed', result.errors.map((e: any) => e.message).join('
+'));
         return;
       }
 

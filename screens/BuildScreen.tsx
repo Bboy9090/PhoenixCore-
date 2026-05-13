@@ -4,4 +4,768 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import {\n  View,\n  Text,\n  ScrollView,\n  StyleSheet,\n  TouchableOpacity,\n  ActivityIndicator,\n  Alert,\n  Dimensions,\n} from 'react-native';\nimport { Colors, Spacing, Typography, BorderRadius, Shadows, getStatusColor } from '../utils/theme';\nimport api, { BuildRecipe, BuildProgress, SafetyCheckResponse } from '../services/api';\n\nconst { width } = Dimensions.get('window');\n\ntype BuildStep = 'recipe' | 'device' | 'safety' | 'building' | 'complete';\n\nexport default function BuildScreen() {\n  const [step, setStep] = useState<BuildStep>('recipe');\n  const [loading, setLoading] = useState(true);\n  const [recipes, setRecipes] = useState<BuildRecipe[]>([]);\n  const [selectedRecipe, setSelectedRecipe] = useState<BuildRecipe | null>(null);\n  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);\n  const [safety, setSafety] = useState<SafetyCheckResponse | null>(null);\n  const [jobId, setJobId] = useState<string | null>(null);\n  const [progress, setProgress] = useState<BuildProgress | null>(null);\n  const [error, setError] = useState<string | null>(null);\n  const [dryRun, setDryRun] = useState(true);\n\n  useEffect(() => {\n    loadRecipes();\n  }, []);\n\n  const loadRecipes = async () => {\n    try {\n      const response = await api.listRecipes();\n      setRecipes(response.recipes);\n      setLoading(false);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Failed to load recipes');\n      setLoading(false);\n    }\n  };\n\n  const handleSelectRecipe = (recipe: BuildRecipe) => {\n    setSelectedRecipe(recipe);\n    setStep('device');\n  };\n\n  const handleSelectDevice = async (devicePath: string) => {\n    setSelectedDevice(devicePath);\n    setLoading(true);\n    try {\n      const safetyResult = await api.safetyCheck(devicePath, selectedRecipe!.id);\n      setSafety(safetyResult);\n      setStep('safety');\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Safety check failed');\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  const handleStartBuild = async () => {\n    if (!selectedRecipe || !selectedDevice || !safety) return;\n\n    setLoading(true);\n    try {\n      const result = await api.startBuild({\n        recipe_id: selectedRecipe.id,\n        target_device_path: selectedDevice,\n        dry_run: dryRun,\n        confirmation_token: safety.confirmation_token,\n      });\n\n      setJobId(result.job_id);\n      setStep('building');\n\n      // Poll for progress\n      const pollInterval = setInterval(async () => {\n        try {\n          const progressData = await api.getBuildProgress(result.job_id);\n          setProgress(progressData);\n\n          if (progressData.status === 'complete' || progressData.status === 'failed') {\n            clearInterval(pollInterval);\n            setStep('complete');\n          }\n        } catch (err) {\n          console.error('Progress poll error:', err);\n        }\n      }, 1000);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Build failed to start');\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  if (loading && step === 'recipe') {\n    return (\n      <View style={styles.container}>\n        <ActivityIndicator size=\"large\" color={Colors.accent.primary} />\n      </View>\n    );\n  }\n\n  return (\n    <ScrollView style={styles.container}>\n      {/* Header */}\n      <View style={styles.header}>\n        <Text style={styles.headerTitle}>Create Bootable USB</Text>\n        <Text style={styles.stepIndicator}>\n          Step {['recipe', 'device', 'safety', 'building', 'complete'].indexOf(step) + 1} of 5\n        </Text>\n      </View>\n\n      {/* Step: Recipe Selection */}\n      {step === 'recipe' && (\n        <View style={styles.section}>\n          <Text style={styles.sectionTitle}>Choose Operating System</Text>\n          {recipes.map((recipe) => (\n            <RecipeCard\n              key={recipe.id}\n              recipe={recipe}\n              onSelect={() => handleSelectRecipe(recipe)}\n            />\n          ))}\n        </View>\n      )}\n\n      {/* Step: Device Selection */}\n      {step === 'device' && selectedRecipe && (\n        <View style={styles.section}>\n          <Text style={styles.sectionTitle}>Select USB Device</Text>\n          <Text style={styles.recipeInfo}>\n            {selectedRecipe.name} • {selectedRecipe.required_size_gb}GB minimum\n          </Text>\n          <TouchableOpacity\n            style={styles.deviceSelectButton}\n            onPress={() => {\n              // Navigate to device selection\n              Alert.alert('Select Device', 'Choose a USB device from the Devices tab');\n            }}\n          >\n            <Text style={styles.deviceSelectButtonText}>\n              {selectedDevice ? `Selected: ${selectedDevice}` : 'Select Device'}\n            </Text>\n          </TouchableOpacity>\n          {selectedDevice && (\n            <TouchableOpacity\n              style={styles.proceedButton}\n              onPress={() => handleSelectDevice(selectedDevice)}\n            >\n              <Text style={styles.proceedButtonText}>Continue →</Text>\n            </TouchableOpacity>\n          )}\n        </View>\n      )}\n\n      {/* Step: Safety Check */}\n      {step === 'safety' && safety && (\n        <View style={styles.section}>\n          <Text style={styles.sectionTitle}>Safety Check</Text>\n\n          {/* Risk Assessment */}\n          <View style={styles.riskCard}>\n            <Text style={styles.riskLabel}>Risk Level</Text>\n            <Text style={[styles.riskValue, { color: getRiskColor(safety.risk_level) }]}>\n              {safety.risk_level.toUpperCase()}\n            </Text>\n          </View>\n\n          {/* Warnings */}\n          {safety.warnings.length > 0 && (\n            <View style={styles.warningsSection}>\n              <Text style={styles.warningsTitle}>⚠️ Warnings</Text>\n              {safety.warnings.map((warning, idx) => (\n                <Text key={idx} style={styles.warningItem}>\n                  • {warning}\n                </Text>\n              ))}\n            </View>\n          )}\n\n          {/* Errors */}\n          {safety.errors.length > 0 && (\n            <View style={styles.errorsSection}>\n              <Text style={styles.errorsTitle}>❌ Errors</Text>\n              {safety.errors.map((error, idx) => (\n                <Text key={idx} style={styles.errorItem}>\n                  • {error}\n                </Text>\n              ))}\n            </View>\n          )}\n\n          {/* Device Info */}\n          {safety.device_info && (\n            <View style={styles.deviceInfoCard}>\n              <Text style={styles.deviceInfoTitle}>Device Information</Text>\n              <Text style={styles.deviceInfoText}>\n                {safety.device_info.friendly_name}\n              </Text>\n              <Text style={styles.deviceInfoText}>\n                {safety.device_info.size_human} • {safety.device_info.filesystem}\n              </Text>\n            </View>\n          )}\n\n          {/* Dry Run Toggle */}\n          <TouchableOpacity\n            style={styles.dryRunToggle}\n            onPress={() => setDryRun(!dryRun)}\n          >\n            <Text style={styles.dryRunLabel}>\n              {dryRun ? '✓' : '○'} Dry Run Mode (Simulation)\n            </Text>\n          </TouchableOpacity>\n\n          {/* Start Button */}\n          <TouchableOpacity\n            style={[\n              styles.startButton,\n              safety.errors.length > 0 && styles.startButtonDisabled,\n            ]}\n            onPress={handleStartBuild}\n            disabled={safety.errors.length > 0}\n          >\n            <Text style={styles.startButtonText}>\n              {dryRun ? '🔄 Start Dry Run' : '⚡ Start Build'}\n            </Text>\n          </TouchableOpacity>\n        </View>\n      )}\n\n      {/* Step: Building */}\n      {step === 'building' && progress && (\n        <View style={styles.section}>\n          <Text style={styles.sectionTitle}>Building USB...</Text>\n\n          {/* Progress Bar */}\n          <View style={styles.progressContainer}>\n            <View style={styles.progressBar}>\n              <View\n                style={[\n                  styles.progressBarFill,\n                  { width: `${progress.progress_percent}%` },\n                ]}\n              />\n            </View>\n            <Text style={styles.progressPercent}>{progress.progress_percent.toFixed(1)}%</Text>\n          </View>\n\n          {/* Current Step */}\n          <View style={styles.currentStepCard}>\n            <Text style={styles.currentStepLabel}>Current Step</Text>\n            <Text style={styles.currentStepValue}>{progress.current_step}</Text>\n            <Text style={styles.stepsInfo}>\n              {progress.steps_completed} of {progress.steps_total} steps\n            </Text>\n          </View>\n\n          {/* Speed & Time */}\n          {progress.speed_mbps && (\n            <View style={styles.statsGrid}>\n              <StatCard label=\"Speed\" value={`${progress.speed_mbps.toFixed(1)} MB/s`} />\n              <StatCard label=\"Elapsed\" value={`${progress.elapsed_seconds.toFixed(0)}s`} />\n            </View>\n          )}\n\n          {/* Logs */}\n          {progress.log_messages.length > 0 && (\n            <View style={styles.logsSection}>\n              <Text style={styles.logsTitle}>Build Log</Text>\n              <View style={styles.logsList}>\n                {progress.log_messages.slice(-10).map((msg, idx) => (\n                  <Text key={idx} style={styles.logItem}>\n                    {msg}\n                  </Text>\n                ))}\n              </View>\n            </View>\n          )}\n\n          {/* Error */}\n          {progress.error && (\n            <View style={styles.buildErrorCard}>\n              <Text style={styles.buildErrorText}>❌ {progress.error}</Text>\n            </View>\n          )}\n        </View>\n      )}\n\n      {/* Step: Complete */}\n      {step === 'complete' && progress && (\n        <View style={styles.section}>\n          <View style={styles.completeCard}>\n            <Text style={styles.completeIcon}>\n              {progress.status === 'complete' ? '✅' : '❌'}\n            </Text>\n            <Text style={styles.completeTitle}>\n              {progress.status === 'complete' ? 'Build Complete!' : 'Build Failed'}\n            </Text>\n            <Text style={styles.completeMessage}>\n              {progress.status === 'complete'\n                ? 'Your USB drive is ready to use'\n                : progress.error || 'Build did not complete successfully'}\n            </Text>\n          </View>\n\n          <TouchableOpacity\n            style={styles.restartButton}\n            onPress={() => {\n              setStep('recipe');\n              setSelectedRecipe(null);\n              setSelectedDevice(null);\n              setSafety(null);\n              setJobId(null);\n              setProgress(null);\n            }}\n          >\n            <Text style={styles.restartButtonText}>Create Another USB</Text>\n          </TouchableOpacity>\n        </View>\n      )}\n\n      {/* Error Message */}\n      {error && (\n        <View style={styles.errorCard}>\n          <Text style={styles.errorText}>⚠️ {error}</Text>\n        </View>\n      )}\n\n      <View style={{ height: Spacing.xl }} />\n    </ScrollView>\n  );\n}\n\ninterface RecipeCardProps {\n  recipe: BuildRecipe;\n  onSelect: () => void;\n}\n\nfunction RecipeCard({ recipe, onSelect }: RecipeCardProps) {\n  return (\n    <TouchableOpacity style={styles.recipeCard} onPress={onSelect}>\n      <View style={styles.recipeHeader}>\n        <Text style={styles.recipeName}>{recipe.name}</Text>\n        <Text style={styles.recipeArrow}>→</Text>\n      </View>\n      <Text style={styles.recipeDescription}>{recipe.description}</Text>\n      <View style={styles.recipeDetails}>\n        <RecipeDetailBadge label=\"Size\" value={`${recipe.required_size_gb}GB`} />\n        <RecipeDetailBadge label=\"Time\" value={`~${recipe.estimated_time_minutes}m`} />\n        {recipe.supports_oclp && <RecipeDetailBadge label=\"OCLP\" value=\"✓\" />}\n      </View>\n    </TouchableOpacity>\n  );\n}\n\ninterface RecipeDetailBadgeProps {\n  label: string;\n  value: string;\n}\n\nfunction RecipeDetailBadge({ label, value }: RecipeDetailBadgeProps) {\n  return (\n    <View style={styles.recipeDetailBadge}>\n      <Text style={styles.recipeDetailLabel}>{label}:</Text>\n      <Text style={styles.recipeDetailValue}>{value}</Text>\n    </View>\n  );\n}\n\ninterface StatCardProps {\n  label: string;\n  value: string;\n}\n\nfunction StatCard({ label, value }: StatCardProps) {\n  return (\n    <View style={styles.statCard}>\n      <Text style={styles.statLabel}>{label}</Text>\n      <Text style={styles.statValue}>{value}</Text>\n    </View>\n  );\n}\n\nfunction getRiskColor(risk: string): string {\n  switch (risk) {\n    case 'low': return Colors.status.success;\n    case 'medium': return Colors.status.warning;\n    case 'high': return Colors.status.error;\n    case 'critical': return Colors.status.error;\n    default: return Colors.text.tertiary;\n  }\n}\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n    backgroundColor: Colors.bg.primary,\n  },\n  header: {\n    padding: Spacing.xl,\n    paddingBottom: Spacing.base,\n  },\n  headerTitle: {\n    fontSize: Typography.size['2xl'],\n    fontWeight: Typography.weight.bold,\n    color: Colors.text.primary,\n    marginBottom: Spacing.sm,\n  },\n  stepIndicator: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n  },\n  section: {\n    padding: Spacing.base,\n    gap: Spacing.md,\n  },\n  sectionTitle: {\n    fontSize: Typography.size.lg,\n    fontWeight: Typography.weight.bold,\n    color: Colors.text.primary,\n    marginBottom: Spacing.sm,\n  },\n  recipeInfo: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n    marginBottom: Spacing.md,\n  },\n  recipeCard: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.lg,\n    borderWidth: 1,\n    borderColor: Colors.border.accent,\n    padding: Spacing.base,\n    marginBottom: Spacing.md,\n    ...Shadows.md,\n  },\n  recipeHeader: {\n    flexDirection: 'row',\n    justifyContent: 'space-between',\n    alignItems: 'center',\n    marginBottom: Spacing.sm,\n  },\n  recipeName: {\n    fontSize: Typography.size.md,\n    fontWeight: Typography.weight.bold,\n    color: Colors.accent.primary,\n  },\n  recipeArrow: {\n    fontSize: Typography.size.lg,\n    color: Colors.accent.primary,\n  },\n  recipeDescription: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.secondary,\n    marginBottom: Spacing.md,\n    lineHeight: 20,\n  },\n  recipeDetails: {\n    flexDirection: 'row',\n    gap: Spacing.sm,\n    flexWrap: 'wrap',\n  },\n  recipeDetailBadge: {\n    backgroundColor: Colors.bg.tertiary,\n    paddingHorizontal: Spacing.sm,\n    paddingVertical: Spacing.xs,\n    borderRadius: BorderRadius.sm,\n    flexDirection: 'row',\n    gap: Spacing.xs,\n  },\n  recipeDetailLabel: {\n    fontSize: Typography.size.xs,\n    color: Colors.text.tertiary,\n  },\n  recipeDetailValue: {\n    fontSize: Typography.size.xs,\n    fontWeight: Typography.weight.semibold,\n    color: Colors.accent.primary,\n  },\n  deviceSelectButton: {\n    padding: Spacing.base,\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    borderWidth: 2,\n    borderColor: Colors.border.accent,\n    marginBottom: Spacing.md,\n  },\n  deviceSelectButtonText: {\n    fontSize: Typography.size.md,\n    color: Colors.accent.primary,\n    fontWeight: Typography.weight.semibold,\n    textAlign: 'center',\n  },\n  proceedButton: {\n    padding: Spacing.base,\n    backgroundColor: Colors.accent.primary,\n    borderRadius: BorderRadius.md,\n    marginBottom: Spacing.md,\n  },\n  proceedButtonText: {\n    color: Colors.bg.primary,\n    fontWeight: Typography.weight.bold,\n    fontSize: Typography.size.md,\n    textAlign: 'center',\n  },\n  riskCard: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    marginBottom: Spacing.md,\n    borderWidth: 1,\n    borderColor: Colors.border.default,\n  },\n  riskLabel: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n    marginBottom: Spacing.xs,\n  },\n  riskValue: {\n    fontSize: Typography.size.xl,\n    fontWeight: Typography.weight.bold,\n  },\n  warningsSection: {\n    backgroundColor: Colors.status.warningBg,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    marginBottom: Spacing.md,\n    borderWidth: 1,\n    borderColor: Colors.status.warning,\n  },\n  warningsTitle: {\n    fontSize: Typography.size.md,\n    fontWeight: Typography.weight.bold,\n    color: Colors.status.warning,\n    marginBottom: Spacing.sm,\n  },\n  warningItem: {\n    fontSize: Typography.size.sm,\n    color: Colors.status.warning,\n    marginBottom: Spacing.xs,\n  },\n  errorsSection: {\n    backgroundColor: Colors.status.errorBg,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    marginBottom: Spacing.md,\n    borderWidth: 1,\n    borderColor: Colors.status.error,\n  },\n  errorsTitle: {\n    fontSize: Typography.size.md,\n    fontWeight: Typography.weight.bold,\n    color: Colors.status.error,\n    marginBottom: Spacing.sm,\n  },\n  errorItem: {\n    fontSize: Typography.size.sm,\n    color: Colors.status.error,\n    marginBottom: Spacing.xs,\n  },\n  deviceInfoCard: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    marginBottom: Spacing.md,\n    borderWidth: 1,\n    borderColor: Colors.border.default,\n  },\n  deviceInfoTitle: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n    marginBottom: Spacing.xs,\n  },\n  deviceInfoText: {\n    fontSize: Typography.size.md,\n    color: Colors.text.primary,\n    fontWeight: Typography.weight.semibold,\n    marginBottom: Spacing.xs,\n  },\n  dryRunToggle: {\n    padding: Spacing.base,\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    borderWidth: 1,\n    borderColor: Colors.border.default,\n    marginBottom: Spacing.md,\n  },\n  dryRunLabel: {\n    fontSize: Typography.size.md,\n    color: Colors.accent.primary,\n    fontWeight: Typography.weight.semibold,\n  },\n  startButton: {\n    padding: Spacing.lg,\n    backgroundColor: Colors.accent.primary,\n    borderRadius: BorderRadius.md,\n    marginBottom: Spacing.md,\n  },\n  startButtonDisabled: {\n    opacity: 0.5,\n  },\n  startButtonText: {\n    color: Colors.bg.primary,\n    fontWeight: Typography.weight.bold,\n    fontSize: Typography.size.lg,\n    textAlign: 'center',\n  },\n  progressContainer: {\n    marginBottom: Spacing.md,\n  },\n  progressBar: {\n    height: 12,\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.full,\n    overflow: 'hidden',\n    marginBottom: Spacing.sm,\n  },\n  progressBarFill: {\n    height: '100%',\n    backgroundColor: Colors.accent.primary,\n    borderRadius: BorderRadius.full,\n  },\n  progressPercent: {\n    fontSize: Typography.size.lg,\n    fontWeight: Typography.weight.bold,\n    color: Colors.accent.primary,\n    textAlign: 'center',\n  },\n  currentStepCard: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    marginBottom: Spacing.md,\n    borderWidth: 1,\n    borderColor: Colors.border.accent,\n  },\n  currentStepLabel: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n    marginBottom: Spacing.xs,\n  },\n  currentStepValue: {\n    fontSize: Typography.size.lg,\n    fontWeight: Typography.weight.bold,\n    color: Colors.accent.primary,\n    marginBottom: Spacing.xs,\n  },\n  stepsInfo: {\n    fontSize: Typography.size.sm,\n    color: Colors.text.tertiary,\n  },\n  statsGrid: {\n    flexDirection: 'row',\n    gap: Spacing.md,\n    marginBottom: Spacing.md,\n  },\n  statCard: {\n    flex: 1,\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    borderWidth: 1,\n    borderColor: Colors.border.default,\n  },\n  statLabel: {\n    fontSize: Typography.size.xs,\n    color: Colors.text.tertiary,\n    marginBottom: Spacing.xs,\n  },\n  statValue: {\n    fontSize: Typography.size.md,\n    fontWeight: Typography.weight.bold,\n    color: Colors.accent.primary,\n  },\n  logsSection: {\n    marginBottom: Spacing.md,\n  },\n  logsTitle: {\n    fontSize: Typography.size.md,\n    fontWeight: Typography.weight.bold,\n    color: Colors.text.primary,\n    marginBottom: Spacing.sm,\n  },\n  logsList: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    borderWidth: 1,\n    borderColor: Colors.border.default,\n    maxHeight: 200,\n  },\n  logItem: {\n    fontSize: Typography.size.xs,\n    color: Colors.text.tertiary,\n    fontFamily: 'Courier',\n    marginBottom: Spacing.xs,\n  },\n  buildErrorCard: {\n    backgroundColor: Colors.status.errorBg,\n    borderRadius: BorderRadius.md,\n    padding: Spacing.base,\n    borderWidth: 1,\n    borderColor: Colors.status.error,\n  },\n  buildErrorText: {\n    color: Colors.status.error,\n    fontWeight: Typography.weight.semibold,\n  },\n  completeCard: {\n    backgroundColor: Colors.bg.card,\n    borderRadius: BorderRadius.lg,\n    padding: Spacing.xl,\n    alignItems: 'center',\n    borderWidth: 2,\n    borderColor: Colors.accent.primary,\n    marginBottom: Spacing.lg,\n  },\n  completeIcon: {\n    fontSize: 64,\n    marginBottom: Spacing.md,\n  },\n  completeTitle: {\n    fontSize: Typography.size.xl,\n    fontWeight: Typography.weight.bold,\n    color: Colors.accent.primary,\n    marginBottom: Spacing.sm,\n    textAlign: 'center',\n  },\n  completeMessage: {\n    fontSize: Typography.size.md,\n    color: Colors.text.secondary,\n    textAlign: 'center',\n  },\n  restartButton: {\n    padding: Spacing.lg,\n    backgroundColor: Colors.accent.primary,\n    borderRadius: BorderRadius.md,\n  },\n  restartButtonText: {\n    color: Colors.bg.primary,\n    fontWeight: Typography.weight.bold,\n    fontSize: Typography.size.md,\n    textAlign: 'center',\n  },\n  errorCard: {\n    margin: Spacing.base,\n    padding: Spacing.base,\n    backgroundColor: Colors.status.errorBg,\n    borderRadius: BorderRadius.md,\n    borderWidth: 1,\n    borderColor: Colors.status.error,\n  },\n  errorText: {\n    color: Colors.status.error,\n    fontSize: Typography.size.sm,\n    fontWeight: Typography.weight.semibold,\n  },\n});\n
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+} from 'react-native';
+import { Colors, Spacing, Typography, BorderRadius, Shadows, getStatusColor } from '../utils/theme';
+import api, { BuildRecipe, BuildProgress, SafetyCheckResponse } from '../services/api';
+
+const { width } = Dimensions.get('window');
+
+type BuildStep = 'recipe' | 'device' | 'safety' | 'building' | 'complete';
+
+export default function BuildScreen() {
+  const [step, setStep] = useState<BuildStep>('recipe');
+  const [loading, setLoading] = useState(true);
+  const [recipes, setRecipes] = useState<BuildRecipe[]>([]);
+  const [selectedRecipe, setSelectedRecipe] = useState<BuildRecipe | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [safety, setSafety] = useState<SafetyCheckResponse | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<BuildProgress | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [dryRun, setDryRun] = useState(true);
+
+  useEffect(() => {
+    loadRecipes();
+  }, []);
+
+  const loadRecipes = async () => {
+    try {
+      const response = await api.listRecipes();
+      setRecipes(response.recipes);
+      setLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load recipes');
+      setLoading(false);
+    }
+  };
+
+  const handleSelectRecipe = (recipe: BuildRecipe) => {
+    setSelectedRecipe(recipe);
+    setStep('device');
+  };
+
+  const handleSelectDevice = async (devicePath: string) => {
+    setSelectedDevice(devicePath);
+    setLoading(true);
+    try {
+      const safetyResult = await api.safetyCheck(devicePath, selectedRecipe!.id);
+      setSafety(safetyResult);
+      setStep('safety');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Safety check failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartBuild = async () => {
+    if (!selectedRecipe || !selectedDevice || !safety) return;
+
+    setLoading(true);
+    try {
+      const result = await api.startBuild({
+        recipe_id: selectedRecipe.id,
+        target_device_path: selectedDevice,
+        dry_run: dryRun,
+        confirmation_token: safety.confirmation_token,
+      });
+
+      setJobId(result.job_id);
+      setStep('building');
+
+      // Poll for progress
+      const pollInterval = setInterval(async () => {
+        try {
+          const progressData = await api.getBuildProgress(result.job_id);
+          setProgress(progressData);
+
+          if (progressData.status === 'complete' || progressData.status === 'failed') {
+            clearInterval(pollInterval);
+            setStep('complete');
+          }
+        } catch (err) {
+          console.error('Progress poll error:', err);
+        }
+      }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Build failed to start');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && step === 'recipe') {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={Colors.accent.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Create Bootable USB</Text>
+        <Text style={styles.stepIndicator}>
+          Step {['recipe', 'device', 'safety', 'building', 'complete'].indexOf(step) + 1} of 5
+        </Text>
+      </View>
+
+      {/* Step: Recipe Selection */}
+      {step === 'recipe' && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Choose Operating System</Text>
+          {recipes.map((recipe) => (
+            <RecipeCard
+              key={recipe.id}
+              recipe={recipe}
+              onSelect={() => handleSelectRecipe(recipe)}
+            />
+          ))}
+        </View>
+      )}
+
+      {/* Step: Device Selection */}
+      {step === 'device' && selectedRecipe && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Select USB Device</Text>
+          <Text style={styles.recipeInfo}>
+            {selectedRecipe.name} • {selectedRecipe.required_size_gb}GB minimum
+          </Text>
+          <TouchableOpacity
+            style={styles.deviceSelectButton}
+            onPress={() => {
+              // Navigate to device selection
+              Alert.alert('Select Device', 'Choose a USB device from the Devices tab');
+            }}
+          >
+            <Text style={styles.deviceSelectButtonText}>
+              {selectedDevice ? `Selected: ${selectedDevice}` : 'Select Device'}
+            </Text>
+          </TouchableOpacity>
+          {selectedDevice && (
+            <TouchableOpacity
+              style={styles.proceedButton}
+              onPress={() => handleSelectDevice(selectedDevice)}
+            >
+              <Text style={styles.proceedButtonText}>Continue →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Step: Safety Check */}
+      {step === 'safety' && safety && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Safety Check</Text>
+
+          {/* Risk Assessment */}
+          <View style={styles.riskCard}>
+            <Text style={styles.riskLabel}>Risk Level</Text>
+            <Text style={[styles.riskValue, { color: getRiskColor(safety.risk_level) }]}>
+              {safety.risk_level.toUpperCase()}
+            </Text>
+          </View>
+
+          {/* Warnings */}
+          {safety.warnings.length > 0 && (
+            <View style={styles.warningsSection}>
+              <Text style={styles.warningsTitle}>⚠️ Warnings</Text>
+              {safety.warnings.map((warning, idx) => (
+                <Text key={idx} style={styles.warningItem}>
+                  • {warning}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {/* Errors */}
+          {safety.errors.length > 0 && (
+            <View style={styles.errorsSection}>
+              <Text style={styles.errorsTitle}>❌ Errors</Text>
+              {safety.errors.map((error, idx) => (
+                <Text key={idx} style={styles.errorItem}>
+                  • {error}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {/* Device Info */}
+          {safety.device_info && (
+            <View style={styles.deviceInfoCard}>
+              <Text style={styles.deviceInfoTitle}>Device Information</Text>
+              <Text style={styles.deviceInfoText}>
+                {safety.device_info.friendly_name}
+              </Text>
+              <Text style={styles.deviceInfoText}>
+                {safety.device_info.size_human} • {safety.device_info.filesystem}
+              </Text>
+            </View>
+          )}
+
+          {/* Dry Run Toggle */}
+          <TouchableOpacity
+            style={styles.dryRunToggle}
+            onPress={() => setDryRun(!dryRun)}
+          >
+            <Text style={styles.dryRunLabel}>
+              {dryRun ? '✓' : '○'} Dry Run Mode (Simulation)
+            </Text>
+          </TouchableOpacity>
+
+          {/* Start Button */}
+          <TouchableOpacity
+            style={[
+              styles.startButton,
+              safety.errors.length > 0 && styles.startButtonDisabled,
+            ]}
+            onPress={handleStartBuild}
+            disabled={safety.errors.length > 0}
+          >
+            <Text style={styles.startButtonText}>
+              {dryRun ? '🔄 Start Dry Run' : '⚡ Start Build'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Step: Building */}
+      {step === 'building' && progress && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Building USB...</Text>
+
+          {/* Progress Bar */}
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${progress.progress_percent}%` },
+                ]}
+              />
+            </View>
+            <Text style={styles.progressPercent}>{progress.progress_percent.toFixed(1)}%</Text>
+          </View>
+
+          {/* Current Step */}
+          <View style={styles.currentStepCard}>
+            <Text style={styles.currentStepLabel}>Current Step</Text>
+            <Text style={styles.currentStepValue}>{progress.current_step}</Text>
+            <Text style={styles.stepsInfo}>
+              {progress.steps_completed} of {progress.steps_total} steps
+            </Text>
+          </View>
+
+          {/* Speed & Time */}
+          {progress.speed_mbps && (
+            <View style={styles.statsGrid}>
+              <StatCard label="Speed" value={`${progress.speed_mbps.toFixed(1)} MB/s`} />
+              <StatCard label="Elapsed" value={`${progress.elapsed_seconds.toFixed(0)}s`} />
+            </View>
+          )}
+
+          {/* Logs */}
+          {progress.log_messages.length > 0 && (
+            <View style={styles.logsSection}>
+              <Text style={styles.logsTitle}>Build Log</Text>
+              <View style={styles.logsList}>
+                {progress.log_messages.slice(-10).map((msg, idx) => (
+                  <Text key={idx} style={styles.logItem}>
+                    {msg}
+                  </Text>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Error */}
+          {progress.error && (
+            <View style={styles.buildErrorCard}>
+              <Text style={styles.buildErrorText}>❌ {progress.error}</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Step: Complete */}
+      {step === 'complete' && progress && (
+        <View style={styles.section}>
+          <View style={styles.completeCard}>
+            <Text style={styles.completeIcon}>
+              {progress.status === 'complete' ? '✅' : '❌'}
+            </Text>
+            <Text style={styles.completeTitle}>
+              {progress.status === 'complete' ? 'Build Complete!' : 'Build Failed'}
+            </Text>
+            <Text style={styles.completeMessage}>
+              {progress.status === 'complete'
+                ? 'Your USB drive is ready to use'
+                : progress.error || 'Build did not complete successfully'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.restartButton}
+            onPress={() => {
+              setStep('recipe');
+              setSelectedRecipe(null);
+              setSelectedDevice(null);
+              setSafety(null);
+              setJobId(null);
+              setProgress(null);
+            }}
+          >
+            <Text style={styles.restartButtonText}>Create Another USB</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorText}>⚠️ {error}</Text>
+        </View>
+      )}
+
+      <View style={{ height: Spacing.xl }} />
+    </ScrollView>
+  );
+}
+
+interface RecipeCardProps {
+  recipe: BuildRecipe;
+  onSelect: () => void;
+}
+
+function RecipeCard({ recipe, onSelect }: RecipeCardProps) {
+  return (
+    <TouchableOpacity style={styles.recipeCard} onPress={onSelect}>
+      <View style={styles.recipeHeader}>
+        <Text style={styles.recipeName}>{recipe.name}</Text>
+        <Text style={styles.recipeArrow}>→</Text>
+      </View>
+      <Text style={styles.recipeDescription}>{recipe.description}</Text>
+      <View style={styles.recipeDetails}>
+        <RecipeDetailBadge label="Size" value={`${recipe.required_size_gb}GB`} />
+        <RecipeDetailBadge label="Time" value={`~${recipe.estimated_time_minutes}m`} />
+        {recipe.supports_oclp && <RecipeDetailBadge label="OCLP" value="✓" />}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+interface RecipeDetailBadgeProps {
+  label: string;
+  value: string;
+}
+
+function RecipeDetailBadge({ label, value }: RecipeDetailBadgeProps) {
+  return (
+    <View style={styles.recipeDetailBadge}>
+      <Text style={styles.recipeDetailLabel}>{label}:</Text>
+      <Text style={styles.recipeDetailValue}>{value}</Text>
+    </View>
+  );
+}
+
+interface StatCardProps {
+  label: string;
+  value: string;
+}
+
+function StatCard({ label, value }: StatCardProps) {
+  return (
+    <View style={styles.statCard}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+    </View>
+  );
+}
+
+function getRiskColor(risk: string): string {
+  switch (risk) {
+    case 'low': return Colors.status.success;
+    case 'medium': return Colors.status.warning;
+    case 'high': return Colors.status.error;
+    case 'critical': return Colors.status.error;
+    default: return Colors.text.tertiary;
+  }
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.bg.primary,
+  },
+  header: {
+    padding: Spacing.xl,
+    paddingBottom: Spacing.base,
+  },
+  headerTitle: {
+    fontSize: Typography.size['2xl'],
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.sm,
+  },
+  stepIndicator: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+  },
+  section: {
+    padding: Spacing.base,
+    gap: Spacing.md,
+  },
+  sectionTitle: {
+    fontSize: Typography.size.lg,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.sm,
+  },
+  recipeInfo: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+    marginBottom: Spacing.md,
+  },
+  recipeCard: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border.accent,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    ...Shadows.md,
+  },
+  recipeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  recipeName: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.bold,
+    color: Colors.accent.primary,
+  },
+  recipeArrow: {
+    fontSize: Typography.size.lg,
+    color: Colors.accent.primary,
+  },
+  recipeDescription: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.secondary,
+    marginBottom: Spacing.md,
+    lineHeight: 20,
+  },
+  recipeDetails: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    flexWrap: 'wrap',
+  },
+  recipeDetailBadge: {
+    backgroundColor: Colors.bg.tertiary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  recipeDetailLabel: {
+    fontSize: Typography.size.xs,
+    color: Colors.text.tertiary,
+  },
+  recipeDetailValue: {
+    fontSize: Typography.size.xs,
+    fontWeight: Typography.weight.semibold,
+    color: Colors.accent.primary,
+  },
+  deviceSelectButton: {
+    padding: Spacing.base,
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    borderColor: Colors.border.accent,
+    marginBottom: Spacing.md,
+  },
+  deviceSelectButtonText: {
+    fontSize: Typography.size.md,
+    color: Colors.accent.primary,
+    fontWeight: Typography.weight.semibold,
+    textAlign: 'center',
+  },
+  proceedButton: {
+    padding: Spacing.base,
+    backgroundColor: Colors.accent.primary,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  proceedButtonText: {
+    color: Colors.bg.primary,
+    fontWeight: Typography.weight.bold,
+    fontSize: Typography.size.md,
+    textAlign: 'center',
+  },
+  riskCard: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+  },
+  riskLabel: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+    marginBottom: Spacing.xs,
+  },
+  riskValue: {
+    fontSize: Typography.size.xl,
+    fontWeight: Typography.weight.bold,
+  },
+  warningsSection: {
+    backgroundColor: Colors.status.warningBg,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.status.warning,
+  },
+  warningsTitle: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.bold,
+    color: Colors.status.warning,
+    marginBottom: Spacing.sm,
+  },
+  warningItem: {
+    fontSize: Typography.size.sm,
+    color: Colors.status.warning,
+    marginBottom: Spacing.xs,
+  },
+  errorsSection: {
+    backgroundColor: Colors.status.errorBg,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.status.error,
+  },
+  errorsTitle: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.bold,
+    color: Colors.status.error,
+    marginBottom: Spacing.sm,
+  },
+  errorItem: {
+    fontSize: Typography.size.sm,
+    color: Colors.status.error,
+    marginBottom: Spacing.xs,
+  },
+  deviceInfoCard: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+  },
+  deviceInfoTitle: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+    marginBottom: Spacing.xs,
+  },
+  deviceInfoText: {
+    fontSize: Typography.size.md,
+    color: Colors.text.primary,
+    fontWeight: Typography.weight.semibold,
+    marginBottom: Spacing.xs,
+  },
+  dryRunToggle: {
+    padding: Spacing.base,
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+    marginBottom: Spacing.md,
+  },
+  dryRunLabel: {
+    fontSize: Typography.size.md,
+    color: Colors.accent.primary,
+    fontWeight: Typography.weight.semibold,
+  },
+  startButton: {
+    padding: Spacing.lg,
+    backgroundColor: Colors.accent.primary,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  startButtonDisabled: {
+    opacity: 0.5,
+  },
+  startButtonText: {
+    color: Colors.bg.primary,
+    fontWeight: Typography.weight.bold,
+    fontSize: Typography.size.lg,
+    textAlign: 'center',
+  },
+  progressContainer: {
+    marginBottom: Spacing.md,
+  },
+  progressBar: {
+    height: 12,
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+    marginBottom: Spacing.sm,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.accent.primary,
+    borderRadius: BorderRadius.full,
+  },
+  progressPercent: {
+    fontSize: Typography.size.lg,
+    fontWeight: Typography.weight.bold,
+    color: Colors.accent.primary,
+    textAlign: 'center',
+  },
+  currentStepCard: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border.accent,
+  },
+  currentStepLabel: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+    marginBottom: Spacing.xs,
+  },
+  currentStepValue: {
+    fontSize: Typography.size.lg,
+    fontWeight: Typography.weight.bold,
+    color: Colors.accent.primary,
+    marginBottom: Spacing.xs,
+  },
+  stepsInfo: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+  },
+  statLabel: {
+    fontSize: Typography.size.xs,
+    color: Colors.text.tertiary,
+    marginBottom: Spacing.xs,
+  },
+  statValue: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.bold,
+    color: Colors.accent.primary,
+  },
+  logsSection: {
+    marginBottom: Spacing.md,
+  },
+  logsTitle: {
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.bold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.sm,
+  },
+  logsList: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+    maxHeight: 200,
+  },
+  logItem: {
+    fontSize: Typography.size.xs,
+    color: Colors.text.tertiary,
+    fontFamily: 'Courier',
+    marginBottom: Spacing.xs,
+  },
+  buildErrorCard: {
+    backgroundColor: Colors.status.errorBg,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.status.error,
+  },
+  buildErrorText: {
+    color: Colors.status.error,
+    fontWeight: Typography.weight.semibold,
+  },
+  completeCard: {
+    backgroundColor: Colors.bg.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.accent.primary,
+    marginBottom: Spacing.lg,
+  },
+  completeIcon: {
+    fontSize: 64,
+    marginBottom: Spacing.md,
+  },
+  completeTitle: {
+    fontSize: Typography.size.xl,
+    fontWeight: Typography.weight.bold,
+    color: Colors.accent.primary,
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
+  completeMessage: {
+    fontSize: Typography.size.md,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+  },
+  restartButton: {
+    padding: Spacing.lg,
+    backgroundColor: Colors.accent.primary,
+    borderRadius: BorderRadius.md,
+  },
+  restartButtonText: {
+    color: Colors.bg.primary,
+    fontWeight: Typography.weight.bold,
+    fontSize: Typography.size.md,
+    textAlign: 'center',
+  },
+  errorCard: {
+    margin: Spacing.base,
+    padding: Spacing.base,
+    backgroundColor: Colors.status.errorBg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.status.error,
+  },
+  errorText: {
+    color: Colors.status.error,
+    fontSize: Typography.size.sm,
+    fontWeight: Typography.weight.semibold,
+  },
+});
+

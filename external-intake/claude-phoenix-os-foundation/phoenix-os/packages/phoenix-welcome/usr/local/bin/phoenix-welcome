@@ -1,0 +1,64 @@
+#!/bin/bash
+# Phoenix OS — Phoenix Welcome (Shell stub)
+# File: /usr/local/bin/phoenix-welcome
+#
+# This is a shell script placeholder for the Phoenix Welcome application.
+# It will be replaced by the compiled Tauri binary in Phase 1.
+#
+# For now, it launches a kdialog-based welcome screen so the live ISO
+# has a functioning first-boot experience.
+
+# Check if this is the first run
+FIRST_RUN_FLAG="${HOME}/.config/phoenix/welcome-shown"
+
+if [[ -f "${FIRST_RUN_FLAG}" ]]; then
+    # Not first run — exit silently
+    exit 0
+fi
+
+# Check if kdialog is available
+if ! command -v kdialog >/dev/null 2>&1; then
+    # Try zenity as fallback
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --info \
+            --title="Welcome to Phoenix OS" \
+            --text="Phoenix OS is ready.\n\nThis is a repair-first, creator-ready Linux distribution.\n\nOpen Phoenix Control Center from the application menu to get started." \
+            --width=420 \
+            --ok-label="Get Started" 2>/dev/null || true
+    fi
+    mkdir -p "$(dirname "${FIRST_RUN_FLAG}")"
+    touch "${FIRST_RUN_FLAG}"
+    exit 0
+fi
+
+# Show welcome dialog via kdialog
+kdialog \
+    --title "Welcome to Phoenix OS" \
+    --msgbox "$(cat <<'EOF'
+Phoenix OS — Repair-First. Creator-Ready. Recovery-Proven.
+
+Phoenix OS is now running as a live session.
+
+GETTING STARTED:
+━━━━━━━━━━━━━━━
+• Phoenix Control Center — Disk health, diagnostics, and system info
+• Phoenix Recovery       — Guided data rescue and repair workflows
+• GParted                — Visual disk partition editor
+• Konsole                — Terminal for advanced operations
+
+DISK SAFETY:
+━━━━━━━━━━━━
+Internal disks are NOT auto-mounted in this live session.
+All disk operations require explicit confirmation.
+
+INSTALL:
+━━━━━━━━
+Click "Install Phoenix OS" on the desktop to install permanently.
+
+For documentation: https://docs.phoenix-os.io
+EOF
+)" 2>/dev/null || true
+
+# Mark as shown
+mkdir -p "$(dirname "${FIRST_RUN_FLAG}")"
+touch "${FIRST_RUN_FLAG}"

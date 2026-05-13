@@ -1,0 +1,10 @@
+# Phoenix OS — Calamares module descriptor
+# File: installer/calamares-config/modules/phoenix-postinstall.desc
+#
+# Tells Calamares how to load and run the phoenix-postinstall Python module.
+
+---
+type:      "job"
+name:      "phoenix-postinstall"
+interface: "python"
+script:    "phoenix-postinstall.py"

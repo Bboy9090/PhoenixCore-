@@ -1,0 +1,16 @@
+Package: phoenix-theme
+Version: 0.1.0
+Architecture: all
+Maintainer: Phoenix OS Project <build@phoenix-os.io>
+Depends: plasma-desktop, breeze, kvantum
+Recommends: papirus-icon-theme
+Section: misc
+Priority: optional
+Description: Phoenix OS KDE Plasma Theme
+ Visual theme package for Phoenix OS including:
+  - KDE Plasma color scheme (Phoenix Dark)
+  - Kvantum Qt theme
+  - SDDM login theme
+  - GRUB theme
+  - Plymouth boot splash theme
+  - KDE global settings defaults

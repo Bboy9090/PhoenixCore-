@@ -136,7 +136,8 @@ const normalizeMessage = (message: Message) => {
   if (role === "tool" || role === "function") {
     const content = ensureArray(message.content)
       .map((part) => (typeof part === "string" ? part : JSON.stringify(part)))
-      .join("\n");
+      .join("
+");
 
     return {
       role,

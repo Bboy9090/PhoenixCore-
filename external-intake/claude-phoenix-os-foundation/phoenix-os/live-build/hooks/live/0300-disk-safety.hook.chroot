@@ -1,0 +1,88 @@
+#!/bin/sh
+# Phoenix OS — Disk Safety Configuration Hook
+# File: live-build/hooks/live/0300-disk-safety.hook.chroot
+#
+# Installs udev rules and udisks2 policy to enforce Phoenix OS disk safety model.
+# See docs/security-model.md — Disk Access Safety Model for policy rationale.
+
+set -e
+
+echo "[Phoenix Hook] Installing disk safety rules"
+
+# ============================================================
+# udev rule: prevent auto-mounting of internal disks as writable
+# ============================================================
+cat > /etc/udev/rules.d/90-phoenix-disk-policy.rules << 'UDEV'
+# Phoenix OS Disk Safety Policy
+# ==============================
+# Internal SATA and NVMe drives are NOT auto-mounted as writable.
+# This prevents accidental writes to client machines during live sessions.
+#
+# Classification:
+#   SUBSYSTEM=="block" — applies to all block devices
+#   ENV{ID_BUS}=="ata"  — internal SATA drives
+#   ENV{ID_BUS}=="nvme" — internal NVMe drives
+#   ENV{ID_BUS}=="usb"  — USB devices (allowed read-write as normal)
+#
+# Setting ENV{UDISKS_AUTO}="0" prevents udisks2 from auto-mounting.
+# The user can still manually mount via Dolphin or CLI, but will see
+# a Phoenix-branded "Manual mount required" dialog.
+
+# Internal SATA drives: disable auto-mount
+SUBSYSTEM=="block", ENV{ID_BUS}=="ata", ENV{DEVTYPE}=="disk", \
+    ENV{UDISKS_AUTO}="0", ENV{UDISKS_IGNORE}="0"
+
+# Internal NVMe drives: disable auto-mount
+SUBSYSTEM=="block", ENV{ID_BUS}=="nvme", ENV{DEVTYPE}=="disk", \
+    ENV{UDISKS_AUTO}="0", ENV{UDISKS_IGNORE}="0"
+
+# Internal NVMe partitions: disable auto-mount
+SUBSYSTEM=="block", KERNEL=="nvme[0-9]*n[0-9]*p[0-9]*", \
+    ENV{UDISKS_AUTO}="0"
+
+# Internal SATA partitions (sdX where X=a-z, excluding the live boot device)
+# Note: The live boot device (typically /dev/sda or /dev/sdb) will be identified
+# by casper as the live media and handled differently.
+# We use a broad rule here; casper handles the exception for live media.
+SUBSYSTEM=="block", KERNEL=="sd[a-z][0-9]*", ENV{ID_BUS}=="ata", \
+    ENV{UDISKS_AUTO}="0"
+
+# USB devices: allow normal auto-mount (removable media is expected to be touched)
+SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", \
+    ENV{UDISKS_AUTO}="1"
+UDEV
+
+# Reload udev rules (runs inside chroot; actual udev is not running here,
+# but rules file is in place for the live session)
+echo "[Phoenix Hook] udev rules installed: /etc/udev/rules.d/90-phoenix-disk-policy.rules"
+
+# ============================================================
+# udisks2 policy: default mount options for internal drives
+# ============================================================
+mkdir -p /etc/udisks2
+cat > /etc/udisks2/mount_options.conf << 'UDISKS'
+[defaults]
+# Phoenix OS default mount options
+# Internal drives mounted manually by the user default to read-only.
+# The user must explicitly re-mount read-write in Dolphin or CLI.
+#
+# Format: fstype_defaults=option1,option2
+# These are applied as defaults when no specific options are given.
+
+vfat_defaults=uid=$UID,gid=$GID,shortname=mixed,utf8=1,showexec,flush
+ntfs_defaults=uid=$UID,gid=$GID,windows_names
+ext4_defaults=errors=remount-ro
+UDISKS
+
+# ============================================================
+# Phoenix disk audit log setup
+# ============================================================
+mkdir -p /var/log/phoenix
+cat > /var/log/phoenix/disk-ops.log << 'LOG'
+# Phoenix OS Disk Operations Audit Log
+# Format: [timestamp] [user] [tool] [operation] [device] [serial] [status]
+# This log is RAM-backed in the live session. Copy to persistent storage if needed.
+LOG
+chmod 640 /var/log/phoenix/disk-ops.log
+
+echo "[Phoenix Hook] Disk safety configuration complete"

@@ -1,0 +1,114 @@
+# Phoenix OS — Base System Package List
+# These packages form the foundation of every Phoenix OS image.
+# File: live-build/package-lists/000-base.list.chroot
+#
+# Format: one package name per line.
+# Comments (#) and blank lines are ignored by live-build.
+# All packages must be available in Ubuntu 24.04 LTS (Noble) repositories.
+
+# ============================================================
+# Core system utilities
+# ============================================================
+apt
+apt-utils
+software-properties-common
+curl
+wget
+git
+rsync
+zip
+unzip
+p7zip-full
+bzip2
+xz-utils
+
+# ============================================================
+# System information and hardware detection
+# ============================================================
+inxi
+lshw
+hwinfo
+dmidecode
+pciutils
+usbutils
+i2c-tools
+
+# ============================================================
+# Process and resource monitoring
+# ============================================================
+htop
+btop
+iotop
+sysstat
+lsof
+
+# ============================================================
+# Terminal and shell
+# ============================================================
+bash
+zsh
+tmux
+screen
+vim
+nano
+less
+man-db
+command-not-found
+
+# ============================================================
+# File system utilities (non-disk-specific)
+# ============================================================
+file
+tree
+ncdu
+ranger
+fzf
+ripgrep
+
+# ============================================================
+# Network base (minimal — see 040-network-tools.list for more)
+# ============================================================
+network-manager
+net-tools
+iproute2
+iputils-ping
+dnsutils
+nmap
+
+# ============================================================
+# Python (used by several Phoenix tools and build scripts)
+# ============================================================
+python3
+python3-pip
+python3-venv
+
+# ============================================================
+# Logging and auditing
+# ============================================================
+rsyslog
+logrotate
+
+# ============================================================
+# Security base
+# ============================================================
+ufw
+gnupg
+openssl
+ca-certificates
+
+# ============================================================
+# Live system support
+# ============================================================
+casper
+lupin-casper
+initramfs-tools
+live-tools
+user-setup
+sudo
+
+# ============================================================
+# Firmware (broad base — see 060-firmware.list for specifics)
+# ============================================================
+linux-firmware
+linux-image-generic-hwe-24.04
+linux-headers-generic-hwe-24.04

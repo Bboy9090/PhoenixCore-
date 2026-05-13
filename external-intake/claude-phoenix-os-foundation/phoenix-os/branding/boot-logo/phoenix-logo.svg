@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <defs>
+    <linearGradient id="flameGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#D94215"/>
+      <stop offset="50%"  stop-color="#F58C1F"/>
+      <stop offset="100%" stop-color="#F5C842"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background (transparent) -->
+
+  <!-- Phoenix flame mark (stylised) -->
+  <!-- Outer flame -->
+  <path d="M 44 100 C 20 80 18 55 30 35 C 35 25 42 18 44 10
+            C 50 22 48 34 52 42
+            C 58 30 60 18 68 8
+            C 72 22 68 40 74 52
+            C 80 38 84 24 92 14
+            C 92 35 84 54 86 68
+            C 94 56 100 44 108 38
+            C 104 58 94 72 90 88
+            C 84 100 70 108 58 108
+            C 52 108 46 106 44 100 Z"
+        fill="url(#flameGrad)" opacity="0.9"/>
+
+  <!-- Inner core (brighter) -->
+  <path d="M 56 96 C 44 80 44 62 52 48
+            C 56 58 56 68 62 76
+            C 68 62 68 48 76 36
+            C 78 52 72 66 76 78
+            C 82 66 86 54 92 46
+            C 90 64 82 78 80 90
+            C 74 102 62 108 56 96 Z"
+        fill="#F5C842" opacity="0.7"/>
+
+  <!-- Wordmark: PHOENIX -->
+  <text x="130" y="72"
+        font-family="'Rajdhani', 'Arial Narrow', Arial, sans-serif"
+        font-size="52"
+        font-weight="700"
+        letter-spacing="6"
+        fill="#E8EAF0">PHOENIX</text>
+
+  <!-- Subtext: OS -->
+  <text x="133" y="96"
+        font-family="'IBM Plex Mono', 'Courier New', monospace"
+        font-size="14"
+        font-weight="500"
+        letter-spacing="12"
+        fill="#F58C1F">OS</text>
+
+  <!-- Divider line between mark and wordmark -->
+  <line x1="118" y1="20" x2="118" y2="105"
+        stroke="#2A2F38" stroke-width="1"/>
+</svg>

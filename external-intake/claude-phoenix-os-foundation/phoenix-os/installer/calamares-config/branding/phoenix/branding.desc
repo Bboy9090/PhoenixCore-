@@ -1,0 +1,53 @@
+# Phoenix OS — Calamares Branding Configuration
+# File: installer/calamares-config/branding/phoenix/branding.desc
+#
+# This file defines the visual identity of the installer.
+
+---
+componentName: phoenix
+
+# ============================================================
+# Strings displayed throughout the installer
+# ============================================================
+strings:
+  productName:         "Phoenix OS"
+  shortProductName:    "Phoenix OS"
+  version:             "1.0"
+  shortVersion:        "1.0"
+  versionedName:       "Phoenix OS 1.0"
+  shortVersionedName:  "Phoenix OS 1.0"
+  bootloaderEntryName: "Phoenix OS"
+
+  # Installer window title
+  windowTitle:         "Install Phoenix OS"
+
+  # Summary page: what is being installed
+  installationTitle:   "Installing Phoenix OS"
+  installationSubtitle: "Setting up your repair-ready system"
+
+  # Finished page
+  restartNowOption:    "Restart now"
+  restartNowCommand:   "shutdown -r now"
+
+# ============================================================
+# Images
+# ============================================================
+images:
+  # Sidebar image (shown on left side of installer)
+  # Must be PNG or SVG. Recommended: 160px wide, full height
+  sidebar:       "phoenix-sidebar.png"
+
+  # Icon shown in window title bar
+  icon:          "phoenix-icon.png"
+
+  # Background image for the installer window (optional)
+  # background:  "phoenix-background.png"
+
+# ============================================================
+# Colors
+# ============================================================
+style:
+  SidebarBackground:      "#0D0F12"
+  SidebarText:            "#E8EAF0"
+  SidebarTextSelect:      "#F58C1F"
+  SidebarTextHighlight:   "#F58C1F"

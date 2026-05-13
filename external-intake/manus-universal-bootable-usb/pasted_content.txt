@@ -1,0 +1,4 @@
+Suggested follow-ups
+Make the process we used here into a re-usable skill with /skill-ereator
+Integrate the new BuildProgressCard inte the main dashboard view and set up the routing for the build i Add desktop notification support te the Tauri backend to alert users when the IS build suceessfully completes or fails.
+Enhance the build dashboard by adeling a feature to expert the complete build logs to a file after completi

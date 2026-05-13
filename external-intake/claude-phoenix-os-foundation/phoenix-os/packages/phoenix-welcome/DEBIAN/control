@@ -1,0 +1,16 @@
+Package: phoenix-welcome
+Version: 0.1.0
+Architecture: amd64
+Maintainer: Phoenix OS Project <build@phoenix-os.io>
+Depends: libwebkit2gtk-4.1-0, libgtk-3-0
+Section: misc
+Priority: optional
+Description: Phoenix OS Welcome Application
+ First-boot onboarding and system overview application.
+ Launches automatically on the first KDE Plasma session.
+ Features:
+  - System overview: hardware summary, OS version
+  - Getting started guide for repair and recovery tools
+  - Flatpak and Flathub configuration assistant
+  - Phoenix Key detection and setup
+  - Links to documentation and community resources

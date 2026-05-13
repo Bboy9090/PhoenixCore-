@@ -1,0 +1,21 @@
+/* BootForge Launcher — Stylesheet */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+
+body {
+  background: #0D0F12;
+  color: #E8EAF0;
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track  { background: #0D0F12; }
+::-webkit-scrollbar-thumb  { background: #2A2F38; border-radius: 3px; }
+::selection { background: #F58C1F; color: #0D0F12; }
+button { cursor: pointer; font-family: inherit; }

@@ -1,0 +1,54 @@
+name: Feature Request
+description: Suggest a feature or improvement for Phoenix OS
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Phoenix Control Center
+        - Phoenix Recovery
+        - BootForge / Phoenix Key
+        - Live ISO / Boot
+        - Installer (Calamares)
+        - Package list / Tools
+        - Branding / Theme
+        - Documentation
+        - Build system
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Need
+      description: What workflow is broken or missing today?
+      placeholder: "As a repair technician, I need to…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe what you'd like to see built
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What workarounds exist today?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: disk_safety
+    attributes:
+      label: Disk Safety
+      options:
+        - label: This feature does NOT involve disk write, format, or wipe operations
+        - label: This feature involves disk operations and I understand it must follow the Phoenix safety model

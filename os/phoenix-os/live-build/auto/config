@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -e
+
+lb config noauto \
+    --mode debian \
+    --system live \
+    --architectures amd64 \
+    --linux-flavours amd64 \
+    --debian-installer false \
+    --archive-areas "main contrib non-free non-free-firmware" \
+    --apt-indices false \
+    --memtest none \
+    --iso-application "Phoenix OS" \
+    --iso-publisher "Phoenix OS Project" \
+    --iso-volume "PHOENIX_OS" \
+    --binary-images iso-hybrid \
+    --chroot-filesystem squashfs \
+    --compression xz \
+    --zsync false \
+    "${@}"

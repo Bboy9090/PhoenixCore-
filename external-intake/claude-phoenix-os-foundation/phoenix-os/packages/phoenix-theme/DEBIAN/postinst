@@ -1,0 +1,46 @@
+#!/bin/bash
+# phoenix-theme — post-installation script
+set -e
+
+echo "phoenix-theme: Installing Phoenix OS visual theme..."
+
+# ---- KDE Color Scheme ----
+if command -v kbuildsycoca6 >/dev/null 2>&1; then
+    kbuildsycoca6 --noincremental 2>/dev/null || true
+fi
+
+# ---- Plymouth boot splash ----
+PLYMOUTH_THEME_DIR="/usr/share/plymouth/themes/phoenix"
+if [ -d "${PLYMOUTH_THEME_DIR}" ]; then
+    if command -v update-alternatives >/dev/null 2>&1; then
+        update-alternatives --install \
+            /usr/share/plymouth/themes/default.plymouth \
+            default.plymouth \
+            "${PLYMOUTH_THEME_DIR}/phoenix.plymouth" \
+            200 2>/dev/null || true
+    fi
+    mkdir -p /etc/plymouth
+    printf '[Daemon]\nTheme=phoenix\nShowDelay=0\n' > /etc/plymouth/plymouthd.conf
+    if command -v update-initramfs >/dev/null 2>&1; then
+        update-initramfs -u 2>/dev/null || true
+    fi
+fi
+
+# ---- SDDM login theme ----
+mkdir -p /etc/sddm.conf.d
+if [ ! -f /etc/sddm.conf.d/phoenix-autologin.conf ]; then
+    printf '[Theme]\nCurrent=phoenix\n' > /etc/sddm.conf.d/theme.conf
+fi
+
+# ---- GRUB theme ----
+GRUB_THEME_PATH="/boot/grub/themes/phoenix/theme.txt"
+if [ -f "${GRUB_THEME_PATH}" ] && [ -f /etc/default/grub ]; then
+    if ! grep -q "GRUB_THEME" /etc/default/grub; then
+        echo "GRUB_THEME=\"${GRUB_THEME_PATH}\"" >> /etc/default/grub
+    else
+        sed -i "s|^GRUB_THEME=.*|GRUB_THEME=\"${GRUB_THEME_PATH}\"|" /etc/default/grub
+    fi
+    command -v update-grub >/dev/null 2>&1 && update-grub 2>/dev/null || true
+fi
+
+echo "phoenix-theme: Done."

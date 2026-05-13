@@ -1,0 +1,12 @@
+[SddmGreeterTheme]
+Name=Phoenix OS
+Description=Phoenix OS login theme — dark, ember-fire aesthetic
+Author=Phoenix OS Project
+AuthorEmail=design@phoenix-os.io
+License=MIT
+Type=sddm-theme
+Version=0.1.0
+
+[sddm]
+# Recommended SDDM settings for this theme
+numlock=on

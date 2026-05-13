@@ -1,0 +1,15 @@
+#!/bin/bash
+# phoenix-control-center — post-installation script
+set -e
+
+# Register the application with the desktop environment
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications/ 2>/dev/null || true
+fi
+
+# Update icon cache
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f /usr/share/pixmaps/ 2>/dev/null || true
+fi
+
+echo "phoenix-control-center: installed."

@@ -1,0 +1,104 @@
+#!/bin/bash
+# Phoenix OS — System Information Report Generator
+# File: /usr/local/bin/phoenix-sysinfo
+#
+# Generates a comprehensive system information report for support and diagnostics.
+# Output can be saved to a file for sharing with repair clients or escalation.
+#
+# Usage:
+#   phoenix-sysinfo                  # Print to stdout
+#   phoenix-sysinfo --save           # Save to ~/phoenix-sysinfo-<date>.txt
+#   phoenix-sysinfo --save /mnt/usb  # Save to a specific path
+
+set -euo pipefail
+
+OUTPUT_FILE=""
+SAVE_MODE=false
+SAVE_DIR="${HOME:-/tmp}"
+
+for arg in "$@"; do
+    case "${arg}" in
+        --save)    SAVE_MODE=true ;;
+        --save=*)  SAVE_MODE=true; SAVE_DIR="${arg#--save=}" ;;
+        --help|-h)
+            echo "Usage: phoenix-sysinfo [--save] [--save=/path]"
+            exit 0 ;;
+    esac
+done
+
+if "${SAVE_MODE}"; then
+    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+    OUTPUT_FILE="${SAVE_DIR}/phoenix-sysinfo-${TIMESTAMP}.txt"
+fi
+
+generate_report() {
+    echo "============================================================"
+    echo "  Phoenix OS — System Information Report"
+    echo "  Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+    echo "  Hostname: $(hostname 2>/dev/null || echo unknown)"
+    echo "============================================================"
+    echo ""
+
+    section() { echo ""; echo "---- $1 ----"; }
+
+    section "OS & KERNEL"
+    uname -a 2>/dev/null || true
+    cat /etc/os-release 2>/dev/null | grep -E "^(PRETTY_NAME|VERSION_ID|ID)" || true
+
+    section "CPU"
+    grep -E "^(model name|cpu MHz|cpu cores|siblings)" /proc/cpuinfo | head -8 2>/dev/null || true
+
+    section "MEMORY"
+    free -h 2>/dev/null || true
+
+    section "BLOCK DEVICES"
+    lsblk -o NAME,SIZE,MODEL,SERIAL,TRAN,FSTYPE,MOUNTPOINT 2>/dev/null || true
+
+    section "DISK SMART SUMMARY (requires root for full data)"
+    for disk in /dev/sd? /dev/nvme?n?; do
+        if [[ -b "${disk}" ]]; then
+            echo -n "${disk}: "
+            smartctl -H "${disk}" 2>/dev/null | grep -E "overall-health|SMART overall" | head -1 || echo "(smartctl not available or not root)"
+        fi
+    done
+
+    section "PCI DEVICES"
+    lspci 2>/dev/null | head -30 || true
+
+    section "USB DEVICES"
+    lsusb 2>/dev/null || true
+
+    section "NETWORK INTERFACES"
+    ip addr show 2>/dev/null || ifconfig 2>/dev/null || true
+
+    section "NETWORK ROUTING"
+    ip route show 2>/dev/null || route -n 2>/dev/null || true
+
+    section "SYSTEMD FAILED UNITS"
+    systemctl --failed 2>/dev/null || true
+
+    section "DISK USAGE"
+    df -h 2>/dev/null | grep -v "tmpfs\|devtmpfs\|loop" || true
+
+    section "HARDWARE TEMPERATURES"
+    sensors 2>/dev/null || cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | \
+        while IFS= read -r line; do
+            echo "$(( line / 1000 ))°C"
+        done || echo "(lm-sensors not installed or no sensors found)"
+
+    section "BOOT MESSAGES (last 20)"
+    journalctl -b --no-pager -n 20 2>/dev/null || dmesg | tail -20 2>/dev/null || true
+
+    echo ""
+    echo "============================================================"
+    echo "  End of report"
+    echo "============================================================"
+}
+
+if "${SAVE_MODE}"; then
+    generate_report | tee "${OUTPUT_FILE}"
+    echo ""
+    echo "Report saved to: ${OUTPUT_FILE}"
+else
+    generate_report
+fi

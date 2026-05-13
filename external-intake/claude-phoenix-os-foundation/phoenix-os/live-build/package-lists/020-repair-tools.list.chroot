@@ -1,0 +1,76 @@
+# Phoenix OS — System Repair Tools Package List
+# File: live-build/package-lists/020-repair-tools.list.chroot
+#
+# Core repair and system recovery utilities.
+# SAFETY POLICY: None of these tools are configured to auto-target disks.
+# All destructive operations require explicit user confirmation.
+# See docs/security-model.md for the full disk safety policy.
+
+# ============================================================
+# File system check and repair
+# ============================================================
+e2fsprogs          # ext2/ext3/ext4: fsck.ext4, e2fsck, tune2fs, resize2fs
+xfsprogs           # XFS: xfs_repair, xfs_check, xfs_info
+btrfs-progs        # Btrfs: btrfs check, btrfs restore
+dosfstools         # FAT/FAT32/exFAT: fsck.fat, mkfs.fat
+ntfs-3g            # NTFS: ntfsfix, ntfs-3g (read/write NTFS mount)
+ntfs-progs         # NTFS tools: ntfsck, ntfscluster
+hfsprogs           # HFS/HFS+ (macOS): fsck.hfs
+f2fs-tools         # F2FS (mobile/embedded): fsck.f2fs
+
+# ============================================================
+# Boot repair
+# ============================================================
+grub-pc-bin        # GRUB 2 (BIOS)
+grub-efi-amd64-bin # GRUB 2 (EFI) — amd64
+shim-signed        # EFI Secure Boot shim
+efibootmgr         # EFI boot entry management
+efivar             # EFI variable access
+mokutil            # Machine Owner Key management
+os-prober          # Detect other OS installations
+
+# ============================================================
+# MBR and partition table repair
+# ============================================================
+testdisk           # TestDisk: recover lost partitions, fix MBR
+# Note: PhotoRec is included with testdisk
+
+# ============================================================
+# Windows registry and password tools
+# ============================================================
+chntpw             # Windows NT/Vista/7/10 registry editor + password reset
+
+# ============================================================
+# Log analysis
+# ============================================================
+logwatch
+gawk
+jq
+
+# ============================================================
+# System rescue utilities
+# ============================================================
+memtest86+         # RAM testing (loaded at GRUB level, also available as tool)
+stress-ng          # System stress testing for hardware validation
+lm-sensors         # Hardware temperature and voltage sensors
+acpi               # ACPI power/battery information
+
+# ============================================================
+# Virus scanning (for client machine repair)
+# ============================================================
+clamav
+clamav-daemon
+clamtk             # ClamAV GUI
+
+# ============================================================
+# Package management recovery
+# ============================================================
+deborphan
+apt-listchanges
+dpkg-repack        # Rebuild .deb from installed package (system rescue)
+
+# ============================================================
+# System configuration inspection
+# ============================================================
+debsums            # Verify installed package file integrity
+needrestart        # Check which services need restart after library updates

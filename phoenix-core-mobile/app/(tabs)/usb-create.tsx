@@ -55,7 +55,11 @@ export default function USBCreateScreen() {
       } else {
         Alert.alert(
           'Safety Check Failed',
-          `Warnings: ${result.warnings.join('\n')}\n\nErrors: ${result.errors.join('\n')}`,
+          `Warnings: ${result.warnings.join('
+')}
+
+Errors: ${result.errors.join('
+')}`,
           [{ text: 'OK' }]
         );
       }
@@ -118,7 +122,9 @@ export default function USBCreateScreen() {
   const handleSafetyCheck = () => {
     Alert.alert(
       'Confirm Build',
-      `Create bootable USB on ${selectedDevice?.device_name}?\n\nThis will erase all data on the device.`,
+      `Create bootable USB on ${selectedDevice?.device_name}?
+
+This will erase all data on the device.`,
       [
         { text: 'Cancel', onPress: () => {} },
         { text: 'Proceed', onPress: () => safetyCheckMutation.mutate(), style: 'destructive' },
