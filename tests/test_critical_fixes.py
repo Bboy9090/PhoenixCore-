@@ -24,7 +24,7 @@ def test_circular_import_fix():
         print("✅ Successfully imported from hardware_profiles.py")
         
         # Test that usb_builder imports from models
-        from src.core.usb_builder import USBBuilder
+        from src.core.usb_builder import StorageBuilder
         print("✅ Successfully imported from usb_builder.py")
         
         # Test that other modules import from models
@@ -248,7 +248,7 @@ def test_import_compatibility():
         test_imports = [
             "from src.core.models import HardwareProfile, DeploymentType",
             "from src.core.hardware_profiles import create_mac_hardware_profile",
-            "from src.core.usb_builder import USBBuilder", 
+            "from src.core.usb_builder import StorageBuilder",
             "from src.core.patch_pipeline import PatchPlanner",
             "from src.core.hardware_matcher import HardwareMatcher",
             "from src.core.hardware_detector import DetectedHardware",

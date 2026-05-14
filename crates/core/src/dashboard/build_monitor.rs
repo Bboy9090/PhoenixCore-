@@ -126,7 +126,7 @@ impl BuildManager {
 
         // Create log file
         let log_path = build_dir.join("build.log");
-        let log_file = File::create(&log_path)
+        let _log_file = File::create(&log_path)
             .map_err(|e| format!("Failed to create log file: {}", e))?;
 
         // Update status

@@ -3,7 +3,7 @@
 /// Provides real-time system metrics including CPU, memory, disk, and hardware information.
 
 use serde::{Deserialize, Serialize};
-use sysinfo::{System, SystemExt, ProcessExt, DiskExt, NetworkExt, Pid};
+use sysinfo::{System, SystemExt, ProcessExt, DiskExt, NetworkExt, CpuExt, PidExt, NetworksExt};
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 
@@ -169,7 +169,7 @@ pub fn get_disk_info() -> Result<Vec<DiskInfo>, String> {
             DiskInfo {
                 device: disk.name().to_string_lossy().to_string(),
                 mount_point: disk.mount_point().to_string_lossy().to_string(),
-                filesystem: disk.file_system().to_string_lossy().to_string(),
+                filesystem: String::from_utf8_lossy(disk.file_system()).to_string(),
                 total_size,
                 used_size,
                 available_size,
@@ -194,7 +194,7 @@ pub fn get_processes() -> Result<Vec<ProcessInfo>, String> {
             ProcessInfo {
                 pid: process.pid().as_u32(),
                 name: process.name().to_string(),
-                user: format!("uid:{}", process.run_as().unwrap_or(None).unwrap_or(0)),
+                user: process.user_id().map(|uid| format!("uid:{:?}", uid)).unwrap_or_else(|| "unknown".to_string()),
                 cpu_usage: process.cpu_usage(),
                 memory_usage: process.memory() * 1024, // Convert to bytes
                 status: format!("{:?}", process.status()),
@@ -294,7 +294,7 @@ pub fn get_partitions() -> Result<Vec<PartitionInfo>, String> {
             PartitionInfo {
                 device,
                 mount_point,
-                filesystem: disk.file_system().to_string_lossy().to_string(),
+                filesystem: String::from_utf8_lossy(disk.file_system()).to_string(),
                 total_size,
                 used_size,
                 available_size,
