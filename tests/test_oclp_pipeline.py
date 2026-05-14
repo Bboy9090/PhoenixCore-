@@ -40,116 +40,115 @@ def setup_test_logging():
 def test_hardware_detection():
     """Test hardware detection functionality"""
     print("\n=== Testing Hardware Detection ===")
-    
+
     detector = HardwareDetector()
     hardware = detector.detect_hardware()
-    
+
     if hardware:
         print(f"✓ Hardware detected: {hardware.get_summary()}")
         print(f"  Platform: {hardware.platform}")
         print(f"  Confidence: {hardware.detection_confidence.value}")
-        
+
         if hardware.platform.lower() == "mac" or hardware.system_manufacturer == "Apple":
             print("✓ Mac hardware confirmed - OCLP compatible")
-            return True, hardware
         else:
             print(f"ℹ Non-Mac system detected ({hardware.platform}) - OCLP not applicable")
-            return False, hardware
     else:
         print("✗ Hardware detection failed")
-        return False, None
+
+    assert hardware is not None
 
 
 def test_usb_device_detection():
     """Test USB device detection"""
     print("\n=== Testing USB Device Detection ===")
-    
+
     disk_manager = DiskManager()
     removable_drives = disk_manager.get_removable_drives()
-    
+
     print(f"Found {len(removable_drives)} removable drives:")
     suitable_devices = []
-    
+
     for drive in removable_drives:
         size_gb = drive.size_bytes / (1024**3)
         is_suitable = size_gb >= 16.0
         status = "✓ Suitable" if is_suitable else "✗ Too small"
-        
+
         print(f"  {status}: {drive.model} - {size_gb:.1f}GB ({drive.device_path})")
-        
+
         if is_suitable:
             suitable_devices.append(drive)
-    
-    return suitable_devices
+
+    assert disk_manager is not None
 
 
 def test_pipeline_manager():
     """Test pipeline manager integration"""
     print("\n=== Testing Pipeline Manager ===")
-    
+
     manager = create_pipeline_manager()
-    
+
     # Test hardware detection
     print("Testing hardware detection...")
     hardware_success = manager.detect_hardware()
     print(f"Hardware detection: {'✓ Success' if hardware_success else '✗ Failed'}")
-    
+
     # Test USB scanning
     print("Testing USB device scanning...")
     usb_devices = manager.scan_usb_devices()
     print(f"USB scanning: ✓ Found {len(usb_devices)} suitable devices")
-    
+
     # Test configuration
     print("Testing pipeline configuration...")
     config_success = manager.configure_pipeline(
         automation_mode=AutomationMode.GUIDED
     )
     print(f"Configuration: {'✓ Success' if config_success else '✗ Failed'}")
-    
+
     ui_state = manager.get_ui_state()
     print(f"UI State - Can start: {ui_state.can_start}, Status: {ui_state.status_message}")
-    
-    return manager
+
+    assert manager is not None
 
 
 def test_quick_deployment():
     """Test quick deployment helper"""
     print("\n=== Testing Quick Deployment Helper ===")
-    
+
     quick_deploy = OCLPQuickDeployment()
-    
+
     # Test compatible models
     compatible_models = quick_deploy.get_compatible_mac_models()
     print(f"Compatible Mac models: {len(compatible_models)}")
-    
+
     if compatible_models:
         print("Sample compatible models:")
         for model in compatible_models[:5]:  # Show first 5
             print(f"  • {model}")
         if len(compatible_models) > 5:
             print(f"  ... and {len(compatible_models) - 5} more")
-    
+
     # Test time estimation
     estimated_time = quick_deploy.estimate_deployment_time(12.5)  # 12.5GB installer
     print(f"Estimated deployment time for 12.5GB installer: {estimated_time} minutes")
-    
-    return quick_deploy
+
+    assert quick_deploy is not None
 
 
 def test_pipeline_configuration():
     """Test different pipeline configurations"""
     print("\n=== Testing Pipeline Configurations ===")
-    
+
     # Test standard pipeline
     print("Creating standard pipeline...")
     standard_pipeline = create_standard_pipeline(AutomationMode.FULLY_AUTOMATIC)
     print("✓ Standard pipeline created")
-    
+
     # Test expert pipeline
     print("Creating expert pipeline...")
     expert_pipeline = create_expert_pipeline(preserve_temp_files=True)
     print("✓ Expert pipeline created")
-    
+
     # Test custom configuration
     print("Creating custom configuration...")
     custom_config = PipelineConfiguration(
@@ -161,8 +160,10 @@ def test_pipeline_configuration():
     )
     custom_pipeline = OCLPAutomationPipeline(custom_config)
     print("✓ Custom pipeline created")
-    
-    return standard_pipeline, expert_pipeline, custom_pipeline
+
+    assert standard_pipeline is not None
+    assert expert_pipeline is not None
+    assert custom_pipeline is not None
 
 
 def interactive_pipeline_test():

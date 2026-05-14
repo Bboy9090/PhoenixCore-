@@ -11,7 +11,7 @@ import json
 from dataclasses import dataclass
 import os
 import re
-from datetime import datetime
+from datetime import datetime, UTC
 from html import escape
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
@@ -343,7 +343,7 @@ class PhoenixDocsBuilder:
         self.template = template or DEFAULT_TEMPLATE
         self.markdown = markdown_engine or SimpleMarkdownRenderer()
         self.build_version = build_version
-        self.build_timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        self.build_timestamp = datetime.now(UTC).isoformat(timespec="seconds")
 
     def build(self) -> Dict[str, List[Dict[str, str]]]:
         """Render Markdown sources into HTML documents.

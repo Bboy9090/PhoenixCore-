@@ -36,17 +36,17 @@ def test_circular_import_fix():
         # Test creating a Mac hardware profile
         profile = create_mac_hardware_profile("MacBookPro15,1")
         print(f"✅ Successfully created hardware profile: {profile.name}")
-        
-        return True
+
+        assert profile is not None
         
     except ImportError as e:
         print(f"❌ Import Error: {e}")
         traceback.print_exc()
-        return False
+        raise
     except Exception as e:
         print(f"❌ Error: {e}")
         traceback.print_exc()
-        return False
+        raise
 
 def test_security_controls():
     """Test 2: Verify security controls are enforced"""
@@ -119,14 +119,12 @@ def test_security_controls():
             print("✅ COMPLIANT mode correctly blocked dangerous action")
         else:
             print(f"❌ ERROR: Dangerous action was not blocked, got {security_result.result.value}")
-            return False
-        
-        return True
-        
+            raise AssertionError(f"Dangerous action was not blocked")
+
     except Exception as e:
         print(f"❌ Error testing security controls: {e}")
         traceback.print_exc()
-        return False
+        raise
 
 def test_execution_targeting():
     """Test 3: Verify execution targeting safety"""
@@ -162,28 +160,26 @@ def test_execution_targeting():
             print("✅ All dangerous system paths correctly blocked")
         else:
             print(f"❌ ERROR: Only {blocked_count}/{len(dangerous_paths)} dangerous paths blocked")
-            return False
-        
+            raise AssertionError(f"Only {blocked_count}/{len(dangerous_paths)} dangerous paths blocked")
+
         # Test that safe paths are allowed (create temporary directories to test)
         with tempfile.TemporaryDirectory() as temp_dir:
             safe_paths = [
                 os.path.join(temp_dir, "safe_mount"),
                 f"/tmp/{os.path.basename(temp_dir)}",
             ]
-            
+
             for path in safe_paths:
                 os.makedirs(path, exist_ok=True)
                 if planner._validate_target_mount_point(path):
                     print(f"✅ Correctly allowed safe path: {path}")
                 else:
                     print(f"❌ ERROR: Failed to allow safe path: {path}")
-        
-        return True
-        
+
     except Exception as e:
         print(f"❌ Error testing execution targeting: {e}")
         traceback.print_exc()
-        return False
+        raise
 
 def test_provider_integration():
     """Test 4: Verify provider integration wiring"""
@@ -204,31 +200,31 @@ def test_provider_integration():
             print("✅ macOS provider has PatchPlanner integration")
         else:
             print("❌ ERROR: macOS provider missing PatchPlanner")
-            return False
-        
+            raise AssertionError("macOS provider missing PatchPlanner")
+
         # Check security mode
         if macos_provider.patch_planner.safety_validator.patch_mode.value == "compliant":
             print("✅ macOS provider using COMPLIANT security mode")
         else:
             print(f"❌ ERROR: macOS provider not using COMPLIANT mode: {macos_provider.patch_planner.safety_validator.patch_mode.value}")
-            return False
-        
+            raise AssertionError("macOS provider not using COMPLIANT mode")
+
         # Test Windows provider integration
         windows_provider = WindowsProvider(config)
-        
+
         if hasattr(windows_provider, 'patch_planner') and isinstance(windows_provider.patch_planner, PatchPlanner):
             print("✅ Windows provider has PatchPlanner integration")
         else:
             print("❌ ERROR: Windows provider missing PatchPlanner")
-            return False
-        
+            raise AssertionError("Windows provider missing PatchPlanner")
+
         # Check security mode
         if windows_provider.patch_planner.safety_validator.patch_mode.value == "compliant":
             print("✅ Windows provider using COMPLIANT security mode")
         else:
             print(f"❌ ERROR: Windows provider not using COMPLIANT mode: {windows_provider.patch_planner.safety_validator.patch_mode.value}")
-            return False
-        
+            raise AssertionError("Windows provider not using COMPLIANT mode")
+
         # Test that new methods exist
         methods_to_check = ['prepare_patched_image', 'get_recommended_patches']
         for method_name in methods_to_check:
@@ -236,14 +232,12 @@ def test_provider_integration():
                 print(f"✅ macOS provider has {method_name} method")
             else:
                 print(f"❌ ERROR: macOS provider missing {method_name} method")
-                return False
-        
-        return True
-        
+                raise AssertionError(f"macOS provider missing {method_name} method")
+
     except Exception as e:
         print(f"❌ Error testing provider integration: {e}")
         traceback.print_exc()
-        return False
+        raise
 
 def test_import_compatibility():
     """Test 5: Verify import compatibility across the system"""
@@ -268,15 +262,14 @@ def test_import_compatibility():
                 print(f"✅ {import_stmt}")
             except ImportError as e:
                 print(f"❌ FAILED: {import_stmt} - {e}")
-                return False
-        
+                raise
+
         print("✅ All import compatibility tests passed")
-        return True
-        
+
     except Exception as e:
         print(f"❌ Error testing import compatibility: {e}")
         traceback.print_exc()
-        return False
+        raise
 
 def main():
     """Run all critical fix tests"""

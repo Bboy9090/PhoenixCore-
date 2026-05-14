@@ -91,18 +91,17 @@ def test_hardware_detection():
                 print("❌ Hardware detection failed")
         else:
             print("⚠️  Hardware detection not available on this platform")
-        
+
         print("✅ All hardware detection tests completed successfully!")
-        return True
-        
+
     except ImportError as e:
         print(f"❌ Import error: {e}")
-        return False
+        raise
     except Exception as e:
         print(f"❌ Test error: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 if __name__ == "__main__":
