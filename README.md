@@ -1,12 +1,19 @@
-# Phoenix Core (Unified)
+# ARCWYRE OS
 
-Phoenix Core is a professional, cross-platform OS deployment system. This repository contains both the **modern cloud-ready architecture** and the **original desktop tools** in a unified, modular structure.
+ARCWYRE OS is a repair-first and recovery-first operating-system platform built around boot recovery, diagnostics, system imaging, machine repair, and creator-owned computing.
+
+The project follows a two-track development strategy:
+
+1. **ARCWYRE OS Desktop**: A Linux-based public desktop edition designed to ship first and deliver immediate recovery utility.
+2. **ARCWYRE Native**: A long-term, from-scratch operating-system branch built around the sovereign **ARCWYRE Kernel**.
+
+*"Phoenix" was the original project codename and is now deprecated as the public brand name.*
 
 ---
 
-## 🚀 Unified Architecture
+## 🚀 Platform Architecture
 
-The repository is organized into primary modules that coexist and interact:
+The platform is organized into primary modules designed for machine resurrection:
 
 - **[`backend/`](file:///Users/bj90-m1/Documents/GitHub/PhoenixCore-/backend)**: **Central FastAPI Service**. The primary API for hardware discovery and USB imaging.
 - **[`mobile/`](file:///Users/bj90-m1/Documents/GitHub/PhoenixCore-/mobile)**: **React Native / Expo App**. Modern mobile client for managing Phoenix Core.
