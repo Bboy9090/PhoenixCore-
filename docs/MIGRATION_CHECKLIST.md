@@ -38,29 +38,33 @@ This checklist tracks the staged transition from Phoenix to ARCWYRE.
     - **Vite Build**: PASSED (Offline production build successful).
     - **Status**: **LOCKED**.
 
-## Phase 2: Architecture & Roadmap ⏳
-- [ ] Create `docs/ARCWYRE_PLATFORM_ARCHITECTURE.md`.
-- [ ] Create `docs/ARCWYRE_OS_DESKTOP_ROADMAP.md`.
-- [ ] Update `docs/ARCHITECTURE.md` (Transitional).
-- [ ] Align PR28/PR29 reports with ARCWYRE naming.
+## Phase 2: Architecture & Roadmap Alignment ✅
+- [x] Create `docs/ARCWYRE_PLATFORM_ARCHITECTURE.md`.
+- [x] Create `docs/ARCWYRE_OS_DESKTOP_ROADMAP.md`.
+- [x] Create `docs/ARCWYRE_NATIVE_PRD.md`.
+- [x] Create `docs/ARCWYRE_SYSTEM_BOUNDARIES.md`.
+- [x] Create `docs/ARCWYRE_PHASE_2_AUDIT.md`.
+- [x] Define "Bobby’s Worldwide OS" (BWOS) as the Master Platform.
+- [x] Create `docs/PLATFORM_EDITION_MODEL.md`.
+- [x] Create `docs/BWOS_MASTER_PLATFORM_PRD.md`.
+- [x] Create `docs/EDITION_MANIFEST_SPEC.md`.
+- [x] **Status**: **LOCKED**.
 
-## Phase 3: Code Audit 🛑
-- [ ] Search for "Phoenix" in `apps/`.
-- [ ] Search for "Phoenix" in `crates/`.
-- [ ] Search for "Phoenix" in `os/`.
-- [ ] Search for "Phoenix" in build scripts (`.sh`, `Makefile`).
-- [ ] Classify references:
-    - Safe to rename (UI labels, comments).
-    - Risky (Package IDs, internal module names).
+## Phase 2B: Structural Consolidation ⏳
+- [ ] Create `docs/REPO_CONSOLIDATION_PLAN.md`.
+- [ ] Initialize `editions/` folder structure.
+- [ ] Initialize `core/` folder structure.
+- [ ] Create `editions/thunder-god/edition.yaml`.
+- [ ] Create `editions/arcwyre/edition.yaml`.
+- [ ] Create `editions/blue-phoenix/edition.yaml`.
+- [ ] Create `editions/forge/edition.yaml`.
 
-## Phase 4: Implementation 🛑
-- [ ] Rename safe UI strings.
-- [ ] Update build-time environment variables.
-- [ ] Update ISO volume labels and metadata.
-- [ ] Update binary names (e.g., `phoenix-cli` -> `arcwyre-cli`).
+## Phase 3: Core Integration 🛑
+- [ ] Port Python recovery logic to Rust Agent.
+- [ ] Implement "Sacred Minimal" communication protocol.
+- [ ] Standardize Core Crates in `core/shared`.
 
-## Phase 5: Verification 🛑
-- [ ] Verify build pass (`cargo build`).
-- [ ] Verify UI render.
-- [ ] Verify ISO creation pass.
-- [ ] Final "Truth-First" audit of naming consistency.
+## Phase 4: Edition Synthesis 🛑
+- [ ] Implement Edition Builder scripts.
+- [ ] Implement UI Theme-Switcher (Manifest-based).
+- [ ] Verify ISO creation for multiple editions.

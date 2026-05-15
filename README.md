@@ -1,13 +1,17 @@
-# ARCWYRE OS
+# Bobby’s Worldwide OS (BWOS)
 
-ARCWYRE OS is a repair-first and recovery-first operating-system platform built around boot recovery, diagnostics, system imaging, machine repair, and creator-owned computing.
+Bobby’s Worldwide OS is a sovereign, high-integrity operating-system platform designed for machine recovery, system repair, and creator-owned computing. It is the parent ecosystem for a family of specialized Editions.
 
-The project follows a two-track development strategy:
+## 🌟 The Edition Model
+BWOS follows a "One Platform, Many Faces" strategy. All editions share the same hardened core, safety gates, and recovery spine, but provide tailored visual identities and package presets:
 
-1. **ARCWYRE OS Desktop**: A Linux-based public desktop edition designed to ship first and deliver immediate recovery utility.
-2. **ARCWYRE Native**: A long-term, from-scratch operating-system branch built around the sovereign **ARCWYRE Kernel**.
+- **Thunder God Edition**: The heroic, electric desktop experience.
+- **ARCWYRE Edition**: The sleek, modern cyber-recovery suite.
+- **Forge Edition**: The industrial technician's toolset.
+- **Blue Phoenix Edition**: The classic legacy UI and brand experience.
+- **Native Preview**: The sovereign, from-scratch kernel development track.
 
-*"Phoenix" was the original project codename and is now deprecated as the public brand name.*
+*"Phoenix" and "ARCWYRE" remain as internal codenames and specialized public editions within the BWOS ecosystem.*
 
 ---
 
@@ -16,7 +20,8 @@ The project follows a two-track development strategy:
 - **Phase 0: Documentation Pivot**: ✅ Locked
 - **Phase 1: Visual Identity Foundation**: ✅ Locked
 - **Phase 1A/B: Offline Build Stabilization**: ✅ Locked
-- **Phase 2: Architecture Alignment**: 🏗️ In Progress
+- **Phase 2: Architecture Alignment**: ✅ Locked (BWOS Master Platform)
+- **Phase 2B: Structural Consolidation**: 🏗️ In Progress
 
 ### Build Verification (Control Center)
 The ARCWYRE Control Center frontend has been verified to build in an offline, air-gapped environment.
