@@ -1,5 +1,4 @@
-use crate::rescue::{RescueService, DeviceMode};
-use crate::capability::{CapabilityMatrix, ActionId, DeviceState};
+use crate::capability::{CapabilityMatrix, DeviceState};
 use anyhow::Result;
 use std::time::Duration;
 use std::thread;

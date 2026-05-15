@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use phoenix_core::{now_utc_rfc3339, DeviceGraph, Disk, HostInfo, Partition, Volume};
+use phoenix_core::DeviceGraph;
 
 pub fn build_device_graph() -> Result<DeviceGraph> {
     #[cfg(target_os = "macos")]

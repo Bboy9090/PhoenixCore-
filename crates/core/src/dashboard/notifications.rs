@@ -136,6 +136,7 @@ impl NotificationManager {
     }
 
     /// Get icon path for notification type
+    #[allow(dead_code)]
     fn get_icon_for_type(notification_type: &NotificationType) -> &str {
         match notification_type {
             NotificationType::BuildSuccess => "success",

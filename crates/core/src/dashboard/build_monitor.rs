@@ -12,7 +12,7 @@
 /// - Build statistics and metrics
 
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -64,9 +64,9 @@ pub struct BuildStatus {
     pub build_id: String,
 }
 
-/// Log entry structure
+/// Build log entry structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LogEntry {
+pub struct BuildLogEntry {
     pub timestamp: u64,
     pub level: String,
     pub message: String,
@@ -307,7 +307,7 @@ impl BuildManager {
         if let Some(ref mut process) = self.process {
             #[cfg(unix)]
             {
-                use std::os::unix::process::CommandExt;
+                
                 let _ = Command::new("kill")
                     .arg("-STOP")
                     .arg(process.id().to_string())
@@ -332,7 +332,7 @@ impl BuildManager {
         if let Some(ref mut process) = self.process {
             #[cfg(unix)]
             {
-                use std::os::unix::process::CommandExt;
+                
                 let _ = Command::new("kill")
                     .arg("-CONT")
                     .arg(process.id().to_string())
@@ -373,7 +373,7 @@ impl BuildManager {
     }
 
     /// Get build logs
-    pub fn get_logs(&self) -> Result<Vec<LogEntry>, String> {
+    pub fn get_logs(&self) -> Result<Vec<BuildLogEntry>, String> {
         let mut logs = Vec::new();
 
         if let Some(log_path) = &self.log_file {
@@ -383,7 +383,7 @@ impl BuildManager {
 
                 for (idx, line) in reader.lines().enumerate() {
                     if let Ok(log_line) = line {
-                        let entry = LogEntry {
+                        let entry = BuildLogEntry {
                             timestamp: status.start_time + (idx as u64),
                             level: Self::detect_log_level(&log_line),
                             message: log_line,

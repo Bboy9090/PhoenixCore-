@@ -46,7 +46,7 @@ fn enumerate_disks() -> Result<Vec<Disk>> {
 }
 
 fn enumerate_partitions(
-    disk: &str,
+    _disk: &str,
     disk_path: PathBuf,
     mounts: &HashMap<String, Vec<MountInfo>>,
     labels: &HashMap<String, String>,
