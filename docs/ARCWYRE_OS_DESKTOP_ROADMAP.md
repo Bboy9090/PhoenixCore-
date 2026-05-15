@@ -1,30 +1,44 @@
 # ARCWYRE OS Desktop Roadmap
 
-**Target:** The Linux-based "Shipping Edition" for machine recovery and creator workflows.
+This roadmap outlines the milestones for the **ARCWYRE OS Desktop** (Linux-based) branch.
 
-## Phase 1: Hardened Foundation (Current)
-- [ ] Finalize `live-build` configurations with ARCWYRE branding.
-- [ ] Integrate **ArcWatch** audit logging for all disk-imaging operations.
-- [ ] Deploy **ARCWYRE Control Center** as the primary live-session interface.
-- [ ] Complete the PR28/PR29 smoke test cycle for the hardened ISO.
+## 🟢 Milestone 1: Visual Foundation (Current)
+- [x] Establish ARCWYRE visual identity (colors, typography, logo).
+- [x] Stabilize Control Center offline build (Zero-dependency UI).
+- [x] Integrate ARCWYRE branding into Forge Dashboard.
+- [x] Finalize platform architecture alignment.
 
-## Phase 2: Tooling Consolidation
-- [ ] Integrate **BootForge** directly into the desktop UI for one-click USB creation.
-- [ ] Add **ARCWYRE Key** management for secure hardware authentication.
-- [ ] Optimize KDE Plasma configuration for high-performance recovery tasks.
-- [ ] Implement read-only/forensic-first mount policies globally.
+## 🟡 Milestone 2: Control Center MVP
+- [ ] Implement local-first data caching in Control Center.
+- [ ] Connect Control Center to ARCWYRE Agent (Local WebSocket/Bridge).
+- [ ] Build hardware discovery dashboard (CPU, Disk, Memory status).
+- [ ] Integrate BootForge imaging triggers from UI.
+- [ ] Implement StormGrid diagnostic visualization.
 
-## Phase 3: Creator Workflows
-- [ ] Add optimized media production toolsets (as isolated, non-destructive layers).
-- [ ] Implement secure containerization for user-owned apps.
-- [ ] Finalize the **StormGrid** package hub (curated, safe recovery tools).
+## 🟡 Milestone 3: Forge Mode (Recovery Environment)
+- [ ] Design minimal "Forge Mode" Linux environment (Live-build).
+- [ ] Autostart Control Center in fullscreen mode.
+- [ ] Lock down system permissions (Immutable rootfs).
+- [ ] Implement "One-Click Resurrection" imaging profile.
+- [ ] Add network-less diagnostics for air-gapped recovery.
 
-## Phase 4: Native Hybridization
-- [ ] Begin exposing `ARCWYRE Native` experimental builds via the Desktop bootloader.
-- [ ] Shared storage protocols between ARCWYRE OS Desktop and ARCWYRE Native.
-- [ ] Unified platform identity and telemetry (opt-in).
+## 🔵 Milestone 4: Distribution & Deployment
+- [ ] Finalize ARCWYRE OS ISO build scripts (Live-build/Custom).
+- [ ] Implement ARCWYRE OS Installer (Calamares-based or Custom).
+- [ ] Build "Cold Fuse" system imaging for local disks.
+- [ ] Public Beta release (Community testing).
 
-## Phase 5: Production Release
-- [ ] Generate stable `ARCWYRE OS Desktop 1.0` ISO.
-- [ ] Finalize "Truth-First" hardware compatibility list.
-- [ ] Launch public documentation and community support portal.
+## 🔵 Milestone 5: Visual Polish & Ecosystem
+- [ ] Custom KDE Plasma "Sacred Minimal" theme integration.
+- [ ] ARCWYRE Key hardware binding implementation.
+- [ ] ARCWYRE Agent privilege escalation security audit.
+- [ ] Ecosystem launch (App store/Recovery package repository).
+
+---
+
+## Release-Readiness Checklist
+- [ ] 100% Offline build verification.
+- [ ] Safety gate validation (Zero data-loss policy).
+- [ ] Hardware compatibility audit (Broad x86_64 support).
+- [ ] Recovery spine performance verification.
+- [ ] Documentation alignment (Internal Phoenix codenames audited).

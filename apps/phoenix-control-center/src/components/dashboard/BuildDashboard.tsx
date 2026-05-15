@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { invoke } from '../../lib/bridge';
 import { ScreenContainer } from '@/components/screen-container';
-import { LoadingSkeleton } from '@/components/LoadingSkeleton';
+import { SkeletonCard } from '@/components/LoadingSkeleton';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ArcwyreLogo } from '@/components/ArcwyreLogo';
+import { Cpu, HardDrive, Monitor, RefreshCw, Zap, Trash2, AlertTriangle, Lock } from '../Icons';
 
 interface BuildStatus {
   is_running: boolean;
@@ -41,16 +42,16 @@ const BUILD_STAGES = [
 ];
 
 const STAGE_COLORS = {
-  initializing: '#3b82f6',
-  verifying: '#8b5cf6',
-  debootstrap: '#ec4899',
-  installing_packages: '#f59e0b',
-  customizing: '#10b981',
-  building_iso: '#06b6d4',
-  generating_checksums: '#6366f1',
-  completed: '#22c55e',
-  failed: '#ef4444',
-  cancelled: '#6b7280',
+  initializing: '#31D7FF',
+  verifying: '#2F80FF',
+  debootstrap: '#C7D0D9',
+  installing_packages: '#FFB02E',
+  customizing: '#42F59B',
+  building_iso: '#31D7FF',
+  generating_checksums: '#2F80FF',
+  completed: '#42F59B',
+  failed: '#FF3B3B',
+  cancelled: '#C7D0D9',
 };
 
 export default function BuildDashboard() {
@@ -185,23 +186,23 @@ export default function BuildDashboard() {
 
   if (!buildStatus) {
     return (
-      <ScreenContainer className="p-6">
+      <ScreenContainer className="p-6 bg-arc-bg">
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-foreground">Build Dashboard</h1>
+            <h1 className="text-3xl font-bold text-arc-cyan">ARCWYRE Forge Dashboard</h1>
           </div>
 
-          <div className="bg-surface rounded-lg p-6 border border-border">
-            <h2 className="text-xl font-semibold text-foreground mb-4">Phoenix OS ISO Build</h2>
+          <div className="arc-card p-6">
+            <h2 className="text-xl font-semibold text-arc-silver mb-4">ARCWYRE OS ISO Build</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-muted mb-2">Build Directory</label>
+                <label className="block text-sm font-medium text-arc-silver/60 mb-2">Build Workspace</label>
                 <input
                   type="text"
                   value={buildDir}
                   onChange={(e) => setBuildDir(e.target.value)}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2 bg-arc-panel border border-arc-border rounded-lg text-arc-silver focus:outline-none focus:ring-2 focus:ring-arc-cyan"
                   placeholder="/path/to/build"
                 />
               </div>
@@ -209,9 +210,9 @@ export default function BuildDashboard() {
               <button
                 onClick={handleStartBuild}
                 disabled={isLoading}
-                className="w-full px-6 py-3 bg-primary text-background font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                className="arc-btn-primary w-full px-6 py-3 font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
               >
-                {isLoading ? 'Starting...' : 'Start Build'}
+                {isLoading ? 'Starting Forge...' : 'Start ARCWYRE Build'}
               </button>
             </div>
           </div>
@@ -228,57 +229,60 @@ export default function BuildDashboard() {
 
   return (
     <ErrorBoundary>
-      <ScreenContainer className="p-6">
+      <ScreenContainer className="p-6 bg-arc-bg">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Build Dashboard</h1>
-              <p className="text-muted text-sm mt-1">Build ID: {buildStatus.build_id}</p>
+            <div className="flex items-center gap-4">
+              <ArcwyreLogo size={48} />
+              <div>
+                <h1 className="text-3xl font-bold text-arc-cyan">ARCWYRE Forge</h1>
+                <p className="text-arc-silver/40 text-sm mt-1">Build ID: {buildStatus.build_id}</p>
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               {buildStatus.is_running && !buildStatus.is_paused && (
                 <>
                   <button
                     onClick={handlePauseBuild}
-                    className="px-4 py-2 bg-warning text-background font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                    className="px-4 py-2 bg-arc-gold text-arc-bg font-semibold rounded-lg hover:opacity-90 transition-opacity"
                   >
-                    Pause
+                    Pause Forge
                   </button>
                   <button
                     onClick={handleCancelBuild}
-                    className="px-4 py-2 bg-error text-background font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                    className="px-4 py-2 bg-arc-danger text-arc-silver font-semibold rounded-lg hover:opacity-90 transition-opacity"
                   >
-                    Cancel
+                    Abort
                   </button>
                 </>
               )}
               {buildStatus.is_paused && (
                 <button
                   onClick={handleResumeBuild}
-                  className="px-4 py-2 bg-success text-background font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                  className="px-4 py-2 bg-arc-success text-arc-bg font-semibold rounded-lg hover:opacity-90 transition-opacity"
                 >
-                  Resume
+                  Resume Forge
                 </button>
               )}
             </div>
           </div>
 
           {/* Progress Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Main Progress */}
-            <div className="md:col-span-2 bg-surface rounded-lg p-6 border border-border">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Build Progress</h2>
+            <div className="md:col-span-2 arc-card p-6">
+              <h2 className="text-lg font-semibold text-arc-silver mb-4 text-arc-cyan">Build Progress</h2>
 
               {/* Progress Bar */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-muted">Overall Progress</span>
-                  <span className="text-lg font-bold text-primary">{buildStatus.progress}%</span>
+                  <span className="text-sm font-medium text-arc-silver/60">Overall Machine Assembly</span>
+                  <span className="text-lg font-bold text-arc-cyan">{buildStatus.progress}%</span>
                 </div>
-                <div className="w-full bg-background rounded-full h-3 overflow-hidden">
+                <div className="w-full bg-arc-bg rounded-full h-3 overflow-hidden border border-arc-border">
                   <div
-                    className="h-full bg-gradient-to-r from-primary to-success transition-all duration-300"
+                    className="h-full bg-gradient-to-r from-arc-cyan to-arc-blue transition-all duration-300"
                     style={{ width: `${buildStatus.progress}%` }}
                   />
                 </div>
@@ -286,93 +290,90 @@ export default function BuildDashboard() {
 
               {/* Stage Indicator */}
               <div className="mb-6">
-                <p className="text-sm font-medium text-muted mb-2">Current Stage</p>
+                <p className="text-sm font-medium text-arc-silver/60 mb-2">Current Active Stage</p>
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: getStageColor(buildStatus.stage) }}
+                    className="w-4 h-4 rounded-full shadow-[0_0_8px_currentColor]"
+                    style={{ backgroundColor: getStageColor(buildStatus.stage), color: getStageColor(buildStatus.stage) }}
                   />
-                  <span className="text-foreground font-semibold capitalize">
+                  <span className="text-arc-silver font-semibold capitalize text-lg">
                     {buildStatus.stage.replace(/_/g, ' ')}
                   </span>
                 </div>
               </div>
 
-              {/* Stage Progress Chart */}
-              <div className="mt-6">
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={progressData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="name" tick={{ fill: '#9BA1A6', fontSize: 12 }} />
-                    <YAxis tick={{ fill: '#9BA1A6', fontSize: 12 }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1e2022',
-                        border: '1px solid #334155',
-                        borderRadius: '8px',
-                      }}
-                      formatter={(value) => `${value}%`}
-                    />
-                    <Bar dataKey="progress" fill="#0a7ea4" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              {/* Stage Progress Chart (Zero-Dependency Replacement) */}
+              <div className="mt-6 h-[250px] w-full flex items-end gap-2 border-b border-l border-arc-border p-4 overflow-x-auto">
+                {progressData.map((stage, idx) => (
+                  <div key={idx} className="flex-1 flex flex-col items-center gap-2 group min-w-[60px]">
+                    <div 
+                      className="w-full bg-arc-cyan/40 rounded-t transition-all duration-500 hover:bg-arc-cyan"
+                      style={{ height: `${stage.progress}%`, opacity: stage.completed ? 1 : 0.3 }}
+                    >
+                      <div className="text-[10px] text-arc-silver text-center -mt-6 font-mono">{stage.progress}%</div>
+                    </div>
+                    <div className="text-[8px] text-arc-silver/40 uppercase rotate-45 origin-left whitespace-nowrap mt-2">
+                      {stage.name}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Stats Panel */}
-            <div className="bg-surface rounded-lg p-6 border border-border">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Statistics</h2>
+            <div className="arc-card p-6">
+              <h2 className="text-lg font-semibold text-arc-silver mb-4 border-b border-arc-border pb-2">Diagnostics</h2>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <p className="text-xs font-medium text-muted uppercase">Elapsed Time</p>
-                  <p className="text-xl font-bold text-primary">
+                  <p className="text-xs font-medium text-arc-silver/40 uppercase tracking-widest">Elapsed Time</p>
+                  <p className="text-xl font-bold text-arc-cyan font-mono">
                     {formatTime(buildStatus.elapsed_time)}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs font-medium text-muted uppercase">Estimated Remaining</p>
-                  <p className="text-xl font-bold text-warning">
+                  <p className="text-xs font-medium text-arc-silver/40 uppercase tracking-widest">Est. Remaining</p>
+                  <p className="text-xl font-bold text-arc-gold font-mono">
                     {formatTime(buildStatus.estimated_time_remaining)}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs font-medium text-muted uppercase">Lines Processed</p>
-                  <p className="text-xl font-bold text-success">
+                  <p className="text-xs font-medium text-arc-silver/40 uppercase tracking-widest">Operations</p>
+                  <p className="text-xl font-bold text-arc-success font-mono">
                     {buildStatus.current_line} / {buildStatus.total_lines}
                   </p>
                 </div>
 
                 {buildStatus.iso_size && (
                   <div>
-                    <p className="text-xs font-medium text-muted uppercase">ISO Size</p>
-                    <p className="text-xl font-bold text-foreground">
+                    <p className="text-xs font-medium text-arc-silver/40 uppercase tracking-widest">Payload Size</p>
+                    <p className="text-xl font-bold text-arc-silver font-mono">
                       {(buildStatus.iso_size / 1024 / 1024 / 1024).toFixed(2)} GB
                     </p>
                   </div>
                 )}
 
-                <div>
-                  <p className="text-xs font-medium text-muted uppercase">Status</p>
-                  <div className="flex items-center gap-2 mt-1">
+                <div className="pt-4 border-t border-arc-border">
+                  <p className="text-xs font-medium text-arc-silver/40 uppercase tracking-widest mb-2">Core Status</p>
+                  <div className="flex items-center gap-2">
                     <div
                       className={`w-3 h-3 rounded-full ${
                         buildStatus.is_running
-                          ? 'bg-success animate-pulse'
+                          ? 'bg-arc-cyan animate-pulse shadow-[0_0_8px_rgba(49,215,255,0.6)]'
                           : buildStatus.stage === 'completed'
-                            ? 'bg-success'
+                            ? 'bg-arc-success'
                             : buildStatus.stage === 'failed'
-                              ? 'bg-error'
-                              : 'bg-warning'
+                              ? 'bg-arc-danger'
+                              : 'bg-arc-gold'
                       }`}
                     />
-                    <span className="text-sm font-medium text-foreground capitalize">
+                    <span className="text-sm font-medium text-arc-silver capitalize">
                       {buildStatus.is_paused
-                        ? 'Paused'
+                        ? 'System Paused'
                         : buildStatus.is_running
-                          ? 'Running'
+                          ? 'Active Forge'
                           : buildStatus.stage}
                     </span>
                   </div>
@@ -390,36 +391,36 @@ export default function BuildDashboard() {
           )}
 
           {/* Logs Section */}
-          <div className="bg-surface rounded-lg p-6 border border-border">
+          <div className="arc-card p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-foreground">Build Logs</h2>
+              <h2 className="text-lg font-semibold text-arc-silver">Build Logs</h2>
               <button
                 onClick={() => setShowLogs(!showLogs)}
-                className="text-sm text-primary hover:underline"
+                className="text-sm text-arc-cyan hover:underline"
               >
                 {showLogs ? 'Hide' : 'Show'}
               </button>
             </div>
 
             {showLogs && (
-              <div className="bg-background rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
+              <div className="bg-arc-bg border border-arc-border rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
                 {logs.length === 0 ? (
-                  <p className="text-muted">No logs yet...</p>
+                  <p className="text-arc-silver/40">No logs yet...</p>
                 ) : (
                   logs.map((log, idx) => (
                     <div
                       key={idx}
                       className={`py-1 ${
                         log.level === 'ERROR'
-                          ? 'text-error'
+                          ? 'text-arc-danger'
                           : log.level === 'WARN'
-                            ? 'text-warning'
+                            ? 'text-arc-gold'
                             : log.level === 'SUCCESS'
-                              ? 'text-success'
-                              : 'text-muted'
+                              ? 'text-arc-success'
+                              : 'text-arc-silver/60'
                       }`}
                     >
-                      <span className="text-muted">[{log.level}]</span> {log.message}
+                      <span className="opacity-40">[{log.level}]</span> {log.message}
                     </div>
                   ))
                 )}
@@ -430,9 +431,9 @@ export default function BuildDashboard() {
 
           {/* ISO Output */}
           {buildStatus.iso_path && (
-            <div className="bg-success/20 border border-success rounded-lg p-4">
-              <p className="text-success font-semibold mb-1">Build Complete!</p>
-              <p className="text-success/80 text-sm">ISO: {buildStatus.iso_path}</p>
+            <div className="bg-arc-success/10 border border-arc-success/40 rounded-lg p-4">
+              <p className="text-arc-success font-semibold mb-1">Build Complete!</p>
+              <p className="text-arc-success/80 text-sm">ISO: {buildStatus.iso_path}</p>
             </div>
           )}
         </div>

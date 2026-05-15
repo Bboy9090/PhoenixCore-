@@ -1,0 +1,60 @@
+/* ARCWYRE OS - Design Tokens (Phase 1) */
+/* Legacy Codename: Phoenix */
+
+:root {
+  /* Colors */
+  --arc-bg: #05070A;
+  --arc-surface: #0B1017;
+  --arc-panel: #101B2D;
+  --arc-border: #2F3B4D;
+  --arc-cyan: #31D7FF;
+  --arc-blue: #2F80FF;
+  --arc-silver: #C7D0D9;
+  --arc-gold: #FFB02E;
+  --arc-ember: #FF6B2E;
+  --arc-danger: #FF3B3B;
+  --arc-success: #42F59B;
+
+  /* Glow Effects */
+  --arc-glow-cyan: 0 0 15px rgba(49, 215, 255, 0.4);
+  --arc-glow-gold: 0 0 15px rgba(255, 176, 46, 0.4);
+  --arc-glow-ember: 0 0 15px rgba(255, 107, 46, 0.4);
+
+  /* Gradients */
+  --arc-gradient-storm: linear-gradient(135deg, #05070A 0%, #101B2D 100%);
+  --arc-gradient-arc: linear-gradient(90deg, #31D7FF 0%, #2F80FF 100%);
+}
+
+/* Base Styles */
+body {
+  background-color: var(--arc-bg);
+  color: var(--arc-silver);
+}
+
+.arc-card {
+  background-color: var(--arc-surface);
+  border: 1px solid var(--arc-border);
+  border-radius: 8px;
+}
+
+.arc-btn-primary {
+  background: var(--arc-gradient-arc);
+  color: var(--arc-bg);
+  box-shadow: var(--arc-glow-cyan);
+}
+
+.arc-btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--arc-cyan);
+  color: var(--arc-cyan);
+}
+
+.arc-text-cyan { color: var(--arc-cyan); }
+.arc-text-gold { color: var(--arc-gold); }
+.arc-text-silver { color: var(--arc-silver); }
+
+/* Machine Resurrection Aesthetic */
+.arc-panel-header {
+  border-bottom: 2px solid var(--arc-cyan);
+  background: rgba(49, 215, 255, 0.05);
+}

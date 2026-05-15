@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+# Configure SDDM to use the Phoenix theme
+if [ -d /usr/share/sddm/themes/phoenix ]; then
+    echo "Configuring SDDM theme to phoenix..."
+    mkdir -p /etc/sddm.conf.d
+    cat > /etc/sddm.conf.d/phoenix.conf << EOF
+[Theme]
+Current=phoenix
+EOF
+fi
+
+# Also disable the screen locker if possible for the live session to prevent lockouts
+# (Though for a hardened OS, we might want it, but for a live session it's annoying)
+# We'll just ensure the default user 'phoenix' auto-logins.
+mkdir -p /etc/sddm.conf.d
+cat >> /etc/sddm.conf.d/autologin.conf << EOF
+[Autologin]
+User=phoenix
+Session=plasma
+EOF

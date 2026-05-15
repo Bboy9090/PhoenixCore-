@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from './lib/bridge';
 import { SystemInfo, DiskInfo, ProcessInfo, NetworkInterface, HardwareInfo } from './system';
 
 /**

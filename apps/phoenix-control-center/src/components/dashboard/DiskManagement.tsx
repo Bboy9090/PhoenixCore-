@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { HardDrive, AlertTriangle, CheckCircle, RefreshCw, Zap, Lock, Trash2 } from 'lucide-react';
+import { HardDrive, AlertTriangle, CheckCircle, RefreshCw, Zap, Lock, Trash2 } from '../Icons';
 import { SkeletonPartitionList } from '../LoadingSkeleton';
 import { ErrorDisplay, WarningDisplay, SuccessDisplay } from '../ErrorBoundary';
 import { systemService } from '../../systemService';
@@ -105,25 +105,25 @@ export default function DiskManagement() {
   };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8 bg-arc-bg text-arc-silver">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Disk Management</h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-2">Manage disks, partitions, and storage</p>
+          <h1 className="text-3xl font-bold text-arc-cyan">ARCWYRE Disk Management</h1>
+          <p className="text-arc-silver/60 mt-2">Manage disks, partitions, and storage clusters</p>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing || loading}
-          className="btn-secondary flex items-center gap-2"
+          className="arc-btn-secondary flex items-center gap-2 px-4 py-2 rounded-lg"
         >
           <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
-          Refresh
+          Refresh Registry
         </button>
       </div>
 
       {/* Safety Notice */}
-      <WarningDisplay message="System disks are protected from dangerous operations. Only removable media and external drives can be scanned or repaired." />
+      <WarningDisplay message="Safety Protocols Active: System disks are protected from dangerous operations. Only removable media and external drives can be scanned or repaired." />
 
       {/* Messages */}
       {error && (
@@ -145,60 +145,60 @@ export default function DiskManagement() {
       ) : partitions.length > 0 ? (
         <div className="space-y-4">
           {partitions.map((partition) => (
-            <div
-              key={partition.device}
-              className={`card cursor-pointer transition-all ${
-                selectedPartition === partition.device
-                  ? 'ring-2 ring-phoenix-600'
-                  : 'hover:shadow-lg'
-              }`}
-              onClick={() => setSelectedPartition(
-                selectedPartition === partition.device ? null : partition.device
-              )}
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <HardDrive size={24} className="text-phoenix-600" />
-                  <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white">
-                      {partition.device}
-                    </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      {partition.mount_point} • {partition.filesystem}
-                    </p>
+              <div
+                key={partition.device}
+                className={`arc-card cursor-pointer transition-all p-6 ${
+                  selectedPartition === partition.device
+                    ? 'ring-2 ring-arc-cyan shadow-[0_0_15px_rgba(49,215,255,0.3)]'
+                    : 'hover:border-arc-cyan/30'
+                }`}
+                onClick={() => setSelectedPartition(
+                  selectedPartition === partition.device ? null : partition.device
+                )}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <HardDrive size={24} className="text-arc-cyan" />
+                    <div>
+                      <h3 className="font-semibold text-arc-silver">
+                        {partition.device}
+                      </h3>
+                      <p className="text-sm text-arc-silver/40">
+                        {partition.mount_point} • {partition.filesystem}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {partition.is_system_disk && (
+                      <span className="px-2 py-0.5 text-[10px] uppercase font-bold bg-arc-gold/10 text-arc-gold border border-arc-gold/20 rounded">System Disk</span>
+                    )}
+                    {partition.is_removable && (
+                      <span className="px-2 py-0.5 text-[10px] uppercase font-bold bg-arc-blue/10 text-arc-blue border border-arc-blue/20 rounded">Removable</span>
+                    )}
+                    {partition.is_read_only && (
+                      <span className="px-2 py-0.5 text-[10px] uppercase font-bold bg-arc-danger/10 text-arc-danger border border-arc-danger/20 rounded">Read-Only</span>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {partition.is_system_disk && (
-                    <span className="badge badge-warning">System Disk</span>
-                  )}
-                  {partition.is_removable && (
-                    <span className="badge badge-info">Removable</span>
-                  )}
-                  {partition.is_read_only && (
-                    <span className="badge badge-error">Read-Only</span>
-                  )}
-                </div>
-              </div>
 
               {/* Usage Bar */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                  <span className="text-sm text-arc-silver/60">
                     {formatBytes(partition.used_size)} / {formatBytes(partition.total_size)}
                   </span>
                   <span className={`text-sm font-semibold ${
                     partition.usage_percent > 90
-                      ? 'text-red-600 dark:text-red-400'
+                      ? 'text-arc-danger'
                       : partition.usage_percent > 75
-                      ? 'text-yellow-600 dark:text-yellow-400'
-                      : 'text-green-600 dark:text-green-400'
+                      ? 'text-arc-gold'
+                      : 'text-arc-success'
                   }`}>
                     {partition.usage_percent.toFixed(1)}%
                   </span>
                 </div>
-                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                <div className="w-full bg-arc-panel rounded-full h-2 border border-arc-border">
                   <div
                     className={`h-2 rounded-full transition-all ${getUsageColor(partition.usage_percent)}`}
                     style={{ width: `${Math.min(partition.usage_percent, 100)}%` }}
@@ -208,30 +208,30 @@ export default function DiskManagement() {
 
               {/* Details (when selected) */}
               {selectedPartition === partition.device && (
-                <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div className="space-y-4 pt-4 border-t border-arc-border">
                   {/* Disk Info Grid */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className={`p-3 rounded-lg ${getUsageBgColor(partition.usage_percent)}`}>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Total Size</p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
+                    <div className="p-3 rounded-lg bg-arc-panel/50 border border-arc-border">
+                      <p className="text-xs text-arc-silver/40 mb-1">Total Size</p>
+                      <p className="font-semibold text-arc-silver">
                         {formatBytes(partition.total_size)}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900">
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Used</p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
+                    <div className="p-3 rounded-lg bg-arc-blue/10 border border-arc-blue/20">
+                      <p className="text-xs text-arc-blue/60 mb-1">Used</p>
+                      <p className="font-semibold text-arc-blue">
                         {formatBytes(partition.used_size)}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-green-100 dark:bg-green-900">
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Available</p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
+                    <div className="p-3 rounded-lg bg-arc-success/10 border border-arc-success/20">
+                      <p className="text-xs text-arc-success/60 mb-1">Available</p>
+                      <p className="font-semibold text-arc-success">
                         {formatBytes(partition.available_size)}
                       </p>
                     </div>
-                    <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-700">
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Filesystem</p>
-                      <p className="font-semibold text-slate-900 dark:text-white">
+                    <div className="p-3 rounded-lg bg-arc-panel">
+                      <p className="text-xs text-arc-silver/40 mb-1">Filesystem</p>
+                      <p className="font-semibold text-arc-silver">
                         {partition.filesystem}
                       </p>
                     </div>
@@ -265,7 +265,7 @@ export default function DiskManagement() {
                           handleScanDisk(partition.device);
                         }}
                         disabled={scanning === partition.device}
-                        className="flex-1 btn-secondary flex items-center justify-center gap-2"
+                        className="flex-1 arc-btn-secondary flex items-center justify-center gap-2 p-2 rounded-lg"
                       >
                         <Zap size={16} className={scanning === partition.device ? 'animate-spin' : ''} />
                         {scanning === partition.device ? 'Scanning...' : 'Scan for Errors'}
@@ -276,7 +276,7 @@ export default function DiskManagement() {
                           handleRepairDisk(partition.device);
                         }}
                         disabled={repairing === partition.device}
-                        className="flex-1 btn-danger flex items-center justify-center gap-2"
+                        className="flex-1 bg-arc-danger/20 border border-arc-danger/40 text-arc-danger hover:bg-arc-danger/30 flex items-center justify-center gap-2 p-2 rounded-lg"
                       >
                         <Trash2 size={16} className={repairing === partition.device ? 'animate-spin' : ''} />
                         {repairing === partition.device ? 'Repairing...' : 'Repair Disk'}

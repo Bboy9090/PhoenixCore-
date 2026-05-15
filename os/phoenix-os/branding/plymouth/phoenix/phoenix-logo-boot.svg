@@ -1,0 +1,36 @@
+<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="400" fill="#0D0F12"/>
+  
+  <!-- Outer Glow -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#F58C1F" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#0D0F12" stop-opacity="0"/>
+    </radialGradient>
+    
+    <linearGradient id="wingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F58C1F"/>
+      <stop offset="100%" stop-color="#D94215"/>
+    </linearGradient>
+  </defs>
+  
+  <circle cx="200" cy="200" r="180" fill="url(#glow)"/>
+  
+  <!-- Phoenix Body & Head -->
+  <path d="M200 120 C210 120 220 135 220 150 C220 180 200 200 200 260 C200 200 180 180 180 150 C180 135 190 120 200 120 Z" fill="url(#wingGradient)"/>
+  <path d="M200 120 L215 110 L200 115 L185 110 L200 120" fill="#F58C1F"/> <!-- Head Crest -->
+  
+  <!-- Left Wing -->
+  <path d="M185 160 C140 140 100 170 80 220 C100 200 140 210 160 240 C140 220 100 240 90 280 C120 260 160 260 180 280 C160 270 120 290 110 340 C150 300 185 290 200 280" fill="url(#wingGradient)" opacity="0.9"/>
+  
+  <!-- Right Wing -->
+  <path d="M215 160 C260 140 300 170 320 220 C300 200 260 210 240 240 C260 220 300 240 310 280 C280 260 240 260 220 280 C240 270 280 290 290 340 C250 300 215 290 200 280" fill="url(#wingGradient)" opacity="0.9"/>
+  
+  <!-- Flame Base -->
+  <path d="M150 340 C170 320 200 310 200 280 C200 310 230 320 250 340 C220 360 180 360 150 340Z" fill="#D94215" opacity="0.8"/>
+  <path d="M170 360 C185 345 200 340 200 320 C200 340 215 345 230 360 C200 380 170 380 170 360Z" fill="#F58C1F" opacity="0.6"/>
+
+  <!-- Logo Text (Stylized) -->
+  <text x="200" y="385" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#F58C1F" text-anchor="middle" letter-spacing="4">PHOENIX</text>
+</svg>

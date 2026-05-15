@@ -1,5 +1,5 @@
 import React, { ReactNode, ReactElement } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw } from './Icons';
 
 interface Props {
   children: ReactNode;
@@ -78,16 +78,16 @@ export function ErrorDisplay({ error, onDismiss }: ErrorDisplayProps) {
   if (!error) return null;
 
   return (
-    <div className="card bg-red-50 dark:bg-red-900 border-red-200 dark:border-red-700 animate-slideIn">
+    <div className="arc-card bg-arc-danger/10 border-arc-danger/40 p-4 animate-slideIn">
       <div className="flex items-start gap-3">
-        <AlertCircle className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" size={20} />
+        <AlertCircle className="text-arc-danger flex-shrink-0 mt-0.5" size={20} />
         <div className="flex-1">
-          <p className="text-red-800 dark:text-red-200 text-sm">{error}</p>
+          <p className="text-arc-danger text-sm font-medium">{error}</p>
         </div>
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+            className="text-arc-danger hover:opacity-80"
           >
             ✕
           </button>
@@ -107,16 +107,16 @@ interface WarningDisplayProps {
 
 export function WarningDisplay({ message, onDismiss }: WarningDisplayProps) {
   return (
-    <div className="card bg-yellow-50 dark:bg-yellow-900 border-yellow-200 dark:border-yellow-700 animate-slideIn">
+    <div className="arc-card bg-arc-ember/10 border-arc-ember/40 p-4 animate-slideIn">
       <div className="flex items-start gap-3">
-        <div className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5">⚠️</div>
+        <div className="text-arc-ember flex-shrink-0 mt-0.5">⚠️</div>
         <div className="flex-1">
-          <p className="text-yellow-800 dark:text-yellow-200 text-sm">{message}</p>
+          <p className="text-arc-ember text-sm font-medium">{message}</p>
         </div>
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300"
+            className="text-arc-ember hover:opacity-80"
           >
             ✕
           </button>
@@ -136,16 +136,16 @@ interface SuccessDisplayProps {
 
 export function SuccessDisplay({ message, onDismiss }: SuccessDisplayProps) {
   return (
-    <div className="card bg-green-50 dark:bg-green-900 border-green-200 dark:border-green-700 animate-slideIn">
+    <div className="arc-card bg-arc-success/10 border-arc-success/40 p-4 animate-slideIn">
       <div className="flex items-start gap-3">
-        <div className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5">✓</div>
+        <div className="text-arc-success flex-shrink-0 mt-0.5">✓</div>
         <div className="flex-1">
-          <p className="text-green-800 dark:text-green-200 text-sm">{message}</p>
+          <p className="text-arc-success text-sm font-medium">{message}</p>
         </div>
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+            className="text-arc-success hover:opacity-80"
           >
             ✕
           </button>

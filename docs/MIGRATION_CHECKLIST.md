@@ -10,11 +10,33 @@ This checklist tracks the staged transition from Phoenix to ARCWYRE.
 - [ ] Update repository description (Manual step for Admin).
 - [ ] Add deprecation notices to legacy `docs/` files.
 
-## Phase 1: Visual Identity ⏳
-- [ ] Draft new ARCWYRE logo assets.
-- [ ] Update `phoenix-control-center` color tokens in CSS/Tailwind.
-- [ ] Replace legacy logo placeholders in frontend components.
-- [ ] Remove all mascot-related references.
+## Phase 1: Visual Identity ✅
+- [x] Create ARCWYRE design tokens (`arcwyre-theme.css`).
+- [x] Update `SystemInfo` UI with ARCWYRE branding.
+- [x] Update `BuildDashboard` UI with ARCWYRE Forge branding.
+- [x] Update `BuildProgressCard` UI with ARCWYRE branding.
+- [x] Replace legacy "Phoenix" display labels with "ARCWYRE" in UI.
+- [x] Add `ArcwyreLogo` SVG component.
+- [x] Update `BRAND_IDENTITY.md` with UI token guidance.
+- [x] Remove legacy mascot references from UI components.
+
+## Phase 1A: Integration & Wiring ✅
+- [x] Create `apps/phoenix-control-center` entry points (`main.tsx`, `App.tsx`, `index.html`).
+- [x] Import `arcwyre-theme.css` into global styles.
+- [x] Resolve broken `screen-container` imports with web-compatible version.
+- [x] Fix broken `SkeletonCard` imports in `BuildDashboard`.
+- [x] Integrate `ArcwyreLogo` into header and dashboard.
+
+## Phase 1B: Dependency Containment ✅
+- [x] Remove missing nonessential dependencies (`recharts`, `lucide-react`, `zustand`, `@tauri-apps/api`).
+- [x] Replace `lucide-react` with standalone `Icons.tsx` (plain SVG).
+- [x] Replace `recharts` with custom CSS/SVG charts in `BuildDashboard` and `BuildProgressCard`.
+- [x] Replace `zustand` with custom hook-based state management in `store/`.
+- [x] Create `lib/bridge.ts` for safe Tauri interaction and mock fallbacks.
+- [x] Verify build stability (PASSED).
+    - **TypeScript**: Verified (unrelated pre-existing `@types/node` issues noted).
+    - **Vite Build**: PASSED (Offline production build successful).
+    - **Status**: **LOCKED**.
 
 ## Phase 2: Architecture & Roadmap ⏳
 - [ ] Create `docs/ARCWYRE_PLATFORM_ARCHITECTURE.md`.

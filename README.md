@@ -11,6 +11,21 @@ The project follows a two-track development strategy:
 
 ---
 
+## 🏗️ Project Status
+
+- **Phase 0: Documentation Pivot**: ✅ Locked
+- **Phase 1: Visual Identity Foundation**: ✅ Locked
+- **Phase 1A/B: Offline Build Stabilization**: ✅ Locked
+- **Phase 2: Architecture Alignment**: 🏗️ In Progress
+
+### Build Verification (Control Center)
+The ARCWYRE Control Center frontend has been verified to build in an offline, air-gapped environment.
+- **Last Verified**: 2026-05-14
+- **Verification Command**: `cd apps/phoenix-control-center && ../../node_modules/.bin/vite build`
+- **Result**: `dist/` successfully generated with zero external runtime dependencies.
+
+---
+
 ## 🚀 Platform Architecture
 
 The platform is organized into primary modules designed for machine resurrection:

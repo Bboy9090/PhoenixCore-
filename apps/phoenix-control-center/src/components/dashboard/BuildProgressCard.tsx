@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { invoke } from '../../lib/bridge';
 
 interface BuildStatus {
   is_running: boolean;
@@ -66,25 +65,25 @@ export function BuildProgressCard() {
   }
 
   return (
-    <div className="bg-surface rounded-lg p-6 border border-border">
+    <div className="arc-card p-6">
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Phoenix OS Build</h3>
-          <p className="text-sm text-muted mt-1">{buildStatus.build_id}</p>
+          <h3 className="text-lg font-semibold text-arc-silver">ARCWYRE Forge Build</h3>
+          <p className="text-sm text-arc-silver/40 mt-1">{buildStatus.build_id}</p>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-primary">{buildStatus.progress}%</div>
-          <div className="text-xs text-muted mt-1">
-            {buildStatus.is_paused ? 'Paused' : 'Running'}
+          <div className="text-2xl font-bold text-arc-cyan">{buildStatus.progress}%</div>
+          <div className="text-xs text-arc-silver/60 mt-1">
+            {buildStatus.is_paused ? 'Paused' : 'Forging...'}
           </div>
         </div>
       </div>
 
       {/* Progress Bar */}
       <div className="mb-4">
-        <div className="w-full bg-background rounded-full h-2 overflow-hidden">
+        <div className="w-full bg-arc-bg rounded-full h-2 overflow-hidden border border-arc-border">
           <div
-            className="h-full bg-gradient-to-r from-primary to-success transition-all duration-300"
+            className="h-full bg-gradient-to-r from-arc-cyan to-arc-blue transition-all duration-300"
             style={{ width: `${buildStatus.progress}%` }}
           />
         </div>
@@ -106,31 +105,20 @@ export function BuildProgressCard() {
         </div>
       </div>
 
-      {/* Progress Chart */}
+      {/* Progress Chart (Zero-Dependency SVG Replacement) */}
       {progressHistory.length > 1 && (
-        <div className="mt-4">
-          <ResponsiveContainer width="100%" height={150}>
-            <LineChart data={progressHistory}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="time" tick={{ fill: '#9BA1A6', fontSize: 10 }} />
-              <YAxis tick={{ fill: '#9BA1A6', fontSize: 10 }} domain={[0, 100]} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1e2022',
-                  border: '1px solid #334155',
-                  borderRadius: '4px',
-                }}
-                formatter={(value) => `${value}%`}
-              />
-              <Line
-                type="monotone"
-                dataKey="progress"
-                stroke="#0a7ea4"
-                dot={false}
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="mt-4 pt-4 border-t border-arc-border h-32 relative">
+          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <path
+              d={`M ${progressHistory.map((p, i) => `${(i / (progressHistory.length - 1)) * 100},${100 - p.progress}`).join(' L ')}`}
+              fill="none"
+              stroke="var(--arc-cyan)"
+              strokeWidth="2"
+              className="transition-all duration-500"
+            />
+          </svg>
+          <div className="absolute bottom-0 left-0 text-[8px] text-arc-silver/20 font-mono">0%</div>
+          <div className="absolute top-0 left-0 text-[8px] text-arc-silver/20 font-mono">100%</div>
         </div>
       )}
     </div>

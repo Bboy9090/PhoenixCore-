@@ -1,37 +1,80 @@
-# ARCWYRE Platform Architecture
+# ARCWYRE OS Platform Architecture
 
-## 1. Vision: The Unified Recovery Spine
-ARCWYRE is designed as a modular, hardware-aware platform that provides a consistent recovery experience across different boot environments. It bridges the gap between existing Linux-based tools and a future sovereign OS.
+This document outlines the high-level architecture of the ARCWYRE OS ecosystem, a recovery-first, sovereign operating-system platform.
 
-## 2. Platform Tracks
+## 1. System Overview
 
-### A. ARCWYRE OS Desktop (Linux-Based)
-**Focus:** Immediate utility, hardware compatibility, and tool accessibility.
-- **Base:** Debian/Live-Build foundation.
-- **Desktop:** KDE Plasma (Sacred Minimal variant).
-- **Core Engine:** Integrated `ARCWYRE Core` (Rust) for disk imaging and diagnostics.
-- **Purpose:** Provide a production-ready environment for data recovery, machine repair, and system provisioning *today*.
+ARCWYRE OS is designed as a multi-tier platform that transitions from a practical, Linux-based desktop environment to a fully independent, from-scratch native OS.
 
-### B. ARCWYRE Native (Sovereign OS)
-**Focus:** Long-term independence, security, and "From-Scratch" performance.
-- **Base:** Custom `ARCWYRE Kernel`.
-- **Userland:** Custom shell and recovery environment.
-- **Boot Path:** Pure UEFI/x86_64 target (initially).
-- **Purpose:** Rebuild the operating system foundation without legacy monolith dependencies.
+### The Two Tracks
 
-## 3. Shared Components (The "Core")
-The `PhoenixCore-` repository (transitional name) houses the shared libraries and agents that power both tracks:
+1.  **ARCWYRE OS Desktop**: The "Public Shipping" edition. Built on a hardened Linux foundation (Debian/AOSP-based), it provides immediate hardware compatibility and a robust recovery environment.
+2.  **ARCWYRE Native**: The "Sovereign" branch. A clean-slate OS built on the custom **ARCWYRE Kernel**, designed for maximum security, auditability, and independence.
 
-- **ARCWYRE Agent:** The execution daemon that talks to hardware.
-- **ARCWYRE Control Center:** The unified dashboard (React/FastAPI).
-- **BootForge Engine:** The logic for creating bootable media (ISOs/USBs).
-- **ArcWatch:** The diagnostic and audit-trail subsystem.
+---
 
-## 4. Communication Layer
-- **Local:** Transactional JSON-line streaming between the Agent (Rust) and the Control Center (Python/FastAPI).
-- **Remote:** Secure, authenticated management via the ARCWYRE mobile client (Expo).
+## 2. High-Level Architecture Diagram
 
-## 5. Security & Safety Model
-- **"Truth-First" Audit:** Every destructive operation is logged and requires multi-step verification.
-- **Polkit Gating:** System-level disk mutation is restricted to the ARCWYRE platform agents.
-- **Read-Only Defaults:** Media is mounted read-only by default to prevent accidental data loss.
+```mermaid
+graph TD
+    User([User]) <--> CC[ARCWYRE Control Center]
+    CC <--> Agent[ARCWYRE Agent]
+    Agent <--> Core[ARCWYRE Core / PhoenixCore]
+    
+    subgraph "Execution Layer"
+        Core <--> Forge[ARCWYRE Forge]
+        Forge <--> BF[BootForge Engine]
+    end
+    
+    subgraph "Hardware Layer"
+        BF <--> TargetDisks[(Target Disks)]
+        BF <--> Key[ARCWYRE Key]
+    end
+    
+    subgraph "Platform Tracks"
+        Desktop[ARCWYRE OS Desktop - Linux]
+        Native[ARCWYRE Native - Custom Kernel]
+    end
+    
+    Desktop -.-> Native
+```
+
+---
+
+## 3. Core Components
+
+### ARCWYRE Control Center
+The primary user interface for system management, diagnostics, and recovery. Built as a high-integrity web application (React/Tauri) designed to run both as a desktop app and in the Forge recovery environment.
+
+### ARCWYRE Agent
+A privileged bridge service (Rust) that orchestrates communication between the Control Center UI and the low-level Core services. It enforces safety boundaries and validates all hardware-level operations.
+
+### ARCWYRE Core (PhoenixCore)
+The shared runtime engine and service layer. It contains the cross-platform Rust crates for safety, imaging, and hardware discovery that power both the Desktop and Native tracks.
+
+### BootForge Engine
+The existing high-performance imaging engine. It handles the low-level "Cold Fuse" imaging process, creating bootable installers for Windows, Linux, and macOS.
+
+### ARCWYRE Forge
+The dedicated recovery mode environment. When triggered, the system enters a minimal, hardened state (Forge Mode) where the Control Center performs deep system repair and imaging tasks.
+
+### ARCWYRE Key
+The hardware-backed identity and recovery device. It stores the system's "Sacred Truth" (backup keys, recovery images, and identity markers).
+
+---
+
+## 4. Recovery Spine Model
+
+The system is built around a **Recovery Spine**: every component is designed with a "Repair-First" mentality.
+- **Diagnostics**: Real-time monitoring via StormGrid.
+- **Auditability**: All hardware operations are logged and verified.
+- **Immutability**: Core OS components are protected via signed volumes and read-only partitions where possible.
+
+---
+
+## 5. Migration Path: Desktop to Native
+
+The long-term goal is the "Great Bridge":
+1.  **Phase 1**: Desktop (Linux) hosts the development and testing of Native components.
+2.  **Phase 2**: Native kernel (ARCWYRE Kernel) begins handling non-critical system tasks in parallel.
+3.  **Phase 3**: System transition—the Linux foundation is reduced to a compatibility layer for legacy apps, with ARCWYRE Native taking over the primary execution spine.
