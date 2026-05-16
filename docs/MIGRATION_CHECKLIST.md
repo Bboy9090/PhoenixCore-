@@ -59,10 +59,10 @@ This checklist tracks the staged transition from Phoenix to ARCWYRE.
 - [ ] Create `editions/blue-phoenix/edition.yaml`.
 - [ ] Create `editions/forge/edition.yaml`.
 
-## Phase 3: Core Integration 🛑
-- [ ] Port Python recovery logic to Rust Agent.
-- [ ] Implement "Sacred Minimal" communication protocol.
-- [ ] Standardize Core Crates in `core/shared`.
+## Phase 3: Core Integration ✅
+- [x] Port Python recovery logic to Rust Agent.
+- [x] Implement "Sacred Minimal" communication protocol.
+- [x] Standardize Core Crates in `core/shared`. (Build repaired for sysinfo 0.29.11)
 
 ## Phase 4: Edition Synthesis 🛑
 - [ ] Implement Edition Builder scripts.

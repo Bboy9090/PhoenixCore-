@@ -84,7 +84,11 @@ impl Default for HostInfo {
 }
 
 impl HostInfo {
-    pub fn new(os: impl Into<String>, os_version: impl Into<String>, machine: impl Into<String>) -> Self {
+    pub fn new(
+        os: impl Into<String>,
+        os_version: impl Into<String>,
+        machine: impl Into<String>,
+    ) -> Self {
         let machine = machine.into();
         Self {
             hostname: machine.clone(),

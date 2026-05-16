@@ -1,9 +1,9 @@
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use phoenix_core::{DeviceGraph, RunReport};
 use phoenix_host_windows::build_device_graph;
-use std::path::PathBuf;
 use std::fs;
-use anyhow::Context;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "phoenix-cli")]
@@ -85,21 +85,33 @@ fn main() -> anyhow::Result<()> {
                 println!("{}", graph.to_json(pretty)?);
             } else {
                 println!("Device Graph Generated (ID: {})", graph.run_id);
-                println!("Host: {} ({})", graph.host_info.hostname, graph.host_info.os);
+                println!(
+                    "Host: {} ({})",
+                    graph.host_info.hostname, graph.host_info.os
+                );
                 println!("Disks found: {}", graph.disks.len());
             }
         }
         Commands::Report { base } => {
             generate_report(base, None)?;
         }
-        Commands::HashDisk { disk, size_bytes, chunk_bytes, max_chunks, report } => {
-            use phoenix_imaging::{ChunkPlan, hash_disk_chunks};
-            
+        Commands::HashDisk {
+            disk,
+            size_bytes,
+            chunk_bytes,
+            max_chunks,
+            report,
+        } => {
+            use phoenix_imaging::{hash_disk_chunks, ChunkPlan};
+
             let plan = ChunkPlan::new(size_bytes, chunk_bytes);
-            println!("Starting read-only hash of {} ({} chunks)", disk, plan.total_chunks);
-            
+            println!(
+                "Starting read-only hash of {} ({} chunks)",
+                disk, plan.total_chunks
+            );
+
             let hashes = hash_disk_chunks(&disk, &plan, max_chunks)?;
-            
+
             if report {
                 let report_dir = generate_report(PathBuf::from("."), Some(&hashes))?;
                 println!("Hashes written to: {:?}", report_dir.join("hashes.json"));
@@ -119,22 +131,25 @@ fn main() -> anyhow::Result<()> {
             println!("Use this token with --token to authorize destructive operations.");
         }
         Commands::Preflight { disk, force, token } => {
-            use phoenix_safety::{SafetyContext, can_write_to_disk, SafetyDecision};
-            
+            use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
+
             // First, find the disk in the device graph to see if it's a system disk
             let graph = build_device_graph()?;
             let disk_info = graph.disks.iter().find(|d| d.id == disk);
-            
+
             let is_system = disk_info.map(|d| d.is_system_disk).unwrap_or(false);
-            
+
             let ctx = SafetyContext {
                 force_mode: force,
                 confirmation_token: token,
             };
-            
+
             match can_write_to_disk(&ctx, is_system) {
                 SafetyDecision::Allow => {
-                    println!("SUCCESS: Preflight passed for {}. Operation is AUTHORIZED.", disk);
+                    println!(
+                        "SUCCESS: Preflight passed for {}. Operation is AUTHORIZED.",
+                        disk
+                    );
                 }
                 SafetyDecision::Deny(reason) => {
                     println!("DENIED: Safety policy violation!");
@@ -148,11 +163,14 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn generate_report(base: PathBuf, hashes: Option<&Vec<phoenix_imaging::ChunkHash>>) -> anyhow::Result<PathBuf> {
+fn generate_report(
+    base: PathBuf,
+    hashes: Option<&Vec<phoenix_imaging::ChunkHash>>,
+) -> anyhow::Result<PathBuf> {
     let graph = build_device_graph()?;
     let run_id = graph.run_id.to_string();
     let report_dir = base.join("reports").join(&run_id);
-    
+
     fs::create_dir_all(&report_dir)
         .with_context(|| format!("Failed to create report directory: {:?}", report_dir))?;
 
@@ -167,7 +185,10 @@ fn generate_report(base: PathBuf, hashes: Option<&Vec<phoenix_imaging::ChunkHash
         status: "SUCCESS".to_string(),
         message: "Phoenix Core report generated.".to_string(),
     };
-    fs::write(report_dir.join("run.json"), serde_json::to_string_pretty(&run_report)?)?;
+    fs::write(
+        report_dir.join("run.json"),
+        serde_json::to_string_pretty(&run_report)?,
+    )?;
 
     // 3. log.txt
     let log_content = format!(
@@ -178,7 +199,10 @@ fn generate_report(base: PathBuf, hashes: Option<&Vec<phoenix_imaging::ChunkHash
 
     // 4. hashes.json (if provided)
     if let Some(h) = hashes {
-        fs::write(report_dir.join("hashes.json"), serde_json::to_string_pretty(h)?)?;
+        fs::write(
+            report_dir.join("hashes.json"),
+            serde_json::to_string_pretty(h)?,
+        )?;
     }
 
     println!("Report bundle written to: {:?}", report_dir);
