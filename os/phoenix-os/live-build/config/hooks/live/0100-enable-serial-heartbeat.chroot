@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+# Create a systemd service to announce boot success over serial
+cat <<EOF > /etc/systemd/system/bwos-heartbeat.service
+[Unit]
+Description=ARCWYRE Boot Heartbeat
+After=graphical.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo "BWOS_BOOT_SUCCESS_GRAPHICAL_REACHED" > /dev/ttyS0 || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target
+EOF
+
+systemctl enable bwos-heartbeat.service
+
+# Ensure kernel outputs to serial as well
+echo 'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT console=tty0 console=ttyS0,115200n8"' > /etc/default/grub.d/arcwyre-serial.cfg

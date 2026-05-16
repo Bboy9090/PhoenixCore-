@@ -76,4 +76,19 @@ Perform manual boot test using the parameters in [LIVE_BOOT_TESTING.md](file:///
 - Unauthenticated write access to virtual disks.
 
 ---
+
+## 6. Automation Status
+
+| Feature | Status | Method |
+| :--- | :--- | :--- |
+| **Vision/Computer Use** | ❌ BLOCKED | Restricted Host Environment |
+| **Serial Heartbeat** | ✅ WIRED | `0100-enable-serial-heartbeat.chroot` |
+| **Headless Verification** | 🏗️ READY | Via QEMU + Serial Redirect |
+
+**Future Automation Command (Next Build)**:
+```bash
+qemu-system-x86_64 -m 4G -cdrom <iso> -serial stdio -display none | grep "BWOS_BOOT_SUCCESS"
+```
+
+---
 **Verified by Antigravity AI Release Lead**
