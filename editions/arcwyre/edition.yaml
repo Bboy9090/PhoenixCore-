@@ -1,0 +1,49 @@
+id: arcwyre
+display_name: "Bobby’s Worldwide OS: ARCWYRE Edition"
+parent: "Bobby’s Worldwide OS"
+edition_type: "professional"
+tagline: "The modern cyber-recovery suite."
+description: "A sleek, professional edition focused on cyber-security, data recovery, and modern developer workflows. Features the ARCWYRE visual identity foundation."
+inherits_core_safety_rules: true
+
+theme:
+  colors:
+    primary: "#00E5FF"   # Circuit Cyan
+    secondary: "#94A3B8" # Metallic Silver
+    accent: "#F8FAFC"    # Pure White
+    background: "#0F172A" # Cyber Navy
+    surface: "#1E293B"
+    text: "#E2E8F0"
+
+palette:
+  path: "colors.css"
+
+branding:
+  path: "branding.md"
+  logo: "assets/arcwyre-logo.svg"
+  wallpaper: "assets/circuit-grid.png"
+
+packages:
+  profile: "package-profile.txt"
+  include:
+    - "bwos-core"
+    - "bootforge"
+    - "arcwyre-control-center"
+    - "forensic-toolset"
+  exclude: []
+
+features:
+  - "cyber_security_audit"
+  - "modern_dev_tools"
+  - "arcwyre_dashboard"
+
+build:
+  target: "live-image-amd64"
+  compression: "zstd"
+  iso_name: "bwos-arcwyre.iso"
+
+safety:
+  allow_destructive_disk_ops_by_default: false
+  require_dry_run_for_recovery_ops: true
+  inherit_agent_permissions: true
+  inherit_audit_rules: true

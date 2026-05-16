@@ -1,0 +1,10 @@
+# ARCWYRE Package Profile
+bwos-core
+bootforge
+arcwyre-control-center
+forensic-toolset
+wireshark-cli
+tcpdump
+nmap
+ghidra-headless
+sleuthkit

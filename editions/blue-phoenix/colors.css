@@ -1,0 +1,9 @@
+:root {
+  --bwos-primary: #2563EB;
+  --bwos-secondary: #60A5FA;
+  --bwos-accent: #FFFFFF;
+  --bwos-bg: #F8FAFC;
+  --bwos-surface: #FFFFFF;
+  --bwos-text: #1E293B;
+  --bwos-glow: rgba(37, 99, 235, 0.1);
+}

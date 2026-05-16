@@ -1,0 +1,49 @@
+id: thunder-god
+display_name: "Bobby’s Worldwide OS: Thunder God Edition"
+parent: "Bobby’s Worldwide OS"
+edition_type: "premium"
+tagline: "Boot the broken. Power the world."
+description: "The electric, storm-infused, heroic edition of BWOS. Optimized for high-fidelity desktop experiences and cinematic recovery workflows."
+inherits_core_safety_rules: true
+
+theme:
+  colors:
+    primary: "#62E8FF"   # Electric Cyan
+    secondary: "#FFD34D" # Thunder Gold
+    accent: "#C8332D"    # Hero Red
+    background: "#080B10" # Storm Black
+    surface: "#121820"
+    text: "#F7F1DA"      # Divine Ivory
+
+palette:
+  path: "colors.css"
+
+branding:
+  path: "branding.md"
+  logo: "assets/thunder-logo.svg"
+  wallpaper: "assets/storm-peak.png"
+
+packages:
+  profile: "package-profile.txt"
+  include:
+    - "bwos-core"
+    - "bootforge"
+    - "stormgrid-diagnostics"
+    - "thunder-god-assets"
+  exclude: []
+
+features:
+  - "cinematic_recovery_ui"
+  - "electric_theme_engine"
+  - "high_fidelity_diagnostics"
+
+build:
+  target: "live-image-amd64"
+  compression: "zstd"
+  iso_name: "bwos-thunder-god.iso"
+
+safety:
+  allow_destructive_disk_ops_by_default: false
+  require_dry_run_for_recovery_ops: true
+  inherit_agent_permissions: true
+  inherit_audit_rules: true

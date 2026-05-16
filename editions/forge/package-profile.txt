@@ -1,0 +1,10 @@
+# Forge Package Profile
+bwos-core
+bootforge-pro
+hardware-burn-in-tools
+mass-deployment-scripts
+memtest86-plus
+clonezilla-cli
+smartmontools
+badblocks
+nvme-cli

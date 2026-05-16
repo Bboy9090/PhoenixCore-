@@ -1,0 +1,9 @@
+# Blue Phoenix Package Profile
+bwos-core
+bootforge
+legacy-utility-set
+original-phoenix-wallpapers
+classic-sound-scheme
+gnome-calculator
+gedit
+gparted

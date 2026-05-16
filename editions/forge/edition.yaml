@@ -1,0 +1,49 @@
+id: forge
+display_name: "Bobby’s Worldwide OS: Forge Edition"
+parent: "Bobby’s Worldwide OS"
+edition_type: "industrial"
+tagline: "Industrial-grade recovery and repair."
+description: "A hardened, technician-focused edition built for field work, heavy-duty diagnostics, and large-scale system imaging."
+inherits_core_safety_rules: true
+
+theme:
+  colors:
+    primary: "#F97316"   # Hazard Orange
+    secondary: "#334155" # Industrial Grey
+    accent: "#38BDF8"    # Steel Blue
+    background: "#0F172A" # Deep Space
+    surface: "#1E293B"
+    text: "#F1F5F9"
+
+palette:
+  path: "colors.css"
+
+branding:
+  path: "branding.md"
+  logo: "assets/forge-hammer.svg"
+  wallpaper: "assets/industrial-bay.png"
+
+packages:
+  profile: "package-profile.txt"
+  include:
+    - "bwos-core"
+    - "bootforge-pro"
+    - "hardware-burn-in-tools"
+    - "mass-deployment-scripts"
+  exclude: []
+
+features:
+  - "mass_imaging"
+  - "hardware_burn_in"
+  - "technician_overlay"
+
+build:
+  target: "live-image-amd64"
+  compression: "zstd"
+  iso_name: "bwos-forge.iso"
+
+safety:
+  allow_destructive_disk_ops_by_default: false
+  require_dry_run_for_recovery_ops: true
+  inherit_agent_permissions: true
+  inherit_audit_rules: true

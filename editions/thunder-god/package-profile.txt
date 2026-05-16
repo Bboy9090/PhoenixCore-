@@ -1,0 +1,10 @@
+# Thunder God Package Profile
+bwos-core
+bootforge
+stormgrid-diagnostics
+thunder-god-assets
+vim
+curl
+zstd
+systemd-boot
+plymouth-theme-thunder
