@@ -89,8 +89,8 @@ fn select_sectors_per_cluster(total_sectors: u32) -> Result<u8> {
     let candidates = [1u8, 2, 4, 8, 16, 32, 64, 128];
     for spc in candidates {
         let fat = compute_fat_size(total_sectors, spc)?;
-        let data_sectors = total_sectors
-            .saturating_sub(RESERVED_SECTORS as u32 + NUM_FATS as u32 * fat);
+        let data_sectors =
+            total_sectors.saturating_sub(RESERVED_SECTORS as u32 + NUM_FATS as u32 * fat);
         let clusters = data_sectors / spc as u32;
         if clusters >= 65525 && clusters <= 0x0FFFFFF5 {
             return Ok(spc);
@@ -102,14 +102,13 @@ fn select_sectors_per_cluster(total_sectors: u32) -> Result<u8> {
 fn compute_fat_size(total_sectors: u32, spc: u8) -> Result<u32> {
     let mut fat_size = 1u32;
     loop {
-        let data_sectors = total_sectors
-            .saturating_sub(RESERVED_SECTORS as u32 + NUM_FATS as u32 * fat_size);
+        let data_sectors =
+            total_sectors.saturating_sub(RESERVED_SECTORS as u32 + NUM_FATS as u32 * fat_size);
         let clusters = data_sectors / spc as u32;
         if clusters == 0 {
             return Err(anyhow!("invalid FAT32 size"));
         }
-        let needed = ((clusters + 2) * 4 + (BYTES_PER_SECTOR as u32 - 1))
-            / BYTES_PER_SECTOR as u32;
+        let needed = ((clusters + 2) * 4 + (BYTES_PER_SECTOR as u32 - 1)) / BYTES_PER_SECTOR as u32;
         if needed == fat_size {
             return Ok(fat_size);
         }

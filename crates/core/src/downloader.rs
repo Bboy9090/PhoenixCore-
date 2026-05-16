@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs;
-use sha2::{Sha256, Digest};
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Payload {
@@ -44,7 +44,10 @@ impl PayloadDownloader {
             if is_valid {
                 println!("[DOWNLOADER] ✅ {} (v{}) verified.", p.name, p.version);
             } else {
-                println!("[DOWNLOADER] ⚠️  {} missing or corrupt. (Download required)", p.name);
+                println!(
+                    "[DOWNLOADER] ⚠️  {} missing or corrupt. (Download required)",
+                    p.name
+                );
                 // Real download logic would go here
             }
         }

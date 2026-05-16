@@ -42,7 +42,10 @@ pub fn run_legacy_patch(params: &LegacyPatchParams) -> Result<LegacyPatchResult>
         .ok_or_else(|| anyhow!("install macOS.app not found in source"))?;
     let candidates = patch_candidates(&app_root);
 
-    let model = params.model.clone().unwrap_or_else(|| "UnknownModel".to_string());
+    let model = params
+        .model
+        .clone()
+        .unwrap_or_else(|| "UnknownModel".to_string());
     let board_id = params.board_id.clone();
 
     let mut patched = Vec::new();
@@ -58,8 +61,8 @@ pub fn run_legacy_patch(params: &LegacyPatchParams) -> Result<LegacyPatchResult>
         if !path.exists() {
             continue;
         }
-        let mut value = Value::from_file(&path)
-            .with_context(|| format!("read {}", path.display()))?;
+        let mut value =
+            Value::from_file(&path).with_context(|| format!("read {}", path.display()))?;
         let mut changed = false;
         changed |= patch_supported_models(&mut value, &model);
         if let Some(board) = &board_id {
@@ -148,7 +151,11 @@ fn find_array_mut<'a>(value: &'a mut Value, key: &str) -> Option<&'a mut Vec<Val
 }
 
 fn find_install_app(root: &Path) -> Option<PathBuf> {
-    if root.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("app")).unwrap_or(false)
+    if root
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("app"))
+        .unwrap_or(false)
         && root.join("Contents/Resources/createinstallmedia").exists()
     {
         return Some(root.to_path_buf());

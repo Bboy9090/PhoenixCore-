@@ -1,6 +1,6 @@
-use std::process::Command;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use anyhow::{Result, Context};
+use std::process::Command;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeviceState {
@@ -51,8 +51,11 @@ impl RescueService {
 
     fn get_device_info(udid: &str) -> Result<DeviceState> {
         let output = Command::new("ideviceinfo")
-            .arg("-u").arg(udid).arg("-s")
-            .output().with_context(|| "Failed to execute ideviceinfo")?;
+            .arg("-u")
+            .arg(udid)
+            .arg("-s")
+            .output()
+            .with_context(|| "Failed to execute ideviceinfo")?;
         let info_str = String::from_utf8_lossy(&output.stdout);
         let mut product_type = "Unknown".to_string();
         let mut product_version = "Unknown".to_string();
@@ -73,6 +76,10 @@ impl RescueService {
 
     pub fn exit_recovery() -> Result<()> {
         let status = Command::new("irecovery").arg("-n").status()?;
-        if status.success() { Ok(()) } else { Err(anyhow::anyhow!("irecovery failed")) }
+        if status.success() {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("irecovery failed"))
+        }
     }
 }

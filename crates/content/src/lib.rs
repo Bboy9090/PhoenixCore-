@@ -1,11 +1,11 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use phoenix_core::WorkflowDefinition;
 use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use zip::write::FileOptions;
 use zip::ZipWriter;
+use zip::write::FileOptions;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PackManifest {
@@ -328,30 +328,28 @@ fn mount_iso(_path: &Path) -> Result<PreparedSource> {
 fn is_wim(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
-        .map(|ext| {
-            ext.eq_ignore_ascii_case("wim") || ext.eq_ignore_ascii_case("esd")
-        })
+        .map(|ext| ext.eq_ignore_ascii_case("wim") || ext.eq_ignore_ascii_case("esd"))
         .unwrap_or(false)
 }
 
 #[cfg(windows)]
 mod windows_impl {
     use super::{IsoMount, PreparedSource, SourceKind};
-    use anyhow::{anyhow, Result};
+    use anyhow::{Result, anyhow};
     use std::collections::HashSet;
     use std::path::{Path, PathBuf};
     use std::time::{Duration, Instant};
 
-    use windows::core::PCWSTR;
     use windows::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE};
     use windows::Win32::Storage::FileSystem::GetLogicalDrives;
     use windows::Win32::Storage::Vhd::{
-        AttachVirtualDisk, OpenVirtualDisk, ATTACH_VIRTUAL_DISK_FLAG_READ_ONLY,
-        ATTACH_VIRTUAL_DISK_PARAMETERS, ATTACH_VIRTUAL_DISK_VERSION_1, OPEN_VIRTUAL_DISK_FLAG_NONE,
-        OPEN_VIRTUAL_DISK_PARAMETERS, OPEN_VIRTUAL_DISK_VERSION_1, VIRTUAL_DISK_ACCESS_READ,
-        VIRTUAL_STORAGE_TYPE, VIRTUAL_STORAGE_TYPE_DEVICE_ISO,
+        ATTACH_VIRTUAL_DISK_FLAG_READ_ONLY, ATTACH_VIRTUAL_DISK_PARAMETERS,
+        ATTACH_VIRTUAL_DISK_VERSION_1, AttachVirtualDisk, OPEN_VIRTUAL_DISK_FLAG_NONE,
+        OPEN_VIRTUAL_DISK_PARAMETERS, OPEN_VIRTUAL_DISK_VERSION_1, OpenVirtualDisk,
+        VIRTUAL_DISK_ACCESS_READ, VIRTUAL_STORAGE_TYPE, VIRTUAL_STORAGE_TYPE_DEVICE_ISO,
         VIRTUAL_STORAGE_TYPE_VENDOR_MICROSOFT,
     };
+    use windows::core::PCWSTR;
 
     pub fn mount_iso(path: &Path) -> Result<PreparedSource> {
         let before = logical_drive_letters();

@@ -1,8 +1,8 @@
-use sha2::{Sha256, Digest};
-use std::io::{Read, Seek, SeekFrom, Write};
+use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
-use anyhow::{Result, Context};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::io::{Read, Seek, SeekFrom, Write};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChunkHash {
@@ -21,7 +21,11 @@ pub struct ChunkPlan {
 impl ChunkPlan {
     pub fn new(total_size: u64, chunk_size: usize) -> Self {
         if total_size == 0 {
-             return Self { total_size: 0, chunk_size, total_chunks: 0 };
+            return Self {
+                total_size: 0,
+                chunk_size,
+                total_chunks: 0,
+            };
         }
         let total_chunks = ((total_size as f64) / (chunk_size as f64)).ceil() as usize;
         Self {
@@ -161,8 +165,7 @@ fn verify_device_prefix(
 }
 
 fn hash_file_prefix(path: &std::path::Path, bytes_to_hash: u64, chunk_size: u64) -> Result<String> {
-    let mut file = std::fs::File::open(path)
-        .with_context(|| format!("open {}", path.display()))?;
+    let mut file = std::fs::File::open(path).with_context(|| format!("open {}", path.display()))?;
     let mut remaining = bytes_to_hash;
     let mut buffer = vec![0u8; usize::try_from(chunk_size).context("chunk_size too large")?];
     let mut hasher = Sha256::new();
@@ -197,7 +200,7 @@ pub fn hash_disk_chunks(
 ) -> Result<Vec<ChunkHash>> {
     let mut file = open_disk_read_only(disk_path)?;
     let mut hashes = Vec::new();
-    
+
     let chunks_to_process = match max_chunks {
         Some(m) => m.min(plan.total_chunks),
         None => plan.total_chunks,
@@ -214,7 +217,7 @@ pub fn hash_disk_chunks(
         let offset = (i as u64) * (plan.chunk_size as u64);
         file.seek(SeekFrom::Start(offset))
             .with_context(|| format!("Failed to seek to offset {}", offset))?;
-        
+
         let bytes_to_read = if i == plan.total_chunks - 1 {
             (plan.total_size - offset) as usize
         } else {
@@ -222,7 +225,12 @@ pub fn hash_disk_chunks(
         };
 
         file.read_exact(&mut buffer[..bytes_to_read])
-            .with_context(|| format!("Read error at chunk {} (offset {}). Check permissions.", i, offset))?;
+            .with_context(|| {
+                format!(
+                    "Read error at chunk {} (offset {}). Check permissions.",
+                    i, offset
+                )
+            })?;
 
         let mut hasher = Sha256::new();
         hasher.update(&buffer[..bytes_to_read]);
@@ -246,13 +254,18 @@ pub fn hash_disk_chunks(
 fn open_disk_read_only(path: &str) -> Result<std::fs::File> {
     use std::os::windows::fs::OpenOptionsExt;
     use windows::Win32::Storage::FileSystem::{FILE_SHARE_READ, FILE_SHARE_WRITE};
-    
+
     // On Windows, PhysicalDrive access requires administrative privileges.
     std::fs::OpenOptions::new()
         .read(true)
         .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0)
         .open(path)
-        .with_context(|| format!("Access Denied: Could not open {}. Ensure you are running as Administrator.", path))
+        .with_context(|| {
+            format!(
+                "Access Denied: Could not open {}. Ensure you are running as Administrator.",
+                path
+            )
+        })
 }
 
 #[cfg(not(windows))]
@@ -261,7 +274,12 @@ fn open_disk_read_only(path: &str) -> Result<std::fs::File> {
     std::fs::OpenOptions::new()
         .read(true)
         .open(path)
-        .with_context(|| format!("Failed to open {}. Check permissions (sudo might be required).", path))
+        .with_context(|| {
+            format!(
+                "Failed to open {}. Check permissions (sudo might be required).",
+                path
+            )
+        })
 }
 
 #[cfg(test)]
@@ -272,7 +290,7 @@ mod tests {
     fn test_chunk_planner() {
         let plan = ChunkPlan::new(100, 30);
         assert_eq!(plan.total_chunks, 4);
-        
+
         let plan2 = ChunkPlan::new(1024, 1024);
         assert_eq!(plan2.total_chunks, 1);
 

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use phoenix_core::DeviceGraph;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -6,8 +6,8 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
-use zip::write::FileOptions;
 use zip::ZipWriter;
+use zip::write::FileOptions;
 
 #[derive(Debug, Clone)]
 pub struct ReportPaths {
@@ -179,7 +179,11 @@ fn build_manifest(
         let data = fs::read(path)?;
         let hash = Sha256::digest(&data);
         entries.push(ManifestEntry {
-            path: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            path: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
             bytes: data.len() as u64,
             sha256: to_hex(&hash),
         });
@@ -188,7 +192,11 @@ fn build_manifest(
         let data = fs::read(path)?;
         let hash = Sha256::digest(&data);
         entries.push(ManifestEntry {
-            path: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            path: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
             bytes: data.len() as u64,
             sha256: to_hex(&hash),
         });

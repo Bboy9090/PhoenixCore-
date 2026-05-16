@@ -1,8 +1,9 @@
+use serde::{Deserialize, Serialize};
 /// Build Monitoring Module
-/// 
+///
 /// Provides real-time monitoring of Phoenix OS ISO builds with log streaming,
 /// progress tracking, and build control (pause/resume/cancel).
-/// 
+///
 /// Features:
 /// - Live log streaming from live-build process
 /// - Progress percentage calculation
@@ -10,7 +11,6 @@
 /// - Process control (pause, resume, cancel)
 /// - Error detection and reporting
 /// - Build statistics and metrics
-
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
@@ -18,7 +18,6 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
 
 /// Build stage enumeration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -126,8 +125,8 @@ impl BuildManager {
 
         // Create log file
         let log_path = build_dir.join("build.log");
-        let log_file = File::create(&log_path)
-            .map_err(|e| format!("Failed to create log file: {}", e))?;
+        let log_file =
+            File::create(&log_path).map_err(|e| format!("Failed to create log file: {}", e))?;
 
         // Update status
         {
@@ -218,7 +217,8 @@ impl BuildManager {
                             if s.progress > 0 {
                                 let estimated_total =
                                     (elapsed as f32 / (s.progress as f32 / 100.0)) as u64;
-                                s.estimated_time_remaining = estimated_total.saturating_sub(elapsed);
+                                s.estimated_time_remaining =
+                                    estimated_total.saturating_sub(elapsed);
                             }
                         }
                     }

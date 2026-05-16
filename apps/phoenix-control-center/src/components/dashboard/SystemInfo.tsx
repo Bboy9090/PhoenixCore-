@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { systemService } from '../../systemService';
 import { HardwareInfo } from '../../system';
-import { Cpu, HardDrive, Monitor, RefreshCw } from '../Icons';
+import { Cpu, HardDrive, Monitor, RefreshCw, Zap } from '../Icons';
 import { SkeletonHardwareCard } from '../LoadingSkeleton';
 import { ErrorDisplay } from '../ErrorBoundary';
 
@@ -57,47 +57,59 @@ export default function SystemInfo() {
       )}
 
       {loading && !hardware ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, idx) => (
             <SkeletonHardwareCard key={idx} />
           ))}
         </div>
       ) : hardware ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="arc-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Cpu className="text-arc-cyan" size={24} />
-              <h2 className="text-lg font-semibold text-arc-silver">Processor</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* CPU */}
+          <div className="bg-arc-surface border border-arc-border p-4 rounded-lg flex items-center space-x-4">
+            <div className="bg-arc-cyan/10 p-3 rounded-lg">
+              <Cpu className="w-6 h-6 text-arc-cyan" />
             </div>
-            <p className="text-arc-silver/80">{hardware.cpu_info}</p>
-          </div>
-
-          <div className="arc-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Monitor className="text-arc-blue" size={24} />
-              <h2 className="text-lg font-semibold text-arc-silver">Graphics</h2>
-            </div>
-            <div className="space-y-2">
-              {hardware.gpu_info.map((gpu, idx) => (
-                <p key={idx} className="text-arc-silver/80">{gpu}</p>
-              ))}
+            <div>
+              <p className="text-xs text-arc-silver/50 uppercase tracking-wider">Processor</p>
+              <p className="text-arc-silver/80">{hardware.cpuInfo}</p>
             </div>
           </div>
 
-          <div className="arc-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <HardDrive className="text-arc-success" size={24} />
-              <h2 className="text-lg font-semibold text-arc-silver">Memory</h2>
+          {/* GPU */}
+          <div className="bg-arc-surface border border-arc-border p-4 rounded-lg flex items-center space-x-4">
+            <div className="bg-arc-blue/10 p-3 rounded-lg">
+              <Monitor className="w-6 h-6 text-arc-blue" />
             </div>
-            <p className="text-arc-silver/80">{hardware.ram_info}</p>
+            <div>
+              <p className="text-xs text-arc-silver/50 uppercase tracking-wider">Graphics</p>
+              <div className="flex flex-col">
+                {hardware.gpuInfo.map((gpu: string, idx: number) => (
+                  <p key={idx} className="text-arc-silver/80">{gpu}</p>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="arc-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <HardDrive className="text-arc-gold" size={24} />
-              <h2 className="text-lg font-semibold text-arc-silver">Storage</h2>
+          {/* RAM */}
+          <div className="bg-arc-surface border border-arc-border p-4 rounded-lg flex items-center space-x-4">
+            <div className="bg-arc-gold/10 p-3 rounded-lg">
+              <Zap className="w-6 h-6 text-arc-gold" />
             </div>
-            <p className="text-arc-silver/80">{hardware.storage_info}</p>
+            <div>
+              <p className="text-xs text-arc-silver/50 uppercase tracking-wider">Memory</p>
+              <p className="text-arc-silver/80">{hardware.ramInfo}</p>
+            </div>
+          </div>
+
+          {/* Storage */}
+          <div className="bg-arc-surface border border-arc-border p-4 rounded-lg flex items-center space-x-4">
+            <div className="bg-arc-cyan/10 p-3 rounded-lg">
+              <HardDrive className="w-6 h-6 text-arc-cyan" />
+            </div>
+            <div>
+              <p className="text-xs text-arc-silver/50 uppercase tracking-wider">Storage</p>
+              <p className="text-arc-silver/80">{hardware.storageInfo}</p>
+            </div>
           </div>
         </div>
       ) : null}

@@ -50,21 +50,32 @@ impl Default for CapabilityMatrix {
     fn default() -> Self {
         let mut matrix = HashMap::new();
         // Register ImageRestore as a high-integrity gated action
-        matrix.insert(ActionId::ImageRestore, ActionCapability {
-            allowed_states: vec![DeviceState::Normal, DeviceState::Recovery, DeviceState::Dfu],
-            requires_high_integrity: true,
-        });
+        matrix.insert(
+            ActionId::ImageRestore,
+            ActionCapability {
+                allowed_states: vec![DeviceState::Normal, DeviceState::Recovery, DeviceState::Dfu],
+                requires_high_integrity: true,
+            },
+        );
         Self { matrix }
     }
 }
 
 impl CapabilityMatrix {
     /// Performs a high-integrity gate check for a specific job
-    pub fn enforce_gate(&self, job: &ImagingJob, current_state: &DeviceState, actual_disk_size: u64) -> Result<()> {
+    pub fn enforce_gate(
+        &self,
+        job: &ImagingJob,
+        current_state: &DeviceState,
+        actual_disk_size: u64,
+    ) -> Result<()> {
         // 1. Action Authorization
         let action = ActionId::ImageRestore;
         if !self.can_execute(&action, current_state) {
-            return Err(anyhow::anyhow!("CAPABILITY_DENIED: Device state {:?} not authorized for imaging.", current_state));
+            return Err(anyhow::anyhow!(
+                "CAPABILITY_DENIED: Device state {:?} not authorized for imaging.",
+                current_state
+            ));
         }
 
         // 2. Hardware Fingerprint Verification (Anti-Targeting Risk)
@@ -77,7 +88,10 @@ impl CapabilityMatrix {
 
         // 3. Path Validation
         if !job.target_disk.starts_with("/dev/disk") && !job.target_disk.starts_with(r"\\.\") {
-             return Err(anyhow::anyhow!("SECURITY_VIOLATION: Unauthorized disk path format: {}", job.target_disk));
+            return Err(anyhow::anyhow!(
+                "SECURITY_VIOLATION: Unauthorized disk path format: {}",
+                job.target_disk
+            ));
         }
 
         Ok(())

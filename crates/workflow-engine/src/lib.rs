@@ -1,23 +1,22 @@
-use anyhow::{anyhow, Context, Result};
-use phoenix_report::{
-    create_report_bundle_with_meta_and_signing, create_report_bundle_with_meta_signing_and_artifacts,
-    ReportArtifact, ReportPaths,
-};
-use phoenix_safety::{can_write_to_disk, SafetyContext, SafetyDecision};
-use phoenix_content::{prepare_source, resolve_windows_image, SourceKind};
-use phoenix_host_windows::format::{format_existing_volume, prepare_usb_disk, FileSystem};
-use phoenix_imaging::{
-    hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan,
-    write_image_to_device,
-};
-use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
-use phoenix_core::{DeviceGraph, WorkflowDefinition, WORKFLOW_SCHEMA_VERSION};
-use phoenix_fs_fat32::format_fat32;
+use anyhow::{Context, Result, anyhow};
 use phoenix_bootloader_core::validate_bootloader_package;
+use phoenix_content::{SourceKind, prepare_source, resolve_windows_image};
+use phoenix_core::{DeviceGraph, WORKFLOW_SCHEMA_VERSION, WorkflowDefinition};
+use phoenix_fs_fat32::format_fat32;
+use phoenix_host_windows::format::{FileSystem, format_existing_volume, prepare_usb_disk};
+use phoenix_imaging::{
+    hash_device_readonly, hash_disk_readonly_physicaldrive, make_chunk_plan, write_image_to_device,
+};
+use phoenix_report::{
+    ReportArtifact, ReportPaths, create_report_bundle_with_meta_and_signing,
+    create_report_bundle_with_meta_signing_and_artifacts,
+};
+use phoenix_safety::{SafetyContext, SafetyDecision, can_write_to_disk};
+use phoenix_wim::{apply_image as wim_apply_image, list_images as wim_list_images};
 use sha2::{Digest, Sha256};
-use std::time::Instant;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 pub trait Workflow {
     fn name(&self) -> &'static str;
@@ -205,7 +204,9 @@ impl Workflow for WindowsInstallerUsbWorkflow {
     }
 }
 
-pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<WindowsInstallerUsbResult> {
+pub fn run_windows_installer_usb(
+    params: &WindowsInstallerUsbParams,
+) -> Result<WindowsInstallerUsbResult> {
     let graph = build_device_graph()?;
     let disk = graph
         .disks
@@ -218,10 +219,7 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
     }
 
     if !disk.removable {
-        return Err(anyhow!(
-            "target disk is not marked removable: {}",
-            disk.id
-        ));
+        return Err(anyhow!("target disk is not marked removable: {}", disk.id));
     }
 
     let mut target_mount = if let Some(path) = &params.target_mount {
@@ -393,8 +391,8 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
         logs.push("verify_complete".to_string());
 
         if let Some(driver_source) = &params.driver_source {
-            let driver_source = fs::canonicalize(driver_source)
-                .unwrap_or_else(|_| driver_source.clone());
+            let driver_source =
+                fs::canonicalize(driver_source).unwrap_or_else(|_| driver_source.clone());
             if !driver_source.is_dir() {
                 return Err(anyhow!("driver_source is not a directory"));
             }
@@ -412,9 +410,8 @@ pub fn run_windows_installer_usb(params: &WindowsInstallerUsbParams) -> Result<W
             for entry in &driver_entries {
                 let dest_path = driver_target.join(&entry.relative_path);
                 if let Some(parent) = dest_path.parent() {
-                    fs::create_dir_all(parent).with_context(|| {
-                        format!("create dir {}", parent.display())
-                    })?;
+                    fs::create_dir_all(parent)
+                        .with_context(|| format!("create dir {}", parent.display()))?;
                 }
                 fs::copy(&entry.absolute_path, &dest_path).with_context(|| {
                     format!(
@@ -515,10 +512,7 @@ pub fn run_unix_installer_usb(params: &UnixInstallerUsbParams) -> Result<UnixIns
         return Err(anyhow!("refusing to target system disk: {}", disk.id));
     }
     if !disk.removable {
-        return Err(anyhow!(
-            "target disk is not marked removable: {}",
-            disk.id
-        ));
+        return Err(anyhow!("target disk is not marked removable: {}", disk.id));
     }
 
     let prepared = prepare_source(&params.source_path)?;
@@ -669,10 +663,7 @@ pub fn run_unix_write_image(params: &UnixWriteImageParams) -> Result<UnixWriteIm
         return Err(anyhow!("refusing to target system disk: {}", disk.id));
     }
     if !disk.removable {
-        return Err(anyhow!(
-            "target disk is not marked removable: {}",
-            disk.id
-        ));
+        return Err(anyhow!("target disk is not marked removable: {}", disk.id));
     }
 
     let mut logs = Vec::new();
@@ -740,7 +731,9 @@ pub fn run_unix_write_image(params: &UnixWriteImageParams) -> Result<UnixWriteIm
     })
 }
 
-pub fn run_macos_installer_usb(params: &MacosInstallerUsbParams) -> Result<MacosInstallerUsbResult> {
+pub fn run_macos_installer_usb(
+    params: &MacosInstallerUsbParams,
+) -> Result<MacosInstallerUsbResult> {
     #[cfg(not(target_os = "macos"))]
     {
         return Err(anyhow!("macos installer workflow requires macOS"));
@@ -759,10 +752,7 @@ pub fn run_macos_installer_usb(params: &MacosInstallerUsbParams) -> Result<Macos
         return Err(anyhow!("refusing to target system disk: {}", disk.id));
     }
     if !disk.removable {
-        return Err(anyhow!(
-            "target disk is not marked removable: {}",
-            disk.id
-        ));
+        return Err(anyhow!("target disk is not marked removable: {}", disk.id));
     }
 
     let fs = params
@@ -792,7 +782,12 @@ pub fn run_macos_installer_usb(params: &MacosInstallerUsbParams) -> Result<Macos
         }
 
         let source_path = params.source_path.clone();
-        if source_path.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("dmg")).unwrap_or(false) {
+        if source_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.eq_ignore_ascii_case("dmg"))
+            .unwrap_or(false)
+        {
             let mounted = mount_dmg(&source_path)?;
             if let Some(app) = find_install_app(&mounted.mount_point) {
                 mode = "createinstallmedia".to_string();
@@ -854,10 +849,7 @@ pub fn run_stage_bootloader(params: &BootloaderStageParams) -> Result<Bootloader
         return Err(anyhow!("refusing to target system disk: {}", disk.id));
     }
     if !disk.removable {
-        return Err(anyhow!(
-            "target disk is not marked removable: {}",
-            disk.id
-        ));
+        return Err(anyhow!("target disk is not marked removable: {}", disk.id));
     }
 
     let package = validate_bootloader_package(&params.source_path)?;
@@ -954,10 +946,7 @@ pub fn run_macos_kext_stage(params: &MacosKextStageParams) -> Result<MacosKextSt
         return Err(anyhow!("refusing to target system disk: {}", disk.id));
     }
     if !disk.removable {
-        return Err(anyhow!(
-            "target disk is not marked removable: {}",
-            disk.id
-        ));
+        return Err(anyhow!("target disk is not marked removable: {}", disk.id));
     }
 
     let source_root = params.source_path.clone();
@@ -1073,10 +1062,7 @@ pub fn run_unix_boot_prep(params: &UnixBootPrepParams) -> Result<UnixBootPrepRes
         return Err(anyhow!("refusing to target system disk: {}", disk.id));
     }
     if !disk.removable {
-        return Err(anyhow!(
-            "target disk is not marked removable: {}",
-            disk.id
-        ));
+        return Err(anyhow!("target disk is not marked removable: {}", disk.id));
     }
 
     let prepared = prepare_source(&params.source_path)?;
@@ -1125,7 +1111,8 @@ pub fn run_unix_boot_prep(params: &UnixBootPrepParams) -> Result<UnixBootPrepRes
             }
 
             if candidate.is_dir {
-                let stats = copy_dir_recursive(&candidate.source, &target_path, params.hash_manifest)?;
+                let stats =
+                    copy_dir_recursive(&candidate.source, &target_path, params.hash_manifest)?;
                 copied_files += stats.files;
                 copied_bytes += stats.bytes;
                 copy_manifest.extend(stats.manifest);
@@ -1576,7 +1563,9 @@ impl Workflow for WindowsApplyImageWorkflow {
     }
 }
 
-pub fn run_windows_apply_image(params: &WindowsApplyImageParams) -> Result<WindowsApplyImageResult> {
+pub fn run_windows_apply_image(
+    params: &WindowsApplyImageParams,
+) -> Result<WindowsApplyImageResult> {
     let graph = build_device_graph()?;
     let is_system_target = is_system_mount_path(&params.target_dir, &graph);
 
@@ -1802,9 +1791,8 @@ fn collect_files_inner(root: &Path, current: &Path, entries: &mut Vec<FileEntry>
 fn verify_copy(target_root: &Path, entries: &[FileEntry]) -> Result<()> {
     for entry in entries {
         let dest_path = target_root.join(&entry.relative_path);
-        let metadata = fs::metadata(&dest_path).with_context(|| {
-            format!("verify missing file {}", dest_path.display())
-        })?;
+        let metadata = fs::metadata(&dest_path)
+            .with_context(|| format!("verify missing file {}", dest_path.display()))?;
         if metadata.len() != entry.size {
             return Err(anyhow!(
                 "verify failed for {} (expected {}, got {})",
@@ -1907,7 +1895,9 @@ fn find_disk_by_mount<'a>(graph: &'a DeviceGraph, mount: &Path) -> Option<&'a ph
     graph.disks.iter().find(|disk| {
         disk.partitions.iter().any(|partition| {
             partition.mount_points.iter().any(|mp| {
-                let candidate = normalize_mount_for_unix(&PathBuf::from(mp)).display().to_string();
+                let candidate = normalize_mount_for_unix(&PathBuf::from(mp))
+                    .display()
+                    .to_string();
                 candidate == mount_str
             })
         })
@@ -1927,7 +1917,9 @@ fn disk_id_from_device_path(path: &Path) -> Option<String> {
             return Some(name[..idx].to_string());
         }
     }
-    let trimmed = name.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+    let trimmed = name
+        .trim_end_matches(|c: char| c.is_ascii_digit())
+        .to_string();
     if trimmed.is_empty() {
         None
     } else {
@@ -1983,7 +1975,10 @@ fn parse_numeric_version(value: &str) -> Option<(u32, u32)> {
         return None;
     }
     let major = parts.get(0)?.parse::<u32>().ok()?;
-    let minor = parts.get(1).and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
+    let minor = parts
+        .get(1)
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(0);
     Some((major, minor))
 }
 
@@ -2156,8 +2151,8 @@ fn free_space_bytes(path: &Path) -> Result<Option<u64>> {
         use std::ffi::CString;
         use std::mem::MaybeUninit;
 
-        let c_path = CString::new(path.display().to_string())
-            .map_err(|_| anyhow!("invalid path"))?;
+        let c_path =
+            CString::new(path.display().to_string()).map_err(|_| anyhow!("invalid path"))?;
         let mut stats = MaybeUninit::zeroed();
         let result = unsafe { statvfs(c_path.as_ptr(), stats.as_mut_ptr()) };
         if result != 0 {
@@ -2335,11 +2330,7 @@ struct CopyStats {
     manifest: Vec<CopyManifestEntry>,
 }
 
-fn copy_dir_recursive(
-    source: &Path,
-    dest: &Path,
-    hash_manifest: bool,
-) -> Result<CopyStats> {
+fn copy_dir_recursive(source: &Path, dest: &Path, hash_manifest: bool) -> Result<CopyStats> {
     let mut stats = CopyStats::default();
     copy_dir_recursive_inner(source, dest, source, hash_manifest, &mut stats)?;
     Ok(stats)
@@ -2392,7 +2383,12 @@ fn collect_kexts(root: &Path) -> Result<Vec<PathBuf>> {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            if path.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("kext")).unwrap_or(false) {
+            if path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.eq_ignore_ascii_case("kext"))
+                .unwrap_or(false)
+            {
                 kexts.push(path);
             } else {
                 kexts.extend(collect_kexts(&path)?);
@@ -2437,11 +2433,15 @@ fn report_base_path(value: &serde_json::Value, default_report: &Path) -> PathBuf
     )
 }
 
-fn build_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<WindowsInstallerUsbParams> {
+fn build_usb_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<WindowsInstallerUsbParams> {
     let target_disk_id = require_string(value, "target_disk_id")?;
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let report_base = report_base_path(value, default_report);
-    let filesystem = parse_filesystem_value(optional_string(value, "filesystem").unwrap_or("fat32"))?;
+    let filesystem =
+        parse_filesystem_value(optional_string(value, "filesystem").unwrap_or("fat32"))?;
     let label = optional_string(value, "label").map(str::to_string);
 
     Ok(WindowsInstallerUsbParams {
@@ -2462,7 +2462,10 @@ fn build_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<
     })
 }
 
-fn build_apply_params(value: &serde_json::Value, default_report: &Path) -> Result<WindowsApplyImageParams> {
+fn build_apply_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<WindowsApplyImageParams> {
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let target_dir = PathBuf::from(require_string(value, "target_dir")?);
     let report_base = report_base_path(value, default_report);
@@ -2486,7 +2489,10 @@ fn build_verify_params(value: &serde_json::Value) -> Result<(PathBuf, Option<Str
     Ok((path, key))
 }
 
-fn build_hash_params(value: &serde_json::Value, default_report: &Path) -> Result<DiskHashReportParams> {
+fn build_hash_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<DiskHashReportParams> {
     let disk_id = require_string(value, "disk_id")?;
     let report_base = report_base_path(value, default_report);
     let chunk_size = value
@@ -2503,7 +2509,10 @@ fn build_hash_params(value: &serde_json::Value, default_report: &Path) -> Result
     })
 }
 
-fn build_unix_usb_params(value: &serde_json::Value, default_report: &Path) -> Result<UnixInstallerUsbParams> {
+fn build_unix_usb_params(
+    value: &serde_json::Value,
+    default_report: &Path,
+) -> Result<UnixInstallerUsbParams> {
     let source_path = PathBuf::from(require_string(value, "source_path")?);
     let target_mount = PathBuf::from(require_string(value, "target_mount")?);
     let report_base = report_base_path(value, default_report);

@@ -1,4 +1,3 @@
-import React from 'react';
 import BuildDashboard from './components/dashboard/BuildDashboard';
 import SystemInfo from './components/dashboard/SystemInfo';
 import DiskManagement from './components/dashboard/DiskManagement';

@@ -38,11 +38,7 @@ mod windows_impl {
         fn WIMCloseHandle(handle: HANDLE) -> BOOL;
         fn WIMGetImageCount(handle: HANDLE, count: *mut u32) -> BOOL;
         fn WIMLoadImage(handle: HANDLE, index: u32) -> HANDLE;
-        fn WIMGetImageInformation(
-            handle: HANDLE,
-            info: *mut *mut c_void,
-            size: *mut u32,
-        ) -> BOOL;
+        fn WIMGetImageInformation(handle: HANDLE, info: *mut *mut c_void, size: *mut u32) -> BOOL;
         fn WIMFreeMemory(ptr: *mut c_void);
         fn WIMApplyImage(handle: HANDLE, path: PCWSTR, flags: u32) -> BOOL;
     }
@@ -61,8 +57,8 @@ mod windows_impl {
             let xml = get_image_information(image_handle)?;
             let name = extract_tag(&xml, "NAME");
             let description = extract_tag(&xml, "DESCRIPTION");
-            let total_bytes = extract_tag(&xml, "TOTALBYTES")
-                .and_then(|value| value.parse::<u64>().ok());
+            let total_bytes =
+                extract_tag(&xml, "TOTALBYTES").and_then(|value| value.parse::<u64>().ok());
 
             unsafe {
                 WIMCloseHandle(image_handle);
@@ -195,6 +191,10 @@ pub fn apply_image(path: impl AsRef<Path>, index: u32, target_dir: impl AsRef<Pa
 }
 
 #[cfg(not(windows))]
-pub fn apply_image(_path: impl AsRef<Path>, _index: u32, _target_dir: impl AsRef<Path>) -> Result<()> {
+pub fn apply_image(
+    _path: impl AsRef<Path>,
+    _index: u32,
+    _target_dir: impl AsRef<Path>,
+) -> Result<()> {
     Err(anyhow!("WIM operations require Windows"))
 }

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { HardDrive, AlertTriangle, CheckCircle, RefreshCw, Zap, Lock, Trash2 } from '../Icons';
+import { useEffect, useState } from 'react';
+import { HardDrive, AlertTriangle, RefreshCw, Zap, Lock, Trash2 } from '../Icons';
 import { SkeletonPartitionList } from '../LoadingSkeleton';
 import { ErrorDisplay, WarningDisplay, SuccessDisplay } from '../ErrorBoundary';
 import { systemService } from '../../systemService';
@@ -46,7 +46,7 @@ export default function DiskManagement() {
 
     setScanningDevice(device);
     try {
-      const result = await systemService.scanDiskErrors(device);
+      await systemService.scanDiskErrors(device);
       setSuccess(`Disk scan started for ${device}`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -88,12 +88,6 @@ export default function DiskManagement() {
     if (usage > 90) return 'bg-red-500';
     if (usage > 75) return 'bg-yellow-500';
     return 'bg-green-500';
-  };
-
-  const getUsageBgColor = (usage: number) => {
-    if (usage > 90) return 'bg-red-100 dark:bg-red-900';
-    if (usage > 75) return 'bg-yellow-100 dark:bg-yellow-900';
-    return 'bg-green-100 dark:bg-green-900';
   };
 
   const formatBytes = (bytes: number) => {

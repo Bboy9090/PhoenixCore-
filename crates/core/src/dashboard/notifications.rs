@@ -1,5 +1,5 @@
-use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
+use std::time::SystemTime;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationEvent {
@@ -60,47 +60,28 @@ impl NotificationManager {
             size_mb, iso_path
         );
 
-        Self::send_notification(
-            "Build Complete",
-            &body,
-            NotificationType::BuildSuccess,
-        )
+        Self::send_notification("Build Complete", &body, NotificationType::BuildSuccess)
     }
 
     /// Send build failure notification
     pub fn notify_build_failed(error: &str) -> Result<(), String> {
         let body = format!("Build failed with error:\n\n{}", error);
 
-        Self::send_notification(
-            "Build Failed",
-            &body,
-            NotificationType::BuildFailed,
-        )
+        Self::send_notification("Build Failed", &body, NotificationType::BuildFailed)
     }
 
     /// Send build paused notification
     pub fn notify_build_paused(stage: &str, progress: u32) -> Result<(), String> {
-        let body = format!(
-            "Build paused at {} stage\n\nProgress: {}%",
-            stage, progress
-        );
+        let body = format!("Build paused at {} stage\n\nProgress: {}%", stage, progress);
 
-        Self::send_notification(
-            "Build Paused",
-            &body,
-            NotificationType::BuildPaused,
-        )
+        Self::send_notification("Build Paused", &body, NotificationType::BuildPaused)
     }
 
     /// Send build resumed notification
     pub fn notify_build_resumed(stage: &str) -> Result<(), String> {
         let body = format!("Build resumed from {} stage", stage);
 
-        Self::send_notification(
-            "Build Resumed",
-            &body,
-            NotificationType::BuildResumed,
-        )
+        Self::send_notification("Build Resumed", &body, NotificationType::BuildResumed)
     }
 
     /// Send build cancelled notification
@@ -114,20 +95,12 @@ impl NotificationManager {
 
     /// Send system warning notification
     pub fn notify_system_warning(warning: &str) -> Result<(), String> {
-        Self::send_notification(
-            "System Warning",
-            warning,
-            NotificationType::SystemWarning,
-        )
+        Self::send_notification("System Warning", warning, NotificationType::SystemWarning)
     }
 
     /// Send system error notification
     pub fn notify_system_error(error: &str) -> Result<(), String> {
-        Self::send_notification(
-            "System Error",
-            error,
-            NotificationType::SystemError,
-        )
+        Self::send_notification("System Error", error, NotificationType::SystemError)
     }
 
     /// Send generic info notification
@@ -187,11 +160,8 @@ mod tests {
 
     #[test]
     fn test_create_notification_event() {
-        let event = NotificationManager::create_event(
-            "Test",
-            "Test message",
-            NotificationType::Info,
-        );
+        let event =
+            NotificationManager::create_event("Test", "Test message", NotificationType::Info);
 
         assert_eq!(event.title, "Test");
         assert_eq!(event.body, "Test message");

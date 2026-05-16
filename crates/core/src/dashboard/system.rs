@@ -1,11 +1,10 @@
-/// System monitoring and information module
-/// 
-/// Provides real-time system metrics including CPU, memory, disk, and hardware information.
-
-use serde::{Deserialize, Serialize};
-use sysinfo::{System, SystemExt, ProcessExt, DiskExt, NetworkExt, Pid};
-use std::sync::Mutex;
 use lazy_static::lazy_static;
+/// System monitoring and information module
+///
+/// Provides real-time system metrics including CPU, memory, disk, and hardware information.
+use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
+use sysinfo::{CpuExt, DiskExt, NetworkExt, NetworksExt, PidExt, ProcessExt, System, SystemExt};
 
 lazy_static! {
     static ref SYSTEM: Mutex<System> = Mutex::new(System::new_all());
@@ -86,21 +85,28 @@ pub struct PartitionInfo {
 
 /// Get system information
 pub fn get_system_info() -> Result<SystemInfo, String> {
-    let mut sys = SYSTEM.lock().map_err(|e| format!("Failed to lock system: {}", e))?;
+    let mut sys = SYSTEM
+        .lock()
+        .map_err(|e| format!("Failed to lock system: {}", e))?;
     sys.refresh_all();
 
     let hostname = hostname::get()
         .map(|h| h.to_string_lossy().to_string())
         .unwrap_or_else(|_| "Unknown".to_string());
 
-    let os_version = std::env::var("PRETTY_NAME")
-        .unwrap_or_else(|_| "Unknown".to_string());
+    let os_version = std::env::var("PRETTY_NAME").unwrap_or_else(|_| "Unknown".to_string());
 
-    let kernel = format!("{} {}", sys.name().unwrap_or_default(), sys.kernel_version().unwrap_or_default());
+    let kernel = format!(
+        "{} {}",
+        sys.name().unwrap_or_default(),
+        sys.kernel_version().unwrap_or_default()
+    );
 
     let uptime = sys.uptime();
     let cpu_count = sys.cpus().len();
-    let cpu_model = sys.cpus().first()
+    let cpu_model = sys
+        .cpus()
+        .first()
         .map(|cpu| cpu.brand().to_string())
         .unwrap_or_else(|| "Unknown".to_string());
 
@@ -122,39 +128,46 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
 
 /// Get CPU usage percentage (0-100)
 pub fn get_cpu_usage() -> Result<f32, String> {
-    let mut sys = SYSTEM.lock().map_err(|e| format!("Failed to lock system: {}", e))?;
+    let mut sys = SYSTEM
+        .lock()
+        .map_err(|e| format!("Failed to lock system: {}", e))?;
     sys.refresh_cpu();
-    
+
     // Get average CPU usage across all cores
     let total: f32 = sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum();
     let average = total / sys.cpus().len() as f32;
-    
+
     Ok(average)
 }
 
 /// Get memory usage percentage (0-100)
 pub fn get_memory_usage() -> Result<f32, String> {
-    let mut sys = SYSTEM.lock().map_err(|e| format!("Failed to lock system: {}", e))?;
+    let mut sys = SYSTEM
+        .lock()
+        .map_err(|e| format!("Failed to lock system: {}", e))?;
     sys.refresh_memory();
-    
+
     let used = sys.used_memory() as f64;
     let total = sys.total_memory() as f64;
-    
+
     let percentage = if total > 0.0 {
         (used / total) * 100.0
     } else {
         0.0
     };
-    
+
     Ok(percentage as f32)
 }
 
 /// Get disk information for all mounted disks
 pub fn get_disk_info() -> Result<Vec<DiskInfo>, String> {
-    let mut sys = SYSTEM.lock().map_err(|e| format!("Failed to lock system: {}", e))?;
+    let mut sys = SYSTEM
+        .lock()
+        .map_err(|e| format!("Failed to lock system: {}", e))?;
     sys.refresh_disks();
-    
-    let disks: Vec<DiskInfo> = sys.disks()
+
+    let disks: Vec<DiskInfo> = sys
+        .disks()
         .iter()
         .map(|disk| {
             let total_size = disk.total_space() * 1024; // Convert to bytes
@@ -169,7 +182,7 @@ pub fn get_disk_info() -> Result<Vec<DiskInfo>, String> {
             DiskInfo {
                 device: disk.name().to_string_lossy().to_string(),
                 mount_point: disk.mount_point().to_string_lossy().to_string(),
-                filesystem: disk.file_system().to_string_lossy().to_string(),
+                filesystem: String::from_utf8_lossy(disk.file_system()).to_string(),
                 total_size,
                 used_size,
                 available_size,
@@ -178,76 +191,94 @@ pub fn get_disk_info() -> Result<Vec<DiskInfo>, String> {
             }
         })
         .collect();
-    
+
     Ok(disks)
 }
 
 /// Get running processes
 pub fn get_processes() -> Result<Vec<ProcessInfo>, String> {
-    let mut sys = SYSTEM.lock().map_err(|e| format!("Failed to lock system: {}", e))?;
+    let mut sys = SYSTEM
+        .lock()
+        .map_err(|e| format!("Failed to lock system: {}", e))?;
     sys.refresh_processes();
-    
-    let processes: Vec<ProcessInfo> = sys.processes()
+
+    let processes: Vec<ProcessInfo> = sys
+        .processes()
         .iter()
         .take(50) // Limit to top 50 processes
         .map(|(_, process)| {
             ProcessInfo {
                 pid: process.pid().as_u32(),
                 name: process.name().to_string(),
-                user: format!("uid:{}", process.run_as().unwrap_or(None).unwrap_or(0)),
+                user: "unknown".to_string(),
                 cpu_usage: process.cpu_usage(),
-                memory_usage: process.memory() * 1024, // Convert to bytes
+                memory_usage: process.memory(), // sysinfo returns bytes already in some versions, or KB. 0.29.11 returns bytes.
                 status: format!("{:?}", process.status()),
             }
         })
         .collect();
-    
+
     Ok(processes)
 }
 
 /// Get network interfaces
 pub fn get_network_interfaces() -> Result<Vec<NetworkInterface>, String> {
-    let mut sys = SYSTEM.lock().map_err(|e| format!("Failed to lock system: {}", e))?;
+    let mut sys = SYSTEM
+        .lock()
+        .map_err(|e| format!("Failed to lock system: {}", e))?;
     sys.refresh_networks();
-    
-    let interfaces: Vec<NetworkInterface> = sys.networks()
+
+    let interfaces: Vec<NetworkInterface> = sys
+        .networks()
         .iter()
         .map(|(name, data)| {
             NetworkInterface {
-                name: name.clone(),
+                name: name.to_string(),
                 ip_address: "127.0.0.1".to_string(), // TODO: Get actual IP
-                mac_address: "00:00:00:00:00:00".to_string(), // TODO: Get actual MAC
+                mac_address: data.mac_address().to_string(),
                 status: "up".to_string(),
                 bytes_received: data.received(),
                 bytes_sent: data.transmitted(),
             }
         })
         .collect();
-    
+
     Ok(interfaces)
 }
 
 /// Get hardware information
 pub fn get_hardware_info() -> Result<HardwareInfo, String> {
-    let mut sys = SYSTEM.lock().map_err(|e| format!("Failed to lock system: {}", e))?;
+    let mut sys = SYSTEM
+        .lock()
+        .map_err(|e| format!("Failed to lock system: {}", e))?;
     sys.refresh_all();
-    
-    let cpu_info = sys.cpus().first()
-        .map(|cpu| format!("{} @ {:.2} GHz", cpu.brand(), cpu.frequency() as f64 / 1000.0))
+
+    let cpu_info = sys
+        .cpus()
+        .first()
+        .map(|cpu| {
+            format!(
+                "{} @ {:.2} GHz",
+                cpu.brand(),
+                cpu.frequency() as f64 / 1000.0
+            )
+        })
         .unwrap_or_else(|| "Unknown CPU".to_string());
-    
+
     let ram_info = format!(
         "{} GB ({} GB used)",
         sys.total_memory() / 1024 / 1024,
         sys.used_memory() / 1024 / 1024
     );
-    
-    let storage_info = sys.disks()
+
+    let storage_info = sys
+        .disks()
         .iter()
         .map(|disk| {
             let total = disk.total_space() / 1024 / 1024;
             let used = (disk.total_space() - disk.available_space()) / 1024 / 1024;
-            format!("{}: {} GB / {} GB", 
+            format!(
+                "{}: {} GB / {} GB",
                 disk.mount_point().display(),
                 used,
                 total
@@ -255,7 +286,7 @@ pub fn get_hardware_info() -> Result<HardwareInfo, String> {
         })
         .collect::<Vec<_>>()
         .join(", ");
-    
+
     Ok(HardwareInfo {
         cpu_info,
         gpu_info: vec!["GPU detection not yet implemented".to_string()],
@@ -267,10 +298,13 @@ pub fn get_hardware_info() -> Result<HardwareInfo, String> {
 
 /// Get partition information with safety checks
 pub fn get_partitions() -> Result<Vec<PartitionInfo>, String> {
-    let mut sys = SYSTEM.lock().map_err(|e| format!("Failed to lock system: {}", e))?;
+    let mut sys = SYSTEM
+        .lock()
+        .map_err(|e| format!("Failed to lock system: {}", e))?;
     sys.refresh_disks();
-    
-    let partitions: Vec<PartitionInfo> = sys.disks()
+
+    let partitions: Vec<PartitionInfo> = sys
+        .disks()
         .iter()
         .map(|disk| {
             let total_size = disk.total_space() * 1024;
@@ -281,20 +315,22 @@ pub fn get_partitions() -> Result<Vec<PartitionInfo>, String> {
             } else {
                 0.0
             };
-            
+
             let device = disk.name().to_string_lossy().to_string();
             let mount_point = disk.mount_point().to_string_lossy().to_string();
-            
+
             // Detect system disk (typically /, /boot, /home)
-            let is_system_disk = mount_point == "/" || mount_point == "/boot" || mount_point == "/home";
-            
+            let is_system_disk =
+                mount_point == "/" || mount_point == "/boot" || mount_point == "/home";
+
             // Detect removable media
-            let is_removable = disk.is_removable() || device.contains("usb") || device.contains("sr");
+            let is_removable =
+                disk.is_removable() || device.contains("usb") || device.contains("sr");
 
             PartitionInfo {
                 device,
                 mount_point,
-                filesystem: disk.file_system().to_string_lossy().to_string(),
+                filesystem: String::from_utf8_lossy(disk.file_system()).to_string(),
                 total_size,
                 used_size,
                 available_size,
@@ -305,7 +341,7 @@ pub fn get_partitions() -> Result<Vec<PartitionInfo>, String> {
             }
         })
         .collect();
-    
+
     Ok(partitions)
 }
 
@@ -315,7 +351,7 @@ pub fn scan_disk_errors(device: &str) -> Result<ScanResult, String> {
     if device == "/" || device.contains("sda1") {
         return Err("Cannot scan system disk for safety reasons".to_string());
     }
-    
+
     Ok(ScanResult {
         device: device.to_string(),
         status: "scan_started".to_string(),
@@ -330,7 +366,7 @@ pub fn repair_disk(device: &str) -> Result<RepairResult, String> {
     if device == "/" || device.contains("sda1") {
         return Err("Cannot repair system disk for safety reasons".to_string());
     }
-    
+
     Ok(RepairResult {
         device: device.to_string(),
         success: false,
@@ -374,5 +410,8 @@ pub struct CacheResult {
 
 /// Get system logs (placeholder)
 pub fn get_system_logs(lines: usize) -> Result<Vec<String>, String> {
-    Ok(vec!["System logging not yet implemented".to_string(); lines])
+    Ok(vec![
+        "System logging not yet implemented".to_string();
+        lines
+    ])
 }

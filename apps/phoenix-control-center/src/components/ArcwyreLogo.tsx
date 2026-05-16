@@ -1,11 +1,11 @@
-import React from 'react';
+import { FC } from 'react';
 
 interface ArcwyreLogoProps {
   size?: number;
   className?: string;
 }
 
-export const ArcwyreLogo: React.FC<ArcwyreLogoProps> = ({ size = 64, className = "" }) => {
+export const ArcwyreLogo: FC<ArcwyreLogoProps> = ({ size = 64, className = "" }) => {
   return (
     <svg 
       width={size} 
@@ -55,7 +55,7 @@ export const ArcwyreLogo: React.FC<ArcwyreLogoProps> = ({ size = 64, className =
           <stop offset="100%" stopColor="var(--arc-blue)" />
         </linearGradient>
         <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-          <blur stdDeviation="2" result="blur" />
+          <feGaussianBlur stdDeviation="2" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>

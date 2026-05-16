@@ -4,21 +4,21 @@ use std::ffi::c_void;
 use std::sync::atomic::{AtomicI8, Ordering};
 use std::time::{Duration, Instant};
 
+use uuid::Uuid;
 use windows::core::{GUID, PCSTR, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, FreeLibrary, BOOL, BOOLEAN, HANDLE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, GetLogicalDrives, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_GENERIC_WRITE,
     FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
-use windows::Win32::System::IO::DeviceIoControl;
 use windows::Win32::System::Ioctl::{
-    CREATE_DISK, CREATE_DISK_GPT, DRIVE_LAYOUT_INFORMATION_EX,
-    DRIVE_LAYOUT_INFORMATION_GPT, IOCTL_DISK_CREATE_DISK, IOCTL_DISK_SET_DRIVE_LAYOUT_EX,
+    CREATE_DISK, CREATE_DISK_GPT, DRIVE_LAYOUT_INFORMATION_EX, DRIVE_LAYOUT_INFORMATION_GPT,
+    GPT_ATTRIBUTES, IOCTL_DISK_CREATE_DISK, IOCTL_DISK_SET_DRIVE_LAYOUT_EX,
     IOCTL_DISK_UPDATE_PROPERTIES, PARTITION_INFORMATION_EX, PARTITION_INFORMATION_GPT,
-    GPT_ATTRIBUTES, PARTITION_STYLE_GPT,
+    PARTITION_STYLE_GPT,
 };
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
-use uuid::Uuid;
+use windows::Win32::System::IO::DeviceIoControl;
 
 const FMIFS_DONE: u32 = 0;
 const FMIFS_HARDDISK: u32 = 0x0C;
@@ -111,7 +111,11 @@ fn wait_for_new_drive_letter(before: &[char], timeout: Duration) -> Result<char>
     }
 }
 
-fn create_single_gpt_partition(disk_number: u32, disk_size: u64, label: Option<&str>) -> Result<()> {
+fn create_single_gpt_partition(
+    disk_number: u32,
+    disk_size: u64,
+    label: Option<&str>,
+) -> Result<()> {
     let handle = open_physical_drive_rw(disk_number)?;
     let disk_id = GUID::from_u128(Uuid::new_v4().as_u128());
     initialize_gpt(handle, disk_id)?;
@@ -216,7 +220,12 @@ fn initialize_gpt(handle: HANDLE, disk_id: GUID) -> Result<()> {
     Ok(())
 }
 
-fn format_volume(drive_letter: char, fs: FileSystem, label: Option<&str>, quick: bool) -> Result<()> {
+fn format_volume(
+    drive_letter: char,
+    fs: FileSystem,
+    label: Option<&str>,
+    quick: bool,
+) -> Result<()> {
     FORMAT_RESULT.store(-1, Ordering::SeqCst);
 
     let module = unsafe { LoadLibraryW(PCWSTR(wide("fmifs.dll").as_ptr())) }

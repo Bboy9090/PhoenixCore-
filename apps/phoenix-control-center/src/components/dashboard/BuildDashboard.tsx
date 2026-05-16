@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '../../lib/bridge';
 import { ScreenContainer } from '@/components/screen-container';
-import { SkeletonCard } from '@/components/LoadingSkeleton';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ArcwyreLogo } from '@/components/ArcwyreLogo';
-import { Cpu, HardDrive, Monitor, RefreshCw, Zap, Trash2, AlertTriangle, Lock } from '../Icons';
 
 interface BuildStatus {
   is_running: boolean;
@@ -62,7 +60,7 @@ export default function BuildDashboard() {
   const [buildDir, setBuildDir] = useState('/home/ubuntu/phoenixcore/apps/os');
   const [showLogs, setShowLogs] = useState(true);
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<number | null>(null);
 
   // Auto-scroll logs to bottom
   const scrollLogsToBottom = () => {
@@ -98,7 +96,7 @@ export default function BuildDashboard() {
 
       // Start polling for updates
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = setInterval(() => {
+      pollIntervalRef.current = window.setInterval(() => {
         fetchBuildStatus();
       }, 1000);
     } catch (err) {
@@ -174,15 +172,6 @@ export default function BuildDashboard() {
     progress: stage.value,
     completed: buildStatus && buildStatus.progress >= stage.value,
   }));
-
-  const timelineData = logs
-    .filter((log) => log.level === 'SUCCESS' || log.level === 'ERROR')
-    .slice(-10)
-    .map((log, idx) => ({
-      index: idx,
-      level: log.level,
-      timestamp: new Date(log.timestamp * 1000).toLocaleTimeString(),
-    }));
 
   if (!buildStatus) {
     return (
