@@ -1,8 +1,8 @@
+use chrono::Local;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use chrono::Local;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportResult {
@@ -35,8 +35,8 @@ impl LogExporter {
             format!("phoenix_build_logs_{}.txt", timestamp)
         });
 
-        let mut file = File::create(&file_path)
-            .map_err(|e| format!("Failed to create file: {}", e))?;
+        let mut file =
+            File::create(&file_path).map_err(|e| format!("Failed to create file: {}", e))?;
 
         let header = Self::generate_header();
         file.write_all(header.as_bytes())
@@ -54,9 +54,7 @@ impl LogExporter {
         file.write_all(footer.as_bytes())
             .map_err(|e| format!("Failed to write footer: {}", e))?;
 
-        let file_size = std::fs::metadata(&file_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = std::fs::metadata(&file_path).map(|m| m.len()).unwrap_or(0);
 
         Ok(ExportResult {
             success: true,
@@ -90,15 +88,13 @@ impl LogExporter {
         let json_string = serde_json::to_string_pretty(&json_data)
             .map_err(|e| format!("Failed to serialize JSON: {}", e))?;
 
-        let mut file = File::create(&file_path)
-            .map_err(|e| format!("Failed to create file: {}", e))?;
+        let mut file =
+            File::create(&file_path).map_err(|e| format!("Failed to create file: {}", e))?;
 
         file.write_all(json_string.as_bytes())
             .map_err(|e| format!("Failed to write JSON: {}", e))?;
 
-        let file_size = std::fs::metadata(&file_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = std::fs::metadata(&file_path).map(|m| m.len()).unwrap_or(0);
 
         Ok(ExportResult {
             success: true,
@@ -120,8 +116,8 @@ impl LogExporter {
             format!("phoenix_build_logs_{}.csv", timestamp)
         });
 
-        let mut file = File::create(&file_path)
-            .map_err(|e| format!("Failed to create file: {}", e))?;
+        let mut file =
+            File::create(&file_path).map_err(|e| format!("Failed to create file: {}", e))?;
 
         // Write CSV header
         let header = "Timestamp,Level,Stage,Message\n";
@@ -141,9 +137,7 @@ impl LogExporter {
             line_count += 1;
         }
 
-        let file_size = std::fs::metadata(&file_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = std::fs::metadata(&file_path).map(|m| m.len()).unwrap_or(0);
 
         Ok(ExportResult {
             success: true,
@@ -187,10 +181,13 @@ impl LogExporter {
         format!("{} {} {}: {}\n", timestamp, level, stage, log.message)
     }
 
-    /// Format timestamp from Unix seconds
+    /// Format timestamp from Unix seconds (UTC).
+    /// Received unit: Seconds.
     fn format_timestamp(timestamp: u64) -> String {
-        use chrono::DateTime;
-        let datetime = DateTime::<Local>::from(std::time::UNIX_EPOCH + std::time::Duration::from_secs(timestamp));
+        use chrono::{DateTime, Utc};
+        let datetime = DateTime::<Utc>::from(
+            std::time::UNIX_EPOCH + std::time::Duration::from_secs(timestamp),
+        );
         datetime.format("%Y-%m-%d %H:%M:%S").to_string()
     }
 
@@ -207,8 +204,9 @@ impl LogExporter {
     pub fn get_export_directory() -> Result<PathBuf, String> {
         #[cfg(target_os = "windows")]
         {
-            let path = PathBuf::from(std::env::var("USERPROFILE").unwrap_or_else(|_| ".".to_string()))
-                .join("Downloads");
+            let path =
+                PathBuf::from(std::env::var("USERPROFILE").unwrap_or_else(|_| ".".to_string()))
+                    .join("Downloads");
             Ok(path)
         }
 
@@ -240,15 +238,20 @@ mod tests {
     #[test]
     fn test_escape_csv_field() {
         assert_eq!(LogExporter::escape_csv_field("simple"), "simple");
-        assert_eq!(LogExporter::escape_csv_field("with,comma"), "\"with,comma\"");
-        assert_eq!(LogExporter::escape_csv_field("with\"quote"), "\"with\"\"quote\"");
+        assert_eq!(
+            LogExporter::escape_csv_field("with,comma"),
+            "\"with,comma\""
+        );
+        assert_eq!(
+            LogExporter::escape_csv_field("with\"quote"),
+            "\"with\"\"quote\""
+        );
     }
 
     #[test]
     fn test_format_timestamp() {
         let timestamp = 1609459200; // 2021-01-01 00:00:00 UTC
         let formatted = LogExporter::format_timestamp(timestamp);
-        assert!(!formatted.is_empty());
-        assert!(formatted.contains("2021"));
+        assert_eq!(formatted, "2021-01-01 00:00:00");
     }
 }
