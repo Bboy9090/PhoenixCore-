@@ -64,7 +64,15 @@ This checklist tracks the staged transition from Phoenix to ARCWYRE.
 - [x] Implement "Sacred Minimal" communication protocol.
 - [x] Standardize Core Crates in `core/shared`. (Build repaired for sysinfo 0.29.11)
 
-## Phase 4: Edition Synthesis 🛑
-- [ ] Implement Edition Builder scripts.
-- [ ] Implement UI Theme-Switcher (Manifest-based).
-- [ ] Verify ISO creation for multiple editions.
+## Phase 4: Edition Synthesis ✅
+- [x] Standardize `edition.yaml` manifests.
+- [x] Create core edition assets (`colors.css`, `branding.md`).
+- [x] Implement `validate-editions.sh` and `list-editions.sh`.
+- [x] Implement dynamic staging in `build-edition.sh`.
+- [x] **Status**: **LOCKED**.
+
+## Phase 5: Dynamic ISO Edition Synthesis ⏳
+- [x] Phase 5A: Implement and harden Edition Staging Bridge.
+- [ ] Phase 5B: Verify Docker OCI Synthesis Engine.
+- [ ] Successfully produce edition-specific ISOs (e.g., `bwos-thunder-god.iso`).
+- [ ] Verify dynamic package/theme injection in live environment.

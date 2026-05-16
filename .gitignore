@@ -113,3 +113,7 @@ Desktop.ini
 # App templates and local webdev artifacts
 app-example/
 .webdev/
+
+# BWOS Edition Staging (Transient)
+os/phoenix-os/live-build/config/package-lists/edition.list.chroot
+os/phoenix-os/live-build/config/includes.chroot/etc/bwos/edition/
