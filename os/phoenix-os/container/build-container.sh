@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run the Phoenix OS ISO build inside the OCI builder.
 #
-# Part of PR31 Build Acceleration Framework.
+# Part of PR32 Incremental Build Acceleration.
 
 set -euo pipefail
 
@@ -14,12 +14,13 @@ SERVICE_NAME="${PHOENIX_OS_BUILDER_SERVICE:-builder}"
 VERIFY_CONTAINER="$SCRIPT_DIR/verify-container.sh"
 
 # Default parameters
-MODE="release-hardened"
+MODE="release"
 ARCH=""
-CLEAN=false
+CLEAN_MODE="stage" # stage, none, all
 NO_CACHE=false
 VERIFY_ONLY=false
 
+# Support both --clean (legacy boolean) and --clean=mode (PR32 syntax)
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --mode)
@@ -30,8 +31,12 @@ while [[ "$#" -gt 0 ]]; do
       ARCH="$2"
       shift 2
       ;;
+    --clean=*)
+      CLEAN_MODE="${1#*=}"
+      shift
+      ;;
     --clean)
-      CLEAN=true
+      CLEAN_MODE="all"
       shift
       ;;
     --no-cache)
@@ -52,7 +57,7 @@ done
 # Apple Silicon Auto-Architecture Default Logic
 HOST_ARCH="$(uname -m)"
 if [[ -z "$ARCH" ]]; then
-  if [[ "$HOST_ARCH" == "arm64" && "$MODE" == "fast" ]]; then
+  if [[ "$HOST_ARCH" == "arm64" && ( "$MODE" == "dev-minimal" || "$MODE" == "fast" ) ]]; then
     ARCH="arm64"
     echo "[INFO] Apple Silicon detected. Defaulting to native local speed build: arm64"
   else
@@ -63,6 +68,9 @@ fi
 
 # Export OCI Platform Environment for docker-compose.yml
 export PHOENIX_OS_PLATFORM="linux/$ARCH"
+
+# Forward Host PHOENIX_APT_PROXY into local script env
+export PHOENIX_APT_PROXY="${PHOENIX_APT_PROXY:-}"
 
 compose() {
   docker compose \
@@ -91,9 +99,11 @@ main() {
   echo "[INFO] Arch: $ARCH"
   echo "[INFO] Host Arch: $HOST_ARCH"
   echo "[INFO] Platform target: $PHOENIX_OS_PLATFORM"
+  echo "[INFO] Clean Mode: $CLEAN_MODE"
+  echo "[INFO] APT Cache Proxy: ${PHOENIX_APT_PROXY:-None}"
 
   # 1. Clean operation
-  if [[ "$CLEAN" == "true" ]]; then
+  if [[ "$CLEAN_MODE" == "all" ]]; then
     echo "[INFO] Cleaning host build artifacts and persistent cache..."
     rm -rf "$BUILD_DIR"/*
     rm -rf "$PHOENIX_OS_DIR/cache"/*
@@ -101,7 +111,7 @@ main() {
     # Run container clean to delete working workspace
     echo "[INFO] Verifying container builder before clean..."
     bash "$VERIFY_CONTAINER"
-    run_builder bash -lc "bash /workspace/os/phoenix-os/scripts/build-iso.sh --clean"
+    run_builder bash -lc "bash /workspace/os/phoenix-os/scripts/build-iso.sh --clean=all"
     echo "=== Clean Complete ==="
     exit 0
   fi
@@ -123,7 +133,7 @@ main() {
   echo "[INFO] Running build-iso.sh inside the builder..."
   
   # Assemble dynamic options for build-iso.sh
-  BUILD_ARGS="--mode $MODE --arch $ARCH"
+  BUILD_ARGS="--mode $MODE --arch $ARCH --clean=$CLEAN_MODE"
   if [[ "$NO_CACHE" == "true" ]]; then
     BUILD_ARGS="$BUILD_ARGS --no-cache"
   fi

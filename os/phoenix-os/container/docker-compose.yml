@@ -10,6 +10,7 @@ services:
     environment:
       BUILD_ENV: oci
       PHOENIX_OS_ARTIFACT_DIR: /workspace/os/phoenix-os/build
+      PHOENIX_APT_PROXY: ${PHOENIX_APT_PROXY:-}
     volumes:
       - type: bind
         source: ../../..

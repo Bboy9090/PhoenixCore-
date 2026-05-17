@@ -83,3 +83,23 @@ This checklist tracks the staged transition from Phoenix to ARCWYRE.
 - [x] **PR28B**: Hook Stabilization + Successful Hardened ISO Completion
 - [x] **PR29**: VM visual confirmation (Verify KDE/Wayland and ARCWYRE branding in hypervisor)
 - [x] **PR30**: Read-only USB boot (Verify on bare-metal without internal drive modification)
+
+## Phase 7: Build Acceleration & Native Emulation ✅
+- [x] **PR31**: Build Acceleration Framework
+  - [x] Add Build Modes (`fast`, `full`, `release-hardened`)
+  - [x] Create package profiles (fast, full, recovery, branding lists)
+  - [x] Integrate persistent package caching (`os/phoenix-os/cache/`)
+  - [x] Native ARM64 build target configuration on Apple Silicon
+  - [x] Add OCI host wrapper orchestration parameters
+  - [x] Document and script future overlay-only refresh plan (`refresh-overlays.sh`)
+- [x] **PR32**: Incremental Build Acceleration
+  - [x] Local APT cache support via `PHOENIX_APT_PROXY`
+  - [x] Granular build profiles (`dev-minimal`, `desktop`, `recovery`, `release`)
+  - [x] Prebuilt package cache support (`package-cache.sh`)
+  - [x] Incremental stages preservation with advanced Clean Modes (`--clean=none`, `--clean=stage`, `--clean=all`)
+  - [x] Overlay validation and dry-run planner prototype (`refresh-overlays.sh`)
+- [x] **Status**: **LOCKED**.
+
+## Phase 8: Bypass Bootstrapping (Phase 8 Roadmap) ⏳
+- [ ] **PR33**: Unsquash/Resquash overlay injection engine
+- [ ] Achieve < 45 second custom branded ISO refreshes

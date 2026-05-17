@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Phoenix OS ISO build entrypoint for the OCI builder.
 #
-# Part of PR31 Build Acceleration Framework.
+# Part of PR32 Incremental Build Acceleration.
 
 set -euo pipefail
 
@@ -12,11 +12,12 @@ LIVE_BUILD_DIR="$PHOENIX_OS_DIR/live-build"
 BUILD_WORK_DIR="/home/phoenix-builder/build-workspace"
 
 # Default parameters
-MODE="release-hardened"
+MODE="release"
 ARCH="amd64"
-CLEAN=false
+CLEAN_MODE="stage" # Options: none, stage, all
 NO_CACHE=false
 
+# Support both --clean (legacy boolean) and --clean=mode (PR32 syntax)
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --mode)
@@ -27,8 +28,12 @@ while [[ "$#" -gt 0 ]]; do
       ARCH="$2"
       shift 2
       ;;
+    --clean=*)
+      CLEAN_MODE="${1#*=}"
+      shift
+      ;;
     --clean)
-      CLEAN=true
+      CLEAN_MODE="all"
       shift
       ;;
     --no-cache)
@@ -47,8 +52,19 @@ echo "[INFO] Phoenix OS directory: $PHOENIX_OS_DIR"
 echo "[INFO] Artifact directory: $BUILD_DIR"
 echo "[INFO] Mode: $MODE"
 echo "[INFO] Arch: $ARCH"
-echo "[INFO] Clean: $CLEAN"
+echo "[INFO] Clean Mode: $CLEAN_MODE"
 echo "[INFO] No-Cache: $NO_CACHE"
+
+# Check APT proxy setup
+PROXY_STATUS="Not Used"
+APT_PROXY_ARG=""
+if [[ -n "${PHOENIX_APT_PROXY:-}" ]]; then
+  echo "[INFO] APT proxy specified: $PHOENIX_APT_PROXY"
+  APT_PROXY_ARG="--apt-http-proxy $PHOENIX_APT_PROXY"
+  PROXY_STATUS="$PHOENIX_APT_PROXY"
+else
+  echo "[INFO] No APT proxy specified. Using direct connection."
+fi
 
 if [[ "$BUILD_DIR" != "$PHOENIX_OS_DIR/build" ]]; then
   echo "[FAIL] Refusing to write artifacts outside os/phoenix-os/build."
@@ -67,8 +83,8 @@ if [[ ! -d "$LIVE_BUILD_DIR/config" && ! -f "$LIVE_BUILD_DIR/auto/config" ]]; th
   exit 1
 fi
 
-# Clean operation
-if [[ "$CLEAN" == "true" ]]; then
+# Clean chroot and staging directories back to ground zero if 'all' is requested
+if [[ "$CLEAN_MODE" == "all" ]]; then
   echo "[INFO] Performing clean rebuild path..."
   sudo rm -rf "$BUILD_WORK_DIR"
   sudo rm -rf /workspace/os/phoenix-os/cache/*
@@ -76,12 +92,17 @@ if [[ "$CLEAN" == "true" ]]; then
   exit 0
 fi
 
-echo "[INFO] Preparing writable build environment..."
-rm -rf "$BUILD_WORK_DIR"
-mkdir -p "$BUILD_WORK_DIR"
-
-# Copy the configuration and package lists to the writable area
-rsync -a "$LIVE_BUILD_DIR/" "$BUILD_WORK_DIR/"
+echo "[INFO] Preparing build workspace..."
+# Incremental chroot and cache preservation strategy
+if [[ ! -d "$BUILD_WORK_DIR" ]]; then
+  echo "[INFO] Initializing new build workspace..."
+  mkdir -p "$BUILD_WORK_DIR"
+  rsync -a "$LIVE_BUILD_DIR/" "$BUILD_WORK_DIR/"
+else
+  echo "[INFO] Reusing existing build workspace for incremental compile..."
+  # Sync configs/hooks/lists but preserve existing chroot/cache
+  rsync -a --exclude=chroot --exclude=cache "$LIVE_BUILD_DIR/" "$BUILD_WORK_DIR/"
+fi
 
 # 2. Package List Staging Mode-Driven
 echo "[INFO] Staging package list profile for mode: $MODE..."
@@ -98,9 +119,12 @@ if [[ ! -d "$PROFILE_DIR" ]]; then
   exit 1
 fi
 
-if [[ "$MODE" == "fast" ]]; then
+# Map profiles and support legacy values compatibly
+if [[ "$MODE" == "dev-minimal" || "$MODE" == "fast" ]]; then
   cat "$PROFILE_DIR/fast.list.chroot" "$PROFILE_DIR/branding-tools.list.chroot" > "$PKG_DEST_DIR/phoenix.list.chroot"
-elif [[ "$MODE" == "full" || "$MODE" == "release-hardened" ]]; then
+elif [[ "$MODE" == "desktop" ]]; then
+  cat "$PROFILE_DIR/fast.list.chroot" "$PROFILE_DIR/full.list.chroot" "$PROFILE_DIR/branding-tools.list.chroot" > "$PKG_DEST_DIR/phoenix.list.chroot"
+elif [[ "$MODE" == "recovery" || "$MODE" == "release" || "$MODE" == "full" || "$MODE" == "release-hardened" ]]; then
   cat "$PROFILE_DIR/fast.list.chroot" "$PROFILE_DIR/full.list.chroot" "$PROFILE_DIR/recovery-tools.list.chroot" "$PROFILE_DIR/branding-tools.list.chroot" > "$PKG_DEST_DIR/phoenix.list.chroot"
 else
   echo "[FAIL] Unsupported build mode: $MODE"
@@ -132,12 +156,33 @@ if [[ "$NO_CACHE" == "false" ]]; then
   fi
 fi
 
+# Sync custom prebuilt .deb packages from build/packages/ if present
+PREBUILT_PKG_SRC="/workspace/os/phoenix-os/build/packages"
+PREBUILT_PKG_DEST="$BUILD_WORK_DIR/config/packages.chroot"
+mkdir -p "$PREBUILT_PKG_DEST"
+if [[ -d "$PREBUILT_PKG_SRC" ]]; then
+  mapfile -t prebuilt_debs < <(find "$PREBUILT_PKG_SRC" -maxdepth 1 -name "*.deb" -print 2>/dev/null || true)
+  if [[ "${#prebuilt_debs[@]}" -gt 0 ]]; then
+    echo "[INFO] Injecting ${#prebuilt_debs[@]} prebuilt custom .deb packages..."
+    find "$PREBUILT_PKG_SRC/" -maxdepth 1 -name "*.deb" -exec cp -p {} "$PREBUILT_PKG_DEST/" \;
+  fi
+fi
+
 echo "[INFO] Running live-build from $BUILD_WORK_DIR."
 START_TIME=$(date +%s)
 (
   cd "$BUILD_WORK_DIR"
+  
+  # Run safe cleaning operations inside the workspace
+  if [[ "$CLEAN_MODE" == "stage" ]]; then
+    echo "[INFO] Running default lb clean (preserves chroot/bootstrap stages)..."
+    sudo lb clean
+  elif [[ "$CLEAN_MODE" == "none" ]]; then
+    echo "[INFO] Skipping workspace clean for hyper-fast incremental recompilation..."
+  fi
+
   # Run lb config to ensure everything is initialized for the target architecture
-  lb config --architecture "$ARCH"
+  lb config --architecture "$ARCH" ${APT_PROXY_ARG}
   sudo lb build
 )
 END_TIME=$(date +%s)
@@ -170,6 +215,7 @@ for iso in "${built_isos[@]}"; do
     echo "[OK] Size: $SIZE bytes"
     echo "[OK] SHA256: $SHA256"
     echo "[OK] Build Duration: ${DURATION}s"
+    echo "[OK] APT Cache Proxy: $PROXY_STATUS"
     
     # Save back new packages to persistent cache if caching is active
     if [[ "$NO_CACHE" == "false" ]]; then
