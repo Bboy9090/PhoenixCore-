@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- org.aurelia.phoenix.policy - PR34 Safe Elevation Polkit Scaffolding -->
+<policyconfig>
+  <vendor>Bobby's Worldwide OS (Aurelia)</vendor>
+  <vendor_url>https://aurelia-os.org</vendor_url>
+
+  <!-- 1. Allow scoped read-only SMART diagnostics -->
+  <action id="org.aurelia.phoenix.core.read_smart">
+    <description>Read raw storage SMART telemetry diagnostics</description>
+    <message>Authentication is required to view low-level storage telemetry</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/phoenix/phoenix-smart-helper</annotate>
+  </action>
+
+  <!-- 2. Allow changing dynamic serial heartbeats -->
+  <action id="org.aurelia.phoenix.core.set_heartbeat">
+    <description>Configure dynamic serial port heartbeats</description>
+    <message>Authentication is required to alter system port transmission bounds</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/phoenix/phoenix-heartbeat-helper</annotate>
+  </action>
+
+  <!-- 3. Prevent low-level disk mutations (Always Explicitly Gated / Disabled by Default) -->
+  <action id="org.aurelia.phoenix.core.disk_mutate">
+    <description>Perform active disk mutations or recovery repair workflows</description>
+    <message>CRITICAL: Active disk mutations require absolute administrator validation</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/phoenix/phoenix-disk-mutate-helper</annotate>
+  </action>
+</policyconfig>

@@ -100,6 +100,26 @@ This checklist tracks the staged transition from Phoenix to ARCWYRE.
   - [x] Overlay validation and dry-run planner prototype (`refresh-overlays.sh`)
 - [x] **Status**: **LOCKED**.
 
-## Phase 8: Bypass Bootstrapping (Phase 8 Roadmap) ⏳
-- [ ] **PR33**: Unsquash/Resquash overlay injection engine
+## Phase 8: App Reality Audit & Launch Validation ✅
+- [x] **PR33**: App Reality Audit + Launch App Validation
+  - [x] Create app release standard (`docs/APP_RELEASE_STANDARD.md`)
+  - [x] Create launch app inventory (`docs/LAUNCH_APP_INVENTORY.md`)
+  - [x] Inject core proven apps into `dev-minimal` fast profile (`fast.list.chroot`)
+  - [x] Program automated pre-flight apps validation script (`validate-launch-apps.sh`)
+  - [x] Perform exhaustive PR33 release reality audit and gap report
+- [x] **Status**: **LOCKED**.
+
+## Phase 9: Governed Application Execution ✅
+- [x] **PR34**: Governed Application Execution + Safe Elevation Framework
+  - [x] Create governed execution policies (`docs/GOVERNED_EXECUTION_MODEL.md`, `docs/SAFE_ELEVATION_POLICY.md`, `docs/OPERATION_STATE_MACHINE.md`)
+  - [x] Create scoped pkexec Polkit actions (`policies/org.aurelia.phoenix.policy`)
+  - [x] Scaffold audited SMART helper script (`policies/phoenix-smart-helper.sh`)
+  - [x] Establish truthful UI diagnostics policy (`docs/TRUTHFUL_UI_POLICY.md`)
+  - [x] Define secure cryptographically signed governance log schema (`docs/AUDIT_LOG_MODEL.md`)
+  - [x] Program automated governance rules validator (`validate-governance.sh`)
+- [x] **Status**: **LOCKED**.
+
+## Phase 10: Bypass Bootstrapping (Bypass Roadmap) ⏳
+- [ ] **PR35**: Unsquash/Resquash overlay injection engine
 - [ ] Achieve < 45 second custom branded ISO refreshes
+

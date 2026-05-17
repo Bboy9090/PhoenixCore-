@@ -14,3 +14,12 @@ firmware-linux
 firmware-linux-nonfree
 firmware-iwlwifi
 firmware-realtek
+
+# Proven Core Launch Applications
+firefox-esr
+kcalc
+dolphin
+konsole
+systemsettings
+kwrite
+gwenview
