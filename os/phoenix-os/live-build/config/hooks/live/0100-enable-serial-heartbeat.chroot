@@ -1,5 +1,5 @@
-#!/bin/sh
-set -e
+#!/bin/bash
+set -euo pipefail
 
 # Create a systemd service to announce boot success over serial
 cat <<EOF > /etc/systemd/system/bwos-heartbeat.service
@@ -18,5 +18,11 @@ EOF
 
 systemctl enable bwos-heartbeat.service
 
-# Ensure kernel outputs to serial as well
-echo 'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT console=tty0 console=ttyS0,115200n8"' > /etc/default/grub.d/arcwyre-serial.cfg
+mkdir -p /etc/default/grub.d
+
+# Ensure GRUB config uses .cfg extension
+cat > /etc/default/grub.d/99-arcwyre.cfg <<'EOF'
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="ARCWYRE"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash console=tty0 console=ttyS0,115200n8"
+EOF

@@ -71,8 +71,15 @@ This checklist tracks the staged transition from Phoenix to ARCWYRE.
 - [x] Implement dynamic staging in `build-edition.sh`.
 - [x] **Status**: **LOCKED**.
 
-## Phase 5: Dynamic ISO Edition Synthesis ⏳
-- [x] Phase 5A: Implement and harden Edition Staging Bridge.
-- [ ] Phase 5B: Verify Docker OCI Synthesis Engine.
-- [ ] Successfully produce edition-specific ISOs (e.g., `bwos-thunder-god.iso`).
-- [ ] Verify dynamic package/theme injection in live environment.
+## Phase 5: Dynamic ISO Edition Synthesis ✅
+- [x] Phase 5A: Hardened Staging Bridge (Non-destructive)
+- [x] Phase 5B: Bullseye Package Mapping (Verified)
+- [x] Phase 5C: Nightclub Synthesis Engine (LOCKED)
+- [x] Successfully produce edition-specific ISOs (e.g., `bwos-thunder-god.iso`).
+- [x] Verify dynamic package/theme injection in live environment.
+- [x] **Status**: **LOCKED**.
+
+## Phase 6: Controlled Atmosphere Testing ⏳
+- [x] **PR28B**: Hook Stabilization + Successful Hardened ISO Completion
+- [x] **PR29**: VM visual confirmation (Verify KDE/Wayland and ARCWYRE branding in hypervisor)
+- [x] **PR30**: Read-only USB boot (Verify on bare-metal without internal drive modification)

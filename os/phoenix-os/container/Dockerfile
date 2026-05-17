@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     grep \
     grub-common \
     grub-efi-amd64-bin \
+    grub-efi-arm64-bin \
     grub-pc-bin \
     isolinux \
     live-build \

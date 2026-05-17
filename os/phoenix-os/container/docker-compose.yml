@@ -19,3 +19,7 @@ services:
         source: ../build
         target: /workspace/os/phoenix-os/build
         read_only: false
+      - type: bind
+        source: ../cache
+        target: /workspace/os/phoenix-os/cache
+        read_only: false

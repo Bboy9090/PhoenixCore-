@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+
+# If a custom desktop-background.png was staged by the builder, point the symlinks to it!
+TARGET_BG="/usr/share/images/desktop-base/desktop-background.png"
+if [ -f "$TARGET_BG" ]; then
+    echo "🖼️ Configuring custom desktop wallpaper..."
+    # Override standard desktop-base symlinks
+    ln -sf "$TARGET_BG" /usr/share/images/desktop-base/desktop-background
+    
+    # Optional: also update SDDM or other fallback background symlinks
+    mkdir -p /usr/share/wallpapers/DebianTheme/contents/images
+    ln -sf "$TARGET_BG" /usr/share/wallpapers/DebianTheme/contents/images/1920x1080.svg
+    ln -sf "$TARGET_BG" /usr/share/wallpapers/DebianTheme/contents/images/1920x1080.png
+fi

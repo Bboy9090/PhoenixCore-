@@ -1,4 +1,5 @@
-kde-standard
+# minimal desktop + basic utilities
+plasma-desktop
 wayland-protocols
 plasma-workspace-wayland
 network-manager-gnome

@@ -18,7 +18,43 @@ function clean_staging() {
     echo "🧹 Cleaning edition staging area..."
     rm -f "$STAGED_PKG_LIST"
     rm -rf "$STAGING_CHROOT"
+    # Restore original lists from backups if they exist
+    for bak in "$PACKAGE_LIST_DIR"/*.list.chroot.bak; do
+        [ -f "$bak" ] || continue
+        echo "⏪ Restoring: $(basename "${bak%.bak}")"
+        mv "$bak" "${bak%.bak}"
+    done
     echo "✅ Staging area clean."
+}
+
+function sanitize_list() {
+    local list_file="$1"
+    echo "🧹 Sanitizing package list: $(basename "$list_file")"
+    # Create a sanitized version: remove comments, trailing hashes, and empty lines
+    local temp_file="${list_file}.tmp"
+    local bak_file="${list_file}.bak"
+    # Only backup if not already backed up
+    if [ ! -f "$bak_file" ]; then
+        cp "$list_file" "$bak_file"
+    fi
+
+    # Blocked packages that cause build failures (Mono/GTK# chain)
+    local blocked_pkgs=("bless" "libglib2.0-cil" "libglade2.0-cil" "libgtk2.0-cil" "mono-runtime" "mono-common")
+    
+    # Filter out comments, empty lines, AND blocked packages
+    # 1. Strip comments and whitespace
+    # 2. Filter out exact matches for blocked packages
+    grep -v '^[[:space:]]*#' "$bak_file" | sed 's/[[:space:]]*#.*//' | sed 's/[[:space:]]*$//' | grep -v '^[[:space:]]*$' > "$temp_file"
+
+    for pkg in "${blocked_pkgs[@]}"; do
+        if grep -qx "$pkg" "$temp_file"; then
+            echo "⚠️  WARNING: Blocked package '$pkg' found in $(basename "$list_file"). Removing to prevent build failure."
+            grep -vx "$pkg" "$temp_file" > "${temp_file}.new"
+            mv "${temp_file}.new" "$temp_file"
+        fi
+    done
+    
+    mv "$temp_file" "$list_file"
 }
 
 # Parse arguments
@@ -69,7 +105,31 @@ mkdir -p "$STAGING_CHROOT"
 mkdir -p "$PACKAGE_LIST_DIR"
 
 cp "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_LIST"
+
+# Sanitize all package lists in the staging area to prevent apt errors from comments
+for list in "$PACKAGE_LIST_DIR"/*.list.chroot; do
+    sanitize_list "$list"
+done
+
 cp "$EDITION_DIR/colors.css" "$STAGING_CHROOT/colors.css"
+
+# Stage custom wallpaper if defined and present
+wallpaper_name=$(sed -n 's/^[[:space:]]*wallpaper:[[:space:]]*//p' "$manifest" | sed 's/^"//;s/"$//')
+if [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
+    echo "🖼️  Staging custom wallpaper: $wallpaper_name"
+    mkdir -p "$LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base"
+    cp "$EDITION_DIR/$wallpaper_name" "$LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base/desktop-background.png"
+fi
+
+# Stage custom logo if defined and present (overrides Plymouth boot splash and SDDM login screens)
+logo_name=$(sed -n 's/^[[:space:]]*logo:[[:space:]]*//p' "$manifest" | sed 's/^"//;s/"$//')
+if [ -n "$logo_name" ] && [ -f "$EDITION_DIR/$logo_name" ]; then
+    echo "🎨 Staging custom logo: $logo_name"
+    mkdir -p "$LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes/phoenix"
+    mkdir -p "$LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes/phoenix"
+    cp "$EDITION_DIR/$logo_name" "$LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes/phoenix/phoenix-logo-boot.svg"
+    cp "$EDITION_DIR/$logo_name" "$LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes/phoenix/logo.svg"
+fi
 
 cat <<EOF > "$STAGING_CHROOT/metadata.json"
 {
@@ -117,6 +177,8 @@ if [ "$DOCKER_AVAILABLE" = true ]; then
             fi
         else
             echo "❌ Synthesis Engine failed."
+            # We don't auto-clean here to allow debugging, but we warn the user
+            echo "💡 Staging area remains active. Run './scripts/build-edition.sh --clean-staging' to restore original lists."
             exit 1
         fi
     else
