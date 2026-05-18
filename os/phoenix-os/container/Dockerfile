@@ -5,35 +5,41 @@
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash \
-    ca-certificates \
-    coreutils \
-    cpio \
-    curl \
-    debootstrap \
-    dosfstools \
-    file \
-    findutils \
-    git \
-    grep \
-    grub-common \
-    grub-efi-amd64-bin \
-    grub-efi-arm64-bin \
-    grub-pc-bin \
-    isolinux \
-    live-build \
-    mtools \
-    rsync \
-    sed \
-    squashfs-tools \
-    sudo \
-    syslinux-common \
-    tar \
-    xorriso \
-    xz-utils \
-    && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      bash \
+      ca-certificates \
+      coreutils \
+      cpio \
+      curl \
+      debootstrap \
+      dosfstools \
+      file \
+      findutils \
+      git \
+      grep \
+      grub-common \
+      grub-pc-bin \
+      isolinux \
+      live-build \
+      mtools \
+      rsync \
+      sed \
+      squashfs-tools \
+      sudo \
+      syslinux-common \
+      tar \
+      xorriso \
+      xz-utils; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) efi_pkg="grub-efi-amd64-bin" ;; \
+      arm64) efi_pkg="grub-efi-arm64-bin" ;; \
+      *) echo "Unsupported architecture for EFI GRUB package: $arch"; exit 1 ;; \
+    esac; \
+    apt-get install -y --no-install-recommends "$efi_pkg"; \
+    rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash phoenix-builder \
     && echo "phoenix-builder ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/phoenix-builder \

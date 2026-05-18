@@ -117,3 +117,9 @@ app-example/
 # BWOS Edition Staging (Transient)
 os/phoenix-os/live-build/config/package-lists/edition.list.chroot
 os/phoenix-os/live-build/config/includes.chroot/etc/bwos/edition/
+os/phoenix-os/live-build/config/package-lists/*.list.chroot.bak
+os/phoenix-os/live-build/config/includes.chroot/usr/share/plymouth/
+os/phoenix-os/live-build/config/includes.chroot/usr/share/sddm/
+
+# BWOS Build Cache (Generated)
+os/phoenix-os/cache/

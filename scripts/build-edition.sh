@@ -8,53 +8,43 @@ EDITION_ID=""
 STAGE_ONLY=false
 CLEAN_STAGING=false
 
-# Paths for staging
-LB_CONFIG_DIR="$REPO_ROOT/os/phoenix-os/live-build/config"
-STAGING_CHROOT="$LB_CONFIG_DIR/includes.chroot/etc/bwos/edition"
-PACKAGE_LIST_DIR="$LB_CONFIG_DIR/package-lists"
+# Transient staging roots (kept out of tracked live-build config/)
+STAGING_ROOT="$REPO_ROOT/os/phoenix-os/cache/edition-staging"
+STAGING_LB_CONFIG_DIR="$STAGING_ROOT/live-build-config"
+STAGING_CHROOT="$STAGING_LB_CONFIG_DIR/includes.chroot/etc/bwos/edition"
+PACKAGE_LIST_DIR="$STAGING_LB_CONFIG_DIR/package-lists"
 STAGED_PKG_LIST="$PACKAGE_LIST_DIR/edition.list.chroot"
+STAGING_WALLPAPER_PATH="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base/desktop-background.png"
 
 function clean_staging() {
-    echo "🧹 Cleaning edition staging area..."
-    rm -f "$STAGED_PKG_LIST"
-    rm -rf "$STAGING_CHROOT"
-    # Restore original lists from backups if they exist
-    for bak in "$PACKAGE_LIST_DIR"/*.list.chroot.bak; do
-        [ -f "$bak" ] || continue
-        echo "⏪ Restoring: $(basename "${bak%.bak}")"
-        mv "$bak" "${bak%.bak}"
-    done
-    echo "✅ Staging area clean."
+    echo "🧹 Cleaning transient edition staging cache..."
+    rm -rf "$STAGING_ROOT"
+    echo "✅ Transient staging cache clean."
 }
 
-function sanitize_list() {
-    local list_file="$1"
-    echo "🧹 Sanitizing package list: $(basename "$list_file")"
-    # Create a sanitized version: remove comments, trailing hashes, and empty lines
-    local temp_file="${list_file}.tmp"
-    local bak_file="${list_file}.bak"
-    # Only backup if not already backed up
-    if [ ! -f "$bak_file" ]; then
-        cp "$list_file" "$bak_file"
-    fi
-
+function sanitize_package_profile() {
+    local source_file="$1"
+    local target_file="$2"
+    echo "🧹 Sanitizing package profile: $(basename "$source_file")"
+    local temp_file="${target_file}.tmp"
     # Blocked packages that cause build failures (Mono/GTK# chain)
     local blocked_pkgs=("bless" "libglib2.0-cil" "libglade2.0-cil" "libgtk2.0-cil" "mono-runtime" "mono-common")
     
     # Filter out comments, empty lines, AND blocked packages
     # 1. Strip comments and whitespace
     # 2. Filter out exact matches for blocked packages
-    grep -v '^[[:space:]]*#' "$bak_file" | sed 's/[[:space:]]*#.*//' | sed 's/[[:space:]]*$//' | grep -v '^[[:space:]]*$' > "$temp_file"
+    grep -v '^[[:space:]]*#' "$source_file" | sed 's/[[:space:]]*#.*//' | sed 's/[[:space:]]*$//' | grep -v '^[[:space:]]*$' > "$temp_file"
 
     for pkg in "${blocked_pkgs[@]}"; do
         if grep -qx "$pkg" "$temp_file"; then
-            echo "⚠️  WARNING: Blocked package '$pkg' found in $(basename "$list_file"). Removing to prevent build failure."
+            echo "⚠️  WARNING: Blocked package '$pkg' found in $(basename "$source_file"). Removing to prevent build failure."
             grep -vx "$pkg" "$temp_file" > "${temp_file}.new"
             mv "${temp_file}.new" "$temp_file"
         fi
     done
     
-    mv "$temp_file" "$list_file"
+    mkdir -p "$(dirname "$target_file")"
+    mv "$temp_file" "$target_file"
 }
 
 function manifest_value() {
@@ -219,25 +209,21 @@ echo "   Tagline: \"$tagline\""
 echo "   Target ISO: $iso_name"
 echo ""
 
-# 3. Stage Edition Assets for live-build
+# 3. Stage Edition Assets in transient live-build overlay
 echo "📦 Staging edition assets..."
+clean_staging
 mkdir -p "$STAGING_CHROOT"
 mkdir -p "$PACKAGE_LIST_DIR"
 
-cp "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_LIST"
-
-# Sanitize all package lists in the staging area to prevent apt errors from comments
-for list in "$PACKAGE_LIST_DIR"/*.list.chroot; do
-    sanitize_list "$list"
-done
+sanitize_package_profile "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_LIST"
 
 cp "$EDITION_DIR/colors.css" "$STAGING_CHROOT/colors.css"
 
 # Stage custom wallpaper if defined
 if [ -n "$wallpaper_name" ]; then
     echo "🖼️  Staging custom wallpaper: $wallpaper_name"
-    mkdir -p "$LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base"
-    cp "$EDITION_DIR/$wallpaper_name" "$LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base/desktop-background.png"
+    mkdir -p "$(dirname "$STAGING_WALLPAPER_PATH")"
+    cp "$EDITION_DIR/$wallpaper_name" "$STAGING_WALLPAPER_PATH"
 else
     echo "⚠️  WARNING: No wallpaper entry found in manifest."
 fi
@@ -245,8 +231,8 @@ fi
 # Stage custom logo if defined (overrides Plymouth boot splash and SDDM login screen assets)
 if [ -n "$logo_name" ]; then
     echo "🎨 Staging custom logo and full branding templates: $logo_name"
-    plymouth_theme_root="$LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes"
-    sddm_theme_root="$LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes"
+    plymouth_theme_root="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes"
+    sddm_theme_root="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes"
     plymouth_theme_dir="$plymouth_theme_root/phoenix"
     sddm_theme_dir="$sddm_theme_root/phoenix"
 
@@ -348,6 +334,7 @@ EOF
 
 echo "✅ Assets staged in: $STAGING_CHROOT"
 echo "✅ Package list staged: $STAGED_PKG_LIST"
+echo "✅ Transient overlay ready: $STAGING_LB_CONFIG_DIR"
 
 if [ "$STAGE_ONLY" = true ]; then
     echo "⏹️ Stage-only mode complete. Exiting."

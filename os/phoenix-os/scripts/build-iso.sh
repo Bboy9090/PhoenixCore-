@@ -10,6 +10,7 @@ PHOENIX_OS_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 BUILD_DIR="${PHOENIX_OS_ARTIFACT_DIR:-$PHOENIX_OS_DIR/build}"
 LIVE_BUILD_DIR="$PHOENIX_OS_DIR/live-build"
 BUILD_WORK_DIR="/home/phoenix-builder/build-workspace"
+EDITION_STAGING_DIR="${PHOENIX_EDITION_STAGING_DIR:-/workspace/os/phoenix-os/cache/edition-staging/live-build-config}"
 
 # Default parameters
 MODE="release"
@@ -102,6 +103,20 @@ else
   echo "[INFO] Reusing existing build workspace for incremental compile..."
   # Sync configs/hooks/lists but preserve existing chroot/cache
   rsync -a --exclude=chroot --exclude=cache "$LIVE_BUILD_DIR/" "$BUILD_WORK_DIR/"
+fi
+
+# 1A. Reset transient edition overlay files in the workspace to prevent stale carry-over.
+rm -f "$BUILD_WORK_DIR/config/package-lists/edition.list.chroot"
+rm -rf "$BUILD_WORK_DIR/config/includes.chroot/etc/bwos/edition"
+rm -rf "$BUILD_WORK_DIR/config/includes.chroot/usr/share/plymouth/themes/phoenix"
+rm -rf "$BUILD_WORK_DIR/config/includes.chroot/usr/share/sddm/themes/phoenix"
+
+# 1B. Apply staged edition overlay (if present).
+if [[ -d "$EDITION_STAGING_DIR" ]]; then
+  echo "[INFO] Applying staged edition overlay from: $EDITION_STAGING_DIR"
+  rsync -a "$EDITION_STAGING_DIR/" "$BUILD_WORK_DIR/config/"
+else
+  echo "[INFO] No staged edition overlay detected. Building with baseline visuals."
 fi
 
 # 2. Package List Staging Mode-Driven

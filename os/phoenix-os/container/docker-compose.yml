@@ -11,6 +11,7 @@ services:
       BUILD_ENV: oci
       PHOENIX_OS_ARTIFACT_DIR: /workspace/os/phoenix-os/build
       PHOENIX_APT_PROXY: ${PHOENIX_APT_PROXY:-}
+      PHOENIX_EDITION_STAGING_DIR: ${PHOENIX_EDITION_STAGING_DIR:-/workspace/os/phoenix-os/cache/edition-staging/live-build-config}
     volumes:
       - type: bind
         source: ../../..

@@ -5,11 +5,11 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ACTIVE_EDITIONS=("home" "revival" "resilient" "blue-phoenix" "forge" "arcwyre" "thunder-god")
 
-LB_CONFIG_DIR="$REPO_ROOT/os/phoenix-os/live-build/config"
-PLYMOUTH_THEME_DIR="$LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes/phoenix"
-SDDM_THEME_DIR="$LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes/phoenix"
-WALLPAPER_PATH="$LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base/desktop-background.png"
-EDITION_META="$LB_CONFIG_DIR/includes.chroot/etc/bwos/edition/metadata.json"
+STAGING_LB_CONFIG_DIR="$REPO_ROOT/os/phoenix-os/cache/edition-staging/live-build-config"
+PLYMOUTH_THEME_DIR="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes/phoenix"
+SDDM_THEME_DIR="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes/phoenix"
+WALLPAPER_PATH="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base/desktop-background.png"
+EDITION_META="$STAGING_LB_CONFIG_DIR/includes.chroot/etc/bwos/edition/metadata.json"
 
 cleanup() {
     bash "$REPO_ROOT/scripts/build-edition.sh" --clean-staging >/dev/null 2>&1 || true
