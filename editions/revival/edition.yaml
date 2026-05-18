@@ -21,7 +21,7 @@ palette:
 branding:
   path: "branding.md"
   logo: "assets/revival-logo.png"
-  wallpaper: "../arcwyre/assets/circuit-grid.png"
+  wallpaper: "assets/revival-background.png"
 
 packages:
   profile: "package-profile.txt"

@@ -21,7 +21,7 @@ palette:
 branding:
   path: "branding.md"
   logo: "assets/home-logo.png"
-  wallpaper: "../blue-phoenix/assets/blue-horizon.png"
+  wallpaper: "assets/home-background.png"
 
 packages:
   profile: "package-profile.txt"

@@ -21,7 +21,7 @@ palette:
 branding:
   path: "branding.md"
   logo: "assets/resilient-logo.png"
-  wallpaper: "../thunder-god/assets/storm-peak.png"
+  wallpaper: "assets/resilient-background.png"
 
 packages:
   profile: "package-profile.txt"
