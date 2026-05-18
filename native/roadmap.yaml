@@ -1,0 +1,59 @@
+schema_version: 1
+manifest_version: "1.0"
+
+native_track:
+  id: "blue-phoenix-native"
+  display_name: "Blue Phoenix Native"
+  channel: "alpha"
+  maturity: "prototype"
+  boot_status: "vm-tested"
+  architectures:
+    - amd64
+    - arm64
+  integrity:
+    manifest_hash_required: true
+    signed_builds: false
+    audit_level: "strict"
+
+milestones:
+  - id: NATIVE-0
+    state: in_progress
+    title: "Doctrine and kernel boot proof"
+    proof: "Boot to custom kernel banner in QEMU and capture serial logs."
+    evidence_path: "native/evidence/NATIVE-0"
+
+  - id: NATIVE-1
+    state: pending
+    title: "Shell and filesystem baseline"
+    proof: "Read/write filesystem smoke test plus interactive shell command loop."
+    evidence_path: "native/evidence/NATIVE-1"
+
+  - id: NATIVE-2
+    state: pending
+    title: "Process runtime and permissions"
+    proof: "Userspace process spawn/kill plus capability-enforced permission checks."
+    evidence_path: "native/evidence/NATIVE-2"
+
+  - id: NATIVE-3
+    state: pending
+    title: "WorldKit SDK freeze candidate"
+    proof: "First stable SDK headers/APIs with sample app compile and run evidence."
+    evidence_path: "native/evidence/NATIVE-3"
+
+  - id: NATIVE-4
+    state: pending
+    title: "Crown app bundle MVP"
+    proof: "At least three first-party native apps launch and complete real workflows."
+    evidence_path: "native/evidence/NATIVE-4"
+
+  - id: NATIVE-5
+    state: pending
+    title: "Native games MVP"
+    proof: "At least two native games run with stable input/audio/render loops."
+    evidence_path: "native/evidence/NATIVE-5"
+
+  - id: NATIVE-6
+    state: pending
+    title: "Crown release candidate"
+    proof: "Signed release artifact, reproducible build log, and hardware boot validation."
+    evidence_path: "native/evidence/NATIVE-6"

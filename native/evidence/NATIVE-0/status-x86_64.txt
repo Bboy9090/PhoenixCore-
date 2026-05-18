@@ -1,0 +1,8 @@
+NATIVE-0: PASS
+Native Arch: x86_64
+Target Triple: x86_64-unknown-uefi
+Evidence: /Users/bj90-m1/PhoenixCore-/native/evidence/NATIVE-0/boot-serial-x86_64.log
+Debug Evidence: /Users/bj90-m1/PhoenixCore-/native/evidence/NATIVE-0/boot-debugcon-x86_64.log
+Boot Manager EFI: /Users/bj90-m1/PhoenixCore-/native/build/NATIVE-0/esp/EFI/BOOT/BOOTX64.EFI
+Kernel Stub EFI: /Users/bj90-m1/PhoenixCore-/native/build/NATIVE-0/esp/EFI/BOOT/KERNELX64.EFI
+Captured: 2026-05-18T08:51:04Z

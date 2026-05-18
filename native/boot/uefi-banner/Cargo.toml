@@ -1,0 +1,19 @@
+[package]
+name = "blue-phoenix-native-uefi-banner"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "bootx64"
+path = "src/main.rs"
+
+[dependencies]
+uefi = { version = "0.35", features = ["panic_handler", "alloc", "global_allocator"] }
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = "z"
+
+[workspace]

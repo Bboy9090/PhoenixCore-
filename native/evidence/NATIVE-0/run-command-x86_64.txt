@@ -1,0 +1,2 @@
+qemu-system-x86_64 -m 1024 -nographic -serial stdio -monitor none -no-reboot -machine q35 -cpu qemu64 -drive if=pflash,format=raw,readonly=on,file=/opt/homebrew/Cellar/qemu/11.0.0/share/qemu/edk2-x86_64-code.fd -debugcon file:/Users/bj90-m1/PhoenixCore-/native/evidence/NATIVE-0/boot-debugcon-x86_64.log -global isa-debugcon.iobase=0x402 -drive format=raw,file=fat:rw:/Users/bj90-m1/PhoenixCore-/native/build/NATIVE-0/esp
+Started: 2026-05-18T08:50:56Z

@@ -1,71 +1,48 @@
-# Phoenix OS — Plymouth Boot Splash Script
-# File: branding/plymouth/phoenix.script
+# Blue Phoenix OS — Plymouth Boot Theme (Edition Template)
 #
-# Animates an ember/flame rising effect on the boot screen.
-# Uses the Plymouth script module (no video codec dependency).
-#
-# Color palette from docs/branding.md:
-#   Forge Black:   #0D0F12  (background)
-#   Phoenix Amber: #F58C1F  (primary accent / flame)
-#   Flame:         #D94215  (deep ember)
+# This template is patched at staging-time by scripts/build-edition.sh:
+#   __BG_TOP_R__ __BG_TOP_G__ __BG_TOP_B__
+#   __BG_BOT_R__ __BG_BOT_G__ __BG_BOT_B__
 
-# ---- Screen setup ----
 screen_width  = Window.GetWidth();
 screen_height = Window.GetHeight();
 
-# Background: Forge Black
-Window.SetBackgroundTopColor(0.051, 0.059, 0.071);   # #0D0F12
-Window.SetBackgroundBottomColor(0.051, 0.059, 0.071);
+# Edition-aware background tones
+Window.SetBackgroundTopColor(__BG_TOP_R__, __BG_TOP_G__, __BG_TOP_B__);
+Window.SetBackgroundBottomColor(__BG_BOT_R__, __BG_BOT_G__, __BG_BOT_B__);
 
-# ---- Load images ----
-# These PNG files must be in the same directory as this script.
-# See branding/boot-logo/ for source vectors.
-logo_image   = Image("phoenix-logo-boot.png");
-ember_image  = Image("ember-particle.png");
+# Core visual assets
+logo_image = Image("phoenix-logo-boot.png");
+bar_bg_image = Image("progress-bg.png");
+bar_fill_image = Image("progress-fill.png");
 
-# ---- Logo sprite ----
+# Logo sprite
 logo_sprite = Sprite(logo_image);
-
-# Center the logo horizontally, position in upper third
-logo_x = (screen_width  - logo_image.GetWidth())  / 2;
-logo_y = (screen_height - logo_image.GetHeight()) / 2 - 60;
-
+logo_x = (screen_width - logo_image.GetWidth()) / 2;
+logo_y = (screen_height - logo_image.GetHeight()) / 2 - 70;
 logo_sprite.SetPosition(logo_x, logo_y, 1);
 logo_sprite.SetOpacity(0);
 
-# ---- Progress bar ----
-# Amber bar at the bottom of the screen
-progress_bar_height = 3;
-progress_bar_y      = screen_height - 60;
-progress_bar_max_width = screen_width * 0.4;
-progress_bar_x_start   = (screen_width - progress_bar_max_width) / 2;
+# Progress bar geometry
+progress_bar_height = 6;
+progress_bar_y = screen_height - 80;
+progress_bar_max_width = screen_width * 0.46;
+progress_bar_x_start = (screen_width - progress_bar_max_width) / 2;
 
-bar_bg = Rectangle(
-    progress_bar_x_start,
-    progress_bar_y,
-    progress_bar_max_width,
-    progress_bar_height
-);
-bar_bg.SetFillColor(0.165, 0.196, 0.235, 0.3);  # Subtle background
+scaled_bg_image = bar_bg_image.Scale(progress_bar_max_width, progress_bar_height);
+bar_bg_sprite = Sprite(scaled_bg_image);
+bar_bg_sprite.SetPosition(progress_bar_x_start, progress_bar_y, 1);
 
-bar_fill = Rectangle(
-    progress_bar_x_start,
-    progress_bar_y,
-    0,
-    progress_bar_height
-);
-bar_fill.SetFillColor(0.961, 0.549, 0.122, 1.0);  # Phoenix Amber #F58C1F
+scaled_fill_image = bar_fill_image.Scale(2, progress_bar_height);
+bar_fill_sprite = Sprite(scaled_fill_image);
+bar_fill_sprite.SetPosition(progress_bar_x_start, progress_bar_y, 2);
 
-# ---- Animation state ----
 frame = 0;
-logo_fade_in_frames = 30;   # ~1 second at 30fps
-progress = 0.0;
+logo_fade_in_frames = 28;
 
-# ---- Refresh callback (called ~30x per second) ----
 fun refresh_callback() {
     frame++;
 
-    # Fade in the logo over the first 30 frames
     if (frame <= logo_fade_in_frames) {
         opacity = frame / logo_fade_in_frames;
         logo_sprite.SetOpacity(opacity);
@@ -73,25 +50,31 @@ fun refresh_callback() {
         logo_sprite.SetOpacity(1.0);
     }
 
-    # Animate progress bar with a pulsing fill
-    # In real boot, Plymouth.GetProgress() returns actual boot progress (0.0 - 1.0)
     boot_progress = Plymouth.GetBootProgress();
-    bar_fill.SetWidth(progress_bar_max_width * boot_progress);
+    if (boot_progress < 0) {
+        boot_progress = 0;
+    }
+    if (boot_progress > 1) {
+        boot_progress = 1;
+    }
+
+    current_width = progress_bar_max_width * boot_progress;
+    if (current_width < 2) {
+        current_width = 2;
+    }
+
+    scaled_fill_image = bar_fill_image.Scale(current_width, progress_bar_height);
+    bar_fill_sprite.SetImage(scaled_fill_image);
 }
 
 Plymouth.SetRefreshFunction(refresh_callback);
 
-# ---- Boot message callback ----
 fun message_callback(text) {
-    # Messages are suppressed in Phoenix OS splash (quiet boot)
-    # Debug: Uncomment to show messages during development
-    # label = Label(text);
-    # label.SetPosition(20, screen_height - 40, 2);
+    # Quiet splash; keep boot logs hidden unless debug mode is enabled.
 }
 
 Plymouth.SetMessageFunction(message_callback);
 
-# ---- Normal exit (boot complete) ----
 fun quit_callback() {
     logo_sprite.SetOpacity(0);
 }

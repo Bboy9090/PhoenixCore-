@@ -1,0 +1,2 @@
+qemu-system-aarch64 -m 1024 -nographic -serial stdio -monitor none -no-reboot -machine virt -cpu cortex-a72 -drive if=pflash,format=raw,readonly=on,file=/opt/homebrew/Cellar/qemu/11.0.0/share/qemu/edk2-aarch64-code.fd -drive format=raw,file=fat:rw:/Users/bj90-m1/PhoenixCore-/native/build/NATIVE-0/esp
+Started: 2026-05-18T08:50:56Z

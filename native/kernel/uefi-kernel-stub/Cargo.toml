@@ -1,0 +1,19 @@
+[package]
+name = "blue-phoenix-native-kernel-stub"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "kernelx64"
+path = "src/main.rs"
+
+[dependencies]
+uefi = { version = "0.35", features = ["panic_handler"] }
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = "z"
+
+[workspace]

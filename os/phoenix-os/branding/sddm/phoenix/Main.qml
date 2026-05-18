@@ -1,10 +1,3 @@
-// Phoenix OS — SDDM Login Theme
-// File: branding/sddm-theme/Main.qml
-//
-// KDE/Qt QML-based SDDM login screen theme.
-// Design: Dark Forge Black background with Phoenix fire gradient,
-//         centered login panel with Phoenix branding.
-
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
@@ -12,91 +5,88 @@ import SddmComponents 2.0
 
 Rectangle {
     id: root
-    width:  Screen.width
+    width: Screen.width
     height: Screen.height
 
-    // ---- Phoenix color palette ----
-    readonly property color colorForgeBlack:   "#0D0F12"
-    readonly property color colorEmberDark:    "#161A1F"
-    readonly property color colorAshGrey:      "#1E2329"
-    readonly property color colorGraphite:     "#2A2F38"
-    readonly property color colorBoneWhite:    "#E8EAF0"
-    readonly property color colorSlate:        "#8A929E"
-    readonly property color colorAmber:        "#F58C1F"
-    readonly property color colorFlame:        "#D94215"
+    readonly property string editionName: "__EDITION_NAME__"
+    readonly property string editionTagline: "__EDITION_TAGLINE__"
 
-    // ---- Background ----
-    color: colorForgeBlack
+    readonly property color colorPrimary: "__COLOR_PRIMARY__"
+    readonly property color colorSecondary: "__COLOR_SECONDARY__"
+    readonly property color colorBackground: "__COLOR_BACKGROUND__"
+    readonly property color colorSurface: "__COLOR_SURFACE__"
+    readonly property color colorText: "__COLOR_TEXT__"
+    readonly property color colorMuted: Qt.darker(colorText, 1.65)
+    readonly property color colorField: Qt.darker(colorSurface, 1.16)
 
-    // Fire gradient overlay — subtle, bottom-left glow
+    color: colorBackground
+
     Rectangle {
         anchors.fill: parent
         gradient: Gradient {
             orientation: Gradient.Diagonal
-            GradientStop { position: 0.0; color: "transparent" }
-            GradientStop { position: 0.7; color: Qt.rgba(0.102, 0.063, 0.020, 0.4) }
-            GradientStop { position: 1.0; color: Qt.rgba(0.961, 0.549, 0.122, 0.08) }
+            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.0) }
+            GradientStop { position: 0.65; color: Qt.rgba(colorSecondary.r, colorSecondary.g, colorSecondary.b, 0.10) }
+            GradientStop { position: 1.0; color: Qt.rgba(colorPrimary.r, colorPrimary.g, colorPrimary.b, 0.22) }
         }
     }
 
-    // ---- Hostname / session info (top-left) ----
-    Text {
-        anchors.top:   parent.top
-        anchors.left:  parent.left
-        anchors.margins: 32
-        text:  config.ServerURL !== "" ? config.ServerURL : sddm.hostName
-        color: root.colorSlate
-        font.family: "IBM Plex Mono"
-        font.pixelSize: 13
-        opacity: 0.7
-    }
-
-    // ---- Time display (top-right) ----
-    Clock {
-        anchors.top:   parent.top
+    RowLayout {
+        anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 32
-        color: root.colorSlate
-        fontSize: 13
+        anchors.top: parent.top
+        anchors.leftMargin: 30
+        anchors.rightMargin: 30
+        anchors.topMargin: 24
+
+        Text {
+            text: sddm.hostName
+            color: root.colorMuted
+            font.pixelSize: 12
+            font.family: "IBM Plex Mono"
+        }
+
+        Item { Layout.fillWidth: true }
+
+        Clock {
+            color: root.colorMuted
+            fontSize: 12
+        }
     }
 
-    // ---- Center login panel ----
     Item {
+        id: loginPanel
         anchors.centerIn: parent
-        width:  380
-        height: loginColumn.implicitHeight + 80
+        width: 430
+        height: loginColumn.implicitHeight + 56
 
-        // Panel background
         Rectangle {
             anchors.fill: parent
-            color: root.colorEmberDark
-            border.color: root.colorGraphite
+            color: Qt.rgba(root.colorSurface.r, root.colorSurface.g, root.colorSurface.b, 0.92)
+            radius: 10
             border.width: 1
-            radius: 8
+            border.color: Qt.rgba(root.colorPrimary.r, root.colorPrimary.g, root.colorPrimary.b, 0.42)
         }
 
         ColumnLayout {
             id: loginColumn
-            anchors {
-                top:     parent.top
-                left:    parent.left
-                right:   parent.right
-                margins: 40
-                topMargin: 40
-            }
-            spacing: 20
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: 36
+            anchors.rightMargin: 36
+            anchors.topMargin: 28
+            spacing: 14
 
-            // Optional custom edition logo (SVG first, then PNG fallback)
             Image {
                 id: editionLogo
                 Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: 160
-                Layout.preferredHeight: 64
+                Layout.preferredWidth: 168
+                Layout.preferredHeight: 96
                 fillMode: Image.PreserveAspectFit
                 source: "logo.svg"
                 smooth: true
                 mipmap: true
-
                 onStatusChanged: {
                     if (status === Image.Error && source !== "logo.png") {
                         source = "logo.png"
@@ -104,133 +94,151 @@ Rectangle {
                 }
             }
 
-            // Phoenix OS wordmark
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: "PHOENIX OS"
-                color: root.colorAmber
-                font.family:      "Rajdhani"
-                font.pixelSize:   28
-                font.weight:      Font.SemiBold
-                font.letterSpacing: 4
+                text: root.editionName
+                color: root.colorPrimary
+                font.family: "Rajdhani"
+                font.pixelSize: 24
+                font.weight: Font.DemiBold
+                font.letterSpacing: 1.4
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
             }
 
-            // Hostname
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: sddm.hostName
-                color: root.colorSlate
-                font.family:  "IBM Plex Mono"
-                font.pixelSize: 12
-                topPadding: -12
+                text: root.editionTagline
+                color: root.colorMuted
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 11
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
             }
 
-            // Separator
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: root.colorGraphite
+                color: Qt.rgba(root.colorSecondary.r, root.colorSecondary.g, root.colorSecondary.b, 0.28)
             }
 
-            // Username field
-            Column {
+            Text {
+                text: "Username"
+                color: root.colorMuted
+                font.pixelSize: 12
+                font.family: "IBM Plex Mono"
+            }
+
+            TextField {
+                id: usernameField
                 Layout.fillWidth: true
-                spacing: 6
-
-                Text {
-                    text: "Username"
-                    color: root.colorSlate
-                    font.pixelSize: 12
-                    font.family: "IBM Plex Mono"
+                text: userModel.lastUser
+                placeholderText: "Enter username"
+                focus: true
+                KeyNavigation.tab: passwordField
+                selectByMouse: true
+                color: root.colorText
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 14
+                leftPadding: 12
+                rightPadding: 12
+                topPadding: 10
+                bottomPadding: 10
+                background: Rectangle {
+                    color: root.colorField
+                    radius: 5
+                    border.width: 1
+                    border.color: usernameField.activeFocus
+                                  ? root.colorPrimary
+                                  : Qt.rgba(root.colorSecondary.r, root.colorSecondary.g, root.colorSecondary.b, 0.36)
                 }
-
-                TextField {
-                    id: usernameField
-                    width: parent.width
-                    placeholderText: "Enter username"
-                    text: userModel.lastUser
-                    focus: true
-                    KeyNavigation.tab: passwordField
-
-                    background: Rectangle {
-                        color: root.colorAshGrey
-                        border.color: usernameField.activeFocus ? root.colorAmber : root.colorGraphite
-                        border.width: 1
-                        radius: 4
-                    }
-                    color: root.colorBoneWhite
-                    font.family: "IBM Plex Mono"
-                    font.pixelSize: 14
-                    leftPadding: 12
-                    rightPadding: 12
-                    topPadding: 10
-                    bottomPadding: 10
-
-                    Keys.onReturnPressed: passwordField.forceActiveFocus()
-                }
+                Keys.onReturnPressed: passwordField.forceActiveFocus()
             }
 
-            // Password field
-            Column {
+            Text {
+                text: "Password"
+                color: root.colorMuted
+                font.pixelSize: 12
+                font.family: "IBM Plex Mono"
+            }
+
+            TextField {
+                id: passwordField
                 Layout.fillWidth: true
-                spacing: 6
-
-                Text {
-                    text: "Password"
-                    color: root.colorSlate
-                    font.pixelSize: 12
-                    font.family: "IBM Plex Mono"
+                placeholderText: "Enter password"
+                echoMode: TextInput.Password
+                KeyNavigation.tab: sessionCombo
+                selectByMouse: true
+                color: root.colorText
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 14
+                leftPadding: 12
+                rightPadding: 12
+                topPadding: 10
+                bottomPadding: 10
+                background: Rectangle {
+                    color: root.colorField
+                    radius: 5
+                    border.width: 1
+                    border.color: passwordField.activeFocus
+                                  ? root.colorPrimary
+                                  : Qt.rgba(root.colorSecondary.r, root.colorSecondary.g, root.colorSecondary.b, 0.36)
                 }
+                Keys.onReturnPressed: loginButton.clicked()
+            }
 
-                TextField {
-                    id: passwordField
-                    width: parent.width
-                    placeholderText: "Enter password"
-                    echoMode: TextInput.Password
-                    KeyNavigation.tab: loginButton
-
-                    background: Rectangle {
-                        color: root.colorAshGrey
-                        border.color: passwordField.activeFocus ? root.colorAmber : root.colorGraphite
-                        border.width: 1
-                        radius: 4
-                    }
-                    color: root.colorBoneWhite
+            ComboBox {
+                id: sessionCombo
+                Layout.fillWidth: true
+                model: sessionModel
+                currentIndex: sessionModel.lastIndex
+                textRole: "name"
+                font.family: "IBM Plex Mono"
+                font.pixelSize: 12
+                background: Rectangle {
+                    color: root.colorField
+                    radius: 5
+                    border.width: 1
+                    border.color: Qt.rgba(root.colorSecondary.r, root.colorSecondary.g, root.colorSecondary.b, 0.36)
+                }
+                contentItem: Text {
+                    text: sessionCombo.displayText
+                    color: root.colorMuted
+                    leftPadding: 10
+                    verticalAlignment: Text.AlignVCenter
                     font.family: "IBM Plex Mono"
-                    font.pixelSize: 14
-                    leftPadding: 12
-                    rightPadding: 12
-                    topPadding: 10
-                    bottomPadding: 10
-
-                    Keys.onReturnPressed: loginButton.clicked()
+                    font.pixelSize: 12
                 }
             }
 
-            // Error message
             Text {
                 id: errorMessage
                 Layout.fillWidth: true
                 text: ""
-                color: "#E03A3A"
-                font.pixelSize: 12
+                color: "#FF6B6B"
                 font.family: "IBM Plex Mono"
+                font.pixelSize: 11
                 wrapMode: Text.WordWrap
                 visible: text !== ""
             }
 
-            // Login button
             Button {
                 id: loginButton
                 Layout.fillWidth: true
                 text: "Sign In"
+                KeyNavigation.tab: usernameField
+                topPadding: 11
+                bottomPadding: 11
 
                 background: Rectangle {
-                    color: loginButton.pressed ? root.colorFlame :
-                           loginButton.hovered ? root.colorAmber :
-                           Qt.darker(root.colorAmber, 1.2)
-                    radius: 4
-
+                    radius: 5
+                    color: loginButton.pressed
+                           ? Qt.darker(root.colorPrimary, 1.20)
+                           : loginButton.hovered
+                             ? Qt.lighter(root.colorPrimary, 1.08)
+                             : root.colorPrimary
                     Behavior on color {
                         ColorAnimation { duration: 120 }
                     }
@@ -238,63 +246,35 @@ Rectangle {
 
                 contentItem: Text {
                     text: parent.text
-                    color: root.colorForgeBlack
+                    color: Qt.darker(root.colorBackground, 1.6)
                     font.family: "Rajdhani"
                     font.pixelSize: 15
-                    font.weight: Font.SemiBold
+                    font.weight: Font.DemiBold
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
 
-                topPadding: 12
-                bottomPadding: 12
-
                 onClicked: {
                     errorMessage.text = ""
-                    sddm.login(usernameField.text, passwordField.text, sessionModel.currentIndex)
+                    sddm.login(usernameField.text, passwordField.text, sessionCombo.currentIndex)
                 }
             }
 
-            // Session selector (compact)
-            ComboBox {
-                id: sessionCombo
-                Layout.fillWidth: true
-                model: sessionModel
-                currentIndex: sessionModel.lastIndex
-                textRole: "name"
-
-                background: Rectangle {
-                    color: root.colorAshGrey
-                    border.color: root.colorGraphite
-                    radius: 4
-                }
-
-                contentItem: Text {
-                    leftPadding: 12
-                    text: sessionCombo.displayText
-                    color: root.colorSlate
-                    font.family: "IBM Plex Mono"
-                    font.pixelSize: 12
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-
-            // Bottom padding
-            Item { height: 4 }
+            Item { height: 2 }
         }
     }
 
-    // ---- Bottom bar: power controls ----
     RowLayout {
-        anchors.bottom:  parent.bottom
-        anchors.right:   parent.right
-        anchors.margins: 32
-        spacing: 20
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: 30
+        anchors.bottomMargin: 20
+        spacing: 18
 
         Text {
             text: "Restart"
-            color: root.colorSlate
-            font.pixelSize: 13
+            color: root.colorMuted
+            font.pixelSize: 12
             font.family: "IBM Plex Mono"
             MouseArea {
                 anchors.fill: parent
@@ -305,8 +285,8 @@ Rectangle {
 
         Text {
             text: "Power Off"
-            color: root.colorSlate
-            font.pixelSize: 13
+            color: root.colorMuted
+            font.pixelSize: 12
             font.family: "IBM Plex Mono"
             MouseArea {
                 anchors.fill: parent
@@ -316,7 +296,6 @@ Rectangle {
         }
     }
 
-    // ---- SDDM signal handlers ----
     Connections {
         target: sddm
 

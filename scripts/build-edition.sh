@@ -63,6 +63,103 @@ function manifest_value() {
     sed -n "s/^[[:space:]]*${key}:[[:space:]]*//p" "$file" | sed 's/^"//;s/"$//' | head -n 1
 }
 
+function manifest_color() {
+    local key="$1"
+    local file="$2"
+    awk -v k="$key" '
+        $1 ~ ("^" k ":") {
+            if (match($0, /#[0-9A-Fa-f]{6}/)) {
+                print substr($0, RSTART, RLENGTH)
+                exit
+            }
+        }
+    ' "$file"
+}
+
+function normalize_color() {
+    local raw="${1:-}"
+    local fallback="${2:-#3B82F6}"
+    raw="$(echo "$raw" | tr -d '[:space:]')"
+    if [[ "$raw" =~ ^#[0-9A-Fa-f]{6}$ ]]; then
+        echo "$raw"
+    else
+        echo "$fallback"
+    fi
+}
+
+function hex_to_rgb_floats() {
+    local hex="$1"
+    python3 - "$hex" <<'PY'
+import sys
+h = sys.argv[1].strip().lstrip("#")
+r = int(h[0:2], 16) / 255.0
+g = int(h[2:4], 16) / 255.0
+b = int(h[4:6], 16) / 255.0
+print(f"{r:.3f} {g:.3f} {b:.3f}")
+PY
+}
+
+function scale_hex_color() {
+    local hex="$1"
+    local factor="$2"
+    python3 - "$hex" "$factor" <<'PY'
+import sys
+h = sys.argv[1].strip().lstrip("#")
+f = float(sys.argv[2])
+r = max(0, min(255, round(int(h[0:2], 16) * f)))
+g = max(0, min(255, round(int(h[2:4], 16) * f)))
+b = max(0, min(255, round(int(h[4:6], 16) * f)))
+print(f"#{r:02X}{g:02X}{b:02X}")
+PY
+}
+
+function make_solid_png() {
+    local out_path="$1"
+    local hex="$2"
+    local alpha="${3:-255}"
+    python3 - "$out_path" "$hex" "$alpha" <<'PY'
+import binascii
+import struct
+import sys
+import zlib
+
+out_path, color_hex, alpha = sys.argv[1], sys.argv[2].lstrip("#"), int(sys.argv[3])
+r = int(color_hex[0:2], 16)
+g = int(color_hex[2:4], 16)
+b = int(color_hex[4:6], 16)
+
+def chunk(chunk_type, data):
+    return (
+        struct.pack("!I", len(data))
+        + chunk_type
+        + data
+        + struct.pack("!I", binascii.crc32(chunk_type + data) & 0xFFFFFFFF)
+    )
+
+# RGBA pixel with filter byte 0
+raw = bytes([0, r, g, b, alpha])
+ihdr = struct.pack("!IIBBBBB", 1, 1, 8, 6, 0, 0, 0)
+png = (
+    b"\x89PNG\r\n\x1a\n"
+    + chunk(b"IHDR", ihdr)
+    + chunk(b"IDAT", zlib.compress(raw, 9))
+    + chunk(b"IEND", b"")
+)
+
+with open(out_path, "wb") as f:
+    f.write(png)
+PY
+}
+
+function escape_qml_string() {
+    local value="$1"
+    python3 - "$value" <<'PY'
+import json
+import sys
+print(json.dumps(sys.argv[1])[1:-1])
+PY
+}
+
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -101,6 +198,11 @@ tagline=$(manifest_value tagline "$manifest")
 iso_name=$(manifest_value iso_name "$manifest")
 wallpaper_name=$(manifest_value wallpaper "$manifest")
 logo_name=$(manifest_value logo "$manifest")
+primary_color=$(normalize_color "$(manifest_color primary "$manifest")" "#3B82F6")
+secondary_color=$(normalize_color "$(manifest_color secondary "$manifest")" "#64748B")
+background_color=$(normalize_color "$(manifest_color background "$manifest")" "#070B16")
+surface_color=$(normalize_color "$(manifest_color surface "$manifest")" "#111827")
+text_color=$(normalize_color "$(manifest_color text "$manifest")" "#E5E7EB")
 
 if [ -n "$wallpaper_name" ] && [ ! -f "$EDITION_DIR/$wallpaper_name" ]; then
     echo "❌ Error: Wallpaper path in manifest does not exist: $wallpaper_name"
@@ -173,6 +275,57 @@ if [ -n "$logo_name" ]; then
             exit 1
             ;;
     esac
+
+    read -r bg_top_r bg_top_g bg_top_b <<< "$(hex_to_rgb_floats "$background_color")"
+    read -r bg_bot_r bg_bot_g bg_bot_b <<< "$(hex_to_rgb_floats "$surface_color")"
+    progress_fill_color="$primary_color"
+    progress_bg_color="$(scale_hex_color "$secondary_color" 0.45)"
+    edition_name_qml="$(escape_qml_string "$display_name")"
+    edition_tagline_qml="$(escape_qml_string "$tagline")"
+
+    make_solid_png "$plymouth_theme_dir/progress-fill.png" "$progress_fill_color" 255
+    make_solid_png "$plymouth_theme_dir/progress-bg.png" "$progress_bg_color" 210
+
+    python3 - "$plymouth_theme_dir/phoenix.script" "$bg_top_r" "$bg_top_g" "$bg_top_b" "$bg_bot_r" "$bg_bot_g" "$bg_bot_b" <<'PY'
+import sys
+
+path = sys.argv[1]
+bg_top_r, bg_top_g, bg_top_b = sys.argv[2], sys.argv[3], sys.argv[4]
+bg_bot_r, bg_bot_g, bg_bot_b = sys.argv[5], sys.argv[6], sys.argv[7]
+text = open(path, "r", encoding="utf-8").read()
+replacements = {
+    "__BG_TOP_R__": bg_top_r,
+    "__BG_TOP_G__": bg_top_g,
+    "__BG_TOP_B__": bg_top_b,
+    "__BG_BOT_R__": bg_bot_r,
+    "__BG_BOT_G__": bg_bot_g,
+    "__BG_BOT_B__": bg_bot_b,
+}
+for key, value in replacements.items():
+    text = text.replace(key, value)
+open(path, "w", encoding="utf-8").write(text)
+PY
+
+    python3 - "$sddm_theme_dir/Main.qml" "$edition_name_qml" "$edition_tagline_qml" "$primary_color" "$secondary_color" "$background_color" "$surface_color" "$text_color" <<'PY'
+import sys
+
+path = sys.argv[1]
+edition_name, edition_tagline = sys.argv[2], sys.argv[3]
+primary, secondary, background, surface, text_color = sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8]
+text = open(path, "r", encoding="utf-8").read()
+replacements = {
+    "__EDITION_NAME__": edition_name,
+    "__EDITION_TAGLINE__": edition_tagline,
+    "__COLOR_PRIMARY__": primary,
+    "__COLOR_SECONDARY__": secondary,
+    "__COLOR_BACKGROUND__": background,
+    "__COLOR_SURFACE__": surface,
+    "__COLOR_TEXT__": text_color,
+}
+for key, value in replacements.items():
+    text = text.replace(key, value)
+open(path, "w", encoding="utf-8").write(text)
+PY
 else
     echo "⚠️  WARNING: No logo entry found in manifest."
 fi
@@ -182,7 +335,14 @@ cat <<EOF > "$STAGING_CHROOT/metadata.json"
 {
   "id": "$EDITION_ID",
   "display_name": "$display_name",
-  "tagline": "$tagline"
+  "tagline": "$tagline",
+  "theme": {
+    "primary": "$primary_color",
+    "secondary": "$secondary_color",
+    "background": "$background_color",
+    "surface": "$surface_color",
+    "text": "$text_color"
+  }
 }
 EOF
 
