@@ -86,7 +86,25 @@ Rectangle {
             }
             spacing: 20
 
-            // Phoenix OS logo wordmark
+            // Optional custom edition logo (SVG first, then PNG fallback)
+            Image {
+                id: editionLogo
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 160
+                Layout.preferredHeight: 64
+                fillMode: Image.PreserveAspectFit
+                source: "logo.svg"
+                smooth: true
+                mipmap: true
+
+                onStatusChanged: {
+                    if (status === Image.Error && source !== "logo.png") {
+                        source = "logo.png"
+                    }
+                }
+            }
+
+            // Phoenix OS wordmark
             Text {
                 Layout.alignment: Qt.AlignHCenter
                 text: "PHOENIX OS"

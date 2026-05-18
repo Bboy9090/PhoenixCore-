@@ -1,26 +1,26 @@
 id: blue-phoenix
-display_name: "Bobby’s Worldwide OS: Blue Phoenix Edition"
-parent: "Bobby’s Worldwide OS"
-edition_type: "legacy"
-tagline: "The classic brand legacy."
-description: "Preserving the original Phoenix OS brand and visual identity. Features the classic blue-and-white theme powered by the modern BWOS Core."
+display_name: "Blue Phoenix: Aurelia Edition"
+parent: "Blue Phoenix OS"
+edition_type: "premium"
+tagline: "Create. Inspire. Illuminate."
+description: "The premier golden-accented creation suite tailored for artists, developers, and premium workstations."
 inherits_core_safety_rules: true
 
 theme:
   colors:
-    primary: "#2563EB"   # Royal Blue
-    secondary: "#60A5FA" # Sky Blue
-    accent: "#FFFFFF"    # Pure White
-    background: "#F8FAFC" # Studio White
-    surface: "#FFFFFF"
-    text: "#1E293B"
+    primary: "#D97706"   # Aureate Gold
+    secondary: "#F59E0B" # Light Gold
+    accent: "#3B82F6"    # Sky Blue Accent
+    background: "#080E1E" # Premium Gold Slate Dark
+    surface: "#111C36"
+    text: "#FEF3C7"
 
 palette:
   path: "colors.css"
 
 branding:
   path: "branding.md"
-  logo: "assets/phoenix-classic.svg"
+  logo: "assets/aurelia-logo.png"
   wallpaper: "assets/blue-horizon.png"
 
 packages:
@@ -28,17 +28,17 @@ packages:
   include:
     - "bwos-core"
     - "bootforge"
-    - "legacy-utility-set"
+    - "premium-creation-set"
   exclude: []
 
 features:
   - "classic_theme_engine"
-  - "legacy_app_compatibility"
+  - "premium_graphics_stack"
 
 build:
   target: "live-image-amd64"
   compression: "zstd"
-  iso_name: "bwos-blue-phoenix.iso"
+  iso_name: "bwos-aurelia.iso"
 
 safety:
   allow_destructive_disk_ops_by_default: false

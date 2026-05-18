@@ -1,0 +1,46 @@
+id: revival
+display_name: "Blue Phoenix: Revival Edition"
+parent: "Blue Phoenix OS"
+edition_type: "recovery"
+tagline: "Recovery. Rescue. Reborn."
+description: "Sovereign recovery environment with diagnostic scanners and isolated technician workspaces."
+inherits_core_safety_rules: true
+
+theme:
+  colors:
+    primary: "#14B8A6"   # Teal
+    secondary: "#2DD4BF" # Light Teal
+    accent: "#FFFFFF"    # Clean White
+    background: "#050B14" # Deep Recovery Dark
+    surface: "#0F1A2C"
+    text: "#F9FAFB"
+
+palette:
+  path: "colors.css"
+
+branding:
+  path: "branding.md"
+  logo: "assets/revival-logo.png"
+  wallpaper: "../arcwyre/assets/circuit-grid.png"
+
+packages:
+  profile: "package-profile.txt"
+  include:
+    - "bwos-core"
+    - "recovery-utility-set"
+  exclude: []
+
+features:
+  - "read_only_sysfs"
+  - "emergency_boot_helper"
+
+build:
+  target: "live-image-amd64"
+  compression: "zstd"
+  iso_name: "bwos-revival.iso"
+
+safety:
+  allow_destructive_disk_ops_by_default: false
+  require_dry_run_for_recovery_ops: true
+  inherit_agent_permissions: true
+  inherit_audit_rules: true

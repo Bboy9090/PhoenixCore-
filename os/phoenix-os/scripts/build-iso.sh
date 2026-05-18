@@ -133,16 +133,17 @@ fi
 
 echo "[INFO] Staging branding assets and safety rules..."
 # Ensure directories exist
-mkdir -p "$BUILD_WORK_DIR/config/includes.chroot/usr/share/plymouth/themes"
-mkdir -p "$BUILD_WORK_DIR/config/includes.chroot/usr/share/sddm/themes"
+PLYMOUTH_THEME_DIR="$BUILD_WORK_DIR/config/includes.chroot/usr/share/plymouth/themes/phoenix"
+SDDM_THEME_DIR="$BUILD_WORK_DIR/config/includes.chroot/usr/share/sddm/themes/phoenix"
+mkdir -p "$PLYMOUTH_THEME_DIR" "$SDDM_THEME_DIR"
 
-# Copy harvested themes if they exist
+# Copy baseline themes only for missing files so staged edition overrides are preserved.
 if [ -d "$PHOENIX_OS_DIR/branding/plymouth/phoenix" ]; then
-    cp -r "$PHOENIX_OS_DIR/branding/plymouth/phoenix" "$BUILD_WORK_DIR/config/includes.chroot/usr/share/plymouth/themes/"
+    rsync -a --ignore-existing "$PHOENIX_OS_DIR/branding/plymouth/phoenix/" "$PLYMOUTH_THEME_DIR/"
 fi
 
 if [ -d "$PHOENIX_OS_DIR/branding/sddm/phoenix" ]; then
-    cp -r "$PHOENIX_OS_DIR/branding/sddm/phoenix" "$BUILD_WORK_DIR/config/includes.chroot/usr/share/sddm/themes/"
+    rsync -a --ignore-existing "$PHOENIX_OS_DIR/branding/sddm/phoenix/" "$SDDM_THEME_DIR/"
 fi
 
 # Restore package cache if present and enabled

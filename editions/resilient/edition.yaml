@@ -1,0 +1,46 @@
+id: resilient
+display_name: "Blue Phoenix: Resilient Edition"
+parent: "Blue Phoenix OS"
+edition_type: "hardened"
+tagline: "Security. Stability. Strength."
+description: "Hardened, high-security edition with strict containment, sandboxed applications, and audit rules."
+inherits_core_safety_rules: true
+
+theme:
+  colors:
+    primary: "#10B981"   # Emerald Green
+    secondary: "#34D399" # Light Emerald
+    accent: "#FFFFFF"    # Clean White
+    background: "#040D0A" # Shield Green Deep Dark
+    surface: "#0A2218"
+    text: "#F0FDF4"
+
+palette:
+  path: "colors.css"
+
+branding:
+  path: "branding.md"
+  logo: "assets/resilient-logo.png"
+  wallpaper: "../thunder-god/assets/storm-peak.png"
+
+packages:
+  profile: "package-profile.txt"
+  include:
+    - "bwos-core"
+    - "hardened-security-suite"
+  exclude: []
+
+features:
+  - "strict_sandboxing"
+  - "immutable_rootfs"
+
+build:
+  target: "live-image-amd64"
+  compression: "zstd"
+  iso_name: "bwos-resilient.iso"
+
+safety:
+  allow_destructive_disk_ops_by_default: false
+  require_dry_run_for_recovery_ops: true
+  inherit_agent_permissions: true
+  inherit_audit_rules: true

@@ -1,7 +1,7 @@
 #!/bin/bash
 # build-edition.sh - Synthesize a BWOS edition ISO
 
-set -e
+set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EDITION_ID=""
@@ -57,6 +57,12 @@ function sanitize_list() {
     mv "$temp_file" "$list_file"
 }
 
+function manifest_value() {
+    local key="$1"
+    local file="$2"
+    sed -n "s/^[[:space:]]*${key}:[[:space:]]*//p" "$file" | sed 's/^"//;s/"$//' | head -n 1
+}
+
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -90,9 +96,21 @@ fi
 
 # 2. Extract Metadata
 manifest="$EDITION_DIR/edition.yaml"
-display_name=$(sed -n 's/^[[:space:]]*display_name:[[:space:]]*//p' "$manifest" | sed 's/^"//;s/"$//')
-tagline=$(sed -n 's/^[[:space:]]*tagline:[[:space:]]*//p' "$manifest" | sed 's/^"//;s/"$//')
-iso_name=$(sed -n 's/^[[:space:]]*iso_name:[[:space:]]*//p' "$manifest" | sed 's/^"//;s/"$//')
+display_name=$(manifest_value display_name "$manifest")
+tagline=$(manifest_value tagline "$manifest")
+iso_name=$(manifest_value iso_name "$manifest")
+wallpaper_name=$(manifest_value wallpaper "$manifest")
+logo_name=$(manifest_value logo "$manifest")
+
+if [ -n "$wallpaper_name" ] && [ ! -f "$EDITION_DIR/$wallpaper_name" ]; then
+    echo "❌ Error: Wallpaper path in manifest does not exist: $wallpaper_name"
+    exit 1
+fi
+
+if [ -n "$logo_name" ] && [ ! -f "$EDITION_DIR/$logo_name" ]; then
+    echo "❌ Error: Logo path in manifest does not exist: $logo_name"
+    exit 1
+fi
 
 echo "🔨 Selected Edition: $display_name"
 echo "   Tagline: \"$tagline\""
@@ -113,23 +131,52 @@ done
 
 cp "$EDITION_DIR/colors.css" "$STAGING_CHROOT/colors.css"
 
-# Stage custom wallpaper if defined and present
-wallpaper_name=$(sed -n 's/^[[:space:]]*wallpaper:[[:space:]]*//p' "$manifest" | sed 's/^"//;s/"$//')
-if [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
+# Stage custom wallpaper if defined
+if [ -n "$wallpaper_name" ]; then
     echo "🖼️  Staging custom wallpaper: $wallpaper_name"
     mkdir -p "$LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base"
     cp "$EDITION_DIR/$wallpaper_name" "$LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base/desktop-background.png"
+else
+    echo "⚠️  WARNING: No wallpaper entry found in manifest."
 fi
 
-# Stage custom logo if defined and present (overrides Plymouth boot splash and SDDM login screens)
-logo_name=$(sed -n 's/^[[:space:]]*logo:[[:space:]]*//p' "$manifest" | sed 's/^"//;s/"$//')
-if [ -n "$logo_name" ] && [ -f "$EDITION_DIR/$logo_name" ]; then
-    echo "🎨 Staging custom logo: $logo_name"
-    mkdir -p "$LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes/phoenix"
-    mkdir -p "$LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes/phoenix"
-    cp "$EDITION_DIR/$logo_name" "$LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes/phoenix/phoenix-logo-boot.svg"
-    cp "$EDITION_DIR/$logo_name" "$LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes/phoenix/logo.svg"
+# Stage custom logo if defined (overrides Plymouth boot splash and SDDM login screen assets)
+if [ -n "$logo_name" ]; then
+    echo "🎨 Staging custom logo and full branding templates: $logo_name"
+    plymouth_theme_root="$LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes"
+    sddm_theme_root="$LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes"
+    plymouth_theme_dir="$plymouth_theme_root/phoenix"
+    sddm_theme_dir="$sddm_theme_root/phoenix"
+
+    mkdir -p "$plymouth_theme_root" "$sddm_theme_root"
+    rm -rf "$plymouth_theme_dir" "$sddm_theme_dir"
+
+    cp -R "$REPO_ROOT/os/phoenix-os/branding/plymouth/phoenix" "$plymouth_theme_root/"
+    cp -R "$REPO_ROOT/os/phoenix-os/branding/sddm/phoenix" "$sddm_theme_root/"
+
+    logo_path="$EDITION_DIR/$logo_name"
+    logo_mime="$(file -b --mime-type "$logo_path" 2>/dev/null || true)"
+
+    case "$logo_mime" in
+        image/svg+xml)
+            cp "$logo_path" "$plymouth_theme_dir/phoenix-logo-boot.svg"
+            cp "$logo_path" "$sddm_theme_dir/logo.svg"
+            rm -f "$plymouth_theme_dir/phoenix-logo-boot.png" "$sddm_theme_dir/logo.png"
+            ;;
+        image/*)
+            cp "$logo_path" "$plymouth_theme_dir/phoenix-logo-boot.png"
+            cp "$logo_path" "$sddm_theme_dir/logo.png"
+            rm -f "$plymouth_theme_dir/phoenix-logo-boot.svg" "$sddm_theme_dir/logo.svg"
+            ;;
+        *)
+            echo "❌ Error: Unsupported logo MIME type '$logo_mime' for $logo_name"
+            exit 1
+            ;;
+    esac
+else
+    echo "⚠️  WARNING: No logo entry found in manifest."
 fi
+
 
 cat <<EOF > "$STAGING_CHROOT/metadata.json"
 {

@@ -1,41 +1,37 @@
 id: forge
-display_name: "Bobby’s Worldwide OS: Forge Edition"
-parent: "Bobby’s Worldwide OS"
-edition_type: "industrial"
-tagline: "Industrial-grade recovery and repair."
-description: "A hardened, technician-focused edition built for field work, heavy-duty diagnostics, and large-scale system imaging."
+display_name: "Blue Phoenix: Forge Edition"
+parent: "Blue Phoenix OS"
+edition_type: "technician"
+tagline: "Tools. Workflows. Mastery."
+description: "The industrial technician workstation tailored for heavy fieldwork and automated configurations."
 inherits_core_safety_rules: true
 
 theme:
   colors:
-    primary: "#F97316"   # Hazard Orange
-    secondary: "#334155" # Industrial Grey
-    accent: "#38BDF8"    # Steel Blue
-    background: "#0F172A" # Deep Space
-    surface: "#1E293B"
-    text: "#F1F5F9"
+    primary: "#F97316"   # Ember Orange
+    secondary: "#FB923C" # Light Ember Orange
+    accent: "#64748B"    # Steel Blue Accent
+    background: "#080604" # Industrial Slate Deep Dark
+    surface: "#1C140E"
+    text: "#FFEDD5"
 
 palette:
   path: "colors.css"
 
 branding:
   path: "branding.md"
-  logo: "assets/forge-hammer.svg"
+  logo: "assets/forge-hammer.png"
   wallpaper: "assets/industrial-bay.png"
 
 packages:
   profile: "package-profile.txt"
   include:
     - "bwos-core"
-    - "bootforge-pro"
-    - "hardware-burn-in-tools"
-    - "mass-deployment-scripts"
+    - "technician-utility-suite"
   exclude: []
 
 features:
-  - "mass_imaging"
-  - "hardware_burn_in"
-  - "technician_overlay"
+  - "diagnostics_mode"
 
 build:
   target: "live-image-amd64"

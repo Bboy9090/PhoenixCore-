@@ -1,7 +1,25 @@
 #!/bin/sh
 set -e
 
-if [ -d /usr/share/plymouth/themes/phoenix ]; then
+THEME_DIR="/usr/share/plymouth/themes/phoenix"
+
+if [ -d "$THEME_DIR" ]; then
+    # Convert SVG logos when provided; raster logos can be staged directly as PNG.
+    if [ -f "$THEME_DIR/phoenix-logo-boot.svg" ]; then
+        echo "Converting phoenix-logo-boot.svg to phoenix-logo-boot.png inside chroot..."
+        if command -v rsvg-convert >/dev/null 2>&1; then
+            rsvg-convert -o "$THEME_DIR/phoenix-logo-boot.png" "$THEME_DIR/phoenix-logo-boot.svg" || true
+        elif command -v convert >/dev/null 2>&1; then
+            convert -background none "$THEME_DIR/phoenix-logo-boot.svg" "$THEME_DIR/phoenix-logo-boot.png" || true
+        else
+            echo "WARNING: Neither rsvg-convert nor convert found in chroot. SVG logo cannot be rendered."
+        fi
+    fi
+
+    if [ ! -f "$THEME_DIR/phoenix-logo-boot.png" ]; then
+        echo "WARNING: phoenix-logo-boot.png is missing; Plymouth may fall back to default branding."
+    fi
+
     echo "Setting Plymouth theme to phoenix..."
     plymouth-set-default-theme phoenix
     update-initramfs -u

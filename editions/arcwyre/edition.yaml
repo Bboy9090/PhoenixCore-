@@ -20,7 +20,7 @@ palette:
 
 branding:
   path: "branding.md"
-  logo: "assets/arcwyre-logo.svg"
+  logo: "assets/arcwyre-logo.png"
   wallpaper: "assets/circuit-grid.png"
 
 packages:
