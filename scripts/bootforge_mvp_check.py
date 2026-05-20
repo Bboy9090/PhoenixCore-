@@ -76,13 +76,19 @@ def main() -> int:
         print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
     else:
         print(result.human_summary())
-        if result.errors:
+        errors = [k for k, v in result.checklist.items() if not v]
+        warnings = [
+            f"{p['name']}: {p['message']}"
+            for p in result.details.get("prerequisites", [])
+            if p.get("result") not in ("safe",)
+        ]
+        if errors:
             print("\nErrors:")
-            for e in result.errors:
+            for e in errors:
                 print(f"- {e}")
-        if result.warnings:
+        if warnings:
             print("\nWarnings:")
-            for w in result.warnings:
+            for w in warnings:
                 print(f"- {w}")
 
     return 0 if result.ok else 2
