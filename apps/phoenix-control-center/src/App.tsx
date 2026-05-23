@@ -1,6 +1,9 @@
 import BuildDashboard from './components/dashboard/BuildDashboard';
 import SystemInfo from './components/dashboard/SystemInfo';
 import DiskManagement from './components/dashboard/DiskManagement';
+import AppReadiness from './components/dashboard/AppReadiness';
+import ServiceStatus from './components/dashboard/ServiceStatus';
+import EditionIdentity from './components/dashboard/EditionIdentity';
 import { ArcwyreLogo } from './components/ArcwyreLogo';
 
 function App() {
@@ -48,6 +51,14 @@ function App() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 p-6">
             <SystemInfo />
             <DiskManagement />
+          </div>
+          {/* Reforged MVP Panels */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 p-6 pt-0">
+            <AppReadiness />
+            <ServiceStatus />
+          </div>
+          <div className="p-6 pt-0">
+            <EditionIdentity />
           </div>
         </main>
       </div>
