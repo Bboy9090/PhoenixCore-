@@ -52,15 +52,36 @@ The platform is organized into primary modules designed for machine resurrection
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+- **Python 3.10+** (for Python-based tools)
+- **Rust 1.94+** (for core libraries)
+- **Node.js 18+** with pnpm (for frontend apps)
+
+### Install Dependencies
+
 ```bash
-# Install dependencies
+# Python dependencies
 pip install -r requirements.txt
 
-# Run GUI
+# Rust workspace (optional, for development)
+cargo build -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32
+
+# Frontend dependencies (optional)
+pnpm install
+```
+
+### Run the Application
+
+```bash
+# Python CLI
+python main.py --help
+
+# Python GUI
 python main.py --gui
 
-# Or CLI
-python main.py --help
+# Control Center (React)
+cd apps/phoenix-control-center && pnpm run dev
 ```
 
 ## 📄 Components
@@ -76,6 +97,75 @@ python main.py --help
 ### 3. Recovery & Imaging
 - Integrated disk probing, OS identification, and Cold Fuse imaging.
 
+## 🏗️ Build
+
+### Rust Libraries
+
+```bash
+# Build compilable crates
+cargo build -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 \
+            -p phoenix-host-linux -p phoenix-host-macos \
+            -p phoenix-bootloader-core -p phoenix-wim
+
+# Release build
+cargo build --release -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32
+```
+
+### Frontend Applications
+
+```bash
+# Control Center (Vite + React)
+cd apps/phoenix-control-center
+pnpm run build
+
+# Output: dist/ directory with static assets
+```
+
+### Python Tools
+
+```bash
+# Build installer (recommended)
+python src/installers/build_installer.py
+
+# Or build with PyInstaller directly
+pyinstaller --onefile --name=PhoenixKey main.py
+```
+
+## 🧪 Test
+
+### Run Tests
+
+```bash
+# Python tests
+python -m pytest tests/
+
+# Python tests with coverage
+python -m pytest tests/ --cov=src
+
+# Rust tests (compilable crates only)
+cargo test -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 \
+           -p phoenix-bootloader-core -p phoenix-wim
+```
+
+### Lint & Format
+
+```bash
+# Rust lint
+cargo clippy -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32
+
+# Rust format check
+cargo fmt --check
+```
+
+## 📦 Package
+
+```bash
+# Build all (ensures dependencies, builds executable, generates USB toolkit)
+python build_system/build_all.py
+```
+
+For detailed packaging instructions, see [packaging/README.md](packaging/README.md).
+
 ## 📁 Repository Map
 
 ```text
@@ -89,6 +179,9 @@ python main.py --help
 ├── website/          # Flask Web Server / Vercel
 ├── crates/           # Rust Imaging & Safety Libraries
 ├── legacy/           # Original toolkits & scripts
+├── apps/             # Application layer (Control Center, Welcome, etc.)
+├── editions/         # Edition manifests (ARCWYRE, Thunder God, Forge, Blue Phoenix)
+├── scripts/          # Build and validation scripts
 └── third_party/      # OCLP Submodule
 ```
 

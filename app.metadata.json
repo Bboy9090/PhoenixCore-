@@ -1,0 +1,180 @@
+{
+  "packageId": "com.bobbysworld.command",
+  "name": "Command",
+  "displayName": "Command Control Center",
+  "internalName": "PhoenixCore Control Center",
+  "version": "1.0.0",
+  "category": "system-utilities",
+  "description": "System monitoring and control center for Bobby's Worldwide OS",
+  "author": "Bobby's Worldwide OS Team",
+  "license": "MIT",
+  "homepage": "https://github.com/Bboy9090/PhoenixCore-",
+  "icon": "assets/command-icon.svg",
+  "screenshots": [
+    "assets/screenshots/system-overview.png",
+    "assets/screenshots/app-readiness.png",
+    "assets/screenshots/service-status.png",
+    "assets/screenshots/edition-identity.png"
+  ],
+  "entrypoints": {
+    "gui": {
+      "command": "python main.py --gui",
+      "description": "Launch PyQt6 GUI",
+      "platforms": ["linux", "macos", "windows"]
+    },
+    "cli": {
+      "command": "python main.py",
+      "description": "Launch CLI interface",
+      "platforms": ["linux", "macos", "windows"]
+    },
+    "web": {
+      "command": "cd apps/phoenix-control-center && pnpm run dev",
+      "description": "Launch web interface (React)",
+      "platforms": ["linux", "macos", "windows"],
+      "port": 3000
+    },
+    "backend": {
+      "command": "python backend/main.py",
+      "description": "Launch FastAPI backend",
+      "platforms": ["linux", "macos", "windows"],
+      "port": 5000
+    }
+  },
+  "healthCheck": {
+    "script": "./scripts/healthcheck.sh",
+    "endpoint": "http://localhost:5000/health",
+    "timeout": 5000,
+    "interval": 30000
+  },
+  "dependencies": {
+    "python": ">=3.10",
+    "rust": ">=1.94",
+    "node": ">=18",
+    "pnpm": ">=9.0"
+  },
+  "systemRequirements": {
+    "minMemory": "512MB",
+    "recommendedMemory": "2GB",
+    "minDisk": "100MB",
+    "recommendedDisk": "500MB",
+    "cpuArchitectures": ["x86_64", "aarch64"]
+  },
+  "capabilities": [
+    "system.monitor",
+    "hardware.read",
+    "edition.identity.read",
+    "app.registry.read",
+    "service.status.read",
+    "network.status.read",
+    "disk.info.read"
+  ],
+  "permissions": {
+    "required": [
+      "read.system.info",
+      "read.hardware.info",
+      "read.network.info"
+    ],
+    "optional": [
+      "write.logs",
+      "restart.services"
+    ]
+  },
+  "editions": {
+    "supported": [
+      "arcwyre",
+      "thunder-god",
+      "forge",
+      "blue-phoenix"
+    ],
+    "recommended": ["arcwyre", "thunder-god"],
+    "themeSupport": true,
+    "featureMatrix": {
+      "arcwyre": ["cyber_security_audit", "modern_dev_tools", "arcwyre_dashboard"],
+      "thunder-god": ["cinematic_recovery_ui", "electric_theme_engine"],
+      "forge": ["industrial_diagnostics"],
+      "blue-phoenix": ["classic_theme_engine", "legacy_app_compatibility"]
+    }
+  },
+  "features": {
+    "systemOverview": {
+      "enabled": true,
+      "description": "Real-time system monitoring (CPU, memory, disk, network)",
+      "dataSource": "phoenix-core::dashboard::system"
+    },
+    "appReadiness": {
+      "enabled": true,
+      "description": "App registry and readiness status",
+      "dataSource": "app.metadata.json"
+    },
+    "serviceStatus": {
+      "enabled": true,
+      "description": "Core service health monitoring",
+      "dataSource": "http://localhost:5000/health"
+    },
+    "editionIdentity": {
+      "enabled": true,
+      "description": "Current edition branding and configuration",
+      "dataSource": "editions/*/edition.yaml"
+    }
+  },
+  "build": {
+    "rust": {
+      "workspace": true,
+      "crates": [
+        "phoenix-core",
+        "phoenix-safety",
+        "phoenix-fs-fat32",
+        "phoenix-host-linux",
+        "phoenix-host-macos",
+        "phoenix-bootloader-core",
+        "phoenix-wim"
+      ]
+    },
+    "python": {
+      "requirements": "requirements.txt",
+      "installer": "src/installers/build_installer.py"
+    },
+    "frontend": {
+      "buildCommand": "cd apps/phoenix-control-center && pnpm run build",
+      "outputDir": "apps/phoenix-control-center/dist"
+    }
+  },
+  "testing": {
+    "python": {
+      "command": "python -m pytest tests/",
+      "coverage": "python -m pytest tests/ --cov=src"
+    },
+    "rust": {
+      "command": "cargo test -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-bootloader-core -p phoenix-wim"
+    },
+    "smokeTest": "./scripts/smoke-test.sh"
+  },
+  "packaging": {
+    "windows": {
+      "format": "MSIX",
+      "details": "packaging/README.md"
+    },
+    "macos": {
+      "format": ".app",
+      "details": "packaging/README.md"
+    },
+    "linux": {
+      "formats": ["deb", "rpm", "AppImage"],
+      "details": "packaging/README.md"
+    }
+  },
+  "changelog": "CHANGELOG.md",
+  "documentation": {
+    "readme": "README.md",
+    "prd": "docs/PRD.md",
+    "roadmap": "docs/ROADMAP.md",
+    "contract": "docs/APP_CONTRACT.md",
+    "releaseChecklist": "docs/RELEASE_CHECKLIST.md",
+    "architecture": "docs/ARCHITECTURE.md"
+  },
+  "support": {
+    "issues": "https://github.com/Bboy9090/PhoenixCore-/issues",
+    "discussions": "https://github.com/Bboy9090/PhoenixCore-/discussions",
+    "documentation": "https://github.com/Bboy9090/PhoenixCore-/tree/main/docs"
+  }
+}
