@@ -48,5 +48,5 @@ based runbooks.
 
 - All modified filesystems pass `fsck`.
 - Boot entries validated with `efibootmgr` or `bless` (Mac).
-- Rescue logs synced to Phoenix Auto-Forge change log.
+- Rescue logs synced to the Phoenix change log.
 - Customer receives PDF summary generated from PhoenixDocs HTML export.

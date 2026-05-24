@@ -11,52 +11,52 @@ from PyQt6.QtWidgets import QApplication
 class BootForgeTheme:
     """Professional theme configuration for BootForge"""
     
-    # Color Palette - BootForge Modern Black & Orange Theme
+    # Color Palette - Premium Blue Phoenix & Home Aurelia Gold Theme
     COLORS = {
-        # Primary colors - Orange to Red-Orange gradient
-        "primary": "#ff6b35",           # Vibrant orange
-        "primary_hover": "#e55d00",     # Red-orange on hover
-        "primary_pressed": "#cc5200",   # Darker red-orange on press
-        "primary_gradient": "linear-gradient(135deg, #ff6b35 0%, #e55d00 100%)",
+        # Primary colors - Vibrant Electric Blue gradient
+        "primary": "#00d2ff",           # Electric blue
+        "primary_hover": "#00b0ff",     # Deeper electric blue on hover
+        "primary_pressed": "#0088cc",   # Darker blue on press
+        "primary_gradient": "linear-gradient(135deg, #00d2ff 0%, #0088cc 100%)",
         
-        # Background colors - True black theme
-        "bg_primary": "#000000",        # Pure black main background
-        "bg_secondary": "#0a0a0a",      # Near-black secondary panels
-        "bg_tertiary": "#141414",       # Dark gray cards and elevated elements
-        "bg_input": "#1a1a1a",          # Input fields with subtle gray
-        "bg_card": "#0f0f0f",           # Card backgrounds
+        # Background colors - Deep Space Navy base
+        "bg_primary": "#050811",        # Extreme deep navy space background
+        "bg_secondary": "#0a0e1a",      # Deep navy panels
+        "bg_tertiary": "#111827",       # Elevated slate navy
+        "bg_input": "#0d1527",          # Deep navy input backgrounds
+        "bg_card": "#080c16",           # Card backgrounds
         
-        # Surface colors - Enhanced black variants
-        "surface": "#0d0d0d",           # Menu bars, toolbars
-        "surface_hover": "#1f1f1f",     # Hover state with orange tint
-        "surface_pressed": "#2a1a15",   # Pressed state with warm tint
+        # Surface colors - Dark metallic space elements
+        "surface": "#070b14",           # Menu bars, toolbars
+        "surface_hover": "#1a233a",     # Hover state with electric blue tint
+        "surface_pressed": "#101625",   # Pressed state with dark blue tint
         
-        # Border colors - Orange accent system
-        "border": "#2a2a2a",            # Subtle borders
-        "border_light": "#404040",      # Lighter borders
-        "border_focus": "#ff6b35",      # Orange focused elements
-        "border_accent": "#ff8500",     # Bright orange accents
+        # Border colors - Gold and Electric Blue accent systems
+        "border": "#1e293b",            # Subtle borders
+        "border_light": "#334155",      # Lighter borders
+        "border_focus": "#00d2ff",      # Electric blue focused borders
+        "border_accent": "#ffd700",     # Premium Gold Trim accents
         
-        # Text colors - High contrast whites
+        # Text colors - High contrast whites & Slates
         "text_primary": "#ffffff",      # Pure white primary text
-        "text_secondary": "#e0e0e0",    # Light gray secondary text
-        "text_muted": "#b0b0b0",        # Muted text
-        "text_disabled": "#666666",     # Disabled text
-        "text_orange": "#ff8500",       # Orange text accents
+        "text_secondary": "#cbd5e1",    # Light slate secondary text
+        "text_muted": "#94a3b8",        # Muted text
+        "text_disabled": "#475569",     # Disabled text
+        "text_orange": "#ffd700",       # Gold text accents (maintains stylesheet compatibility)
         
-        # Status colors - Orange-themed palette
-        "success": "#00e676",           # Bright green success
-        "warning": "#ff8500",           # Bright orange warning
-        "error": "#ff4444",             # Bright red error
-        "info": "#40c4ff",              # Bright blue info
+        # Status colors - Styled to match electric theme
+        "success": "#10b981",           # Emerald green success
+        "warning": "#ffd700",           # Gold warning
+        "error": "#f43f5e",             # Crimson error
+        "info": "#00d2ff",              # Electric blue info
         
-        # Accent colors - Orange, Red-Orange, Purple palette
-        "accent": "#ff8500",            # Default accent color (bright orange)
-        "accent_1": "#9d4edd",          # Purple accent (touches)
-        "accent_2": "#ff4500",          # Red-orange accent
-        "accent_3": "#ff8500",          # Bright orange accent
-        "accent_gradient_1": "linear-gradient(135deg, #ff6b35 0%, #9d4edd 100%)",
-        "accent_gradient_2": "linear-gradient(90deg, #ff4500 0%, #ff6b35 100%)",
+        # Accent colors - Gold Trim, Arcwyre Purple, and Thunder God Neon Cyan
+        "accent": "#ffd700",            # Default accent color (Premium Gold)
+        "accent_1": "#9d4edd",          # Arcwyre Purple accent
+        "accent_2": "#00ffff",          # Thunder God Neon Cyan accent
+        "accent_3": "#ffd700",          # Gold Trim
+        "accent_gradient_1": "linear-gradient(135deg, #00d2ff 0%, #9d4edd 100%)", # Electric Blue to Purple
+        "accent_gradient_2": "linear-gradient(90deg, #00ffff 0%, #00d2ff 100%)",  # Neon Cyan to Blue
     }
     
     # Typography
@@ -94,15 +94,15 @@ class BootForgeTheme:
         "full": 9999,
     }
     
-    # Enhanced Shadows - Modern with orange glows
+    # Enhanced Shadows - Modern with electric blue & gold glows
     SHADOWS = {
-        "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.3)",
-        "base": "0 2px 4px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.2)",
-        "lg": "0 4px 8px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3)",
-        "xl": "0 10px 20px -3px rgba(0, 0, 0, 0.6), 0 4px 8px -2px rgba(0, 0, 0, 0.4)",
-        "orange_glow": "0 0 10px rgba(255, 107, 53, 0.3), 0 0 20px rgba(255, 107, 53, 0.1)",
-        "purple_glow": "0 0 8px rgba(157, 78, 221, 0.4)",
-        "inset": "inset 0 2px 4px 0 rgba(0, 0, 0, 0.4)",
+        "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.4)",
+        "base": "0 2px 4px 0 rgba(0, 0, 0, 0.5), 0 1px 2px 0 rgba(0, 0, 0, 0.3)",
+        "lg": "0 4px 8px -1px rgba(0, 0, 0, 0.6), 0 2px 4px -1px rgba(0, 0, 0, 0.4)",
+        "xl": "0 10px 20px -3px rgba(0, 0, 0, 0.7), 0 4px 8px -2px rgba(0, 0, 0, 0.5)",
+        "orange_glow": "0 0 12px rgba(0, 210, 255, 0.4), 0 0 25px rgba(0, 210, 255, 0.15)", # Electric blue glow
+        "purple_glow": "0 0 10px rgba(157, 78, 221, 0.5)",
+        "inset": "inset 0 2px 4px 0 rgba(0, 0, 0, 0.5)",
     }
     
     @classmethod

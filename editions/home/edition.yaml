@@ -1,18 +1,18 @@
 id: home
-display_name: "Blue Phoenix: Home Edition"
+display_name: "Home Aurelia OS"
 parent: "Blue Phoenix OS"
 edition_type: "consumer"
-tagline: "Calm. Friendly. For Everyone."
-description: "Approachable sky-blue consumer desktop designed for everyday workstation usage."
+tagline: "Four Legacies. One Throne."
+description: "Approachable consumer desktop locked to the Home Aurelia visual identity for everyday workstation usage."
 inherits_core_safety_rules: true
 
 theme:
   colors:
-    primary: "#0EA5E9"   # Sky Blue
-    secondary: "#38BDF8" # Light Sky Blue
-    accent: "#FFFFFF"    # Clean White
-    background: "#0B1329" # Slate Deep Dark
-    surface: "#1C2541"
+    primary: "#2F80FF"   # Electric Blue
+    secondary: "#D4A94F" # Restraint Gold
+    accent: "#E5EEF9"    # Soft Ice White
+    background: "#05070A" # Dark Navy / Black
+    surface: "#101827"
     text: "#F8FAFC"
 
 palette:
@@ -22,6 +22,7 @@ branding:
   path: "branding.md"
   logo: "assets/home-logo.png"
   wallpaper: "assets/home-background.png"
+  splash: "assets/home-background.png"
 
 packages:
   profile: "package-profile.txt"

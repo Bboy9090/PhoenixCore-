@@ -1,6 +1,6 @@
 """
-BootForge Log Viewer Widget
-Real-time log viewing and filtering
+Phoenix Core Log Viewer Widget
+Real-time log viewing and filtering with premium terminal styling
 """
 
 import logging
@@ -36,11 +36,45 @@ class LogViewer(QWidget):
         self._setup_filter_debounce()
     
     def _setup_ui(self):
-        """Setup log viewer UI"""
+        """Setup log viewer UI with Phoenix Core terminal styling"""
         layout = QVBoxLayout(self)
+        layout.setSpacing(6)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Phoenix Core branded header
+        header_label = QLabel("⚡ SYSTEM LOG")
+        header_font = QFont("Segoe UI", 11, QFont.Weight.Bold)
+        header_label.setFont(header_font)
+        header_label.setStyleSheet("""
+            QLabel {
+                color: #00d2ff;
+                background: transparent;
+                padding: 6px 12px 6px 16px;
+                border-left: 3px solid #ffd700;
+                letter-spacing: 2px;
+            }
+        """)
+        layout.addWidget(header_label)
         
         # Filter controls
         filter_group = QGroupBox("Filters")
+        filter_group.setStyleSheet("""
+            QGroupBox {
+                color: #00d2ff;
+                font-weight: 700;
+                border: 1px solid rgba(0, 210, 255, 0.2);
+                border-radius: 6px;
+                margin-top: 8px;
+                padding-top: 8px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 2px 8px;
+                color: #00d2ff;
+                background: transparent;
+            }
+        """)
         filter_layout = QHBoxLayout(filter_group)
         
         # Level filter
@@ -70,18 +104,20 @@ class LogViewer(QWidget):
         
         layout.addWidget(filter_group)
         
-        # Log display
+        # Phoenix Core terminal-style log display
         self.log_display = QTextEdit()
         self.log_display.setReadOnly(True)
-        self.log_display.setFont(QFont("Consolas", 9))
+        self.log_display.setFont(QFont("Consolas", 10))
         
-        # Set dark theme for log display
+        # Deep-black terminal background with electric blue selection
         self.log_display.setStyleSheet("""
             QTextEdit {
-                background-color: #1e1e1e;
-                color: #d4d4d4;
-                border: 1px solid #3c3c3c;
-                selection-background-color: #264f78;
+                background-color: #020408;
+                color: #94a3b8;
+                border: 1px solid rgba(0, 210, 255, 0.15);
+                border-radius: 6px;
+                selection-background-color: #00d2ff40;
+                padding: 8px;
             }
         """)
         
@@ -170,21 +206,21 @@ class LogViewer(QWidget):
         
         # Insert formatted text
         cursor.insertHtml(
-            f'<span style="color: #808080">{timestamp}</span> '
+            f'<span style="color: #334155">{timestamp}</span> '
             f'<span style="color: {color}; font-weight: bold">[{level}]</span> '
-            f'<span style="color: #d4d4d4">{message}</span><br>'
+            f'<span style="color: #94a3b8">{message}</span><br>'
         )
     
     def _get_level_color(self, level: str) -> str:
-        """Get color for log level"""
+        """Get Phoenix Core color for log level"""
         colors = {
-            'DEBUG': '#808080',
-            'INFO': '#4fc3f7',
-            'WARNING': '#ffb74d',
-            'ERROR': '#f44336',
-            'CRITICAL': '#e91e63'
+            'DEBUG':    '#475569',   # Slate gray - low priority
+            'INFO':     '#94a3b8',   # Light slate - standard info
+            'WARNING':  '#ffd700',   # Gold - warnings
+            'ERROR':    '#f43f5e',   # Crimson - errors
+            'CRITICAL': '#ff0040',   # Bright red - critical
         }
-        return colors.get(level, '#d4d4d4')
+        return colors.get(level, '#94a3b8')
     
     def _clear_logs(self):
         """Clear all log entries"""
@@ -219,7 +255,7 @@ class LogViewer(QWidget):
         """Export logs to file"""
         try:
             with open(filename, 'w') as f:
-                f.write("BootForge Log Export\n")
+                f.write("Phoenix Core Log Export\n")
                 f.write("=" * 50 + "\n\n")
                 
                 for entry in self.log_entries:

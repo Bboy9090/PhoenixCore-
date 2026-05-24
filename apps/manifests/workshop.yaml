@@ -1,0 +1,8 @@
+public_name: "Workshop"
+internal_id: "org.aurelia.citadel.workshop"
+category: "System;HardwareSettings"
+tier: 1
+release_status: "SHIP"
+requires_governance: true
+offline_capable: true
+launch_critical: true

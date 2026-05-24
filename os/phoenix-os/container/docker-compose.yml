@@ -12,6 +12,23 @@ services:
       PHOENIX_OS_ARTIFACT_DIR: /workspace/os/phoenix-os/build
       PHOENIX_APT_PROXY: ${PHOENIX_APT_PROXY:-}
       PHOENIX_EDITION_STAGING_DIR: ${PHOENIX_EDITION_STAGING_DIR:-/workspace/os/phoenix-os/cache/edition-staging/live-build-config}
+      PHOENIX_BUILD_ID: ${PHOENIX_BUILD_ID:-}
+      PHOENIX_BUILD_EDITION_ID: ${PHOENIX_BUILD_EDITION_ID:-}
+      PHOENIX_BUILD_EDITION_NAME: ${PHOENIX_BUILD_EDITION_NAME:-}
+      PHOENIX_BUILD_ARCHITECTURE: ${PHOENIX_BUILD_ARCHITECTURE:-}
+      PHOENIX_BUILD_ARTIFACT_TARGET: ${PHOENIX_BUILD_ARTIFACT_TARGET:-}
+      PHOENIX_BUILD_MODE: ${PHOENIX_BUILD_MODE:-}
+      PHOENIX_BUILD_MANIFEST_PATH: ${PHOENIX_BUILD_MANIFEST_PATH:-}
+      PHOENIX_BUILD_SOURCE_COMMIT: ${PHOENIX_BUILD_SOURCE_COMMIT:-}
+      PHOENIX_BUILD_TELEMETRY_DIR: ${PHOENIX_BUILD_TELEMETRY_DIR:-/workspace/os/phoenix-os/build/telemetry/latest}
+      PHOENIX_BUILD_STATE_JSON: ${PHOENIX_BUILD_STATE_JSON:-/workspace/os/phoenix-os/build/telemetry/latest/build-state.json}
+      PHOENIX_BUILD_EVENT_LOG: ${PHOENIX_BUILD_EVENT_LOG:-/workspace/os/phoenix-os/build/telemetry/latest/build-events.jsonl}
+      PHOENIX_BUILD_HUMAN_LOG: ${PHOENIX_BUILD_HUMAN_LOG:-/workspace/os/phoenix-os/build/telemetry/latest/build.log}
+      PHOENIX_BUILD_PHASE_TIMINGS: ${PHOENIX_BUILD_PHASE_TIMINGS:-/workspace/os/phoenix-os/build/telemetry/latest/phase-timings.tsv}
+      PHOENIX_BUILD_WARNINGS_LOG: ${PHOENIX_BUILD_WARNINGS_LOG:-/workspace/os/phoenix-os/build/telemetry/latest/warnings.log}
+      PHOENIX_BUILD_FAILURES_LOG: ${PHOENIX_BUILD_FAILURES_LOG:-/workspace/os/phoenix-os/build/telemetry/latest/failures.log}
+      PHOENIX_BUILD_SUMMARY_JSON: ${PHOENIX_BUILD_SUMMARY_JSON:-/workspace/os/phoenix-os/build/build-summary.json}
+      PHOENIX_BUILD_SUMMARY_MD: ${PHOENIX_BUILD_SUMMARY_MD:-/workspace/os/phoenix-os/build/build-summary.md}
     volumes:
       - type: bind
         source: ../../..

@@ -1,34 +1,43 @@
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Platform } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Platform } from "react-native";
-import { useColors } from "@/hooks/use-colors";
 
+// Phoenix Core premium tab bar — Electric Blue active tint, Gold border, Deep Navy background
 export default function TabLayout() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
-  const tabBarHeight = 56 + bottomPadding;
+  const tabBarHeight = 60 + bottomPadding;
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: "#00d2ff",    // Electric Blue for active
+        tabBarInactiveTintColor: "rgba(255,255,255,0.35)",
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          paddingTop: 8,
+          paddingTop: 10,
           paddingBottom: bottomPadding,
           height: tabBarHeight,
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          borderTopWidth: 0.5,
+          backgroundColor: "#050811",
+          borderTopColor: "rgba(255, 215, 0, 0.25)",
+          borderTopWidth: 1,
+          // Subtle shadow/glow upward
+          shadowColor: "#00d2ff",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          elevation: 12,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
+          fontSize: 10,
+          fontWeight: "700",
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+          marginTop: 2,
         },
       }}
     >
@@ -37,7 +46,7 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="house.fill" color={color} />
+            <IconSymbol size={24} name="house.fill" color={color} />
           ),
         }}
       />
@@ -46,7 +55,7 @@ export default function TabLayout() {
         options={{
           title: "Device",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="cpu" color={color} />
+            <IconSymbol size={24} name="cpu" color={color} />
           ),
         }}
       />
@@ -64,7 +73,7 @@ export default function TabLayout() {
         options={{
           title: "Knowledge",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="book.fill" color={color} />
+            <IconSymbol size={24} name="book.fill" color={color} />
           ),
         }}
       />

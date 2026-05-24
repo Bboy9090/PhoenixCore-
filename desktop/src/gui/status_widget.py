@@ -1,6 +1,6 @@
 """
-BootForge Status Widget
-System status monitoring and display widget
+Phoenix Core Status Widget
+System status monitoring with premium Electric Blue & Gold styling
 """
 
 import logging
@@ -17,9 +17,36 @@ from src.core.system_monitor import SystemInfo
 from src.core.disk_manager import DiskInfo
 
 
-_STYLE_CPU_HIGH = "QProgressBar::chunk { background-color: #ff6b6b; }"
-_STYLE_CPU_MED = "QProgressBar::chunk { background-color: #ffd43b; }"
-_STYLE_CPU_LOW = "QProgressBar::chunk { background-color: #51cf66; }"
+# Phoenix Core progress bar chunk colors
+_STYLE_CPU_HIGH = "QProgressBar::chunk { background-color: #f43f5e; border-radius: 4px; }"
+_STYLE_CPU_MED  = "QProgressBar::chunk { background-color: #ffd700; border-radius: 4px; }"
+_STYLE_CPU_LOW  = "QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00d2ff, stop:1 #0088cc); border-radius: 4px; }"
+
+# Phoenix Core group box style (electric blue title, dark card background)
+_GROUP_STYLE = """
+    QGroupBox {{
+        color: #ffd700;
+        font-weight: 700;
+        font-size: 11px;
+        letter-spacing: 1px;
+        border: 1px solid rgba(0, 210, 255, 0.2);
+        border-radius: 8px;
+        margin-top: 12px;
+        padding-top: 10px;
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 #080c16, stop:1 #050811);
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        left: 10px;
+        padding: 2px 10px;
+        color: #ffd700;
+        background: rgba(255, 215, 0, 0.08);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        border-radius: 4px;
+    }}
+    QLabel {{ color: #94a3b8; background: transparent; }}
+"""
 
 
 class SystemStatusWidget(QWidget):
@@ -36,13 +63,16 @@ class SystemStatusWidget(QWidget):
         """Setup status UI"""
         layout = QVBoxLayout(self)
         
-        # CPU Status
+        # CPU Status — electric blue value label
         cpu_group = QGroupBox("CPU")
+        cpu_group.setStyleSheet(_GROUP_STYLE)
         cpu_layout = QGridLayout(cpu_group)
         
         self.cpu_label = QLabel("--")
+        self.cpu_label.setStyleSheet("color: #00d2ff; font-weight: 700; font-size: 13px;")
         self.cpu_progress = QProgressBar()
         self.cpu_progress.setMaximum(100)
+        self.cpu_progress.setStyleSheet(_STYLE_CPU_LOW)
         
         cpu_layout.addWidget(QLabel("Usage:"), 0, 0)
         cpu_layout.addWidget(self.cpu_label, 0, 1)
@@ -50,13 +80,16 @@ class SystemStatusWidget(QWidget):
         
         layout.addWidget(cpu_group)
         
-        # Memory Status
+        # Memory Status — electric blue value label
         memory_group = QGroupBox("Memory")
+        memory_group.setStyleSheet(_GROUP_STYLE)
         memory_layout = QGridLayout(memory_group)
         
         self.memory_label = QLabel("--")
+        self.memory_label.setStyleSheet("color: #00d2ff; font-weight: 700; font-size: 13px;")
         self.memory_progress = QProgressBar()
         self.memory_progress.setMaximum(100)
+        self.memory_progress.setStyleSheet(_STYLE_CPU_LOW)
         
         memory_layout.addWidget(QLabel("Usage:"), 0, 0)
         memory_layout.addWidget(self.memory_label, 0, 1)
@@ -64,13 +97,16 @@ class SystemStatusWidget(QWidget):
         
         layout.addWidget(memory_group)
         
-        # Temperature Status
+        # Temperature Status — electric blue value label
         temp_group = QGroupBox("Temperature")
+        temp_group.setStyleSheet(_GROUP_STYLE)
         temp_layout = QGridLayout(temp_group)
         
         self.temp_label = QLabel("--")
+        self.temp_label.setStyleSheet("color: #00d2ff; font-weight: 700; font-size: 13px;")
         self.temp_progress = QProgressBar()
         self.temp_progress.setMaximum(100)
+        self.temp_progress.setStyleSheet(_STYLE_CPU_LOW)
         
         temp_layout.addWidget(QLabel("CPU:"), 0, 0)
         temp_layout.addWidget(self.temp_label, 0, 1)
@@ -78,12 +114,15 @@ class SystemStatusWidget(QWidget):
         
         layout.addWidget(temp_group)
         
-        # Disk I/O Status
+        # Disk I/O Status — gold label values
         io_group = QGroupBox("Disk I/O")
+        io_group.setStyleSheet(_GROUP_STYLE)
         io_layout = QGridLayout(io_group)
         
         self.read_label = QLabel("Read: --")
+        self.read_label.setStyleSheet("color: #00d2ff; font-weight: 600;")
         self.write_label = QLabel("Write: --")
+        self.write_label.setStyleSheet("color: #00d2ff; font-weight: 600;")
         
         io_layout.addWidget(self.read_label, 0, 0)
         io_layout.addWidget(self.write_label, 0, 1)
@@ -151,7 +190,8 @@ class DeviceListWidget(QWidget):
         layout = QVBoxLayout(self)
         
         # Device list
-        device_group = QGroupBox("USB Devices")
+        device_group = QGroupBox("⚡ USB Devices")
+        device_group.setStyleSheet(_GROUP_STYLE)
         device_layout = QVBoxLayout(device_group)
         
         self.device_list = QListWidget()
@@ -197,8 +237,25 @@ class StatusWidget(QWidget):
         self._setup_ui()
     
     def _setup_ui(self):
-        """Setup main status UI"""
+        """Setup main status UI with Phoenix Core card container"""
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+        
+        # Phoenix Core branded section header
+        header_label = QLabel("⚡ REAL-TIME HEALTH")
+        header_font = QFont("Segoe UI", 10, QFont.Weight.Bold)
+        header_label.setFont(header_font)
+        header_label.setStyleSheet("""
+            QLabel {
+                color: #ffd700;
+                letter-spacing: 2px;
+                padding: 6px 10px 4px 14px;
+                border-left: 3px solid #00d2ff;
+                background: transparent;
+            }
+        """)
+        layout.addWidget(header_label)
         
         # System status
         self.system_status = SystemStatusWidget()

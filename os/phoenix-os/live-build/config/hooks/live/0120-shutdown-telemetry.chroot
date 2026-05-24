@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+install -d -m 0755 /lib/systemd/system-shutdown
+
+cat > /lib/systemd/system-shutdown/bwos-shutdown-telemetry <<'EOF2'
+#!/bin/sh
+set -eu
+
+MARKER="/run/bwos-shutdown-started"
+
+mkdir -p /run 2>/dev/null || true
+printf '%s\n' "BWOS_SHUTDOWN_TELEMETRY_STARTED" | tee "$MARKER" >/dev/null 2>&1 || true
+printf '%s\n' "BWOS_SHUTDOWN_TELEMETRY_STARTED" > /dev/ttyS0 || true
+exit 0
+EOF2
+
+chmod 0755 /lib/systemd/system-shutdown/bwos-shutdown-telemetry

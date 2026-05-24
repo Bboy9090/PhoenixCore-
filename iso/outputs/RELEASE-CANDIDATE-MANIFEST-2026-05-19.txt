@@ -1,0 +1,12 @@
+Blue Phoenix OS - Release Candidate Manifest
+Generated: 2026-05-19T02:40:46Z
+Path: /Users/bj90-m1/PhoenixCore-/iso/outputs
+
+FILE                     SIZE     SHA256
+bwos-arcwyre.iso         2.0G     3ba79189b56384cec2095fcc008781b87f9d613545b05b8e9c84767492d685fb
+bwos-aurelia.iso         2.0G     6dcc401780d286353861b275a0c7e960679631b86a89afef57fdfcb41cb8e0e1
+bwos-forge.iso           2.0G     81d201b54ac8f1493c210c67c21350383cb553695e0fe0da0cf3d13464cd72c4
+bwos-home.iso            2.1G     82c7890d281bf15362017fe06b69ac8f6bd4b621d12fac0530927d3738cca12a
+bwos-resilient.iso       2.0G     53a4a86a057b0b797ba3893272c1f6b9a4cb4c3edafd6deda83bafb2cd914cf9
+bwos-revival.iso         2.0G     a714d66cdd7176f6d649e7a5bc05156287434dc838b659a0773cfee73d9f5d50
+bwos-thunder-god.iso     2.0G     4ea3fa9cfa922a3c50138dbd8784442afd89167acd52c8ceffed3882d07eb7d3

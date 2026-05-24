@@ -1,4 +1,5 @@
 # branding and theming infrastructure
 plymouth
 plymouth-themes
+librsvg2-bin
 sddm

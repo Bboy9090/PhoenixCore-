@@ -1,4 +1,4 @@
-# BootForge Phoenix Key — Legendary Forge Blueprint
+# BootForge Phoenix Key — Legendary Recovery Blueprint
 
 The Phoenix Key is positioned as BootForge's flagship hybrid recovery and deployment platform. This document distills the product vision into concrete technical objectives so engineering, product, and marketing teams can execute in lockstep.
 
@@ -88,7 +88,7 @@ Phoenix Tool Scanner indexes new ISOs dropped onto the drive, auto-categorizes t
 
 ## 6. Update & Maintenance Strategy
 
-- **Phoenix Auto-Forge Updater**:
+- **Phoenix Auto-Update**:
   - Checks for new ISO revisions, downloads replacements, verifies checksums, and rotates them atomically.
   - Can run headless (cron/scheduled task) or interactively via CLI/GUI/Web.
 - **Change Logging**:

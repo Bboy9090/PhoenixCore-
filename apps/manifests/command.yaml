@@ -1,0 +1,8 @@
+public_name: "Command"
+internal_id: "org.aurelia.citadel.command"
+category: "System;TerminalEmulator"
+tier: 1
+release_status: "SHIP"
+requires_governance: false
+offline_capable: true
+launch_critical: true

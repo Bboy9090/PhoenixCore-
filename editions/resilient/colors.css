@@ -1,0 +1,9 @@
+/* colors.css - Resilient Edition Theme Variables */
+:root {
+  --primary-color: #10b981;
+  --secondary-color: #34d399;
+  --accent-color: #ffffff;
+  --bg-color: #040d0a;
+  --surface-color: #0a2218;
+  --text-color: #f0fdf4;
+}

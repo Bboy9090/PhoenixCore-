@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ACTIVE_EDITIONS=("home" "revival" "resilient" "blue-phoenix" "forge" "arcwyre" "thunder-god")
+ACTIVE_EDITIONS=("home" "blue-phoenix" "arcwyre" "thunder-god")
 
 STAGING_LB_CONFIG_DIR="$REPO_ROOT/os/phoenix-os/cache/edition-staging/live-build-config"
 PLYMOUTH_THEME_DIR="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes/phoenix"
@@ -55,11 +55,16 @@ for edition in "${ACTIVE_EDITIONS[@]}"; do
     test -f "$PLYMOUTH_THEME_DIR/phoenix.script"
     test -f "$PLYMOUTH_THEME_DIR/progress-bg.png"
     test -f "$PLYMOUTH_THEME_DIR/progress-fill.png"
+    test -f "$PLYMOUTH_THEME_DIR/splash-background.png"
     test -f "$SDDM_THEME_DIR/Main.qml"
+    test -f "$SDDM_THEME_DIR/background.png"
     test -f "$WALLPAPER_PATH"
     test -f "$EDITION_META"
+    test -f "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/bwos/edition/package-profile.source.txt"
+    test -f "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/bwos/edition/package-profile.installed.txt"
+    test -f "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/bwos/edition/package-profile.blocked.txt"
 
-    if rg -q "__EDITION_NAME__|__EDITION_TAGLINE__|__COLOR_PRIMARY__" "$SDDM_THEME_DIR/Main.qml"; then
+    if rg -q "__EDITION_NAME__|__EDITION_TAGLINE__|__COLOR_PRIMARY__|__WALLPAPER_IMAGE__" "$SDDM_THEME_DIR/Main.qml"; then
         echo "❌ Placeholder leak in SDDM template for $edition"
         exit 1
     fi
@@ -84,6 +89,7 @@ for edition in "${ACTIVE_EDITIONS[@]}"; do
 
     echo "✅ Logo staged: $logo_rel ($logo_mime)"
     echo "✅ Wallpaper staged: $wallpaper_rel ($wallpaper_mime)"
+    echo "✅ Package profile provenance staged"
     echo "✅ Progress assets present and template placeholders resolved"
 done
 

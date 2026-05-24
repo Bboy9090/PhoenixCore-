@@ -198,10 +198,7 @@ export default function VideoTutorialsScreen() {
           >
             <Text className="font-semibold text-foreground">💡 Pro Tips</Text>
             <Text className="text-sm text-muted leading-relaxed">
-              • Watch tutorials in order for best learning experience{'
-'}• Pause and follow along
-              with your device{'
-'}• Check the Knowledge Base for written guides
+              • Watch tutorials in order for best learning experience{' '}• Pause and follow along with your device{' '}• Check the Knowledge Base for written guides
             </Text>
           </View>
         </View>

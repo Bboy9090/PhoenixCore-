@@ -1,0 +1,12 @@
+# Resilient Edition Package Profile
+plasma-desktop
+firefox-esr
+kcalc
+dolphin
+konsole
+systemsettings
+kwrite
+gwenview
+firejail
+apparmor
+ufw

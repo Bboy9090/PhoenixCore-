@@ -22,6 +22,7 @@ branding:
   path: "branding.md"
   logo: "assets/arcwyre-logo.png"
   wallpaper: "assets/circuit-grid.png"
+  splash: "assets/circuit-grid.png"
 
 packages:
   profile: "package-profile.txt"

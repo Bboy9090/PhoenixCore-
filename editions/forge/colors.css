@@ -1,9 +1,9 @@
+/* colors.css - Forge Edition Theme Variables */
 :root {
-  --bwos-primary: #F97316;
-  --bwos-secondary: #334155;
-  --bwos-accent: #38BDF8;
-  --bwos-bg: #0F172A;
-  --bwos-surface: #1E293B;
-  --bwos-text: #F1F5F9;
-  --bwos-glow: rgba(249, 115, 22, 0.2);
+  --primary-color: #f97316;
+  --secondary-color: #fb923c;
+  --accent-color: #64748b;
+  --bg-color: #080604;
+  --surface-color: #1c140e;
+  --text-color: #ffedd5;
 }

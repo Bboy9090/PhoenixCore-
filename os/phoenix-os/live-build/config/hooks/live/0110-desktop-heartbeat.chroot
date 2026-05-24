@@ -1,0 +1,135 @@
+#!/bin/sh
+set -eu
+
+# Emit an explicit desktop-session marker from the live Plasma autologin session.
+# This marker is only valid once the Plasma session itself has started.
+
+mkdir -p /etc/xdg/autostart
+mkdir -p /usr/local/bin
+
+cat > /usr/local/bin/bwos-desktop-session-marker <<'EOF2'
+#!/bin/sh
+set -eu
+
+WALLPAPER="/usr/share/images/desktop-base/desktop-background.png"
+USER_CONFIG="${HOME:-/home/phoenix}/.config/plasma-org.kde.plasma.desktop-appletsrc"
+PROFILE="$(cat /run/bwos-session-profile 2>/dev/null || echo unknown)"
+
+serial_log() {
+    printf '%s\n' "$*" > /dev/ttyS0 2>/dev/null || true
+    logger -t BWOS-SESSION "$*" >/dev/null 2>&1 || true
+}
+
+apply_wallpaper() {
+    if [ -f "$WALLPAPER" ]; then
+        if command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
+            if command -v timeout >/dev/null 2>&1; then
+                timeout 5s plasma-apply-wallpaperimage "$WALLPAPER" >/dev/null 2>&1 || true
+            else
+                plasma-apply-wallpaperimage "$WALLPAPER" >/dev/null 2>&1 || true
+            fi
+        fi
+        if [ -f "$USER_CONFIG" ]; then
+            if command -v kwriteconfig5 >/dev/null 2>&1; then
+                kwriteconfig5 \
+                    --file "$USER_CONFIG" \
+                    --group Containments \
+                    --group 1 \
+                    --group Wallpaper \
+                    --group org.kde.image \
+                    --group General \
+                    --key Image "file://${WALLPAPER}" >/dev/null 2>&1 || true
+            elif command -v kwriteconfig6 >/dev/null 2>&1; then
+                kwriteconfig6 \
+                    --file "$USER_CONFIG" \
+                    --group Containments \
+                    --group 1 \
+                    --group Wallpaper \
+                    --group org.kde.image \
+                    --group General \
+                    --key Image "file://${WALLPAPER}" >/dev/null 2>&1 || true
+            fi
+        fi
+    fi
+}
+
+serial_log "BWOS_SESSION_LAUNCH_ATTEMPTED profile=${PROFILE}"
+case "$PROFILE" in
+    x11) serial_log "BWOS_X11_SESSION_ATTEMPTED" ;;
+    wayland) serial_log "BWOS_WAYLAND_SESSION_ATTEMPTED" ;;
+    *) serial_log "BWOS_SESSION_PROFILE_UNKNOWN profile=${PROFILE}" ;;
+esac
+serial_log "BWOS_SESSION_ENV XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-} DISPLAY=${DISPLAY:-} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}"
+
+mkdir -p /run
+kwin_observed=0
+plasmashell_observed=0
+attempt=0
+while [ "$attempt" -lt 30 ]; do
+    if pgrep -x kwin_wayland >/dev/null 2>&1 || pgrep -x kwin_x11 >/dev/null 2>&1; then
+        kwin_observed=1
+    fi
+    if pgrep -x plasmashell >/dev/null 2>&1; then
+        plasmashell_observed=1
+    fi
+    if [ "$kwin_observed" -eq 1 ] && [ "$plasmashell_observed" -eq 1 ]; then
+        break
+    fi
+    attempt=$((attempt + 1))
+    sleep 1
+done
+
+if [ "$kwin_observed" -eq 1 ]; then
+    serial_log "BWOS_KWIN_STARTED"
+else
+    serial_log "BWOS_KWIN_NOT_OBSERVED"
+fi
+
+if [ "$plasmashell_observed" -eq 1 ]; then
+    serial_log "BWOS_PLASMASHELL_STARTED"
+else
+    serial_log "BWOS_PLASMASHELL_NOT_OBSERVED"
+fi
+
+if [ "$kwin_observed" -eq 1 ] && [ "$plasmashell_observed" -eq 1 ]; then
+    printf '%s\n' "BWOS_DESKTOP_SESSION_STARTED" | sudo -n /usr/bin/tee /run/bwos-desktop-reached >/dev/null 2>&1 || true
+    serial_log "BWOS_DESKTOP_SESSION_STARTED"
+    apply_wallpaper
+    printf '%s\n' "BWOS_WALLPAPER_APPLIED" | sudo -n /usr/bin/tee /run/bwos-wallpaper-applied >/dev/null 2>&1 || true
+    serial_log "BWOS_WALLPAPER_APPLIED"
+else
+    serial_log "BWOS_DESKTOP_SESSION_NOT_CONFIRMED"
+fi
+
+CMDLINE="$(cat /proc/cmdline 2>/dev/null || true)"
+serial_log "BWOS_KERNEL_CMDLINE ${CMDLINE}"
+case " ${CMDLINE} " in
+    *" bwos.shutdown_probe=1 "*)
+        if [ "$kwin_observed" -eq 1 ] && [ "$plasmashell_observed" -eq 1 ]; then
+            serial_log "BWOS_SHUTDOWN_PROBE_REQUESTED"
+            sleep 3
+            if command -v systemctl >/dev/null 2>&1; then
+                sudo -n "$(command -v systemctl)" poweroff >/dev/null 2>&1 || true
+            elif command -v poweroff >/dev/null 2>&1; then
+                sudo -n "$(command -v poweroff)" >/dev/null 2>&1 || true
+            fi
+        else
+            serial_log "BWOS_SHUTDOWN_PROBE_BLOCKED_DESKTOP_NOT_CONFIRMED"
+        fi
+        ;;
+esac
+exit 0
+EOF2
+chmod 0755 /usr/local/bin/bwos-desktop-session-marker
+
+cat > /etc/xdg/autostart/bwos-desktop-session-marker.desktop <<'EOF2'
+[Desktop Entry]
+Type=Application
+Name=BWOS Desktop Session Marker
+Exec=/usr/local/bin/bwos-desktop-session-marker
+Terminal=false
+NoDisplay=true
+X-GNOME-autostart-enabled=true
+OnlyShowIn=KDE;Plasma;
+X-KDE-autostart-phase=2
+EOF2

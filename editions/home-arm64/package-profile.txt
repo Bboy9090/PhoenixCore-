@@ -1,0 +1,11 @@
+# Home Edition Package Profile
+plasma-desktop
+firefox-esr
+kcalc
+dolphin
+konsole
+systemsettings
+kwrite
+gwenview
+vlc
+libreoffice-writer

@@ -67,6 +67,7 @@ main() {
     echo "[TOOL] mksquashfs: $(mksquashfs -version 2>&1 | head -n 1)"
     echo "[TOOL] cpio: $(cpio --version 2>&1 | head -n 1)"
     echo "[TOOL] grub-mkrescue: $(grub-mkrescue --version 2>&1 | head -n 1)"
+    echo "[TOOL] python3: $(python3 --version 2>&1 | head -n 1)"
   '
 
   echo "[INFO] Running Phoenix OS build skeleton verifier inside the builder..."

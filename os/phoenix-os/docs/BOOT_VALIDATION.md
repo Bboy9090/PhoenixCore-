@@ -40,7 +40,7 @@ qemu-system-x86_64 -m 2G -cdrom os/phoenix-os/build/live-image-amd64.hybrid.iso 
 | Date | ISO SHA256 | Target | Result |
 |------|------------|--------|--------|
 | 2026-05-13 | ac412be... | Static | PASS (EFI, Squashfs confirmed) |
-| 2026-05-13 | ac412be... | QEMU | [PENDING] |
+| 2026-05-18 | bwos-home  | QEMU   | PASS (Headless UEFI Boot, Captured Framebuffer) |
 
 ## 4. Known Blockers
 - **Secure Boot**: Currently unsupported. Must be disabled in UEFI settings.

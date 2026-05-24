@@ -41,7 +41,7 @@ if [[ "$MODE" != "dev-minimal" && "$MODE" != "desktop" && "$MODE" != "recovery" 
   exit 1
 fi
 
-if [[ "$ARCH" != "amd64" && "$ARCH" != "arm64" ]]; then
+if [[ "$ARCH" != "amd64" && "$ARCH" != "arm64" && "$ARCH" != "i386" ]]; then
   echo "[FAIL] Invalid architecture: $ARCH"
   exit 1
 fi
@@ -64,6 +64,7 @@ required_paths=(
   "$PHOENIX_OS_DIR/live-build/config/package-lists/profiles/full.list.chroot"
   "$PHOENIX_OS_DIR/live-build/config/package-lists/profiles/recovery-tools.list.chroot"
   "$PHOENIX_OS_DIR/live-build/config/package-lists/profiles/branding-tools.list.chroot"
+  "$PHOENIX_OS_DIR/live-build/config/package-lists/edition.list.chroot"
 )
 
 for path in "${required_paths[@]}"; do

@@ -1,27 +1,28 @@
 id: thunder-god
-display_name: "Bobby’s Worldwide OS: Thunder God Edition"
-parent: "Bobby’s Worldwide OS"
+display_name: "Arcwyre: Thundergod Edition"
+parent: "Blue Phoenix OS"
 edition_type: "premium"
-tagline: "Boot the broken. Power the world."
-description: "The electric, storm-infused, heroic edition of BWOS. Optimized for high-fidelity desktop experiences and cinematic recovery workflows."
+tagline: "Speed. Power. Unleashed."
+description: "The high-integrity, lightning-fast power-user edition utilizing custom system overlays."
 inherits_core_safety_rules: true
 
 theme:
   colors:
-    primary: "#62E8FF"   # Electric Cyan
-    secondary: "#FFD34D" # Thunder Gold
-    accent: "#C8332D"    # Hero Red
-    background: "#080B10" # Storm Black
-    surface: "#121820"
-    text: "#F7F1DA"      # Divine Ivory
+    primary: "#8B5CF6"   # Electric Violet
+    secondary: "#3B82F6" # Electric Blue
+    accent: "#E2E8F0"    # Storm Slate White
+    background: "#080614" # Thunder Deep Dark
+    surface: "#140F2D"
+    text: "#EDF2F7"
 
 palette:
   path: "colors.css"
 
 branding:
   path: "branding.md"
-  logo: "assets/thunder-logo.svg"
+  logo: "assets/thunder-logo.png"
   wallpaper: "assets/storm-peak.png"
+  splash: "assets/storm-peak.png"
 
 packages:
   profile: "package-profile.txt"

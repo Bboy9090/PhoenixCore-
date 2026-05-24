@@ -1,0 +1,33 @@
+{
+  "attempt_label": "PR39E-C",
+  "attempt_timestamp": "2026-05-24T03:52:23Z",
+  "artifact_hash": "548e66eeb3c53703b0efa1c999b4ad6a26a3c86a9acb07960eff145f1b269ed1",
+  "artifact_path": "os/phoenix-os/build/bwos-home.iso",
+  "artifact_format": "iso",
+  "vm_tool": "qemu-system-x86_64",
+  "vm_settings": {
+    "vm_tool": "qemu-system-x86_64",
+    "efi_enabled": true,
+    "secure_boot_state": "disabled",
+    "ram_mb": 4096,
+    "cpu_cores": 2,
+    "disk_attached": "none"
+  },
+  "result_stage": "BOOT_FAIL_DISPLAY",
+  "boot_menu_reached": true,
+  "kernel_reached": true,
+  "initramfs_reached": true,
+  "display_manager_reached": false,
+  "desktop_reached": false,
+  "desktop_marker_reached": false,
+  "wallpaper_marker_reached": false,
+  "shutdown_marker_reached": false,
+  "clean_shutdown_verified": false,
+  "screenshot_path": "",
+  "serial_log_path": "iso/outputs/vm-boot-evidence/home/20260524T035223Z/serial.log",
+  "console_log_path": "iso/outputs/vm-boot-evidence/home/20260524T035223Z/console.log",
+  "reason_aborted": "display",
+  "shutdown_method": "forced kill",
+  "canonical_update": false,
+  "attempt_note": "x86_64 UEFI boot"
+}

@@ -51,5 +51,5 @@ This manual governs catastrophic incidents when standard workflows fail. Escalat
 ## Post-Incident Review
 
 - Conduct debrief, update PhoenixDocs guides with new learnings.
-- Tag incident in Phoenix Auto-Forge to trigger follow-up improvements.
+- Tag incident in the Phoenix incident log to trigger follow-up improvements.
 - Archive final report to `/PhoenixDocs/incidents/<ticket>/report.pdf`.

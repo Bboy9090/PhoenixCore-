@@ -6,12 +6,12 @@
 
 ## 1. Product Vision
 
-Bobby’s Worldwide OS is a high-integrity computing platform designed to outlast, out-repair, and out-perform legacy operating systems. It is the master ecosystem that powers the Thunder God, ARCWYRE, and Forge editions.
+Bobby’s Worldwide OS is a high-integrity computing platform designed to outlast, out-repair, and out-perform legacy operating systems. It is the master ecosystem that powers the Home, Thunder God, Aurelia, and ARCWYRE editions, with Native reserved as the sovereign research track.
 
 ## 2. Core Pillars
 
 ### I. The Recovery Spine
-The system must be bootable and repairable even when local storage has failed. Every installation includes a "Forge Mode" recovery partition.
+The system must be bootable and repairable even when local storage has failed. Every installation includes a recovery partition and technician rescue mode.
 
 ### II. Truth-First Diagnostics
 No simulated data. The OS must reflect the absolute hardware truth. Audit logs are immutable and stored in the ARCWYRE/BWOS Agent.
@@ -20,14 +20,14 @@ No simulated data. The OS must reflect the absolute hardware truth. Audit logs a
 Long-term development of the ARCWYRE/BWOS Native kernel to remove dependencies on third-party kernel tracks (Linux/NT).
 
 ### IV. Edition Fluidity
-The platform is skin-agnostic. A user should be able to switch between "Thunder God" and "ARCWYRE" editions without reinstalling the core system.
+The platform is skin-agnostic. A user should be able to switch between "Home", "Thunder God", "Aurelia", and "ARCWYRE" editions without reinstalling the core system.
 
 ## 3. High-Level Requirements
 
 ### Core (Shared)
 - **Unified Agent**: A single Rust-based daemon for all hardware interaction.
 - **Universal Imaging**: Integration of BootForge for one-click OS deployment.
-- **Control Center**: A zero-dependency UI that runs in Live-build, Forge-mode, and Desktop-mode.
+- **Control Center**: A zero-dependency UI that runs in Live-build, recovery mode, and Desktop-mode.
 - **Safety Gates**: Mandatory hardware verification before destructive writes.
 
 ### UI/UX (Consolidated)

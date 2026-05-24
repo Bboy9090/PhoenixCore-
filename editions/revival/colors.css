@@ -1,0 +1,9 @@
+/* colors.css - Revival Edition Theme Variables */
+:root {
+  --primary-color: #14b8a6;
+  --secondary-color: #2dd4bf;
+  --accent-color: #ffffff;
+  --bg-color: #050b14;
+  --surface-color: #0f1a2c;
+  --text-color: #f9fafb;
+}

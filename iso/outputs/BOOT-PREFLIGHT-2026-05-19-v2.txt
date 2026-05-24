@@ -1,0 +1,52 @@
+Blue Phoenix OS - Boot Preflight (v2)
+Generated: 2026-05-19T02:28:49Z
+Method: mounted ISO wildcard checks
+
+[bwos-aurelia.iso]
+  OK  EFI boot binary: /EFI/boot/bootx64.efi
+  OK  GRUB config: /boot/grub/config.cfg
+  OK  kernel: /live/vmlinuz-5.10.0-43-amd64
+  OK  initrd: /live/initrd.img-5.10.0-43-amd64
+  OK  rootfs: /live/filesystem.squashfs
+  RESULT  PASS
+
+[bwos-forge.iso]
+  OK  EFI boot binary: /EFI/boot/bootx64.efi
+  OK  GRUB config: /boot/grub/config.cfg
+  OK  kernel: /live/vmlinuz-5.10.0-43-amd64
+  OK  initrd: /live/initrd.img-5.10.0-43-amd64
+  OK  rootfs: /live/filesystem.squashfs
+  RESULT  PASS
+
+[bwos-home.iso]
+  OK  EFI boot binary: /EFI/boot/bootx64.efi
+  OK  GRUB config: /boot/grub/config.cfg
+  OK  kernel: /live/vmlinuz-5.10.0-43-amd64
+  OK  initrd: /live/initrd.img-5.10.0-43-amd64
+  OK  rootfs: /live/filesystem.squashfs
+  RESULT  PASS
+
+[bwos-resilient.iso]
+  OK  EFI boot binary: /EFI/boot/bootx64.efi
+  OK  GRUB config: /boot/grub/config.cfg
+  OK  kernel: /live/vmlinuz-5.10.0-43-amd64
+  OK  initrd: /live/initrd.img-5.10.0-43-amd64
+  OK  rootfs: /live/filesystem.squashfs
+  RESULT  PASS
+
+[bwos-revival.iso]
+  OK  EFI boot binary: /EFI/boot/bootx64.efi
+  OK  GRUB config: /boot/grub/config.cfg
+  OK  kernel: /live/vmlinuz-5.10.0-43-amd64
+  OK  initrd: /live/initrd.img-5.10.0-43-amd64
+  OK  rootfs: /live/filesystem.squashfs
+  RESULT  PASS
+
+[bwos-thunder-god.iso]
+  OK  EFI boot binary: /EFI/boot/bootx64.efi
+  OK  GRUB config: /boot/grub/config.cfg
+  OK  kernel: /live/vmlinuz-5.10.0-43-amd64
+  OK  initrd: /live/initrd.img-5.10.0-43-amd64
+  OK  rootfs: /live/filesystem.squashfs
+  RESULT  PASS
+

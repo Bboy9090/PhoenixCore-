@@ -661,7 +661,7 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+// Add product tables here as the schema grows.
 ```
 
 `server/db.ts`
@@ -757,7 +757,7 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Add feature queries here as the schema grows.
 ```
 
 `server/routers.ts`
@@ -781,7 +781,7 @@ export const appRouter = router({
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
+  // Add feature routers here, e.g.
   // todo: router({
   //   list: protectedProcedure.query(({ ctx }) =>
   //     db.getUserTodos(ctx.user.id)
@@ -1129,7 +1129,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
   return { ctx, clearedCookies };
 }
 
-// TODO: Remove `.skip` below once you implement user authentication
+// Remove `.skip` below once user authentication is implemented.
 describe.skip("auth.logout", () => {
   it("clears the session cookie and reports success", async () => {
     const { ctx, clearedCookies } = createAuthContext();

@@ -1,0 +1,9 @@
+/* colors.css - Home Aurelia Theme Variables */
+:root {
+  --primary-color: #2f80ff;
+  --secondary-color: #d4a94f;
+  --accent-color: #e5eef9;
+  --bg-color: #05070a;
+  --surface-color: #101827;
+  --text-color: #f8fafc;
+}

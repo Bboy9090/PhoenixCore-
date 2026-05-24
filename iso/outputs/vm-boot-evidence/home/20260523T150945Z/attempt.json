@@ -1,0 +1,30 @@
+{
+  "attempt_label": "canonical",
+  "attempt_timestamp": "20260523T150945Z",
+  "artifact_path": "iso/outputs/bwos-home.iso",
+  "artifact_hash": "8f5e094ca9164d8b117a07ea2371816c8afdd0e4ad8d7e6a47d00195b93f5f32",
+  "vm_tool": "qemu-system-x86_64",
+  "vm_settings": {
+    "vm_tool": "qemu-system-x86_64",
+    "efi_enabled": true,
+    "secure_boot_state": "disabled",
+    "ram_mb": 4096,
+    "cpu_cores": 2,
+    "disk_attached": "none",
+    "architecture": "amd64"
+  },
+  "result_stage": "BOOT_PASS_DESKTOP",
+  "boot_menu_reached": true,
+  "kernel_reached": true,
+  "initramfs_reached": true,
+  "display_manager_reached": true,
+  "desktop_reached": true,
+  "clean_shutdown_verified": false,
+  "screenshot_path": "iso/outputs/vm-boot-evidence/home/20260523T150945Z/desktop.png",
+  "serial_log_path": "iso/outputs/vm-boot-evidence/home/20260523T150945Z/serial.log",
+  "console_log_path": "iso/outputs/vm-boot-evidence/home/20260523T150945Z/console.log",
+  "reason_aborted": "clean_shutdown_not_verified",
+  "shutdown_method": "not verified",
+  "canonical_update": true,
+  "attempt_note": "Canonical desktop-confirmed Home boot from PR39C; retained as strongest evidence."
+}

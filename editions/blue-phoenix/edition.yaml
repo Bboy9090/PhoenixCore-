@@ -22,6 +22,7 @@ branding:
   path: "branding.md"
   logo: "assets/aurelia-logo.png"
   wallpaper: "assets/blue-horizon.png"
+  splash: "assets/blue-horizon.png"
 
 packages:
   profile: "package-profile.txt"

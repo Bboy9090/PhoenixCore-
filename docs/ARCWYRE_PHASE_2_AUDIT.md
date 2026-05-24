@@ -30,14 +30,14 @@ The following "Phoenix" references have been **intentionally preserved** to ensu
 
 - **Dependency Mirroring**: Some logic in `phoenix-control-center` still assumes a Python backend; this must be migrated to the ARCWYRE Agent (Rust) to achieve full Native compatibility.
 - **Hardware Abstraction**: The Current "Core" is heavily optimized for Linux/macOS; further abstraction is needed for the ARCWYRE Native kernel track.
-- **Permission Bloat**: The ARCWYRE Agent currently requires broad sudo access; a more granular capability model is required for "Forge Mode" security.
+- **Permission Bloat**: The ARCWYRE Agent currently requires broad sudo access; a more granular capability model is required for recovery-mode security.
 
 ## 5. Next Phase Recommendation
 
 Proceed to **Phase 3: Agent Core Integration**.
 - Focus on transitioning backend logic from Python (FastAPI) to the Rust-based ARCWYRE Agent.
 - Implement the "Sacred Minimal" communication protocol (JSON-line streaming) between the Agent and the Control Center.
-- Validate the "Forge Mode" minimal live-build environment.
+- Validate the minimal recovery-mode live-build environment.
 
 ---
 **Status:** Phase 2 Architecture Alignment is **LOCKED**.

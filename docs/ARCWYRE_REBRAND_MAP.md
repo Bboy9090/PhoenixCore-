@@ -16,8 +16,8 @@ This document tracks the mapping of the legacy "Phoenix" codenames to the new pu
 | **Phoenix Agent** | **ARCWYRE Agent** | Local System Execution Daemon |
 | **Phoenix Control Center**| **ARCWYRE Control Center**| User Dashboard/GUI |
 | **Phoenix Key** | **ARCWYRE Key** | Physical Bootable Token |
-| **Phoenix Forge Mode** | **ARCWYRE Forge Mode** | System Repair/Assembly Interface |
-| **Phoenix Forge** | **ARCWYRE Forge** | Build & Deployment Tooling |
+| **Phoenix Recovery Mode** | **ARCWYRE Recovery Mode** | System Repair/Recovery Interface |
+| **Phoenix Build Environment** | **ARCWYRE Build Environment** | Build & Deployment Tooling |
 | **Phoenix Shell** | **ARCWYRE Shell** | Unified Terminal/Interface |
 | **Phoenix SDK** | **ARCWYRE SDK** | Developer Tooling |
 

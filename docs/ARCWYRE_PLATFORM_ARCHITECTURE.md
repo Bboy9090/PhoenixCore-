@@ -22,8 +22,8 @@ graph TD
     Agent <--> Core[ARCWYRE Core / PhoenixCore]
     
     subgraph "Execution Layer"
-        Core <--> Forge[ARCWYRE Forge]
-        Forge <--> BF[BootForge Engine]
+    Core <--> Recovery[ARCWYRE Recovery Mode]
+    Recovery <--> BF[BootForge Engine]
     end
     
     subgraph "Hardware Layer"
@@ -44,7 +44,7 @@ graph TD
 ## 3. Core Components
 
 ### ARCWYRE Control Center
-The primary user interface for system management, diagnostics, and recovery. Built as a high-integrity web application (React/Tauri) designed to run both as a desktop app and in the Forge recovery environment.
+The primary user interface for system management, diagnostics, and recovery. Built as a high-integrity web application (React/Tauri) designed to run both as a desktop app and in the recovery environment.
 
 ### ARCWYRE Agent
 A privileged bridge service (Rust) that orchestrates communication between the Control Center UI and the low-level Core services. It enforces safety boundaries and validates all hardware-level operations.
@@ -55,8 +55,8 @@ The shared runtime engine and service layer. It contains the cross-platform Rust
 ### BootForge Engine
 The existing high-performance imaging engine. It handles the low-level "Cold Fuse" imaging process, creating bootable installers for Windows, Linux, and macOS.
 
-### ARCWYRE Forge
-The dedicated recovery mode environment. When triggered, the system enters a minimal, hardened state (Forge Mode) where the Control Center performs deep system repair and imaging tasks.
+### ARCWYRE Recovery Mode
+The dedicated recovery mode environment. When triggered, the system enters a minimal, hardened state (Recovery Mode) where the Control Center performs deep system repair and imaging tasks.
 
 ### ARCWYRE Key
 The hardware-backed identity and recovery device. It stores the system's "Sacred Truth" (backup keys, recovery images, and identity markers).

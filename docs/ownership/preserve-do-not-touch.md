@@ -10,7 +10,7 @@ These areas contain source or product knowledge that must not be casually delete
 - `server/bootcamp/` BootCamp driver and recovery tooling.
 - `crates/` safety, imaging, report, workflow, host, bootloader, WIM, content, and plugin SDK crates.
 - `docs/phoenix_key_legendary_blueprint.md`.
-- `bootable_usb/BootForge/assets/` Phoenix Forge and Phoenix Key brand assets.
+- `bootable_usb/BootForge/assets/` Phoenix-era and Phoenix Key brand assets.
 - `third_party/OpenCore-Legacy-Patcher` provenance and integration assumptions.
 - Root Expo routes and mobile app screens until a canonical app split is approved.
 

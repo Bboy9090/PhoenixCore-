@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+# Make the live image boot deterministically into the graphical target.
+# This keeps SDDM autologin and the Plasma session on the canonical path.
+
+if [ -d /lib/systemd/system ]; then
+    install -d -m 0755 /etc/systemd/system
+    ln -sfn /lib/systemd/system/graphical.target /etc/systemd/system/default.target
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl --no-reload enable sddm.service >/dev/null 2>&1 || true
+fi

@@ -424,12 +424,14 @@ class StepperHeader(QWidget):
         # Title section with enhanced styling
         title_layout = QHBoxLayout()
         
-        title_label = QLabel("Deployment Workflow")
+        title_label = QLabel("⚡ Deployment Workflow")
         title_font = QFont(BootForgeTheme.FONTS['default_family'], 
                           BootForgeTheme.FONTS['sizes']['xl'], 
                           QFont.Weight.Bold)
         title_label.setFont(title_font)
-        title_label.setStyleSheet(f"color: {BootForgeTheme.COLORS['text_primary']};")
+        title_label.setStyleSheet(
+            f"color: {BootForgeTheme.COLORS['text_primary']}; letter-spacing: 1px;"
+        )
         title_layout.addWidget(title_label)
         
         title_layout.addStretch()
@@ -441,11 +443,13 @@ class StepperHeader(QWidget):
                              QFont.Weight.Medium)
         self.progress_label.setFont(progress_font)
         self.progress_label.setStyleSheet(f"""
-            color: {BootForgeTheme.COLORS['text_secondary']};
-            background-color: {BootForgeTheme.COLORS['bg_input']};
-            padding: 4px 12px;
+            color: {BootForgeTheme.COLORS['accent_3']};
+            background-color: rgba(255, 215, 0, 0.08);
+            padding: 4px 14px;
             border-radius: {BootForgeTheme.RADIUS['base']}px;
-            border: 1px solid {BootForgeTheme.COLORS['border']};
+            border: 1px solid {BootForgeTheme.COLORS['border_accent']};
+            font-weight: 700;
+            letter-spacing: 1px;
         """)
         title_layout.addWidget(self.progress_label)
         
@@ -476,20 +480,23 @@ class StepperHeader(QWidget):
         self._apply_styling()
     
     def _apply_styling(self):
-        """Apply modern theme styling to the stepper header"""
+        """Apply Phoenix Core premium theme styling to the stepper header"""
         self.setStyleSheet(f"""
             StepperHeader {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 {BootForgeTheme.COLORS['bg_secondary']}, 
-                    stop:1 {BootForgeTheme.COLORS['bg_tertiary']});
-                border: 1px solid {BootForgeTheme.COLORS['border']};
-                border-radius: {BootForgeTheme.RADIUS['lg']}px;
-                margin: {BootForgeTheme.SPACING['sm']}px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {BootForgeTheme.COLORS['bg_primary']},
+                    stop:0.3 {BootForgeTheme.COLORS['bg_secondary']},
+                    stop:0.7 {BootForgeTheme.COLORS['bg_secondary']},
+                    stop:1 {BootForgeTheme.COLORS['bg_primary']});
+                border: none;
+                border-bottom: 2px solid rgba(255, 215, 0, 0.4);
+                border-radius: 0px;
+                margin: 0px;
             }}
         """)
         
-        # Set enhanced height for better visual hierarchy
-        self.setFixedHeight(140)
+        # Increased height for premium visual hierarchy
+        self.setFixedHeight(160)
     
     def _setup_connections(self):
         """Setup signal connections with WizardController"""

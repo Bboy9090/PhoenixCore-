@@ -20,7 +20,7 @@ The brand uses a high-contrast, atmospheric palette inspired by industrial works
 | `--arc-blue` | `#2F80FF` | Information / Secondary accents |
 | `--arc-silver` | `#C7D0D9` | Primary text and iconography (Forged) |
 | `--arc-gold` | `#FFB02E` | Secondary action / Ignition points |
-| `--arc-ember` | `#FF6B2E` | Warning / Active Forge state |
+| `--arc-ember` | `#FF6B2E` | Warning / Active build state |
 | `--arc-danger` | `#FF3B3B` | Critical errors / Destructive actions |
 | `--arc-success` | `#42F59B` | Validation / Repair complete |
 

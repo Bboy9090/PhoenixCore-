@@ -199,6 +199,26 @@ export const TOOL_CATALOG: ToolItem[] = [
     color: "#E53935",
   },
   {
+    id: "ventoy-mac",
+    name: "Ventoy for macOS",
+    version: "1.0.99",
+    category: "recovery" as const,
+    sizeGB: 0.02,
+    description: "Native macOS Ventoy installer — no Windows required. Uses Ventoy2Disk.sh to set up multi-boot USB drives directly on your Mac with full UEFI + Legacy BIOS support.",
+    features: [
+      "Native macOS shell script (Ventoy2Disk.sh)",
+      "No Windows VM or Boot Camp needed",
+      "Full UEFI + Legacy BIOS support",
+      "Secure Boot compatible (with MOK enrollment)",
+      "Supports 1100+ tested ISOs",
+      "GPT + MBR partition schemes",
+      "Drop ISOs directly — no reflashing",
+      "Works on Apple Silicon + Intel Mac",
+    ],
+    iconName: "storage",
+    color: "#00d2ff",
+  },
+  {
     id: "hirens",
     name: "Hiren's BootCD PE",
     version: "1.0.8",
@@ -370,7 +390,7 @@ export const KB_ARTICLES: KBArticle[] = [
     id: "ventoy-multiboot",
     title: "Creating a Multi-Boot USB with Ventoy",
     category: "USB Creation",
-    summary: "Learn how to use Ventoy to create a single USB drive that can boot multiple operating systems and tools without reformatting.",
+    summary: "Learn how to use Ventoy to create a single USB drive that can boot multiple operating systems and tools without reformatting — including native macOS support.",
     content: `Ventoy is the foundation of a universal bootable USB. Unlike traditional tools like Rufus or Etcher that format the USB for a single ISO, Ventoy creates a special boot partition that can detect and boot ANY ISO file you copy to the drive.
 
 **How It Works:**
@@ -378,22 +398,49 @@ export const KB_ARTICLES: KBArticle[] = [
 2. Copy ISO files directly to the USB — no special formatting needed
 3. Boot from the USB and select which ISO to launch from Ventoy's menu
 
-**Step-by-Step Setup:**
+**macOS Native Mode (No Windows Required):**
+Phoenix Core includes Ventoy for macOS — run it directly on your Mac:
+
+  # Download Ventoy
+  curl -LO https://github.com/ventoy/Ventoy/releases/latest/download/ventoy-1.0.99-mac.tar.gz
+  tar -xf ventoy-1.0.99-mac.tar.gz
+  cd ventoy-1.0.99
+
+  # Install to USB (replace disk2 with your disk number)
+  sudo sh Ventoy2Disk.sh -i /dev/disk2
+
+  # Update existing Ventoy installation (preserves your ISOs)
+  sudo sh Ventoy2Disk.sh -u /dev/disk2
+
+  # UEFI-only mode (recommended for modern hardware)
+  sudo sh Ventoy2Disk.sh -i -u /dev/disk2
+
+Phoenix Core auto-detects macOS and uses Ventoy2Disk.sh automatically during the USB build process.
+
+**Windows Setup (Alternative):**
 1. Download Ventoy from ventoy.net
-2. Run Ventoy2Disk (Windows) or the shell script (Linux/macOS)
+2. Run Ventoy2Disk.exe (Windows GUI)
 3. Select your USB drive and click "Install"
-4. Once installed, the USB appears as a regular drive — just drag and drop ISOs
+
+**Step-by-Step macOS Setup via Phoenix Core:**
+1. Open Phoenix Core → USB Builder tab
+2. Select your OS images and tools
+3. Select your USB drive from the scan
+4. Phoenix Core detects macOS and uses Ventoy2Disk.sh
+5. Progress shows: Partitioning → Ventoy install → ISO copy → Verify
+6. Done — boot your USB on any machine!
 
 **Supported Formats:** ISO, WIM, IMG, VHD(x), EFI files
-**Compatibility:** Legacy BIOS, UEFI, Secure Boot (with enrollment)
+**Compatibility:** Legacy BIOS, UEFI, Secure Boot (with MOK enrollment)
 **Tested ISOs:** 1100+ distributions and tools verified
 
 **Pro Tips:**
-- Use a 128GB+ USB 3.0 drive for best results
-- Organize ISOs in folders (e.g., /Windows, /Linux, /Tools)
+- Use a 128GB+ USB 3.0/3.1 drive for best results
+- Organize ISOs in folders (e.g., /Windows, /Linux, /Phoenix, /Tools)
 - Ventoy supports persistence for Linux live sessions
-- Enable Secure Boot support in Ventoy's configuration if needed`,
-    tags: ["ventoy", "multi-boot", "usb", "iso"],
+- On Apple Silicon Mac, use disk identifier from: diskutil list
+- Ventoy updates are non-destructive — your ISOs stay intact`,
+    tags: ["ventoy", "multi-boot", "usb", "iso", "macos", "mac-native"],
   },
   {
     id: "dead-mac-oclp",
@@ -505,6 +552,62 @@ Option B — Manual (for advanced users):
 - Android app support (only on official Chromebooks)
 - Some hardware may lack driver support (check Google's certified list)`,
     tags: ["chromeos", "flex", "installation", "old-hardware"],
+  },
+  {
+    id: "ventoy-mac-native",
+    title: "Ventoy for Mac — Build USBs Without Windows",
+    category: "USB Creation",
+    summary: "Complete guide to using Ventoy's native macOS shell script to create bootable USB drives on your Mac — no Windows environment, Boot Camp, or VM required.",
+    content: `Phoenix Core integrates Ventoy for macOS directly into its build pipeline. When running on a Mac, the USB Builder automatically switches to Ventoy2Disk.sh instead of the Windows executable.
+
+**Why Ventoy on Mac?**
+Traditionally, creating a Ventoy USB required Windows. Ventoy's macOS shell script (Ventoy2Disk.sh) changes that — it runs natively on both Intel and Apple Silicon Macs with full UEFI and Legacy BIOS support.
+
+**What Phoenix Core Does Automatically:**
+1. Detects you're on macOS (web, iOS, or native)
+2. Switches build stages to macOS-native workflow
+3. Shows "Ventoy2Disk.sh" in the build progress instead of Windows steps
+4. Runs: diskutil unmountDisk, Ventoy2Disk.sh, cp (ISO copy), sync, diskutil eject
+
+**Manual Setup (if running outside Phoenix Core):**
+
+Step 1 — Find your USB drive:
+  diskutil list
+  (Look for your USB — it will show as /dev/disk2, /dev/disk3, etc.)
+
+Step 2 — Download Ventoy for Mac:
+  curl -LO https://github.com/ventoy/Ventoy/releases/latest/download/ventoy-1.0.99-mac.tar.gz
+  tar -xf ventoy-1.0.99-mac.tar.gz
+  cd ventoy-1.0.99
+
+Step 3 — Install Ventoy to your USB:
+  sudo sh Ventoy2Disk.sh -i /dev/disk2
+
+Step 4 — Update existing Ventoy (preserves ISOs):
+  sudo sh Ventoy2Disk.sh -u /dev/disk2
+
+Step 5 — Copy your ISO files:
+  cp ~/Downloads/ubuntu-24.04.iso /Volumes/Ventoy/
+  cp ~/Downloads/blue-phoenix-os.iso /Volumes/Ventoy/Phoenix/
+
+Step 6 — Safe eject:
+  diskutil eject /dev/disk2
+
+**Apple Silicon Notes:**
+- Ventoy works on M1/M2/M3/M4 Macs
+- The USB can boot x86-64 ISOs on OTHER machines (not the M-series Mac itself)
+- For booting on Apple Silicon, use macOS Recovery or Asahi Linux installer
+
+**Secure Boot:**
+If the target machine uses Secure Boot, enroll the Ventoy MOK key:
+  1. Boot from Ventoy USB
+  2. Select "Enroll Key" on first boot
+  3. Follow MOK manager prompts
+  4. Reboot — Secure Boot now accepts Ventoy
+
+**Phoenix Core Integration:**
+In the USB Builder, when "Ventoy for macOS" is in your tool selection and you're on a Mac, the build simulation shows the exact Ventoy2Disk.sh command being run. The complete command is shown in the Recipe Preview step so you can verify it before building.`,
+    tags: ["ventoy", "macos", "mac-native", "apple-silicon", "intel-mac", "usb", "no-windows"],
   },
   {
     id: "linux-rescue",

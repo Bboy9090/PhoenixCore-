@@ -1,0 +1,8 @@
+public_name: "Compass"
+internal_id: "org.aurelia.citadel.compass"
+category: "Utility;FileAccess"
+tier: 1
+release_status: "SHIP"
+requires_governance: false
+offline_capable: true
+launch_critical: true

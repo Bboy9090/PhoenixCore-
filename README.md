@@ -6,16 +6,14 @@ Bobby’s Worldwide OS is a sovereign, high-integrity operating-system platform 
 BWOS follows a "One Platform, Many Faces" strategy. All editions share the same hardened core, safety gates, and recovery spine, but provide tailored visual identities and package presets:
 
 - **Home Edition**: Consumer-focused daily desktop.
-- **Revival Edition**: Recovery and rescue environment.
-- **Resilient Edition**: Hardened security profile.
 - **Aurelia Edition (`blue-phoenix`)**: Premium creator profile.
-- **Forge Edition**: Industrial technician workflow.
 - **ARCWYRE Edition**: Cyber-recovery professional profile.
-- **ThunderGod Edition**: High-power performance profile.
+- **Thunder God Edition**: High-power performance profile.
+- **Native**: Research-only sovereign track, intentionally excluded from the live-build Linux ISO matrix.
 
-`Blue Phoenix Native` is a separate sovereign R&D track and is intentionally not part of the live-build Linux ISO matrix.
+Architecture-specific build targets such as `home-arm64`, `home-legacy-i386`, and `thunder-god-arm64` are compatibility variants, not separate editions.
 
-*"Phoenix" and "ARCWYRE" remain as internal codenames and specialized public editions within the BWOS ecosystem.*
+Archived concept history lives under `docs/archive/retired-editions/` and must not be treated as active branches.
 
 ---
 

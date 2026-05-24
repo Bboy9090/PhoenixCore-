@@ -1,0 +1,57 @@
+#!/bin/sh
+set -eu
+
+LIVE_USER="phoenix"
+LIVE_HOME="/home/${LIVE_USER}"
+WALLPAPER="/usr/share/images/desktop-base/desktop-background.png"
+
+WAYLAND_SESSION=""
+for candidate in \
+    /usr/share/wayland-sessions/plasmawayland.desktop \
+    /usr/share/wayland-sessions/plasma.desktop \
+    /usr/share/wayland-sessions/org.kde.plasma.desktop
+do
+    if [ -f "$candidate" ]; then
+        WAYLAND_SESSION="$(basename "$candidate")"
+        break
+    fi
+done
+
+if [ -z "$WAYLAND_SESSION" ]; then
+    echo "ERROR: No Plasma Wayland session file found for /etc/skel seeding" >&2
+    exit 1
+fi
+
+install -d -m 0755 /etc/skel/.config
+install -d -m 0755 /etc/skel/.config/autostart
+install -d -m 0755 /etc/skel/.local/share
+
+cat > /etc/skel/.config/plasmarc <<EOF2
+[General]
+Session=${WAYLAND_SESSION}
+EOF2
+
+cat > /etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc <<EOF2
+[Containments][1]
+wallpaperplugin=org.kde.image
+
+[Containments][1][Wallpaper][org.kde.image][General]
+Image=file://${WALLPAPER}
+EOF2
+
+cat > /etc/skel/.config/autostart/bwos-desktop-session-marker.desktop <<'EOF2'
+[Desktop Entry]
+Type=Application
+Name=BWOS Desktop Session Marker
+Exec=/usr/local/bin/bwos-desktop-session-marker
+Terminal=false
+NoDisplay=true
+X-GNOME-autostart-enabled=true
+OnlyShowIn=KDE;Plasma;
+X-KDE-autostart-phase=2
+EOF2
+
+if [ -d "${LIVE_HOME}" ]; then
+    cp -a /etc/skel/. "${LIVE_HOME}/" 2>/dev/null || true
+    chown -R "${LIVE_USER}:${LIVE_USER}" "${LIVE_HOME}" || true
+fi

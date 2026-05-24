@@ -1,0 +1,20 @@
+Task mode: create
+Primary deck-profile: engineering-platform
+Secondary profile gates: product-platform
+Required proof objects:
+- Home VM boot evidence and build summary telemetry
+- Artifact registry and VM boot matrix snapshots
+- Desktop screenshot for PR39C
+Source/asset requirements:
+- Local repo truth from /Users/bj90-m1/PhoenixCore-
+- Existing desktop screenshot and serial/console logs from PR39C
+Brand authenticity constraints:
+- No fabricated logos, mascots, or pseudo-official app marks
+- Use only abstract shapes, text, and verified evidence images
+Profile-specific QA gates:
+- Claim-led slides
+- No fake progress or release readiness
+- Desktop confirmation must be called out as observed, while shutdown stays unverified
+Known missing inputs:
+- Clean shutdown evidence for Home is still missing
+- Thunder God ARM64 desktop reachability is still unproven

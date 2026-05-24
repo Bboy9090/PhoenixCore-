@@ -16,6 +16,8 @@ VERIFY_CONTAINER="$SCRIPT_DIR/verify-container.sh"
 # Default parameters
 MODE="release"
 ARCH=""
+LINUX_FLAVOUR=""
+BOOTLOADER="grub-efi"
 CLEAN_MODE="stage" # stage, none, all
 NO_CACHE=false
 VERIFY_ONLY=false
@@ -29,6 +31,14 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --arch)
       ARCH="$2"
+      shift 2
+      ;;
+    --linux-flavour)
+      LINUX_FLAVOUR="$2"
+      shift 2
+      ;;
+    --bootloader)
+      BOOTLOADER="$2"
       shift 2
       ;;
     --clean=*)
@@ -66,8 +76,15 @@ if [[ -z "$ARCH" ]]; then
   fi
 fi
 
+# Builder runtime platform can differ from target build architecture.
+# i386 targets are built in an amd64 container.
+BUILDER_PLATFORM_ARCH="$ARCH"
+if [[ "$ARCH" == "i386" ]]; then
+  BUILDER_PLATFORM_ARCH="amd64"
+fi
+
 # Export OCI Platform Environment for docker-compose.yml
-export PHOENIX_OS_PLATFORM="linux/$ARCH"
+export PHOENIX_OS_PLATFORM="linux/$BUILDER_PLATFORM_ARCH"
 
 # Forward Host PHOENIX_APT_PROXY into local script env
 export PHOENIX_APT_PROXY="${PHOENIX_APT_PROXY:-}"
@@ -96,9 +113,11 @@ run_builder() {
 main() {
   echo "=== Phoenix OS OCI Build ==="
   echo "[INFO] Mode: $MODE"
-  echo "[INFO] Arch: $ARCH"
+  echo "[INFO] Target Arch: $ARCH"
+  echo "[INFO] Linux Flavour: ${LINUX_FLAVOUR:-auto}"
+  echo "[INFO] Bootloader: $BOOTLOADER"
   echo "[INFO] Host Arch: $HOST_ARCH"
-  echo "[INFO] Platform target: $PHOENIX_OS_PLATFORM"
+  echo "[INFO] Builder Platform: $PHOENIX_OS_PLATFORM"
   echo "[INFO] Clean Mode: $CLEAN_MODE"
   echo "[INFO] APT Cache Proxy: ${PHOENIX_APT_PROXY:-None}"
 
@@ -127,13 +146,27 @@ main() {
   mkdir -p "$PHOENIX_OS_DIR/cache/packages.chroot"
   mkdir -p "$BUILD_DIR"
 
+  # Remap telemetry paths for the container namespace.
+  export PHOENIX_BUILD_TELEMETRY_DIR="${PHOENIX_BUILD_TELEMETRY_DIR_CONTAINER:-${PHOENIX_BUILD_TELEMETRY_DIR:-}}"
+  export PHOENIX_BUILD_STATE_JSON="${PHOENIX_BUILD_STATE_JSON_CONTAINER:-${PHOENIX_BUILD_STATE_JSON:-}}"
+  export PHOENIX_BUILD_EVENT_LOG="${PHOENIX_BUILD_EVENT_LOG_CONTAINER:-${PHOENIX_BUILD_EVENT_LOG:-}}"
+  export PHOENIX_BUILD_HUMAN_LOG="${PHOENIX_BUILD_HUMAN_LOG_CONTAINER:-${PHOENIX_BUILD_HUMAN_LOG:-}}"
+  export PHOENIX_BUILD_PHASE_TIMINGS="${PHOENIX_BUILD_PHASE_TIMINGS_CONTAINER:-${PHOENIX_BUILD_PHASE_TIMINGS:-}}"
+  export PHOENIX_BUILD_WARNINGS_LOG="${PHOENIX_BUILD_WARNINGS_LOG_CONTAINER:-${PHOENIX_BUILD_WARNINGS_LOG:-}}"
+  export PHOENIX_BUILD_FAILURES_LOG="${PHOENIX_BUILD_FAILURES_LOG_CONTAINER:-${PHOENIX_BUILD_FAILURES_LOG:-}}"
+  export PHOENIX_BUILD_SUMMARY_JSON="${PHOENIX_BUILD_SUMMARY_JSON_CONTAINER:-${PHOENIX_BUILD_SUMMARY_JSON:-}}"
+  export PHOENIX_BUILD_SUMMARY_MD="${PHOENIX_BUILD_SUMMARY_MD_CONTAINER:-${PHOENIX_BUILD_SUMMARY_MD:-}}"
+
   echo "[INFO] Verifying builder before build..."
   bash "$VERIFY_CONTAINER"
 
   echo "[INFO] Running build-iso.sh inside the builder..."
   
   # Assemble dynamic options for build-iso.sh
-  BUILD_ARGS="--mode $MODE --arch $ARCH --clean=$CLEAN_MODE"
+  BUILD_ARGS="--mode $MODE --arch $ARCH --bootloader $BOOTLOADER --clean=$CLEAN_MODE"
+  if [[ -n "$LINUX_FLAVOUR" ]]; then
+    BUILD_ARGS="$BUILD_ARGS --linux-flavour $LINUX_FLAVOUR"
+  fi
   if [[ "$NO_CACHE" == "true" ]]; then
     BUILD_ARGS="$BUILD_ARGS --no-cache"
   fi
@@ -149,24 +182,24 @@ main() {
   "
 
   # Find built ISO files and summarize
-  iso_files=()
+  artifact_files=()
   while IFS= read -r line; do
-    [[ -n "$line" ]] && iso_files+=("$line")
-  done < <(find "$BUILD_DIR" -maxdepth 1 -type f -name "*.iso" -print | sort)
+    [[ -n "$line" ]] && artifact_files+=("$line")
+  done < <(find "$BUILD_DIR" -maxdepth 1 -type f \( -name "*.iso" -o -name "*.img" \) -print | sort)
   
-  if [[ "${#iso_files[@]}" -eq 0 ]]; then
-    echo "[FAIL] Build completed, but no ISO exists under $BUILD_DIR."
+  if [[ "${#artifact_files[@]}" -eq 0 ]]; then
+    echo "[FAIL] Build completed, but no artifact exists under $BUILD_DIR."
     exit 1
   fi
 
-  if [[ "${#iso_files[@]}" -gt 1 ]]; then
-    echo "[WARN] Multiple ISO artifacts found; reporting all checksums."
+  if [[ "${#artifact_files[@]}" -gt 1 ]]; then
+    echo "[WARN] Multiple build artifacts found; reporting all checksums."
   fi
 
-  for iso in "${iso_files[@]}"; do
-    echo "[OK] ISO: $iso"
-    echo "[OK] SHA256: $(checksum_file "$iso")"
-    echo "[OK] Size: $(stat -c%s "$iso" 2>/dev/null || stat -f%z "$iso") bytes"
+  for artifact in "${artifact_files[@]}"; do
+    echo "[OK] Artifact: $artifact"
+    echo "[OK] SHA256: $(checksum_file "$artifact")"
+    echo "[OK] Size: $(stat -c%s "$artifact" 2>/dev/null || stat -f%z "$artifact") bytes"
   done
 
   echo "=== Phoenix OS OCI Build Complete ==="

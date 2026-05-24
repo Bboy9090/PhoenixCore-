@@ -570,8 +570,10 @@ class OSImageManager:
             from src.core.providers.macos_provider import MacOSProvider
             from src.core.providers.windows_provider import WindowsProvider
             from src.core.providers.custom_provider import CustomProvider
+            from src.core.providers.phoenix_provider import PhoenixProvider
             
             # Register all providers
+            self.register_provider(PhoenixProvider(self.config))
             self.register_provider(LinuxProvider(self.config))
             self.register_provider(MacOSProvider(self.config))
             self.register_provider(WindowsProvider(self.config))

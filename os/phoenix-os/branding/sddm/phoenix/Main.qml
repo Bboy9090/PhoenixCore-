@@ -10,6 +10,8 @@ Rectangle {
 
     readonly property string editionName: "__EDITION_NAME__"
     readonly property string editionTagline: "__EDITION_TAGLINE__"
+    readonly property string wallpaperImage: "__WALLPAPER_IMAGE__"
+    readonly property bool hasWallpaperImage: wallpaperImage !== "" && wallpaperImage !== "__WALLPAPER_IMAGE__"
 
     readonly property color colorPrimary: "__COLOR_PRIMARY__"
     readonly property color colorSecondary: "__COLOR_SECONDARY__"
@@ -20,6 +22,16 @@ Rectangle {
     readonly property color colorField: Qt.darker(colorSurface, 1.16)
 
     color: colorBackground
+
+    Image {
+        anchors.fill: parent
+        source: root.hasWallpaperImage ? root.wallpaperImage : ""
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        cache: true
+        visible: root.hasWallpaperImage
+        opacity: 0.34
+    }
 
     Rectangle {
         anchors.fill: parent

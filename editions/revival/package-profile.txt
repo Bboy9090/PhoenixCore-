@@ -1,0 +1,12 @@
+# Revival Edition Package Profile
+plasma-desktop
+firefox-esr
+kcalc
+dolphin
+konsole
+systemsettings
+kwrite
+gwenview
+smartmontools
+testdisk
+gddrescue

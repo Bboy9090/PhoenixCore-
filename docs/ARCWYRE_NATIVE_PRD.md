@@ -34,7 +34,7 @@ ARCWYRE Native is a from-scratch, independent operating system branch built with
 - **Stage 2**: Capability-based Task Scheduling + Inter-Process Communication (IPC).
 - **Stage 3**: Basic Disk I/O (NVMe/SATA) + FS (FAT32/ARC_FS).
 - **Stage 4**: ARCWYRE Core Integration (Safety gates & Imaging primitives).
-- **Stage 5**: Native UI (FrameBuffer) + ARCWYRE Forge implementation.
+- **Stage 5**: Native UI (FrameBuffer) + ARCWYRE recovery-mode implementation.
 
 ## 7. Relationship to ARCWYRE Core
 The **ARCWYRE Core** (currently in the `PhoenixCore-` repo) is the shared intelligence of the platform. By writing the core in pure, zero-dependency Rust where possible, the same logic that powers the Desktop edition can be migrated directly into the Native kernel space.

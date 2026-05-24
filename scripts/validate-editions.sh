@@ -60,6 +60,9 @@ for dir in "$EDITIONS_DIR"/*/; do
 
     logo_path="$(manifest_value logo "$manifest")"
     wallpaper_path="$(manifest_value wallpaper "$manifest")"
+    splash_path="$(manifest_value splash "$manifest")"
+    login_background_path="$(manifest_value login_background "$manifest")"
+    build_arch="$(manifest_value architecture "$manifest")"
 
     if [ -z "$logo_path" ]; then
         echo "❌ MISSING BRANDING FIELD: logo"
@@ -88,6 +91,37 @@ for dir in "$EDITIONS_DIR"/*/; do
             continue 2
         fi
     done
+
+    # Optional advanced branding fields
+    for optional_visual in "$splash_path" "$login_background_path"; do
+        if [ -z "$optional_visual" ]; then
+            continue
+        fi
+        resolved_path="$dir/$optional_visual"
+        if [ ! -f "$resolved_path" ]; then
+            echo "❌ MISSING OPTIONAL BRANDING ASSET: $optional_visual"
+            EXIT_CODE=1
+            continue 2
+        fi
+
+        mime_type="$(file -b --mime-type "$resolved_path" 2>/dev/null || true)"
+        if ! echo "$mime_type" | grep -q '^image/'; then
+            echo "❌ INVALID OPTIONAL BRANDING ASSET (not an image): $optional_visual ($mime_type)"
+            EXIT_CODE=1
+            continue 2
+        fi
+    done
+
+    if [ -n "$build_arch" ]; then
+        case "$build_arch" in
+            amd64|arm64|i386) ;;
+            *)
+                echo "❌ INVALID BUILD ARCHITECTURE: $build_arch (allowed: amd64, arm64, i386)"
+                EXIT_CODE=1
+                continue
+                ;;
+        esac
+    fi
 
     echo "✅ VALID"
 done

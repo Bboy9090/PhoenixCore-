@@ -1,9 +1,9 @@
+/* colors.css - Aurelia Edition Theme Variables */
 :root {
-  --bwos-primary: #2563EB;
-  --bwos-secondary: #60A5FA;
-  --bwos-accent: #FFFFFF;
-  --bwos-bg: #F8FAFC;
-  --bwos-surface: #FFFFFF;
-  --bwos-text: #1E293B;
-  --bwos-glow: rgba(37, 99, 235, 0.1);
+  --primary-color: #d97706;
+  --secondary-color: #f59e0b;
+  --accent-color: #3b82f6;
+  --bg-color: #080e1e;
+  --surface-color: #111c36;
+  --text-color: #fef3c7;
 }

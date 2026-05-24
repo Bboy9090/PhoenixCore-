@@ -1,0 +1,32 @@
+{
+  "attempt_label": "PR39E-A",
+  "attempt_timestamp": "2026-05-23T23:19:28Z",
+  "artifact_hash": "1138a6b5e6718862a516751d0c1952bd35aaae9e6110a1fcdf5f519796403139",
+  "artifact_path": "iso/outputs/bwos-home.iso",
+  "artifact_format": "iso",
+  "vm_tool": "qemu-system-x86_64",
+  "vm_settings": {
+    "vm_tool": "qemu-system-x86_64",
+    "efi_enabled": true,
+    "secure_boot_state": "disabled",
+    "ram_mb": 4096,
+    "cpu_cores": 2,
+    "disk_attached": "none"
+  },
+  "result_stage": "BOOT_FAIL_DISPLAY",
+  "boot_menu_reached": true,
+  "kernel_reached": true,
+  "initramfs_reached": true,
+  "display_manager_reached": true,
+  "desktop_reached": false,
+  "desktop_marker_reached": false,
+  "shutdown_marker_reached": false,
+  "clean_shutdown_verified": false,
+  "screenshot_path": "",
+  "serial_log_path": "iso/outputs/vm-boot-evidence/home/20260523T231928Z/serial.log",
+  "console_log_path": "iso/outputs/vm-boot-evidence/home/20260523T231928Z/console.log",
+  "reason_aborted": "desktop",
+  "shutdown_method": "forced kill",
+  "canonical_update": false,
+  "attempt_note": "x86_64 UEFI boot"
+}

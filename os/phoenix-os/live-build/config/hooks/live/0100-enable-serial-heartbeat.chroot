@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# Create a systemd service to announce boot success over serial
-cat <<EOF > /etc/systemd/system/bwos-heartbeat.service
+# Create a systemd service to announce graphical reach over serial.
+cat <<EOF2 > /etc/systemd/system/bwos-heartbeat.service
 [Unit]
-Description=ARCWYRE Boot Heartbeat
+Description=BWOS Graphical Heartbeat
 After=graphical.target
 
 [Service]
@@ -14,15 +14,15 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=graphical.target
-EOF
+EOF2
 
 systemctl enable bwos-heartbeat.service
 
 mkdir -p /etc/default/grub.d
 
 # Ensure GRUB config uses .cfg extension
-cat > /etc/default/grub.d/99-arcwyre.cfg <<'EOF'
+cat > /etc/default/grub.d/99-arcwyre.cfg <<'EOF2'
 GRUB_TIMEOUT=5
-GRUB_DISTRIBUTOR="ARCWYRE"
+GRUB_DISTRIBUTOR="BWOS"
 GRUB_CMDLINE_LINUX_DEFAULT="quiet splash console=tty0 console=ttyS0,115200n8"
-EOF
+EOF2

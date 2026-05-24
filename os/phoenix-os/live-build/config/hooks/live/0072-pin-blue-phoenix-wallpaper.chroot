@@ -1,0 +1,141 @@
+#!/bin/sh
+set -eu
+
+WALLPAPER_PATH="/usr/share/images/desktop-base/desktop-background.png"
+WALLPAPER_URI="file://${WALLPAPER_PATH}"
+SYSTEM_CONFIG="/etc/xdg/plasma-org.kde.plasma.desktop-appletsrc"
+SKEL_CONFIG="/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc"
+AUTOSTART_DIR="/etc/skel/.config/autostart"
+AUTOSTART_FILE="${AUTOSTART_DIR}/bwos-blue-phoenix-wallpaper.desktop"
+APPLY_SCRIPT="/usr/local/bin/bwos-apply-blue-phoenix-wallpaper"
+
+install -d -m 0755 /etc/xdg
+install -d -m 0755 /etc/skel/.config
+install -d -m 0755 "${AUTOSTART_DIR}"
+install -d -m 0755 /usr/local/bin
+
+cat > "${APPLY_SCRIPT}" <<EOF_SCRIPT
+#!/bin/sh
+set -eu
+
+WALLPAPER_PATH="${WALLPAPER_PATH}"
+WALLPAPER_URI="${WALLPAPER_URI}"
+CONFIG_FILE="\${HOME}/.config/plasma-org.kde.plasma.desktop-appletsrc"
+
+mkdir -p "\${HOME}/.config"
+
+if command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
+    plasma-apply-wallpaperimage "\${WALLPAPER_PATH}" >/dev/null 2>&1 || true
+fi
+
+for kwriteconfig in kwriteconfig6 kwriteconfig5; do
+    if command -v "\${kwriteconfig}" >/dev/null 2>&1; then
+        for containment in 1 2 3 4 5 6; do
+            "\${kwriteconfig}" --file "\${CONFIG_FILE}" --group "Containments" --group "\${containment}" --group "Wallpaper" --group "org.kde.image" --group "General" --key "Image" "\${WALLPAPER_URI}" >/dev/null 2>&1 || true
+            "\${kwriteconfig}" --file "\${CONFIG_FILE}" --group "Containments" --group "\${containment}" --key "wallpaperplugin" "org.kde.image" >/dev/null 2>&1 || true
+        done
+    fi
+done
+
+cat > "\${CONFIG_FILE}" <<EOF_CONFIG
+[Containments][1]
+wallpaperplugin=org.kde.image
+
+[Containments][1][Wallpaper][org.kde.image][General]
+Image=\${WALLPAPER_URI}
+
+[Containments][2]
+wallpaperplugin=org.kde.image
+
+[Containments][2][Wallpaper][org.kde.image][General]
+Image=\${WALLPAPER_URI}
+
+[Containments][3]
+wallpaperplugin=org.kde.image
+
+[Containments][3][Wallpaper][org.kde.image][General]
+Image=\${WALLPAPER_URI}
+
+[Containments][4]
+wallpaperplugin=org.kde.image
+
+[Containments][4][Wallpaper][org.kde.image][General]
+Image=\${WALLPAPER_URI}
+
+[Containments][5]
+wallpaperplugin=org.kde.image
+
+[Containments][5][Wallpaper][org.kde.image][General]
+Image=\${WALLPAPER_URI}
+
+[Containments][6]
+wallpaperplugin=org.kde.image
+
+[Containments][6][Wallpaper][org.kde.image][General]
+Image=\${WALLPAPER_URI}
+EOF_CONFIG
+
+chmod 0644 "\${CONFIG_FILE}"
+mkdir -p /run
+printf '%s\n' "BWOS_WALLPAPER_APPLIED" | sudo /usr/bin/tee /run/bwos-wallpaper-applied >/dev/null 2>&1 || true
+printf '%s\n' "BWOS_WALLPAPER_APPLIED" > /dev/ttyS0 || true
+logger -t BWOS "Home Aurelia wallpaper helper completed" >/dev/null 2>&1 || true
+EOF_SCRIPT
+
+chmod 0755 "${APPLY_SCRIPT}"
+
+cat > "${AUTOSTART_FILE}" <<EOF_AUTOSTART
+[Desktop Entry]
+Type=Application
+Name=BWOS Home Aurelia Wallpaper
+Exec=${APPLY_SCRIPT}
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=1
+X-KDE-StartupNotify=false
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=true
+EOF_AUTOSTART
+
+chmod 0644 "${AUTOSTART_FILE}"
+
+cat > "${SYSTEM_CONFIG}" <<EOF_SYSTEM
+[Containments][1]
+wallpaperplugin=org.kde.image
+
+[Containments][1][Wallpaper][org.kde.image][General]
+Image=${WALLPAPER_URI}
+
+[Containments][2]
+wallpaperplugin=org.kde.image
+
+[Containments][2][Wallpaper][org.kde.image][General]
+Image=${WALLPAPER_URI}
+
+[Containments][3]
+wallpaperplugin=org.kde.image
+
+[Containments][3][Wallpaper][org.kde.image][General]
+Image=${WALLPAPER_URI}
+
+[Containments][4]
+wallpaperplugin=org.kde.image
+
+[Containments][4][Wallpaper][org.kde.image][General]
+Image=${WALLPAPER_URI}
+
+[Containments][5]
+wallpaperplugin=org.kde.image
+
+[Containments][5][Wallpaper][org.kde.image][General]
+Image=${WALLPAPER_URI}
+
+[Containments][6]
+wallpaperplugin=org.kde.image
+
+[Containments][6][Wallpaper][org.kde.image][General]
+Image=${WALLPAPER_URI}
+EOF_SYSTEM
+
+cp "${SYSTEM_CONFIG}" "${SKEL_CONFIG}"
+chmod 0644 "${SYSTEM_CONFIG}" "${SKEL_CONFIG}"

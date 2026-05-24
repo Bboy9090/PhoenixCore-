@@ -20,7 +20,7 @@ The execute, log export, and report bundle methods return `not_implemented` plac
 
 ## Future Wiring
 
-TODO:
+Deferred integration notes:
 
 - replace hand-written client with generated SDK if OpenAPI generation becomes the standard,
 - reconcile `services/api.ts`, `mobile/src/services/api.ts`, and `phoenix-core-mobile/lib/api.ts` with this SDK,

@@ -11,6 +11,13 @@ screen_height = Window.GetHeight();
 Window.SetBackgroundTopColor(__BG_TOP_R__, __BG_TOP_G__, __BG_TOP_B__);
 Window.SetBackgroundBottomColor(__BG_BOT_R__, __BG_BOT_G__, __BG_BOT_B__);
 
+# Edition splash backdrop (staged as splash-background.png)
+splash_image = Image("splash-background.png");
+scaled_splash_image = splash_image.Scale(screen_width, screen_height);
+splash_sprite = Sprite(scaled_splash_image);
+splash_sprite.SetPosition(0, 0, 0);
+splash_sprite.SetOpacity(0.20);
+
 # Core visual assets
 logo_image = Image("phoenix-logo-boot.png");
 bar_bg_image = Image("progress-bg.png");

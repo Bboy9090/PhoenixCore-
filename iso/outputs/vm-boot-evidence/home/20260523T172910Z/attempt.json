@@ -1,0 +1,30 @@
+{
+  "attempt_label": "A",
+  "attempt_timestamp": "20260523T172910Z",
+  "artifact_path": "iso/outputs/bwos-home.iso",
+  "artifact_hash": "8f5e094ca9164d8b117a07ea2371816c8afdd0e4ad8d7e6a47d00195b93f5f32",
+  "vm_tool": "qemu-system-x86_64",
+  "vm_settings": {
+    "vm_tool": "qemu-system-x86_64",
+    "efi_enabled": true,
+    "secure_boot_state": "disabled",
+    "ram_mb": 4096,
+    "cpu_cores": 2,
+    "disk_attached": "none",
+    "architecture": "amd64"
+  },
+  "result_stage": "BOOT_FAIL_DISPLAY",
+  "boot_menu_reached": true,
+  "kernel_reached": true,
+  "initramfs_reached": true,
+  "display_manager_reached": true,
+  "desktop_reached": false,
+  "clean_shutdown_verified": false,
+  "screenshot_path": null,
+  "serial_log_path": "iso/outputs/vm-boot-evidence/home/20260523T172910Z/serial.log",
+  "console_log_path": "iso/outputs/vm-boot-evidence/home/20260523T172910Z/console.log",
+  "reason_aborted": "desktop_not_observed; host_terminated_after_graphical_marker",
+  "shutdown_method": "forced kill",
+  "canonical_update": false,
+  "attempt_note": "Repeatability attempt reached graphical/login boundary but no desktop confirmation."
+}

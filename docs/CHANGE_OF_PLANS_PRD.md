@@ -34,7 +34,7 @@ The name "Phoenix" is overcrowded in the operating system and software landscape
 | Phoenix Agent | **ARCWYRE Agent** | The hardware-side execution daemon. |
 | Phoenix Control Center | **ARCWYRE Control Center** | The primary dashboard and UI. |
 | Phoenix Key | **ARCWYRE Key** | The secure, bootable hardware token. |
-| Phoenix Forge | **ARCWYRE Forge** | The assembly and build environment. |
+| Phoenix Build Environment | **ARCWYRE Build Environment** | The assembly and deployment environment. |
 | - | **ArcWatch** | New subsystem for diagnostics and audit logging. |
 | - | **StormGrid** | New subsystem for package management and app hub. |
 

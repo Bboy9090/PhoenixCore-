@@ -1,0 +1,32 @@
+#!/bin/sh
+set -eu
+
+LIVE_USER="phoenix"
+LIVE_HOME="/home/${LIVE_USER}"
+LIVE_GROUPS="sudo,audio,video,plugdev,cdrom,disk,netdev,input,render"
+
+echo "Configuring live user ${LIVE_USER}..."
+
+if id -u "${LIVE_USER}" >/dev/null 2>&1; then
+    usermod -d "${LIVE_HOME}" -s /bin/bash -G "${LIVE_GROUPS}" "${LIVE_USER}"
+else
+    useradd -m -d "${LIVE_HOME}" -s /bin/bash -G "${LIVE_GROUPS}" "${LIVE_USER}"
+fi
+
+passwd -d "${LIVE_USER}" >/dev/null 2>&1 || true
+
+install -d -m 0755 /etc/skel/.config
+install -d -m 0755 /etc/skel/.config/autostart
+install -d -m 0755 /etc/skel/.local/share
+install -d -m 0755 "${LIVE_HOME}"
+install -d -m 0750 /etc/sudoers.d
+
+cat > /etc/sudoers.d/bwos-live-session-markers <<EOF2
+${LIVE_USER} ALL=(root) NOPASSWD: /usr/bin/tee /run/bwos-desktop-reached, /usr/bin/tee /run/bwos-wallpaper-applied
+${LIVE_USER} ALL=(root) NOPASSWD: /bin/systemctl poweroff, /usr/bin/systemctl poweroff, /sbin/poweroff, /usr/sbin/poweroff
+EOF2
+chmod 0440 /etc/sudoers.d/bwos-live-session-markers
+
+if [ -d "${LIVE_HOME}" ]; then
+    chown -R "${LIVE_USER}:${LIVE_USER}" "${LIVE_HOME}" || true
+fi

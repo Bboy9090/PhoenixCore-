@@ -1,0 +1,9 @@
+{
+  "source_artifact": "iso/outputs/bwos-home.iso",
+  "source_sha256": "8f5e094ca9164d8b117a07ea2371816c8afdd0e4ad8d7e6a47d00195b93f5f32",
+  "probe_type": "repeatability_rerun",
+  "observation": "Repeatability attempt reached graphical/login boundary but no desktop confirmation.",
+  "serial_log": "iso/outputs/vm-boot-evidence/home/20260523T172910Z/serial.log",
+  "console_log": "iso/outputs/vm-boot-evidence/home/20260523T172910Z/console.log",
+  "created_at": "20260523T172910Z"
+}

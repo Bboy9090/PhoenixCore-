@@ -299,7 +299,7 @@ Keep and elevate these into Phoenix Platform:
 - OCLP integration and macOS-specific safety workflows.
 - BootCamp/driver detection and provisioning work.
 - Phoenix Key blueprint and offline rescue/provisioning story.
-- Brand assets and Phoenix Forge visual identity.
+- Brand assets and Phoenix-era visual identity.
 
 ## PR 1 Archive Policy
 

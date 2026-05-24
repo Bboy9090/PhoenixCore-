@@ -128,8 +128,7 @@ export default function HomeScreenFriendly() {
           {/* Hero Section */}
           <View className="gap-2">
             <Text className="text-4xl font-bold text-foreground">
-              Any Device.{'
-'}Any OS. Fixed.
+              Any Device.{' '}Any OS. Fixed.
             </Text>
             <Text className="text-lg text-muted">
               Bobby's got your back. Plug it in, boot it up, problem over in a jiffy.
@@ -178,8 +177,7 @@ export default function HomeScreenFriendly() {
           {/* Info Card */}
           <View className="rounded-lg bg-blue-50 p-4">
             <Text className="text-sm text-blue-900">
-              <Text className="font-semibold">💡 First time?</Text> {'
-'}
+              <Text className="font-semibold">💡 First time?</Text>{' '}
               Start with "Fix Windows" to repair common problems. Takes 10 minutes!
             </Text>
           </View>

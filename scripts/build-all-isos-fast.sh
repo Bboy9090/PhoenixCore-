@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="$REPO_ROOT/iso/outputs"
 mkdir -p "$OUTPUT_DIR"
 
-ACTIVE_EDITIONS=("home" "revival" "resilient" "blue-phoenix" "forge" "arcwyre" "thunder-god")
+ACTIVE_EDITIONS=("home" "blue-phoenix" "arcwyre" "thunder-god")
 BASE_EDITION="home"
 
 echo "=========================================================="

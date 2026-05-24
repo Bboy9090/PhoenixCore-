@@ -1,22 +1,75 @@
 #!/bin/sh
-set -e
+set -eu
 
 # Configure SDDM to use the Phoenix theme
 if [ -d /usr/share/sddm/themes/phoenix ]; then
     echo "Configuring SDDM theme to phoenix..."
     mkdir -p /etc/sddm.conf.d
-    cat > /etc/sddm.conf.d/phoenix.conf << EOF
+    cat > /etc/sddm.conf.d/phoenix.conf << EOF2
 [Theme]
 Current=phoenix
-EOF
+EOF2
 fi
 
-# Also disable the screen locker if possible for the live session to prevent lockouts
-# (Though for a hardened OS, we might want it, but for a live session it's annoying)
-# We'll just ensure the default user 'phoenix' auto-logins.
+# Ensure the live user auto-logs into an explicit Plasma Wayland session file.
+# Different Debian package layouts may provide one of several Plasma Wayland
+# entry points. Resolve the first one that exists and preserve the X11 fallback.
+WAYLAND_SESSION=""
+for candidate in \
+    /usr/share/wayland-sessions/plasmawayland.desktop \
+    /usr/share/wayland-sessions/plasma.desktop \
+    /usr/share/wayland-sessions/org.kde.plasma.desktop
+do
+    if [ -f "$candidate" ]; then
+        WAYLAND_SESSION="$candidate"
+        break
+    fi
+done
+
+X11_SESSION=""
+for candidate in \
+    /usr/share/xsessions/plasmax11.desktop \
+    /usr/share/xsessions/plasma.desktop
+do
+    if [ -f "$candidate" ]; then
+        X11_SESSION="$candidate"
+        break
+    fi
+done
+
+if [ -z "$WAYLAND_SESSION" ]; then
+    echo "ERROR: No Plasma Wayland session file found for SDDM autologin" >&2
+    exit 1
+fi
+
+WAYLAND_SESSION_NAME="$(basename "$WAYLAND_SESSION")"
+
 mkdir -p /etc/sddm.conf.d
-cat >> /etc/sddm.conf.d/autologin.conf << EOF
+cat > /etc/sddm.conf.d/autologin.conf << EOF2
 [Autologin]
 User=phoenix
-Session=plasma
-EOF
+Session=$WAYLAND_SESSION_NAME
+Relogin=true
+EOF2
+
+cat > /etc/sddm.conf.d/default-session.conf << EOF2
+[General]
+DefaultSession=$WAYLAND_SESSION_NAME
+EOF2
+
+cat > /etc/sddm.conf << EOF2
+[Autologin]
+User=phoenix
+Session=$WAYLAND_SESSION_NAME
+Relogin=true
+
+[General]
+DefaultSession=$WAYLAND_SESSION_NAME
+
+[Theme]
+Current=phoenix
+EOF2
+
+if [ -n "$X11_SESSION" ]; then
+    echo "Info: Plasma X11 fallback session preserved at $X11_SESSION"
+fi

@@ -102,7 +102,7 @@ This should live under `phoenix-platform/os/phoenix-os/` with:
 - `package-lists/` for daily-driver, creator, streaming, gaming, and recovery package sets.
 - `scripts/` for reproducible image build helpers.
 
-## Recovery And Forge Foundation
+## Recovery And Platform Foundation
 
 Phoenix OS must keep recovery as a superpower:
 

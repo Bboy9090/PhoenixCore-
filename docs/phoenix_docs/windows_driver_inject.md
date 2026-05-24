@@ -51,6 +51,6 @@ phoenix-driver-inject \
 ## Verification Checklist
 
 - `phoenix-driver-verify` reports zero missing devices.
-- Modified ISO checksum recorded in Phoenix Auto-Forge logs.
+- Modified ISO checksum recorded in Phoenix deployment logs.
 - BootCamp and Apple Silicon-specific drivers validated where applicable.
 - Document changes in `/PhoenixDocs/windows_driver_notes.md` for audit compliance.

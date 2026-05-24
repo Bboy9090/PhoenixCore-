@@ -45,6 +45,43 @@ export interface DeviceListResponse {
   timestamp: string;
 }
 
+export interface LowLevelUSBDevice {
+  id: string;
+  name: string;
+  vendor_id?: number;
+  product_id?: number;
+  vendor_name?: string;
+  manufacturer?: string;
+  product_name?: string;
+  serial_number?: string;
+  platform: string;
+  transport: string;
+  mode: string;
+  recommended_workflow: string;
+  usb_version?: string;
+  speed?: string;
+  platform_path?: string;
+  bus_number?: number;
+  device_address?: number;
+  location_id?: string;
+  current_required_ma?: number;
+  current_available_ma?: number;
+  class_code?: number;
+  subclass_code?: number;
+  protocol_code?: number;
+  raw_source: string;
+}
+
+export interface LowLevelUSBListResponse {
+  devices: LowLevelUSBDevice[];
+  total: number;
+  scan_time_ms: number;
+  host_os: string;
+  timestamp: string;
+  detection_mode: string;
+  source: string;
+}
+
 export interface HardwareProfile {
   system_name: string;
   manufacturer: string;
@@ -292,6 +329,11 @@ class PhoenixCoreAPI {
 
   async listDevices(): Promise<DeviceListResponse> {
     const res = await this.client.get<DeviceListResponse>('/api/devices');
+    return res.data;
+  }
+
+  async listLowLevelUSBDevices(): Promise<LowLevelUSBListResponse> {
+    const res = await this.client.get<LowLevelUSBListResponse>('/api/devices/usb/low-level');
     return res.data;
   }
 

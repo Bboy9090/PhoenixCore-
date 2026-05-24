@@ -4,9 +4,24 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILD_DIR="${PHOENIX_OS_ARTIFACT_DIR:-$REPO_ROOT/os/phoenix-os/build}"
 EDITION_ID=""
 STAGE_ONLY=false
 CLEAN_STAGING=false
+BUILDER_MODE="release"
+BUILDER_ARCH=""
+BUILDER_CLEAN_MODE="stage"
+BUILDER_NO_CACHE=false
+LOGGER_SCRIPT="$REPO_ROOT/os/phoenix-os/scripts/build-logger.sh"
+HEARTBEAT_SCRIPT="$REPO_ROOT/os/phoenix-os/scripts/build-heartbeat.sh"
+HEARTBEAT_PID=""
+BUILD_TELEMETRY_INITIALIZED=false
+BUILD_BUILD_ID=""
+BUILD_TELEMETRY_DIR=""
+BUILD_FINAL_ARTIFACT=""
+BUILD_FINAL_SHA256=""
+BUILD_FINAL_SIZE=""
+BUILD_SOURCE_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 
 # Transient staging roots (kept out of tracked live-build config/)
 STAGING_ROOT="$REPO_ROOT/os/phoenix-os/cache/edition-staging"
@@ -14,7 +29,65 @@ STAGING_LB_CONFIG_DIR="$STAGING_ROOT/live-build-config"
 STAGING_CHROOT="$STAGING_LB_CONFIG_DIR/includes.chroot/etc/bwos/edition"
 PACKAGE_LIST_DIR="$STAGING_LB_CONFIG_DIR/package-lists"
 STAGED_PKG_LIST="$PACKAGE_LIST_DIR/edition.list.chroot"
+STAGED_PKG_SOURCE="$STAGING_CHROOT/package-profile.source.txt"
+STAGED_PKG_INSTALLED="$STAGING_CHROOT/package-profile.installed.txt"
+STAGED_PKG_BLOCKED="$STAGING_CHROOT/package-profile.blocked.txt"
 STAGING_WALLPAPER_PATH="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/images/desktop-base/desktop-background.png"
+
+function stop_build_heartbeat() {
+    if [ -n "$HEARTBEAT_PID" ]; then
+        kill "$HEARTBEAT_PID" 2>/dev/null || true
+        wait "$HEARTBEAT_PID" 2>/dev/null || true
+        HEARTBEAT_PID=""
+    fi
+}
+
+function finalize_build_telemetry() {
+    local exit_code="$1"
+
+    stop_build_heartbeat
+
+    if [ "$BUILD_TELEMETRY_INITIALIZED" != true ]; then
+        return 0
+    fi
+
+    if [ ! -f "${PHOENIX_BUILD_SUMMARY_JSON:-}" ] && [ -f "$LOGGER_SCRIPT" ]; then
+        # The inner build should usually finalize the summary, but if it didn't
+        # we emit a truthful wrapper-level summary here.
+        if [ "$exit_code" -eq 0 ]; then
+            phoenix_build_logger_finalize "completed" "" "$BUILD_FINAL_ARTIFACT" "$BUILD_FINAL_SHA256" "$BUILD_FINAL_SIZE"
+        else
+            if [ -z "${PHOENIX_BUILD_FAILURE_CLASS:-}" ]; then
+                phoenix_build_logger_error "Wrapper exited before a summary was produced." "${PHOENIX_BUILD_CURRENT_PHASE:-unknown}" "wrapper_script_failure"
+            fi
+            phoenix_build_logger_finalize "failed" "${PHOENIX_BUILD_FAILURE_CLASS:-wrapper_script_failure}" "$BUILD_FINAL_ARTIFACT" "$BUILD_FINAL_SHA256" "$BUILD_FINAL_SIZE"
+        fi
+    fi
+}
+
+function start_build_heartbeat() {
+    if [ "$BUILD_TELEMETRY_INITIALIZED" != true ]; then
+        return 0
+    fi
+    if [ ! -f "$HEARTBEAT_SCRIPT" ]; then
+        return 0
+    fi
+
+    (
+        while true; do
+            "$HEARTBEAT_SCRIPT" \
+                --state-file "$PHOENIX_BUILD_STATE_JSON" \
+                --container-project "${PHOENIX_OS_COMPOSE_PROJECT:-phoenix-os-oci}" \
+                --container-service "${PHOENIX_OS_BUILDER_SERVICE:-builder}" \
+                1>>"$PHOENIX_BUILD_EVENT_LOG" \
+                2>>"$PHOENIX_BUILD_HUMAN_LOG" || true
+            sleep 60
+        done
+    ) &
+    HEARTBEAT_PID="$!"
+}
+
+trap 'finalize_build_telemetry $?' EXIT
 
 function clean_staging() {
     echo "🧹 Cleaning transient edition staging cache..."
@@ -22,29 +95,74 @@ function clean_staging() {
     echo "✅ Transient staging cache clean."
 }
 
+function map_package_alias() {
+    local pkg="$1"
+    case "$pkg" in
+        ddrescue) echo "gddrescue" ;;
+        memtest86-plus) echo "memtest86+" ;;
+        clonezilla-cli) echo "clonezilla" ;;
+        wireshark-cli) echo "tshark" ;;
+        ghidra-headless) echo "binwalk" ;;
+        badblocks) echo "e2fsprogs" ;;
+        *) echo "$pkg" ;;
+    esac
+}
+
+function is_blocked_package() {
+    local pkg="$1"
+    shift
+    local blocked
+    for blocked in "$@"; do
+        if [ "$pkg" = "$blocked" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 function sanitize_package_profile() {
     local source_file="$1"
     local target_file="$2"
+    local blocked_file="$3"
     echo "🧹 Sanitizing package profile: $(basename "$source_file")"
     local temp_file="${target_file}.tmp"
-    # Blocked packages that cause build failures (Mono/GTK# chain)
-    local blocked_pkgs=("bless" "libglib2.0-cil" "libglade2.0-cil" "libgtk2.0-cil" "mono-runtime" "mono-common")
-    
-    # Filter out comments, empty lines, AND blocked packages
-    # 1. Strip comments and whitespace
-    # 2. Filter out exact matches for blocked packages
-    grep -v '^[[:space:]]*#' "$source_file" | sed 's/[[:space:]]*#.*//' | sed 's/[[:space:]]*$//' | grep -v '^[[:space:]]*$' > "$temp_file"
+    local normalized_file="${target_file}.normalized"
+    # Blocked packages that cause build failures or represent internal placeholders.
+    local blocked_pkgs=(
+        "bless" "libglib2.0-cil" "libglade2.0-cil" "libgtk2.0-cil" "mono-runtime" "mono-common"
+        "bwos-core" "bootforge" "bootforge-pro" "arcwyre-control-center" "forensic-toolset"
+        "legacy-utility-set" "original-phoenix-wallpapers" "classic-sound-scheme"
+        "hardware-burn-in-tools" "mass-deployment-scripts"
+    )
+    local raw_pkg mapped_pkg
 
-    for pkg in "${blocked_pkgs[@]}"; do
-        if grep -qx "$pkg" "$temp_file"; then
-            echo "⚠️  WARNING: Blocked package '$pkg' found in $(basename "$source_file"). Removing to prevent build failure."
-            grep -vx "$pkg" "$temp_file" > "${temp_file}.new"
-            mv "${temp_file}.new" "$temp_file"
+    # 1) Strip comments/whitespace
+    # 2) Remap known aliases to Debian bullseye package names
+    # 3) Remove blocked/internal package placeholders
+    # 4) De-duplicate while preserving first appearance order
+    grep -v '^[[:space:]]*#' "$source_file" | sed 's/[[:space:]]*#.*//' | sed 's/[[:space:]]*$//' | grep -v '^[[:space:]]*$' > "$temp_file" || true
+
+    : > "$normalized_file"
+    : > "$blocked_file"
+    while IFS= read -r raw_pkg; do
+        mapped_pkg="$(map_package_alias "$raw_pkg")"
+
+        if [ "$mapped_pkg" != "$raw_pkg" ]; then
+            echo "↪️  Remapped package '$raw_pkg' -> '$mapped_pkg'"
         fi
-    done
-    
+
+        if is_blocked_package "$mapped_pkg" "${blocked_pkgs[@]}"; then
+            echo "⚠️  WARNING: Removing internal/blocked package '$raw_pkg' from $(basename "$source_file")."
+            echo "$raw_pkg" >> "$blocked_file"
+            continue
+        fi
+
+        echo "$mapped_pkg" >> "$normalized_file"
+    done < "$temp_file"
+
     mkdir -p "$(dirname "$target_file")"
-    mv "$temp_file" "$target_file"
+    awk '!seen[$0]++' "$normalized_file" > "$target_file"
+    rm -f "$temp_file" "$normalized_file"
 }
 
 function manifest_value() {
@@ -150,11 +268,34 @@ print(json.dumps(sys.argv[1])[1:-1])
 PY
 }
 
+function derive_arch_from_target() {
+    local target="$1"
+    if [[ "$target" =~ ^live-image-([A-Za-z0-9_+-]+)$ ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return
+    fi
+    echo ""
+}
+
+function default_linux_flavour_for_arch() {
+    local arch="$1"
+    case "$arch" in
+        amd64) echo "amd64" ;;
+        arm64) echo "arm64" ;;
+        i386) echo "686" ;;
+        *) echo "amd64" ;;
+    esac
+}
+
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --stage-only) STAGE_ONLY=true ;;
         --clean-staging) CLEAN_STAGING=true ;;
+        --builder-mode=*) BUILDER_MODE="${1#*=}" ;;
+        --builder-arch=*) BUILDER_ARCH="${1#*=}" ;;
+        --builder-clean=*) BUILDER_CLEAN_MODE="${1#*=}" ;;
+        --builder-no-cache) BUILDER_NO_CACHE=true ;;
         -*) echo "Unknown option: $1"; exit 1 ;;
         *) EDITION_ID="$1" ;;
     esac
@@ -167,7 +308,7 @@ if [ "$CLEAN_STAGING" = true ]; then
 fi
 
 if [ -z "$EDITION_ID" ]; then
-    echo "Usage: ./build-edition.sh <edition-id> [--stage-only] [--clean-staging]"
+    echo "Usage: ./build-edition.sh <edition-id> [--stage-only] [--clean-staging] [--builder-mode=<mode>] [--builder-arch=<arch>] [--builder-clean=<none|stage|all>] [--builder-no-cache]"
     exit 1
 fi
 
@@ -186,13 +327,42 @@ manifest="$EDITION_DIR/edition.yaml"
 display_name=$(manifest_value display_name "$manifest")
 tagline=$(manifest_value tagline "$manifest")
 iso_name=$(manifest_value iso_name "$manifest")
+build_target=$(manifest_value target "$manifest")
+manifest_arch=$(manifest_value architecture "$manifest")
+manifest_linux_flavour=$(manifest_value linux_flavour "$manifest")
+manifest_bootloader=$(manifest_value bootloader "$manifest")
 wallpaper_name=$(manifest_value wallpaper "$manifest")
 logo_name=$(manifest_value logo "$manifest")
+splash_name=$(manifest_value splash "$manifest")
+login_background_name=$(manifest_value login_background "$manifest")
 primary_color=$(normalize_color "$(manifest_color primary "$manifest")" "#3B82F6")
 secondary_color=$(normalize_color "$(manifest_color secondary "$manifest")" "#64748B")
 background_color=$(normalize_color "$(manifest_color background "$manifest")" "#070B16")
 surface_color=$(normalize_color "$(manifest_color surface "$manifest")" "#111827")
 text_color=$(normalize_color "$(manifest_color text "$manifest")" "#E5E7EB")
+
+resolved_arch="$manifest_arch"
+if [ -z "$resolved_arch" ]; then
+    resolved_arch="$(derive_arch_from_target "$build_target")"
+fi
+if [ -z "$resolved_arch" ]; then
+    resolved_arch="amd64"
+fi
+
+resolved_linux_flavour="$manifest_linux_flavour"
+if [ -z "$resolved_linux_flavour" ]; then
+    resolved_linux_flavour="$(default_linux_flavour_for_arch "$resolved_arch")"
+fi
+
+resolved_bootloader="${manifest_bootloader:-grub-efi}"
+
+if [ -n "$BUILDER_ARCH" ]; then
+    resolved_arch="$BUILDER_ARCH"
+    # If user explicitly overrides arch, keep linux flavour coherent unless explicitly set.
+    if [ -z "$manifest_linux_flavour" ]; then
+        resolved_linux_flavour="$(default_linux_flavour_for_arch "$resolved_arch")"
+    fi
+fi
 
 if [ -n "$wallpaper_name" ] && [ ! -f "$EDITION_DIR/$wallpaper_name" ]; then
     echo "❌ Error: Wallpaper path in manifest does not exist: $wallpaper_name"
@@ -204,18 +374,87 @@ if [ -n "$logo_name" ] && [ ! -f "$EDITION_DIR/$logo_name" ]; then
     exit 1
 fi
 
+if [ -n "$splash_name" ] && [ ! -f "$EDITION_DIR/$splash_name" ]; then
+    echo "❌ Error: Splash path in manifest does not exist: $splash_name"
+    exit 1
+fi
+
+if [ -n "$login_background_name" ] && [ ! -f "$EDITION_DIR/$login_background_name" ]; then
+    echo "❌ Error: Login background path in manifest does not exist: $login_background_name"
+    exit 1
+fi
+
 echo "🔨 Selected Edition: $display_name"
 echo "   Tagline: \"$tagline\""
-echo "   Target ISO: $iso_name"
+echo "   Target artifact: $iso_name"
+echo "   Target Arch: $resolved_arch"
+echo "   Linux Flavour: $resolved_linux_flavour"
+echo "   Bootloader: $resolved_bootloader"
 echo ""
 
+if [ -f "$LOGGER_SCRIPT" ]; then
+    # Build telemetry is only initialized once the manifest has been resolved.
+    BUILD_BUILD_ID="$(date -u +%Y%m%dT%H%M%SZ)-${EDITION_ID}-${resolved_arch}"
+    BUILD_TELEMETRY_DIR="$BUILD_DIR/telemetry/$BUILD_BUILD_ID"
+    # shellcheck source=/dev/null
+    source "$LOGGER_SCRIPT"
+    phoenix_build_logger_init \
+        "$BUILD_TELEMETRY_DIR" \
+        "$BUILD_BUILD_ID" \
+        "$EDITION_ID" \
+        "$display_name" \
+        "$resolved_arch" \
+        "$iso_name" \
+        "$BUILDER_MODE" \
+        "$manifest" \
+        "$BUILD_SOURCE_COMMIT"
+    BUILD_TELEMETRY_INITIALIZED=true
+    export PHOENIX_BUILD_ID="$BUILD_BUILD_ID"
+    export PHOENIX_BUILD_EDITION_ID="$EDITION_ID"
+    export PHOENIX_BUILD_EDITION_NAME="$display_name"
+    export PHOENIX_BUILD_ARCHITECTURE="$resolved_arch"
+    export PHOENIX_BUILD_ARTIFACT_TARGET="$iso_name"
+    export PHOENIX_BUILD_MODE="$BUILDER_MODE"
+    export PHOENIX_BUILD_MANIFEST_PATH="$manifest"
+    export PHOENIX_BUILD_SOURCE_COMMIT="$BUILD_SOURCE_COMMIT"
+    export PHOENIX_BUILD_TELEMETRY_DIR="$BUILD_TELEMETRY_DIR"
+    export PHOENIX_BUILD_STATE_JSON="$BUILD_TELEMETRY_DIR/build-state.json"
+    export PHOENIX_BUILD_EVENT_LOG="$BUILD_TELEMETRY_DIR/build-events.jsonl"
+    export PHOENIX_BUILD_HUMAN_LOG="$BUILD_TELEMETRY_DIR/build.log"
+    export PHOENIX_BUILD_PHASE_TIMINGS="$BUILD_TELEMETRY_DIR/phase-timings.tsv"
+    export PHOENIX_BUILD_WARNINGS_LOG="$BUILD_TELEMETRY_DIR/warnings.log"
+    export PHOENIX_BUILD_FAILURES_LOG="$BUILD_TELEMETRY_DIR/failures.log"
+    export PHOENIX_BUILD_SUMMARY_JSON="$BUILD_DIR/build-summary.json"
+    export PHOENIX_BUILD_SUMMARY_MD="$BUILD_DIR/build-summary.md"
+    export PHOENIX_BUILD_TELEMETRY_DIR_CONTAINER="/workspace/os/phoenix-os/build/telemetry/$BUILD_BUILD_ID"
+    export PHOENIX_BUILD_STATE_JSON_CONTAINER="$PHOENIX_BUILD_TELEMETRY_DIR_CONTAINER/build-state.json"
+    export PHOENIX_BUILD_EVENT_LOG_CONTAINER="$PHOENIX_BUILD_TELEMETRY_DIR_CONTAINER/build-events.jsonl"
+    export PHOENIX_BUILD_HUMAN_LOG_CONTAINER="$PHOENIX_BUILD_TELEMETRY_DIR_CONTAINER/build.log"
+    export PHOENIX_BUILD_PHASE_TIMINGS_CONTAINER="$PHOENIX_BUILD_TELEMETRY_DIR_CONTAINER/phase-timings.tsv"
+    export PHOENIX_BUILD_WARNINGS_LOG_CONTAINER="$PHOENIX_BUILD_TELEMETRY_DIR_CONTAINER/warnings.log"
+    export PHOENIX_BUILD_FAILURES_LOG_CONTAINER="$PHOENIX_BUILD_TELEMETRY_DIR_CONTAINER/failures.log"
+    export PHOENIX_BUILD_SUMMARY_JSON_CONTAINER="/workspace/os/phoenix-os/build/build-summary.json"
+    export PHOENIX_BUILD_SUMMARY_MD_CONTAINER="/workspace/os/phoenix-os/build/build-summary.md"
+    phoenix_build_logger_phase_start "manifest_resolution" "Manifest resolved and build target selected."
+else
+    echo "[WARN] Telemetry helper not found; build will proceed without structured telemetry."
+fi
+
 # 3. Stage Edition Assets in transient live-build overlay
+if [ "$BUILD_TELEMETRY_INITIALIZED" = true ]; then
+    phoenix_build_logger_phase_start "overlay_staging" "Staging edition assets and branding overlays."
+fi
 echo "📦 Staging edition assets..."
 clean_staging
 mkdir -p "$STAGING_CHROOT"
 mkdir -p "$PACKAGE_LIST_DIR"
 
-sanitize_package_profile "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_LIST"
+cp "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_SOURCE"
+sanitize_package_profile "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_LIST" "$STAGED_PKG_BLOCKED"
+cp "$STAGED_PKG_LIST" "$STAGED_PKG_INSTALLED"
+
+installed_pkg_count="$(wc -l < "$STAGED_PKG_INSTALLED" | tr -d '[:space:]')"
+blocked_pkg_count="$(wc -l < "$STAGED_PKG_BLOCKED" | tr -d '[:space:]')"
 
 cp "$EDITION_DIR/colors.css" "$STAGING_CHROOT/colors.css"
 
@@ -228,20 +467,21 @@ else
     echo "⚠️  WARNING: No wallpaper entry found in manifest."
 fi
 
+# Stage branding templates used by Plymouth and SDDM.
+plymouth_theme_root="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes"
+sddm_theme_root="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes"
+plymouth_theme_dir="$plymouth_theme_root/phoenix"
+sddm_theme_dir="$sddm_theme_root/phoenix"
+
+mkdir -p "$plymouth_theme_root" "$sddm_theme_root"
+rm -rf "$plymouth_theme_dir" "$sddm_theme_dir"
+
+cp -R "$REPO_ROOT/os/phoenix-os/branding/plymouth/phoenix" "$plymouth_theme_root/"
+cp -R "$REPO_ROOT/os/phoenix-os/branding/sddm/phoenix" "$sddm_theme_root/"
+
 # Stage custom logo if defined (overrides Plymouth boot splash and SDDM login screen assets)
 if [ -n "$logo_name" ]; then
     echo "🎨 Staging custom logo and full branding templates: $logo_name"
-    plymouth_theme_root="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes"
-    sddm_theme_root="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes"
-    plymouth_theme_dir="$plymouth_theme_root/phoenix"
-    sddm_theme_dir="$sddm_theme_root/phoenix"
-
-    mkdir -p "$plymouth_theme_root" "$sddm_theme_root"
-    rm -rf "$plymouth_theme_dir" "$sddm_theme_dir"
-
-    cp -R "$REPO_ROOT/os/phoenix-os/branding/plymouth/phoenix" "$plymouth_theme_root/"
-    cp -R "$REPO_ROOT/os/phoenix-os/branding/sddm/phoenix" "$sddm_theme_root/"
-
     logo_path="$EDITION_DIR/$logo_name"
     logo_mime="$(file -b --mime-type "$logo_path" 2>/dev/null || true)"
 
@@ -261,18 +501,50 @@ if [ -n "$logo_name" ]; then
             exit 1
             ;;
     esac
+else
+    echo "⚠️  WARNING: No logo entry found in manifest."
+fi
 
-    read -r bg_top_r bg_top_g bg_top_b <<< "$(hex_to_rgb_floats "$background_color")"
-    read -r bg_bot_r bg_bot_g bg_bot_b <<< "$(hex_to_rgb_floats "$surface_color")"
-    progress_fill_color="$primary_color"
-    progress_bg_color="$(scale_hex_color "$secondary_color" 0.45)"
-    edition_name_qml="$(escape_qml_string "$display_name")"
-    edition_tagline_qml="$(escape_qml_string "$tagline")"
+splash_source_path=""
+if [ -n "$splash_name" ] && [ -f "$EDITION_DIR/$splash_name" ]; then
+    splash_source_path="$EDITION_DIR/$splash_name"
+elif [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
+    splash_source_path="$EDITION_DIR/$wallpaper_name"
+fi
 
-    make_solid_png "$plymouth_theme_dir/progress-fill.png" "$progress_fill_color" 255
-    make_solid_png "$plymouth_theme_dir/progress-bg.png" "$progress_bg_color" 210
+login_background_path=""
+if [ -n "$login_background_name" ] && [ -f "$EDITION_DIR/$login_background_name" ]; then
+    login_background_path="$EDITION_DIR/$login_background_name"
+elif [ -n "$splash_source_path" ]; then
+    login_background_path="$splash_source_path"
+elif [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
+    login_background_path="$EDITION_DIR/$wallpaper_name"
+fi
 
-    python3 - "$plymouth_theme_dir/phoenix.script" "$bg_top_r" "$bg_top_g" "$bg_top_b" "$bg_bot_r" "$bg_bot_g" "$bg_bot_b" <<'PY'
+# Stage per-edition splash background used by both boot (Plymouth) and login (SDDM).
+if [ -n "$splash_source_path" ]; then
+    cp "$splash_source_path" "$plymouth_theme_dir/splash-background.png"
+else
+    make_solid_png "$plymouth_theme_dir/splash-background.png" "$background_color" 255
+fi
+
+if [ -n "$login_background_path" ]; then
+    cp "$login_background_path" "$sddm_theme_dir/background.png"
+else
+    make_solid_png "$sddm_theme_dir/background.png" "$background_color" 255
+fi
+
+read -r bg_top_r bg_top_g bg_top_b <<< "$(hex_to_rgb_floats "$background_color")"
+read -r bg_bot_r bg_bot_g bg_bot_b <<< "$(hex_to_rgb_floats "$surface_color")"
+progress_fill_color="$primary_color"
+progress_bg_color="$(scale_hex_color "$secondary_color" 0.45)"
+edition_name_qml="$(escape_qml_string "$display_name")"
+edition_tagline_qml="$(escape_qml_string "$tagline")"
+
+make_solid_png "$plymouth_theme_dir/progress-fill.png" "$progress_fill_color" 255
+make_solid_png "$plymouth_theme_dir/progress-bg.png" "$progress_bg_color" 210
+
+python3 - "$plymouth_theme_dir/phoenix.script" "$bg_top_r" "$bg_top_g" "$bg_top_b" "$bg_bot_r" "$bg_bot_g" "$bg_bot_b" <<'PY'
 import sys
 
 path = sys.argv[1]
@@ -292,7 +564,7 @@ for key, value in replacements.items():
 open(path, "w", encoding="utf-8").write(text)
 PY
 
-    python3 - "$sddm_theme_dir/Main.qml" "$edition_name_qml" "$edition_tagline_qml" "$primary_color" "$secondary_color" "$background_color" "$surface_color" "$text_color" <<'PY'
+python3 - "$sddm_theme_dir/Main.qml" "$edition_name_qml" "$edition_tagline_qml" "$primary_color" "$secondary_color" "$background_color" "$surface_color" "$text_color" <<'PY'
 import sys
 
 path = sys.argv[1]
@@ -307,14 +579,12 @@ replacements = {
     "__COLOR_BACKGROUND__": background,
     "__COLOR_SURFACE__": surface,
     "__COLOR_TEXT__": text_color,
+    "__WALLPAPER_IMAGE__": "background.png",
 }
 for key, value in replacements.items():
     text = text.replace(key, value)
 open(path, "w", encoding="utf-8").write(text)
 PY
-else
-    echo "⚠️  WARNING: No logo entry found in manifest."
-fi
 
 
 cat <<EOF > "$STAGING_CHROOT/metadata.json"
@@ -322,6 +592,13 @@ cat <<EOF > "$STAGING_CHROOT/metadata.json"
   "id": "$EDITION_ID",
   "display_name": "$display_name",
   "tagline": "$tagline",
+  "package_profile": {
+    "source": "package-profile.source.txt",
+    "installed": "package-profile.installed.txt",
+    "blocked": "package-profile.blocked.txt",
+    "installed_count": $installed_pkg_count,
+    "blocked_count": $blocked_pkg_count
+  },
   "theme": {
     "primary": "$primary_color",
     "secondary": "$secondary_color",
@@ -335,6 +612,10 @@ EOF
 echo "✅ Assets staged in: $STAGING_CHROOT"
 echo "✅ Package list staged: $STAGED_PKG_LIST"
 echo "✅ Transient overlay ready: $STAGING_LB_CONFIG_DIR"
+
+if [ "$BUILD_TELEMETRY_INITIALIZED" = true ]; then
+    phoenix_build_logger_phase_start "package_resolution" "Edition package graph resolved and staged."
+fi
 
 if [ "$STAGE_ONLY" = true ]; then
     echo "⏹️ Stage-only mode complete. Exiting."
@@ -359,15 +640,57 @@ fi
 if [ "$DOCKER_AVAILABLE" = true ]; then
     BUILDER_SCRIPT="$REPO_ROOT/os/phoenix-os/container/build-container.sh"
     echo "🚀 Launching Synthesis Engine (OCI Builder)..."
+    start_build_heartbeat
     if [ -f "$BUILDER_SCRIPT" ]; then
-        if bash "$BUILDER_SCRIPT"; then
+        BUILDER_ARGS=(
+            --mode "$BUILDER_MODE"
+            --arch "$resolved_arch"
+            --linux-flavour "$resolved_linux_flavour"
+            --bootloader "$resolved_bootloader"
+            "--clean=$BUILDER_CLEAN_MODE"
+        )
+        if [ "$BUILDER_NO_CACHE" = true ]; then
+            BUILDER_ARGS+=(--no-cache)
+        fi
+
+        if bash "$BUILDER_SCRIPT" "${BUILDER_ARGS[@]}"; then
             echo "✅ Synthesis Complete."
             BUILD_OUT_DIR="$REPO_ROOT/os/phoenix-os/build"
-            GENERIC_ISO="$BUILD_OUT_DIR/live-image-amd64.hybrid.iso"
             FINAL_ISO="$BUILD_OUT_DIR/$iso_name"
-            if [ -f "$GENERIC_ISO" ]; then
-                mv "$GENERIC_ISO" "$FINAL_ISO"
-                echo "✨ Produced Edition ISO: $FINAL_ISO"
+            TARGET_PREFIX="$build_target"
+            if [ -z "$TARGET_PREFIX" ]; then
+                TARGET_PREFIX="live-image-$resolved_arch"
+            fi
+
+            CANDIDATE_ARTIFACTS=(
+                "$BUILD_OUT_DIR/$TARGET_PREFIX.hybrid.iso"
+                "$BUILD_OUT_DIR/live-image-$resolved_arch.hybrid.iso"
+                "$BUILD_OUT_DIR/$TARGET_PREFIX.iso"
+                "$BUILD_OUT_DIR/live-image-$resolved_arch.iso"
+                "$BUILD_OUT_DIR/$TARGET_PREFIX.img"
+                "$BUILD_OUT_DIR/live-image-$resolved_arch.img"
+            )
+
+            GENERATED_ISO=""
+            for candidate in "${CANDIDATE_ARTIFACTS[@]}"; do
+                if [ -f "$candidate" ]; then
+                    GENERATED_ISO="$candidate"
+                    break
+                fi
+            done
+
+            if [ -z "$GENERATED_ISO" ]; then
+                GENERATED_ISO="$(find "$BUILD_OUT_DIR" -maxdepth 1 -type f \( -name '*.iso' -o -name '*.img' \) -print | head -n 1 || true)"
+            fi
+
+            if [ -n "$GENERATED_ISO" ] && [ "$GENERATED_ISO" != "$FINAL_ISO" ]; then
+                cp "$GENERATED_ISO" "$FINAL_ISO"
+            fi
+
+            if [ -f "$FINAL_ISO" ]; then
+                echo "✨ Produced Edition artifact: $FINAL_ISO"
+            else
+                echo "⚠️  Warning: Could not resolve final artifact for $EDITION_ID."
             fi
         else
             echo "❌ Synthesis Engine failed."

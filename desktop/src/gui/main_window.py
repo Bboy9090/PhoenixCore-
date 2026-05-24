@@ -36,6 +36,10 @@ from src.gui.modern_theme import BootForgeTheme
 class BootForgeMainWindow(QMainWindow):
     """Main application window"""
     
+    # Thread-safe signals for background systems
+    health_alert_signal = pyqtSignal(object, str, object)  # severity, message, data
+    error_occurred_signal = pyqtSignal(object)             # error_context
+    
     def __init__(self):
         super().__init__()
         self.logger = logging.getLogger(__name__)
@@ -73,8 +77,12 @@ class BootForgeMainWindow(QMainWindow):
         self.profile_manager = OneClickProfileManager()
         
         # Setup advanced system callbacks
-        self.health_manager.add_alert_callback(self._on_health_alert)
-        self.recovery_manager.add_error_callback(self._on_error_occurred)
+        self.health_manager.add_alert_callback(self._on_health_alert_callback)
+        self.recovery_manager.add_error_callback(self._on_error_occurred_callback)
+        
+        # Connect thread-safe signals to actual UI slots
+        self.health_alert_signal.connect(self._on_health_alert)
+        self.error_occurred_signal.connect(self._on_error_occurred)
         
         # GUI components
         self.wizard = None
@@ -94,9 +102,9 @@ class BootForgeMainWindow(QMainWindow):
     
     def _setup_ui(self):
         """Setup the main user interface"""
-        self.setWindowTitle("BootForge - Professional OS Deployment Tool")
-        self.setMinimumSize(1000, 700)
-        self.resize(1200, 800)
+        self.setWindowTitle("⚡ Phoenix Core — Elite OS Deployment Platform")
+        self.setMinimumSize(1200, 800)
+        self.resize(1400, 900)
         
         self.setWindowIcon(self._create_app_icon())
         
@@ -227,7 +235,7 @@ class BootForgeMainWindow(QMainWindow):
         help_menu = menubar.addMenu("&Help")
         assert help_menu is not None
         
-        about = QAction("&About BootForge", self)
+        about = QAction("&About Phoenix Core", self)
         about.triggered.connect(self._show_about)
         help_menu.addAction(about)
         
@@ -687,7 +695,7 @@ class BootForgeMainWindow(QMainWindow):
         self.logger.info("Preferences dialog requested")
         
         dialog = QDialog(self)
-        dialog.setWindowTitle("BootForge Settings")
+        dialog.setWindowTitle("Phoenix Core Settings")
         dialog.setMinimumWidth(500)
         dialog.setModal(True)
         dialog.setStyleSheet(BootForgeTheme.get_stylesheet())
@@ -1084,8 +1092,16 @@ class BootForgeMainWindow(QMainWindow):
         
         dialog.show()
     
+    def _on_health_alert_callback(self, severity, message, data):
+        """Callback from background thread - emits signal to main thread"""
+        self.health_alert_signal.emit(severity, message, data)
+        
+    def _on_error_occurred_callback(self, error_context):
+        """Callback from background thread - emits signal to main thread"""
+        self.error_occurred_signal.emit(error_context)
+
     def _on_health_alert(self, severity, message, data):
-        """Handle health alerts from monitoring system"""
+        """Handle health alerts from monitoring system (runs thread-safe on main thread)"""
         self.logger.warning(f"Health Alert [{severity.value}]: {message}")
         
         # Show alert to user if critical
@@ -1093,7 +1109,7 @@ class BootForgeMainWindow(QMainWindow):
             QMessageBox.warning(self, "System Health Alert", f"⚠️ {message}")
     
     def _on_error_occurred(self, error_context):
-        """Handle errors from recovery system"""
+        """Handle errors from recovery system (runs thread-safe on main thread)"""
         self.logger.error(f"Operation Error: {error_context.error_message}")
         
         # You could show recovery options to user here

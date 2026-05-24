@@ -44,13 +44,13 @@ export default function KnowledgeScreen() {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case "USB Creation": return "#E85D04";
-      case "Mac Recovery": return "#AC39FF";
-      case "Windows Recovery": return "#0078D4";
-      case "ChromeOS": return "#4285F4";
-      case "Linux Recovery": return "#E95420";
-      case "Technical": return "#656D76";
-      default: return "#E85D04";
+      case "USB Creation": return "#00d2ff";   // Electric blue
+      case "Mac Recovery": return "#9d4edd";    // Arcwyre purple
+      case "Windows Recovery": return "#0078D4"; // Windows blue
+      case "ChromeOS": return "#10b981";         // Emerald
+      case "Linux Recovery": return "#ffd700";   // Gold
+      case "Technical": return "#94a3b8";        // Slate
+      default: return "#00d2ff";
     }
   };
 
@@ -91,9 +91,7 @@ export default function KnowledgeScreen() {
 
           {/* Article Content */}
           <View style={styles.articleBody}>
-            {selectedArticle.content.split("
-
-").map((paragraph, idx) => {
+            {selectedArticle.content.split("\n\n").map((paragraph, idx) => {
               if (paragraph.startsWith("**") && paragraph.endsWith("**")) {
                 const heading = paragraph.replace(/\*\*/g, "");
                 return (
@@ -118,8 +116,7 @@ export default function KnowledgeScreen() {
                   </View>
                 );
               }
-              if (paragraph.includes("  ") && paragraph.includes("
-")) {
+              if (paragraph.includes("  ") && paragraph.includes("\n")) {
                 return (
                   <View key={idx} style={[styles.codeBlock, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <Text style={[styles.codeText, { color: colors.foreground }]}>
@@ -158,7 +155,7 @@ export default function KnowledgeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-            Knowledge Base
+            ⚡ Knowledge Base
           </Text>
           <Text style={[styles.screenSubtitle, { color: colors.muted }]}>
             Guides, tutorials, and troubleshooting for OS recovery and USB creation

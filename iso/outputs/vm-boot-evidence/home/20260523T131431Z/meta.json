@@ -1,0 +1,9 @@
+{
+  "source_artifact": "iso/outputs/bwos-home.iso",
+  "source_sha256": "64228d469c5509bc54224d3b09a16ca74281a9b830cc7b92df23e6999600f844",
+  "probe_type": "manual_grub_enter",
+  "observation": "QEMU stopped at GRUB until Enter was sent; then boot progressed to BWOS_BOOT_SUCCESS_GRAPHICAL_REACHED and Debian login prompt.",
+  "serial_log": "iso/outputs/vm-boot-evidence/home/20260523T131431Z/serial.log",
+  "console_log": "iso/outputs/vm-boot-evidence/home/20260523T131431Z/console.log",
+  "created_at": "2026-05-23T13:14:31Z"
+}

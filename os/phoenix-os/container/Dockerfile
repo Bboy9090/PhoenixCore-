@@ -20,10 +20,10 @@ RUN set -eux; \
       git \
       grep \
       grub-common \
-      grub-pc-bin \
       isolinux \
       live-build \
       mtools \
+      python3 \
       rsync \
       sed \
       squashfs-tools \
@@ -34,11 +34,14 @@ RUN set -eux; \
       xz-utils; \
     arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
-      amd64) efi_pkg="grub-efi-amd64-bin" ;; \
+      amd64) \
+        apt-get install -y --no-install-recommends grub-pc-bin; \
+        efi_pkg="grub-efi-amd64-bin grub-efi-ia32-bin" \
+        ;; \
       arm64) efi_pkg="grub-efi-arm64-bin" ;; \
       *) echo "Unsupported architecture for EFI GRUB package: $arch"; exit 1 ;; \
     esac; \
-    apt-get install -y --no-install-recommends "$efi_pkg"; \
+    apt-get install -y --no-install-recommends $efi_pkg; \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash phoenix-builder \

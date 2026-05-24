@@ -30,7 +30,7 @@ Every application is audited and classified into one of five states:
 | **Clock Widget** | Desktop | **`SHIP`** | `plasma-widgets` | **VISIBLE** | Digital clock embedded natively in Plasma Panel |
 | **Phoenix Control Center**| System | **`BETA`** | `phoenix-control-center`| **HIDDEN** | Real dashboard; write operations safely gated |
 | **BootForge** | Recovery | **`DEV-ONLY`** | *None* | **EXCLUDED** | Dynamic bootloader builder; excluded until safe |
-| **Workshop/Revival** | Recovery | **`DEV-ONLY`** | *None* | **EXCLUDED** | Deep filesystem recovery utility; development only |
+| **Workshop recovery** | Recovery | **`DEV-ONLY`** | *None* | **EXCLUDED** | Deep filesystem recovery utility; development only |
 | **Calendar App** | Productivity| **`EXCLUDED`** | *None* | **EXCLUDED** | Intentionally omitted to minimize ISO size |
 
 ---

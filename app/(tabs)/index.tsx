@@ -1,64 +1,134 @@
-import { ScrollView, Text, View, Pressable, StyleSheet } from "react-native";
+import { ScrollView, Text, View, Pressable, StyleSheet, Animated } from "react-native";
 import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { checkAPIHealth } from '@/lib/phoenix-engine';
 
 const FEATURES = [
   {
     title: "Device Wizard",
-    description: "Identify your device and see which OSes are compatible",
+    description: "Detect your hardware and see which OS builds are compatible",
     icon: "cpu" as const,
     route: "/wizard" as const,
-    gradient: "#E85D04",
+    color: "#00d2ff",
+    glow: "rgba(0, 210, 255, 0.12)",
   },
   {
     title: "USB Builder",
-    description: "Build the perfect multi-boot USB recipe for your needs",
+    description: "Flash premium OS builds to any USB drive with full safety checks",
     icon: "externaldrive.fill" as const,
     route: "/builder" as const,
-    gradient: "#F48C06",
+    color: "#ffd700",
+    glow: "rgba(255, 215, 0, 0.12)",
   },
   {
     title: "Knowledge Base",
-    description: "Guides for recovery, repair, and OS installation",
+    description: "Deep guides for boot repair, OS recovery, and legacy hardware",
     icon: "book.fill" as const,
     route: "/knowledge" as const,
-    gradient: "#DC2F02",
+    color: "#9d4edd",
+    glow: "rgba(157, 78, 221, 0.12)",
   },
 ];
 
+const OS_SUITE = [
+  { name: "Home Aurelia", subtitle: "Legacy 32-bit", color: "#ffd700", bgColor: "rgba(255, 215, 0, 0.1)", icon: "flame.fill" as const },
+  { name: "Blue Phoenix", subtitle: "Modern x64", color: "#00d2ff", bgColor: "rgba(0, 210, 255, 0.1)", icon: "bolt.fill" as const },
+  { name: "Arcwyre", subtitle: "Pro Dev Build", color: "#9d4edd", bgColor: "rgba(157, 78, 221, 0.1)", icon: "sparkles" as const },
+  { name: "Thunder God", subtitle: "Performance", color: "#00ffff", bgColor: "rgba(0, 255, 255, 0.08)", icon: "waveform" as const },
+];
+
 const STATS = [
-  { label: "Operating Systems", value: "10+" },
+  { label: "OS Builds", value: "4+" },
   { label: "Repair Tools", value: "7+" },
   { label: "Device Types", value: "6" },
-  { label: "KB Articles", value: "6+" },
+  { label: "Architectures", value: "3" },
 ];
 
 export default function HomeScreen() {
   const router = useRouter();
   const colors = useColors();
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  useEffect(() => {
+    checkAPIHealth().then(r => setApiOnline(r.online));
+    const interval = setInterval(() => checkAPIHealth().then(r => setApiOnline(r.online)), 30000);
+    return () => clearInterval(interval);
+  }, []);
+  const pulseAnim = useRef(new Animated.Value(0.8)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Pulsing glow animation for hero badge
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.8, duration: 2000, useNativeDriver: true }),
+      ])
+    ).start();
+    // Subtle glow shift
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 3000, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0, duration: 3000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   return (
     <ScreenContainer>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Section */}
-        <View style={[styles.hero, { backgroundColor: colors.primary }]}>
-          <View style={styles.heroContent}>
-            <View style={styles.heroIconRow}>
-              <IconSymbol name="flame.fill" size={36} color="#FFFFFF" />
-              <Text style={styles.heroBadge}>Bobby's PhoenixDrive</Text>
-            </View>
-            <Text style={styles.heroTitle}>Any Device.{"
-"}Any OS. Fixed.</Text>
-            <Text style={styles.heroSubtitle}>
-              Bobby's got your back. Plug it in, boot it up,{"
-"}
-              problem over in a jiffy.
+        {/* ── Hero Section ── */}
+        <View style={styles.hero}>
+          {/* Live API Status Badge */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            alignSelf: 'flex-start',
+            backgroundColor: apiOnline === true ? 'rgba(16,185,129,0.15)' : apiOnline === false ? 'rgba(244,63,94,0.15)' : 'rgba(148,163,184,0.15)',
+            borderRadius: 20,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderWidth: 1,
+            borderColor: apiOnline === true ? 'rgba(16,185,129,0.4)' : apiOnline === false ? 'rgba(244,63,94,0.4)' : 'rgba(148,163,184,0.3)',
+            marginBottom: 16,
+          }}>
+            <View style={{
+              width: 8, height: 8, borderRadius: 4,
+              backgroundColor: apiOnline === true ? '#10b981' : apiOnline === false ? '#f43f5e' : '#94a3b8',
+              marginRight: 8,
+            }} />
+            <Text style={{
+              fontSize: 12, fontWeight: '700', letterSpacing: 0.5,
+              color: apiOnline === true ? '#10b981' : apiOnline === false ? '#f43f5e' : '#94a3b8',
+            }}>
+              {apiOnline === true ? 'PHOENIX ONLINE' : apiOnline === false ? 'SERVER OFFLINE' : 'CHECKING...'}
             </Text>
+          </View>
+          {/* Background glow effect */}
+          <Animated.View
+            style={[
+              styles.heroGlow,
+              { opacity: glowAnim },
+            ]}
+          />
+
+          <View style={styles.heroContent}>
+            {/* Brand badge */}
+            <View style={styles.heroBadgeRow}>
+              <Animated.View style={[styles.heroPulse, { transform: [{ scale: pulseAnim }] }]} />
+              <Text style={styles.heroBadge}>⚡ PHOENIX CORE</Text>
+            </View>
+
+            <Text style={styles.heroTitle}>Any Device.{"\n"}Any OS.{"\n"}Deployed.</Text>
+            <Text style={styles.heroSubtitle}>
+              Premium OS deployment suite with real USB creation, hardware detection, and our exclusive OS lineup — built different.
+            </Text>
+
             <Pressable
               onPress={() => router.push("/wizard" as any)}
               style={({ pressed }) => [
@@ -67,25 +137,61 @@ export default function HomeScreen() {
               ]}
             >
               <Text style={styles.heroCTAText}>Start Building</Text>
-              <IconSymbol name="arrow.right" size={18} color="#E85D04" />
+              <IconSymbol name="arrow.right" size={18} color="#050811" />
             </Pressable>
           </View>
         </View>
 
-        {/* Stats Row */}
+        {/* ── Stats Row ── */}
         <View style={styles.statsRow}>
           {STATS.map((stat) => (
-            <View key={stat.label} style={[styles.statItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.statValue, { color: colors.primary }]}>{stat.value}</Text>
+            <View
+              key={stat.label}
+              style={[styles.statItem, { backgroundColor: colors.surface, borderColor: "rgba(0, 210, 255, 0.2)" }]}
+            >
+              <Text style={[styles.statValue, { color: "#00d2ff" }]}>{stat.value}</Text>
               <Text style={[styles.statLabel, { color: colors.muted }]}>{stat.label}</Text>
             </View>
           ))}
         </View>
 
-        {/* Feature Cards */}
+        {/* ── Phoenix OS Suite ── */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            What Can Bobby's PhoenixDrive Do?
+            Phoenix OS Suite
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
+            Our exclusive OS lineup — built from the ground up
+          </Text>
+          <View style={styles.osGrid}>
+            {OS_SUITE.map((os) => (
+              <View
+                key={os.name}
+                style={[
+                  styles.osCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: `${os.color}40`,
+                    borderLeftColor: os.color,
+                  },
+                ]}
+              >
+                <View style={[styles.osIconCircle, { backgroundColor: os.bgColor }]}>
+                  <IconSymbol name={os.icon} size={20} color={os.color} />
+                </View>
+                <View style={styles.osInfo}>
+                  <Text style={[styles.osName, { color: colors.foreground }]}>{os.name}</Text>
+                  <Text style={[styles.osSubtitle, { color: os.color }]}>{os.subtitle}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* ── Feature Cards ── */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            What Can Phoenix Core Do?
           </Text>
           {FEATURES.map((feature) => (
             <Pressable
@@ -93,12 +199,12 @@ export default function HomeScreen() {
               onPress={() => router.push(feature.route as any)}
               style={({ pressed }) => [
                 styles.featureCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+                { backgroundColor: colors.surface, borderColor: `${feature.color}30` },
+                pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
               ]}
             >
-              <View style={[styles.featureIcon, { backgroundColor: feature.gradient + "18" }]}>
-                <IconSymbol name={feature.icon} size={24} color={feature.gradient} />
+              <View style={[styles.featureIcon, { backgroundColor: feature.glow }]}>
+                <IconSymbol name={feature.icon} size={24} color={feature.color} />
               </View>
               <View style={styles.featureText}>
                 <Text style={[styles.featureTitle, { color: colors.foreground }]}>
@@ -108,46 +214,22 @@ export default function HomeScreen() {
                   {feature.description}
                 </Text>
               </View>
-              <IconSymbol name="chevron.right" size={20} color={colors.muted} />
+              <IconSymbol name="chevron.right" size={18} color={feature.color} />
             </Pressable>
           ))}
         </View>
 
-        {/* Supported OS Grid */}
+        {/* ── Power Banner ── */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Supported Operating Systems
-          </Text>
-          <View style={styles.osGrid}>
-            {[
-              { name: "Windows", color: "#0078D4", icon: "laptopcomputer" as const },
-              { name: "macOS", color: "#AC39FF", icon: "desktopcomputer" as const },
-              { name: "Linux", color: "#E95420", icon: "terminal" as const },
-              { name: "ChromeOS", color: "#4285F4", icon: "globe" as const },
-            ].map((os) => (
-              <View
-                key={os.name}
-                style={[styles.osCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              >
-                <View style={[styles.osIconCircle, { backgroundColor: os.color + "18" }]}>
-                  <IconSymbol name={os.icon} size={22} color={os.color} />
-                </View>
-                <Text style={[styles.osName, { color: colors.foreground }]}>{os.name}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Reality Check Banner */}
-        <View style={styles.section}>
-          <View style={[styles.realityBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <IconSymbol name="info.circle.fill" size={22} color={colors.primary} />
-            <View style={styles.realityText}>
-              <Text style={[styles.realityTitle, { color: colors.foreground }]}>
-                The Honest Truth
+          <View style={[styles.powerBanner, { borderColor: "rgba(0, 210, 255, 0.25)" }]}>
+            <View style={styles.powerBannerGlow} />
+            <IconSymbol name="bolt.fill" size={22} color="#00d2ff" />
+            <View style={styles.powerText}>
+              <Text style={[styles.powerTitle, { color: "#ffffff" }]}>
+                Built Different
               </Text>
-              <Text style={[styles.realityDesc, { color: colors.muted }]}>
-                One USB can boot Windows, Linux, and ChromeOS on x86 devices. macOS requires Apple hardware. Different CPU architectures need separate USBs. Bobby's PhoenixDrive helps you build the smartest USB for YOUR device.
+              <Text style={[styles.powerDesc, { color: colors.muted }]}>
+                Phoenix Core supports our own OS suite (Home Aurelia, Blue Phoenix, Arcwyre, Thunder God) plus Windows, Linux, and macOS — no limits, no compromise.
               </Text>
             </View>
           </View>
@@ -160,58 +242,90 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   hero: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+    backgroundColor: "#050811",
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    borderBottomWidth: 2,
+    borderBottomColor: "rgba(255, 215, 0, 0.3)",
+    overflow: "hidden",
+    position: "relative",
+    minHeight: 280,
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -40,
+    right: -40,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(0, 210, 255, 0.08)",
   },
   heroContent: {
-    gap: 12,
+    gap: 14,
+    zIndex: 1,
   },
-  heroIconRow: {
+  heroBadgeRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
+  heroPulse: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#00d2ff",
+    shadowColor: "#00d2ff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
   heroBadge: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 1,
+    color: "#00d2ff",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 2,
     textTransform: "uppercase",
   },
   heroTitle: {
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: "800",
-    color: "#FFFFFF",
-    lineHeight: 40,
+    color: "#ffffff",
+    lineHeight: 44,
+    letterSpacing: -0.5,
   },
   heroSubtitle: {
-    fontSize: 15,
-    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.6)",
     lineHeight: 22,
   },
   heroCTA: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
+    backgroundColor: "#00d2ff",
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderRadius: 26,
     gap: 8,
     marginTop: 4,
+    shadowColor: "#00d2ff",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
   heroCTAText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-    color: "#E85D04",
+    color: "#050811",
   },
   statsRow: {
     flexDirection: "row",
     paddingHorizontal: 16,
     gap: 8,
-    marginTop: -16,
+    marginTop: -18,
   },
   statItem: {
     flex: 1,
@@ -219,26 +333,76 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   statValue: {
     fontSize: 18,
     fontWeight: "800",
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "600",
     marginTop: 2,
     textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   section: {
     paddingHorizontal: 16,
-    marginTop: 24,
+    marginTop: 26,
     gap: 12,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "700",
-    marginBottom: 4,
+    letterSpacing: -0.3,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    marginTop: -6,
+    lineHeight: 18,
+  },
+  osGrid: {
+    gap: 10,
+  },
+  osCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  osIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  osInfo: {
+    flex: 1,
+  },
+  osName: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 1,
+  },
+  osSubtitle: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   featureCard: {
     flexDirection: "row",
@@ -247,17 +411,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     gap: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   featureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
   featureText: {
     flex: 1,
-    gap: 3,
+    gap: 4,
   },
   featureTitle: {
     fontSize: 16,
@@ -267,49 +436,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  osGrid: {
+  powerBanner: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  osCard: {
-    width: "48%",
-    flexGrow: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    gap: 10,
-  },
-  osIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  osName: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  realityBanner: {
-    flexDirection: "row",
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 12,
+    backgroundColor: "#080c16",
+    gap: 14,
     alignItems: "flex-start",
+    overflow: "hidden",
+    position: "relative",
   },
-  realityText: {
+  powerBannerGlow: {
+    position: "absolute",
+    top: -30,
+    left: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(0, 210, 255, 0.05)",
+  },
+  powerText: {
     flex: 1,
-    gap: 4,
+    gap: 5,
   },
-  realityTitle: {
+  powerTitle: {
     fontSize: 15,
     fontWeight: "700",
   },
-  realityDesc: {
+  powerDesc: {
     fontSize: 13,
     lineHeight: 19,
   },

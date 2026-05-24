@@ -1,0 +1,50 @@
+id: thunder-god-arm64
+display_name: "Arcwyre: Thundergod ARM64 Edition"
+parent: "Blue Phoenix OS"
+edition_type: "premium"
+tagline: "Speed. Power. Unleashed."
+description: "The high-integrity, lightning-fast power-user edition for Apple Silicon and modern ARM64 systems."
+inherits_core_safety_rules: true
+
+theme:
+  colors:
+    primary: "#8B5CF6"   # Electric Violet
+    secondary: "#3B82F6" # Electric Blue
+    accent: "#E2E8F0"    # Storm Slate White
+    background: "#080614" # Thunder Deep Dark
+    surface: "#140F2D"
+    text: "#EDF2F7"
+
+palette:
+  path: "colors.css"
+
+branding:
+  path: "branding.md"
+  logo: "assets/thunder-logo.png"
+  wallpaper: "assets/storm-peak.png"
+  splash: "assets/storm-peak.png"
+
+packages:
+  profile: "package-profile.txt"
+  include:
+    - "bwos-core"
+    - "bootforge"
+    - "stormgrid-diagnostics"
+    - "thunder-god-assets"
+  exclude: []
+
+features:
+  - "cinematic_recovery_ui"
+  - "electric_theme_engine"
+  - "high_fidelity_diagnostics"
+
+build:
+  target: "live-image-arm64"
+  compression: "zstd"
+  iso_name: "bwos-thunder-god-arm64.iso"
+
+safety:
+  allow_destructive_disk_ops_by_default: false
+  require_dry_run_for_recovery_ops: true
+  inherit_agent_permissions: true
+  inherit_audit_rules: true

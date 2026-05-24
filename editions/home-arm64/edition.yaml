@@ -1,0 +1,50 @@
+id: home-arm64
+display_name: "Home Aurelia OS (ARM64)"
+parent: "Blue Phoenix OS"
+edition_type: "platform"
+tagline: "Four Legacies. One Throne."
+description: "Home edition arm64 track locked to the Home Aurelia visual identity for native ARM platform bring-up and downstream hardware enablement."
+inherits_core_safety_rules: true
+
+theme:
+  colors:
+    primary: "#2F80FF"
+    secondary: "#D4A94F"
+    accent: "#E5EEF9"
+    background: "#05070A"
+    surface: "#101827"
+    text: "#F8FAFC"
+
+palette:
+  path: "colors.css"
+
+branding:
+  path: "branding.md"
+  logo: "assets/home-logo.png"
+  wallpaper: "assets/home-background.png"
+  splash: "assets/home-background.png"
+
+packages:
+  profile: "package-profile.txt"
+  include:
+    - "bwos-core"
+    - "standard-utility-set"
+  exclude: []
+
+features:
+  - "citadel_desktop"
+  - "arm64_foundation"
+
+build:
+  target: "live-image-arm64"
+  architecture: "arm64"
+  linux_flavour: "arm64"
+  bootloader: "grub-efi"
+  compression: "zstd"
+  iso_name: "bwos-home-arm64.iso"
+
+safety:
+  allow_destructive_disk_ops_by_default: false
+  require_dry_run_for_recovery_ops: true
+  inherit_agent_permissions: true
+  inherit_audit_rules: true

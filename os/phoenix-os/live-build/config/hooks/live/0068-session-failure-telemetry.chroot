@@ -1,0 +1,273 @@
+#!/bin/sh
+set -eu
+
+install -d -m 0755 /usr/local/bin
+install -d -m 0755 /etc/systemd/system
+
+cat > /usr/local/bin/bwos-session-log <<'EOF2'
+#!/bin/sh
+set -eu
+
+MESSAGE="$*"
+printf '%s\n' "$MESSAGE" > /dev/ttyS0 2>/dev/null || true
+logger -t BWOS-SESSION "$MESSAGE" >/dev/null 2>&1 || true
+EOF2
+chmod 0755 /usr/local/bin/bwos-session-log
+
+cat > /usr/local/bin/bwos-session-profile-apply <<'EOF2'
+#!/bin/sh
+set -eu
+
+LIVE_USER="phoenix"
+LIVE_HOME="/home/${LIVE_USER}"
+PROFILE="x11"
+CMDLINE="$(cat /proc/cmdline 2>/dev/null || true)"
+
+log() {
+    /usr/local/bin/bwos-session-log "$@"
+}
+
+first_existing() {
+    for candidate in "$@"; do
+        if [ -f "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+session_exec() {
+    path="$1"
+    if [ -f "$path" ]; then
+        awk -F= '/^Exec=/ { print $2; exit }' "$path"
+    fi
+}
+
+case " $CMDLINE " in
+    *" bwos.session=wayland "*) PROFILE="wayland" ;;
+    *" bwos.session=x11 "*) PROFILE="x11" ;;
+esac
+
+log "BWOS_KERNEL_CMDLINE ${CMDLINE}"
+
+WAYLAND_SESSION="$(first_existing \
+    /usr/share/wayland-sessions/plasmawayland.desktop \
+    /usr/share/wayland-sessions/plasma.desktop \
+    /usr/share/wayland-sessions/org.kde.plasma.desktop || true)"
+
+X11_SESSION="$(first_existing \
+    /usr/share/xsessions/plasmax11.desktop \
+    /usr/share/xsessions/plasma.desktop || true)"
+
+if [ -n "$X11_SESSION" ]; then
+    X11_EXEC="$(session_exec "$X11_SESSION" || true)"
+    log "BWOS_SESSION_FILE_X11_EXISTS path=${X11_SESSION} exec=${X11_EXEC}"
+    if command -v ${X11_EXEC%% *} >/dev/null 2>&1; then
+        log "BWOS_SESSION_EXEC_X11_EXISTS command=${X11_EXEC%% *}"
+    else
+        log "BWOS_SESSION_EXEC_X11_MISSING command=${X11_EXEC%% *}"
+    fi
+else
+    log "BWOS_SESSION_FILE_X11_MISSING"
+fi
+
+if [ -n "$WAYLAND_SESSION" ]; then
+    WAYLAND_EXEC="$(session_exec "$WAYLAND_SESSION" || true)"
+    log "BWOS_SESSION_FILE_WAYLAND_EXISTS path=${WAYLAND_SESSION} exec=${WAYLAND_EXEC}"
+    if command -v ${WAYLAND_EXEC%% *} >/dev/null 2>&1; then
+        log "BWOS_SESSION_EXEC_WAYLAND_EXISTS command=${WAYLAND_EXEC%% *}"
+    else
+        log "BWOS_SESSION_EXEC_WAYLAND_MISSING command=${WAYLAND_EXEC%% *}"
+    fi
+else
+    log "BWOS_SESSION_FILE_WAYLAND_MISSING"
+fi
+
+if [ "$PROFILE" = "wayland" ]; then
+    SELECTED_SESSION="$WAYLAND_SESSION"
+else
+    SELECTED_SESSION="$X11_SESSION"
+fi
+
+if [ -z "$SELECTED_SESSION" ]; then
+    log "BWOS_SESSION_CONFIG_FAIL selected_session_missing profile=${PROFILE}"
+    exit 0
+fi
+
+SELECTED_SESSION_NAME="$(basename "$SELECTED_SESSION")"
+install -d -m 0755 /etc/sddm.conf.d /run
+
+cat > /etc/sddm.conf.d/autologin.conf <<EOF_CONF
+[Autologin]
+User=${LIVE_USER}
+Session=${SELECTED_SESSION_NAME}
+Relogin=true
+EOF_CONF
+
+cat > /etc/sddm.conf.d/default-session.conf <<EOF_CONF
+[General]
+DefaultSession=${SELECTED_SESSION_NAME}
+EOF_CONF
+
+printf '%s\n' "$PROFILE" > /run/bwos-session-profile
+printf '%s\n' "$SELECTED_SESSION_NAME" > /run/bwos-selected-session
+
+log "BWOS_SDDM_SERVICE_PRESTART"
+log "BWOS_SDDM_AUTOLOGIN_CONFIGURED user=${LIVE_USER} session=${SELECTED_SESSION_NAME} profile=${PROFILE}"
+log "BWOS_SELECTED_SESSION_FILE=${SELECTED_SESSION_NAME}"
+
+if [ "$PROFILE" = "x11" ]; then
+    log "BWOS_X11_SESSION_ATTEMPTED"
+else
+    log "BWOS_WAYLAND_SESSION_ATTEMPTED"
+fi
+
+if id "$LIVE_USER" >/dev/null 2>&1 && [ -d "$LIVE_HOME" ]; then
+    owner="$(stat -c '%U:%G' "$LIVE_HOME" 2>/dev/null || stat -f '%Su:%Sg' "$LIVE_HOME" 2>/dev/null || echo unknown)"
+    mode="$(stat -c '%a' "$LIVE_HOME" 2>/dev/null || stat -f '%Lp' "$LIVE_HOME" 2>/dev/null || echo unknown)"
+    log "BWOS_USER_PROVISIONING_OK user=${LIVE_USER} home=${LIVE_HOME} owner=${owner} mode=${mode}"
+else
+    log "BWOS_USER_PROVISIONING_FAIL user=${LIVE_USER} home=${LIVE_HOME}"
+fi
+
+if [ -f "${LIVE_HOME}/.config/plasma-org.kde.plasma.desktop-appletsrc" ]; then
+    log "BWOS_PLASMA_CONFIG_READABLE"
+else
+    log "BWOS_PLASMA_CONFIG_MISSING"
+fi
+
+if [ -f "${LIVE_HOME}/.config/autostart/bwos-desktop-session-marker.desktop" ] || [ -f /etc/xdg/autostart/bwos-desktop-session-marker.desktop ]; then
+    log "BWOS_AUTOSTART_MARKER_PRESENT"
+else
+    log "BWOS_AUTOSTART_MARKER_MISSING"
+fi
+
+groups "$LIVE_USER" 2>/dev/null | sed 's/^/BWOS_USER_GROUPS /' > /dev/ttyS0 2>/dev/null || true
+EOF2
+chmod 0755 /usr/local/bin/bwos-session-profile-apply
+
+cat > /usr/local/bin/bwos-session-diagnostics-dump <<'EOF2'
+#!/bin/sh
+set -eu
+
+LIVE_USER="phoenix"
+
+log() {
+    /usr/local/bin/bwos-session-log "$@"
+}
+
+emit_process_marker() {
+    label="$1"
+    pattern="$2"
+    if pgrep -x "$pattern" >/dev/null 2>&1; then
+        log "BWOS_PROC_${label}_STARTED"
+    else
+        log "BWOS_PROC_${label}_NOT_RUNNING"
+    fi
+}
+
+dump_file() {
+    label="$1"
+    path="$2"
+    if [ -f "$path" ]; then
+        log "BWOS_SESSION_LOG_FILE_BEGIN ${label} ${path}"
+        tail -n 160 "$path" > /dev/ttyS0 2>/dev/null || true
+        log "BWOS_SESSION_LOG_FILE_END ${label}"
+    else
+        log "BWOS_SESSION_LOG_FILE_MISSING ${label} ${path}"
+    fi
+}
+
+snapshot() {
+    elapsed="$1"
+    log "BWOS_HANDOFF_TRACE_BEGIN elapsed=${elapsed}"
+    log "BWOS_SDDM_ACTIVE_STATE $(systemctl is-active sddm.service 2>/dev/null || true)"
+    log "BWOS_SDDM_SUB_STATE $(systemctl show sddm.service -p SubState --value 2>/dev/null || true)"
+    log "BWOS_SDDM_MAINPID $(systemctl show sddm.service -p MainPID --value 2>/dev/null || true)"
+
+    if command -v loginctl >/dev/null 2>&1; then
+        loginctl list-sessions --no-legend 2>/dev/null | sed 's/^/BWOS_LOGINCTL_SESSION /' > /dev/ttyS0 2>/dev/null || true
+        session_id="$(loginctl list-sessions --no-legend 2>/dev/null | awk -v user="$LIVE_USER" '$3 == user { print $1; exit }' || true)"
+        if [ -n "$session_id" ]; then
+            loginctl show-session "$session_id" -p Name -p User -p Type -p Class -p State -p Remote -p Service -p Display -p Leader --no-pager 2>/dev/null | sed 's/^/BWOS_LOGINCTL_SHOW /' > /dev/ttyS0 2>/dev/null || true
+            log "BWOS_LOGINCTL_SESSION_FOUND id=${session_id}"
+        else
+            log "BWOS_LOGINCTL_SESSION_MISSING user=${LIVE_USER}"
+        fi
+    fi
+
+    for pid in $(pgrep -u "$LIVE_USER" -f 'systemd --user|dbus-daemon|dbus-broker|startplasma|kwin|plasmashell|ksmserver' 2>/dev/null || true); do
+        tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null | sed "s/^/BWOS_USER_PROCESS pid=${pid} /" > /dev/ttyS0 2>/dev/null || true
+        tr '\0' '\n' < "/proc/${pid}/environ" 2>/dev/null | grep -E '^(XDG_SESSION_TYPE|DISPLAY|WAYLAND_DISPLAY|XDG_RUNTIME_DIR|DBUS_SESSION_BUS_ADDRESS)=' | sed "s/^/BWOS_USER_ENV pid=${pid} /" > /dev/ttyS0 2>/dev/null || true
+    done
+
+    emit_process_marker KWIN_X11 kwin_x11
+    emit_process_marker KWIN_WAYLAND kwin_wayland
+    emit_process_marker PLASMASHELL plasmashell
+    emit_process_marker KSMSERVER ksmserver
+    emit_process_marker STARTPLASMA_X11 startplasma-x11
+    emit_process_marker STARTPLASMA_WAYLAND startplasma-wayland
+    emit_process_marker DBUS_DAEMON dbus-daemon
+    emit_process_marker DBUS_BROKER dbus-broker
+
+    if pgrep -u "$LIVE_USER" -f 'systemd --user' >/dev/null 2>&1; then
+        log "BWOS_PROC_SYSTEMD_USER_STARTED"
+    else
+        log "BWOS_PROC_SYSTEMD_USER_NOT_RUNNING"
+    fi
+
+    ps -eo pid,user,comm,args | grep -Ei 'sddm|plasma|kwin|ksmserver|startplasma|dbus|xorg|wayland|systemd --user' | grep -v grep > /dev/ttyS0 2>&1 || true
+    journalctl -b --no-pager -u sddm.service -n 120 > /dev/ttyS0 2>&1 || true
+    journalctl -b --no-pager -n 220 | grep -Ei 'pam|sddm|plasma|kwin|ksmserver|startplasma|wayland|x11|xorg|dbus|xdg|bwos' > /dev/ttyS0 2>&1 || true
+    log "BWOS_HANDOFF_TRACE_END elapsed=${elapsed}"
+}
+
+elapsed_total=0
+for interval in 20 25 30 35; do
+    sleep "$interval"
+    elapsed_total=$((elapsed_total + interval))
+    snapshot "$elapsed_total"
+done
+
+log "BWOS_SESSION_DIAGNOSTICS_BEGIN"
+systemctl --no-pager --full status sddm.service > /dev/ttyS0 2>&1 || true
+dump_file "sddm-log" /var/log/sddm.log
+dump_file "xorg-log" /var/log/Xorg.0.log
+dump_file "xsession-errors" /home/phoenix/.xsession-errors
+for path in /home/phoenix/.local/share/sddm/*; do
+    [ -f "$path" ] && dump_file "sddm-user" "$path"
+done
+log "BWOS_SESSION_DIAGNOSTICS_END"
+EOF2
+chmod 0755 /usr/local/bin/bwos-session-diagnostics-dump
+
+cat > /etc/systemd/system/bwos-session-profile.service <<'EOF2'
+[Unit]
+Description=BWOS Session Profile Selection
+Before=sddm.service
+After=systemd-user-sessions.service local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bwos-session-profile-apply
+
+[Install]
+WantedBy=graphical.target
+EOF2
+
+cat > /etc/systemd/system/bwos-session-diagnostics.service <<'EOF2'
+[Unit]
+Description=BWOS SDDM to Plasma Handoff Diagnostics
+After=sddm.service graphical.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/bwos-session-diagnostics-dump
+
+[Install]
+WantedBy=graphical.target
+EOF2
+
+systemctl enable bwos-session-profile.service >/dev/null 2>&1 || true
+systemctl enable bwos-session-diagnostics.service >/dev/null 2>&1 || true

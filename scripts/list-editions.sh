@@ -12,6 +12,9 @@ for dir in "$EDITIONS_DIR"/*/; do
     manifest="$dir/edition.yaml"
     
     [ -f "$manifest" ] || continue
+    if grep -Eq '^[[:space:]]*status:[[:space:]]*archived[[:space:]]*$' "$manifest"; then
+        continue
+    fi
     
     id=$(sed -n 's/^[[:space:]]*id:[[:space:]]*//p' "$manifest" | sed 's/^"//;s/"$//')
     display_name=$(sed -n 's/^[[:space:]]*display_name:[[:space:]]*//p' "$manifest" | sed 's/^"//;s/"$//')

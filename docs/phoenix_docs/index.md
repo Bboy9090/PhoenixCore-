@@ -1,8 +1,7 @@
 # PhoenixDocs Knowledge Base
 
 The Phoenix Key ships with a fully offline documentation hub designed for field technicians who need clear guidance without an
-internet connection. Each guide in this collection maps directly to the operational flows defined in the [Legendary Forge Bluep
-rint](../phoenix_key_legendary_blueprint.md) and can be rendered as HTML for the Phoenix Web GUI or viewed locally as Markdown.
+internet connection. Each guide in this collection maps directly to the operational flows defined in the [Legendary Recovery Blueprint](../phoenix_key_legendary_blueprint.md) and can be rendered as HTML for the Phoenix Web GUI or viewed locally as Markdown.
 
 ## How to Use This Library
 

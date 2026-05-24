@@ -11,12 +11,20 @@ BUILD_DIR="${PHOENIX_OS_ARTIFACT_DIR:-$PHOENIX_OS_DIR/build}"
 LIVE_BUILD_DIR="$PHOENIX_OS_DIR/live-build"
 BUILD_WORK_DIR="/home/phoenix-builder/build-workspace"
 EDITION_STAGING_DIR="${PHOENIX_EDITION_STAGING_DIR:-/workspace/os/phoenix-os/cache/edition-staging/live-build-config}"
+LOGGER_SCRIPT="${PHOENIX_BUILD_LOGGER_SCRIPT:-$SCRIPT_DIR/build-logger.sh}"
 
 # Default parameters
 MODE="release"
 ARCH="amd64"
+LINUX_FLAVOUR=""
+BOOTLOADER="grub-efi"
 CLEAN_MODE="stage" # Options: none, stage, all
 NO_CACHE=false
+TELEMETRY_ENABLED=false
+BUILD_TELEMETRY_FINALIZED=false
+BUILD_FINAL_ARTIFACT=""
+BUILD_FINAL_SHA256=""
+BUILD_FINAL_SIZE=""
 
 # Support both --clean (legacy boolean) and --clean=mode (PR32 syntax)
 while [[ "$#" -gt 0 ]]; do
@@ -27,6 +35,14 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --arch)
       ARCH="$2"
+      shift 2
+      ;;
+    --linux-flavour)
+      LINUX_FLAVOUR="$2"
+      shift 2
+      ;;
+    --bootloader)
+      BOOTLOADER="$2"
       shift 2
       ;;
     --clean=*)
@@ -48,20 +64,64 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
+if [[ -z "$LINUX_FLAVOUR" ]]; then
+  case "$ARCH" in
+    amd64) LINUX_FLAVOUR="amd64" ;;
+    arm64) LINUX_FLAVOUR="arm64" ;;
+    i386) LINUX_FLAVOUR="686" ;;
+    *)
+      echo "[FAIL] Unsupported architecture: $ARCH"
+      exit 1
+      ;;
+  esac
+fi
+
+if [[ -n "${PHOENIX_BUILD_STATE_JSON:-}" && -f "$LOGGER_SCRIPT" ]]; then
+  # shellcheck source=/dev/null
+  source "$LOGGER_SCRIPT"
+  phoenix_build_logger_state_sync_shell
+  TELEMETRY_ENABLED=true
+fi
+
+function finalize_build_telemetry() {
+  local exit_code="$1"
+
+  if [[ "$TELEMETRY_ENABLED" != true || "$BUILD_TELEMETRY_FINALIZED" == true ]]; then
+    return 0
+  fi
+
+  if [[ "$exit_code" -eq 0 ]]; then
+    if [[ ! -f "${PHOENIX_BUILD_SUMMARY_JSON:-}" ]]; then
+      phoenix_build_logger_finalize "completed" "" "$BUILD_FINAL_ARTIFACT" "$BUILD_FINAL_SHA256" "$BUILD_FINAL_SIZE"
+    fi
+  else
+    if [[ -z "${PHOENIX_BUILD_FAILURE_CLASS:-}" ]]; then
+      phoenix_build_logger_error "Build exited before summary generation." "${PHOENIX_BUILD_CURRENT_PHASE:-unknown}" "wrapper_script_failure"
+    fi
+    phoenix_build_logger_finalize "failed" "${PHOENIX_BUILD_FAILURE_CLASS:-wrapper_script_failure}" "$BUILD_FINAL_ARTIFACT" "$BUILD_FINAL_SHA256" "$BUILD_FINAL_SIZE"
+  fi
+
+  BUILD_TELEMETRY_FINALIZED=true
+}
+
+trap 'finalize_build_telemetry $?' EXIT
+
 echo "=== Phoenix OS ISO Build Entrypoint ==="
 echo "[INFO] Phoenix OS directory: $PHOENIX_OS_DIR"
 echo "[INFO] Artifact directory: $BUILD_DIR"
 echo "[INFO] Mode: $MODE"
 echo "[INFO] Arch: $ARCH"
+echo "[INFO] Linux Flavour: $LINUX_FLAVOUR"
+echo "[INFO] Bootloader: $BOOTLOADER"
 echo "[INFO] Clean Mode: $CLEAN_MODE"
 echo "[INFO] No-Cache: $NO_CACHE"
 
 # Check APT proxy setup
 PROXY_STATUS="Not Used"
-APT_PROXY_ARG=""
+APT_PROXY_ARGS=()
 if [[ -n "${PHOENIX_APT_PROXY:-}" ]]; then
   echo "[INFO] APT proxy specified: $PHOENIX_APT_PROXY"
-  APT_PROXY_ARG="--apt-http-proxy $PHOENIX_APT_PROXY"
+  APT_PROXY_ARGS+=(--apt-http-proxy "$PHOENIX_APT_PROXY")
   PROXY_STATUS="$PHOENIX_APT_PROXY"
 else
   echo "[INFO] No APT proxy specified. Using direct connection."
@@ -106,7 +166,6 @@ else
 fi
 
 # 1A. Reset transient edition overlay files in the workspace to prevent stale carry-over.
-rm -f "$BUILD_WORK_DIR/config/package-lists/edition.list.chroot"
 rm -rf "$BUILD_WORK_DIR/config/includes.chroot/etc/bwos/edition"
 rm -rf "$BUILD_WORK_DIR/config/includes.chroot/usr/share/plymouth/themes/phoenix"
 rm -rf "$BUILD_WORK_DIR/config/includes.chroot/usr/share/sddm/themes/phoenix"
@@ -144,6 +203,14 @@ elif [[ "$MODE" == "recovery" || "$MODE" == "release" || "$MODE" == "full" || "$
 else
   echo "[FAIL] Unsupported build mode: $MODE"
   exit 1
+fi
+
+if [[ "$ARCH" == "arm64" ]]; then
+  if grep -qx 'memtest86+' "$PKG_DEST_DIR/phoenix.list.chroot"; then
+    echo "[INFO] Removing memtest86+ from arm64 package list (package unavailable on arm64)."
+    grep -vx 'memtest86+' "$PKG_DEST_DIR/phoenix.list.chroot" > "$PKG_DEST_DIR/phoenix.list.chroot.tmp"
+    mv "$PKG_DEST_DIR/phoenix.list.chroot.tmp" "$PKG_DEST_DIR/phoenix.list.chroot"
+  fi
 fi
 
 echo "[INFO] Staging branding assets and safety rules..."
@@ -198,16 +265,61 @@ START_TIME=$(date +%s)
   fi
 
   # Run lb config to ensure everything is initialized for the target architecture
-  lb config --architecture "$ARCH" ${APT_PROXY_ARG}
-  sudo lb build
+  export PHOENIX_LIVE_ARCHITECTURE="$ARCH"
+  export PHOENIX_LIVE_LINUX_FLAVOUR="$LINUX_FLAVOUR"
+  export PHOENIX_LIVE_BOOTLOADER="$BOOTLOADER"
+  lb_config_args=(
+    config
+    --architecture "$ARCH"
+    --linux-flavours "$LINUX_FLAVOUR"
+    --bootloader "$BOOTLOADER"
+    --apt-options "--yes -oAcquire::Retries=8 -oAcquire::http::Timeout=30 -oAcquire::https::Timeout=30"
+  )
+  if [[ "${#APT_PROXY_ARGS[@]}" -gt 0 ]]; then
+    lb_config_args+=("${APT_PROXY_ARGS[@]}")
+  fi
+  lb "${lb_config_args[@]}"
+
+  if [[ "$TELEMETRY_ENABLED" == true ]]; then
+    phoenix_build_logger_phase_start "debootstrap" "Live-build bootstrap and package assembly started."
+  fi
+
+  trace_live_build() {
+    set +e
+    sudo lb build 2>&1 | while IFS= read -r line; do
+      printf '%s\n' "$line"
+      if [[ "$TELEMETRY_ENABLED" == true ]]; then
+        phoenix_build_logger_observe_line "$line"
+      fi
+    done
+    local lb_status="${PIPESTATUS[0]}"
+    set -e
+    return "$lb_status"
+  }
+
+  trace_live_build
 )
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 
-mapfile -t built_isos < <(find "$BUILD_WORK_DIR" -maxdepth 1 -type f -name "*.iso" -print | sort)
+mapfile -t built_isos < <(find "$BUILD_WORK_DIR" -maxdepth 1 -type f \( -name "*.iso" -o -name "*.img" \) -print | sort)
 if [[ "${#built_isos[@]}" -eq 0 ]]; then
   echo "[FAIL] live-build completed without producing an ISO."
+  if [[ "$TELEMETRY_ENABLED" == true ]]; then
+    phoenix_build_logger_error "live-build completed without producing an artifact." "${PHOENIX_BUILD_CURRENT_PHASE:-unknown}" "artifact_missing"
+  fi
   exit 1
+fi
+
+CANONICAL_ARTIFACT_TARGET="${PHOENIX_BUILD_ARTIFACT_TARGET:-}"
+PRIMARY_SOURCE_ARTIFACT="${built_isos[0]}"
+if [[ -n "$CANONICAL_ARTIFACT_TARGET" ]]; then
+  for candidate in "${built_isos[@]}"; do
+    if [[ "$(basename "$candidate")" == "$CANONICAL_ARTIFACT_TARGET" ]]; then
+      PRIMARY_SOURCE_ARTIFACT="$candidate"
+      break
+    fi
+  done
 fi
 
 for iso in "${built_isos[@]}"; do
@@ -216,10 +328,26 @@ for iso in "${built_isos[@]}"; do
   # Standard name or custom architecture name
   DEST="$BUILD_DIR/$ISO_NAME"
   cp "$iso" "$DEST"
+  CANONICAL_DEST="$DEST"
+  if [[ -n "$CANONICAL_ARTIFACT_TARGET" ]]; then
+    CANONICAL_DEST="$BUILD_DIR/$CANONICAL_ARTIFACT_TARGET"
+  fi
   
   # Also create a mode/arch friendly named link/file for easy user discovery
-  FRIENDLY_NAME="phoenix-os-${MODE}-${ARCH}.iso"
-  cp "$iso" "$BUILD_DIR/$FRIENDLY_NAME"
+  ARTIFACT_EXT="${ISO_NAME##*.}"
+  if [[ -z "$ARTIFACT_EXT" || "$ARTIFACT_EXT" == "$ISO_NAME" ]]; then
+    ARTIFACT_EXT="iso"
+  fi
+  FRIENDLY_NAME="phoenix-os-${MODE}-${ARCH}.${ARTIFACT_EXT}"
+  if [[ "$BUILD_DIR/$FRIENDLY_NAME" != "$DEST" ]]; then
+    cp "$iso" "$BUILD_DIR/$FRIENDLY_NAME"
+  fi
+  if [[ "$iso" == "$PRIMARY_SOURCE_ARTIFACT" ]]; then
+    if [[ "$CANONICAL_DEST" != "$DEST" ]]; then
+      cp "$iso" "$CANONICAL_DEST"
+    fi
+    BUILD_FINAL_ARTIFACT="$CANONICAL_DEST"
+  fi
   
   if [[ -f "$DEST" ]]; then
     SIZE=$(stat -c%s "$DEST" 2>/dev/null || stat -f%z "$DEST")
@@ -232,6 +360,21 @@ for iso in "${built_isos[@]}"; do
     echo "[OK] SHA256: $SHA256"
     echo "[OK] Build Duration: ${DURATION}s"
     echo "[OK] APT Cache Proxy: $PROXY_STATUS"
+
+    if [[ "$iso" == "$PRIMARY_SOURCE_ARTIFACT" ]]; then
+      BUILD_FINAL_SHA256="$SHA256"
+      BUILD_FINAL_SIZE="$SIZE"
+    fi
+
+    if [[ "$TELEMETRY_ENABLED" == true ]]; then
+      phoenix_build_logger_event "artifact" "info" "artifact_registration" "Artifact copied to canonical destination." "{\"source\":\"$iso\",\"path\":\"$DEST\",\"friendly_name\":\"$FRIENDLY_NAME\"}"
+      if [[ "$iso" == "$PRIMARY_SOURCE_ARTIFACT" ]]; then
+        phoenix_build_logger_phase_start "checksum_generation" "Generating canonical artifact checksum."
+        phoenix_build_logger_event "artifact" "info" "checksum_generation" "Artifact checksum generated." "{\"path\":\"$CANONICAL_DEST\",\"sha256\":\"$SHA256\",\"size_bytes\":$SIZE}"
+        phoenix_build_logger_phase_start "artifact_registration" "Artifact registered in build output."
+        phoenix_build_logger_event "artifact" "info" "artifact_registration" "Artifact registered and ready for registry update." "{\"path\":\"$CANONICAL_DEST\"}"
+      fi
+    fi
     
     # Save back new packages to persistent cache if caching is active
     if [[ "$NO_CACHE" == "false" ]]; then
@@ -241,15 +384,21 @@ for iso in "${built_isos[@]}"; do
     fi
     
     # Non-destructive validation
-    echo "[INFO] Validating ISO structure..."
+    echo "[INFO] Validating artifact structure..."
     file "$DEST"
     if command -v xorriso >/dev/null 2>&1; then
       xorriso -indev "$DEST" -report_el_torito plain -report_system_area plain
     fi
   else
-    echo "[FAIL] Failed to copy ISO to $DEST"
+    echo "[FAIL] Failed to copy artifact to $DEST"
     exit 1
   fi
 done
 
-echo "=== Phoenix OS ISO Build Entrypoint Complete ==="
+if [[ "$TELEMETRY_ENABLED" == true ]]; then
+  phoenix_build_logger_phase_start "cleanup" "Final cleanup and telemetry summary generation."
+  phoenix_build_logger_finalize "completed" "" "$BUILD_FINAL_ARTIFACT" "$BUILD_FINAL_SHA256" "$BUILD_FINAL_SIZE"
+  BUILD_TELEMETRY_FINALIZED=true
+fi
+
+echo "=== Phoenix OS Artifact Build Entrypoint Complete ==="

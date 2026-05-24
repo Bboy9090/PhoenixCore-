@@ -1,229 +1,142 @@
-import { useState, useEffect } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+/**
+ * Recipe Export — Standalone screen, no required props.
+ * Generates a shareable recipe from local state or shows placeholder.
+ */
+import { useState } from 'react';
+import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { useColors } from '@/hooks/use-colors';
-import { generateRecipeQRCode, exportRecipeAsJSON as exportToJSON, getRecipeFilename as getFilename } from '@/lib/qr-utils';
-import { DeploymentRecipe } from '@/hooks/use-phoenix-api';
+import { buildRecipe, scanUSBDevices, SelectedOSItem, SelectedToolItem } from '@/lib/phoenix-engine';
 
-interface RecipeExportScreenProps {
-  recipe: DeploymentRecipe;
-  onClose: () => void;
-}
+const SAMPLE_OS: SelectedOSItem[] = [
+  { id: 'win10', name: 'Windows 10', version: '22H2', sizeGB: 5.8, color: '#0078D4', category: 'windows' },
+];
+const SAMPLE_TOOLS: SelectedToolItem[] = [
+  { id: 'medicat', name: 'MediCat USB', sizeGB: 25, color: '#E53935', category: 'recovery' },
+];
 
-export default function RecipeExportScreen({ recipe, onClose }: RecipeExportScreenProps) {
+export default function RecipeExportScreen() {
   const colors = useColors();
-  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'qr' | 'json'>('qr');
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    generateQRCode();
-  }, []);
+  const devices = scanUSBDevices();
+  const recipe = buildRecipe('pc-laptop', devices[0] ?? null, SAMPLE_OS, SAMPLE_TOOLS);
 
-  const generateQRCode = async () => {
-    setIsGenerating(true);
+  const recipeJSON = JSON.stringify({
+    id: recipe.id,
+    name: recipe.name,
+    created: recipe.createdAt,
+    device: recipe.deviceType,
+    target: recipe.targetDevice?.name ?? 'No device',
+    os: recipe.selectedOS.map(o => o.name),
+    tools: recipe.selectedTools.map(t => t.name),
+    totalSizeGB: recipe.totalSizeGB.toFixed(2),
+    estimatedMinutes: recipe.estimatedMinutes,
+    partitionScheme: recipe.partitionScheme,
+    bootloader: recipe.bootloader,
+  }, null, 2);
+
+  const handleCopy = async () => {
     try {
-      const url = await generateRecipeQRCode(recipe);
-      setQrCodeUrl(url);
-    } catch (error) {
-      console.error('QR code generation failed:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleDownloadJSON = () => {
-    const json = exportToJSON(recipe);
-    const filename = getFilename(recipe);
-
-    // Create blob and download
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleCopyToClipboard = async () => {
-    const json = exportToJSON(recipe);
-    try {
-      await navigator.clipboard.writeText(json);
-      alert('Recipe copied to clipboard!');
-    } catch (error) {
-      console.error('Failed to copy:', error);
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(recipeJSON);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* silently fail on native */
     }
   };
 
   return (
-    <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+    <ScreenContainer>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View className="mb-6">
-          <Text className="text-3xl font-bold text-foreground mb-2">Export Recipe</Text>
-          <Text className="text-muted">
-            Share your USB recipe with others or use on desktop
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: '#00d2ff', marginBottom: 4 }}>
+            ⚡ Export Recipe
+          </Text>
+          <Text style={{ color: colors.muted, fontSize: 14 }}>
+            Share your USB build recipe
           </Text>
         </View>
 
-        {/* Format Selector */}
-        <View className="flex-row gap-3 mb-6">
-          <TouchableOpacity
-            onPress={() => setExportFormat('qr')}
-            className={`flex-1 py-3 rounded-lg border-2 items-center ${
-              exportFormat === 'qr'
-                ? 'border-primary bg-primary/10'
-                : 'border-border bg-surface'
-            }`}
-          >
-            <Text className={`font-semibold ${exportFormat === 'qr' ? 'text-primary' : 'text-muted'}`}>
-              QR Code
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setExportFormat('json')}
-            className={`flex-1 py-3 rounded-lg border-2 items-center ${
-              exportFormat === 'json'
-                ? 'border-primary bg-primary/10'
-                : 'border-border bg-surface'
-            }`}
-          >
-            <Text className={`font-semibold ${exportFormat === 'json' ? 'text-primary' : 'text-muted'}`}>
-              JSON File
-            </Text>
-          </TouchableOpacity>
+        {/* Recipe Card */}
+        <View style={{
+          backgroundColor: '#0a0e1a',
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: 'rgba(0,210,255,0.25)',
+          padding: 20,
+          marginBottom: 20,
+        }}>
+          <Text style={{ color: '#ffd700', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 12 }}>
+            RECIPE SUMMARY
+          </Text>
+          {[
+            { label: 'Name', value: recipe.name },
+            { label: 'Device Type', value: recipe.deviceType },
+            { label: 'Target USB', value: recipe.targetDevice?.name ?? 'None selected' },
+            { label: 'OS Images', value: recipe.selectedOS.map(o => o.name).join(', ') || 'None' },
+            { label: 'Tools', value: recipe.selectedTools.map(t => t.name).join(', ') || 'None' },
+            { label: 'Total Size', value: `${recipe.totalSizeGB.toFixed(1)} GB` },
+            { label: 'Est. Time', value: `~${recipe.estimatedMinutes} min` },
+            { label: 'Partition', value: recipe.partitionScheme.toUpperCase() },
+            { label: 'Bootloader', value: recipe.bootloader.toUpperCase() },
+          ].map(({ label, value }) => (
+            <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+              <Text style={{ color: colors.muted, fontSize: 13 }}>{label}</Text>
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600', maxWidth: '60%', textAlign: 'right' }}>{value}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* QR Code Export */}
-        {exportFormat === 'qr' && (
-          <View className="items-center mb-8">
-            {isGenerating ? (
-              <View className="w-64 h-64 items-center justify-center bg-surface rounded-xl border-2 border-border">
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text className="mt-4 text-muted">Generating QR code...</Text>
-              </View>
-            ) : qrCodeUrl ? (
-              <View className="items-center">
-                <Image
-                  source={{ uri: qrCodeUrl }}
-                  style={{ width: 256, height: 256 }}
-                  className="rounded-xl border-2 border-border mb-4"
-                />
-                <Text className="text-center text-muted text-sm max-w-xs">
-                  Scan this QR code on your desktop to import the recipe
-                </Text>
-              </View>
-            ) : (
-              <TouchableOpacity
-                onPress={generateQRCode}
-                className="w-64 h-64 items-center justify-center bg-surface rounded-xl border-2 border-border"
-              >
-                <Text className="text-4xl mb-2">📱</Text>
-                <Text className="text-foreground font-semibold">Tap to Generate QR Code</Text>
-              </TouchableOpacity>
-            )}
-
-            {qrCodeUrl && (
-              <TouchableOpacity
-                onPress={() => {
-                  // TODO: Implement QR code download
-                  alert('QR code download coming soon');
-                }}
-                className="mt-6 w-full py-3 rounded-full bg-primary items-center"
-              >
-                <Text className="text-background font-semibold">Download QR Code</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* JSON Export */}
-        {exportFormat === 'json' && (
-          <View className="mb-8">
-            <View className="bg-surface rounded-xl p-4 border-2 border-border mb-4">
-              <Text className="text-sm text-muted mb-2">Recipe Filename</Text>
-              <Text className="text-foreground font-mono text-sm break-all">
-                {getFilename(recipe)}
-              </Text>
-            </View>
-
-            <View className="bg-surface rounded-xl p-4 border-2 border-border mb-6">
-              <Text className="text-sm text-muted mb-2">Recipe Size</Text>
-              <Text className="text-foreground font-semibold">
-                {(exportToJSON(recipe).length / 1024).toFixed(2)} KB
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={handleDownloadJSON}
-              className="w-full py-3 rounded-full bg-primary items-center mb-3"
-            >
-              <Text className="text-background font-semibold">📥 Download JSON</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleCopyToClipboard}
-              className="w-full py-3 rounded-full border-2 border-primary items-center"
-            >
-              <Text className="text-primary font-semibold">📋 Copy to Clipboard</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Recipe Summary */}
-        <View className="bg-surface rounded-xl p-4 border-2 border-border mb-6">
-          <Text className="text-lg font-semibold text-foreground mb-4">Recipe Summary</Text>
-
-          <View className="mb-3 pb-3 border-b border-border">
-            <Text className="text-xs text-muted mb-1">Name</Text>
-            <Text className="text-foreground font-semibold">{recipe.name}</Text>
-          </View>
-
-          <View className="mb-3 pb-3 border-b border-border">
-            <Text className="text-xs text-muted mb-1">Type</Text>
-            <Text className="text-foreground font-semibold">{recipe.deployment_type}</Text>
-          </View>
-
-          <View className="mb-3 pb-3 border-b border-border">
-            <Text className="text-xs text-muted mb-1">Operating Systems</Text>
-            <Text className="text-foreground font-semibold">{recipe.os_images.length} selected</Text>
-          </View>
-
-          <View className="mb-3 pb-3 border-b border-border">
-            <Text className="text-xs text-muted mb-1">Tools</Text>
-            <Text className="text-foreground font-semibold">{recipe.tools.length} selected</Text>
-          </View>
-
-          <View>
-            <Text className="text-xs text-muted mb-1">Total Size</Text>
-            <Text className="text-foreground font-semibold">
-              {recipe.metadata.total_size_gb.toFixed(1)} GB
-            </Text>
-          </View>
-        </View>
-
-        {/* Instructions */}
-        <View className="bg-primary/10 rounded-xl p-4 border-2 border-primary/20 mb-6">
-          <Text className="text-sm font-semibold text-foreground mb-2">💡 How to Use</Text>
-          <Text className="text-sm text-muted leading-relaxed">
-            {exportFormat === 'qr'
-              ? 'On your desktop, run: python PhoenixDrive_Desktop_Consumer.py --scan-qr'
-              : 'On your desktop, run: python PhoenixDrive_Desktop_Consumer.py recipe.json --device /dev/sdb'}
+        {/* JSON Preview */}
+        <View style={{
+          backgroundColor: '#020408',
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(255,215,0,0.2)',
+          padding: 16,
+          marginBottom: 20,
+        }}>
+          <Text style={{ color: '#ffd700', fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 10 }}>
+            JSON RECIPE
+          </Text>
+          <Text style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 11, lineHeight: 18 }}>
+            {recipeJSON}
           </Text>
         </View>
 
-        {/* Close Button */}
+        {/* Copy Button */}
         <TouchableOpacity
-          onPress={onClose}
-          className="w-full py-3 rounded-full border-2 border-border items-center"
+          onPress={handleCopy}
+          style={{
+            backgroundColor: copied ? '#10b981' : '#00d2ff',
+            borderRadius: 14,
+            paddingVertical: 16,
+            alignItems: 'center',
+            marginBottom: 12,
+          }}
         >
-          <Text className="text-foreground font-semibold">Done</Text>
+          <Text style={{ color: '#050811', fontWeight: '800', fontSize: 16 }}>
+            {copied ? '✅ Copied!' : '📋 Copy to Clipboard'}
+          </Text>
         </TouchableOpacity>
+
+        <View style={{
+          backgroundColor: 'rgba(157,78,221,0.1)',
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(157,78,221,0.3)',
+          padding: 16,
+        }}>
+          <Text style={{ color: '#9d4edd', fontWeight: '700', marginBottom: 6 }}>💡 How to Use</Text>
+          <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 20 }}>
+            Copy this recipe and import it in the Phoenix Core desktop app. The desktop app will flash your USB drive with all selected OS images and tools.
+          </Text>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );
 }
-
-

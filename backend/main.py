@@ -25,6 +25,7 @@ logger = logging.getLogger("phoenix-core")
 from core.device_scanner import scan_usb_devices, get_device_by_path
 from core.hardware_profiler import get_hardware_profile
 from core.system_monitor import get_system_metrics, get_usb_activity
+from core.usb_low_level import scan_low_level_usb_devices
 from core.usb_builder import (
     RECIPES, validate_safety, start_build, get_build_progress,
     cancel_job, list_jobs, get_job,
@@ -84,6 +85,7 @@ async def health():
         "python_version": platform.python_version(),
         "features": {
             "usb_detection": True,
+            "usb_low_level_detection": platform.system().lower() in {"linux", "darwin", "windows"},
             "hardware_profiling": True,
             "system_monitoring": True,
             "usb_creation": True,
@@ -109,6 +111,19 @@ async def list_devices():
         return result
     except Exception as e:
         logger.error(f"Device scan error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/devices/usb/low-level", tags=["Devices"])
+async def list_low_level_usb_devices():
+    """
+    Enumerate raw USB devices using descriptor-level discovery.
+    This is the BootForge-style read-only hardware view, separate from storage media scanning.
+    """
+    try:
+        return scan_low_level_usb_devices()
+    except Exception as e:
+        logger.error(f"Low-level USB scan error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

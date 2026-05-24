@@ -6,5 +6,5 @@ forensic-toolset
 wireshark-cli
 tcpdump
 nmap
-ghidra-headless
+binwalk
 sleuthkit

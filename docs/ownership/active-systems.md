@@ -162,7 +162,7 @@ This document labels current systems in place. Migration status in PR4 is "not m
 - Current entrypoint: no executable entrypoint found at top level; related source entrypoint exists at `legacy/bootable_usb/BootForge/main.py`.
 - Future target: `apps/bootforge/`, `apps/phoenix-key/`, and `os/phoenix-os/branding/` after ownership split.
 - Migration status: reference/assets, not moved.
-- Preserve: Phoenix Forge/Phoenix Key marks, tokens, wordmarks, boot media clues.
+- Preserve: Phoenix-era marks, Phoenix Key tokens, wordmarks, and boot media clues.
 - Archive: stale or duplicate USB payloads after brand/source extraction.
 - Must not duplicate: Phoenix Key branding or BootForge media layout in multiple active locations.
 - Known risks: assets can drift from canonical Phoenix OS branding.

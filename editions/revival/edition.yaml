@@ -5,6 +5,8 @@ edition_type: "recovery"
 tagline: "Recovery. Rescue. Reborn."
 description: "Sovereign recovery environment with diagnostic scanners and isolated technician workspaces."
 inherits_core_safety_rules: true
+archived: true
+archive_reason: "Merged into ARCWYRE recovery workflows and technician rescue flows."
 
 theme:
   colors:
@@ -22,6 +24,7 @@ branding:
   path: "branding.md"
   logo: "assets/revival-logo.png"
   wallpaper: "assets/revival-background.png"
+  splash: "assets/revival-background.png"
 
 packages:
   profile: "package-profile.txt"

@@ -5,6 +5,8 @@ edition_type: "hardened"
 tagline: "Security. Stability. Strength."
 description: "Hardened, high-security edition with strict containment, sandboxed applications, and audit rules."
 inherits_core_safety_rules: true
+archived: true
+archive_reason: "Merged into the platform safety doctrine, recovery hardening, and session continuity behaviors."
 
 theme:
   colors:
@@ -22,6 +24,7 @@ branding:
   path: "branding.md"
   logo: "assets/resilient-logo.png"
   wallpaper: "assets/resilient-background.png"
+  splash: "assets/resilient-background.png"
 
 packages:
   profile: "package-profile.txt"

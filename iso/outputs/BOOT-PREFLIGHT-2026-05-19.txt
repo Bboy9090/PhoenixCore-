@@ -1,0 +1,45 @@
+Blue Phoenix OS - Boot Preflight
+Generated: 2026-05-19T02:27:52Z
+
+[bwos-aurelia.iso]
+  MISSING  /EFI/BOOT/BOOTX64.EFI
+  OK  /boot/grub/grub.cfg
+  MISSING  /live/vmlinuz
+  MISSING  /live/initrd.img
+  OK  /live/filesystem.squashfs
+
+[bwos-forge.iso]
+  MISSING  /EFI/BOOT/BOOTX64.EFI
+  OK  /boot/grub/grub.cfg
+  MISSING  /live/vmlinuz
+  MISSING  /live/initrd.img
+  OK  /live/filesystem.squashfs
+
+[bwos-home.iso]
+  MISSING  /EFI/BOOT/BOOTX64.EFI
+  OK  /boot/grub/grub.cfg
+  MISSING  /live/vmlinuz
+  MISSING  /live/initrd.img
+  OK  /live/filesystem.squashfs
+
+[bwos-resilient.iso]
+  MISSING  /EFI/BOOT/BOOTX64.EFI
+  OK  /boot/grub/grub.cfg
+  MISSING  /live/vmlinuz
+  MISSING  /live/initrd.img
+  OK  /live/filesystem.squashfs
+
+[bwos-revival.iso]
+  MISSING  /EFI/BOOT/BOOTX64.EFI
+  OK  /boot/grub/grub.cfg
+  MISSING  /live/vmlinuz
+  MISSING  /live/initrd.img
+  OK  /live/filesystem.squashfs
+
+[bwos-thunder-god.iso]
+  MISSING  /EFI/BOOT/BOOTX64.EFI
+  OK  /boot/grub/grub.cfg
+  MISSING  /live/vmlinuz
+  MISSING  /live/initrd.img
+  OK  /live/filesystem.squashfs
+

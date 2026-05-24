@@ -5,6 +5,8 @@ edition_type: "technician"
 tagline: "Tools. Workflows. Mastery."
 description: "The industrial technician workstation tailored for heavy fieldwork and automated configurations."
 inherits_core_safety_rules: true
+archived: true
+archive_reason: "Merged into Thunder God performance/tooling layers and ARCWYRE technician workflows."
 
 theme:
   colors:
@@ -22,6 +24,7 @@ branding:
   path: "branding.md"
   logo: "assets/forge-hammer.png"
   wallpaper: "assets/industrial-bay.png"
+  splash: "assets/industrial-bay.png"
 
 packages:
   profile: "package-profile.txt"
