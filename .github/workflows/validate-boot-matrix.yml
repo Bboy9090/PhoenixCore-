@@ -21,30 +21,4 @@ jobs:
 
       - name: Check Macbook Target Map Sanity
         run: |
-          python -c "
-          import re, sys
-          app_file = 'dashboard/src/App.jsx'
-          try:
-              with open(app_file, 'r', encoding='utf-8') as fh:
-                  content = fh.read()
-              models = re.findall(r'\'(MacBook[A-Za-z0-9,]+.*?)\'', content)
-              imacs = re.findall(r'\'(iMac[A-Za-z0-9,]+.*?)\'', content)
-              macminis = re.findall(r'\'(Macmini[A-Za-z0-9,]+.*?)\'', content)
-              macpros = re.findall(r'\'(MacPro[A-Za-z0-9,]+.*?)\'', content)
-              
-              total_models = len(models) + len(imacs) + len(macminis) + len(macpros)
-              print(f'[+] Detected {total_models} MacBook hardware models mapped in App.jsx')
-              if total_models < 10:
-                  print('[-] Error: Underpopulated model matrix mapping!')
-                  sys.exit(1)
-          except FileNotFoundError:
-              print(f'[*] Warning: {app_file} not found or skipped in local check path.')
-          "
-
-      - name: Parse and Validate Boot Shim Manifests
-        run: |
-          # Dry run check of efi and grub validation logic (if scripts exist)
-          python -c "
-          import os
-          print('[+] Verifying that EFI secure boot configuration maps exist...')
-          "
+          python .github/workflows/scripts/validate_boot_matrix.py
