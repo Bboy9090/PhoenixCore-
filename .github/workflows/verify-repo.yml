@@ -1,0 +1,65 @@
+name: Verify Repository
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  verify-python:
+    name: Verify Python Core
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Linters
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black
+
+      - name: Check Formatting (Black)
+        run: |
+          black --check --diff . --exclude "node_modules|dist"
+
+      - name: Lint with Flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=node_modules,dist
+          # exit-zero treats all errors as warnings
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=node_modules,dist
+
+  verify-dashboard:
+    name: Verify React Dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd dashboard
+          npm ci
+
+      - name: Run Linter (ESLint)
+        run: |
+          cd dashboard
+          npm run lint
+
+      - name: Verify Dashboard Build
+        run: |
+          cd dashboard
+          npm run build

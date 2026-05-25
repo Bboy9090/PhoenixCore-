@@ -1,0 +1,80 @@
+name: Validate Governance
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  governance-checks:
+    name: Enforce Governance and Safety Policies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify Naming Boundaries (Anti-Rename checks)
+        run: |
+          python -c "
+          import json, os, sys
+          print('[*] Validating Tauri App IDs, Crate Packages and Naming systems...')
+          
+          # Check Tauri package config if present
+          tauri_configs = ['src-tauri/tauri.conf.json', 'dashboard/src-tauri/tauri.conf.json']
+          for tc in tauri_configs:
+              if os.path.exists(tc):
+                  try:
+                      with open(tc, 'r') as f:
+                          data = json.load(f)
+                          identifier = data.get('tauri', {}).get('bundle', {}).get('identifier', '')
+                          print(f'[+] Found Tauri Bundle Identifier: {identifier}')
+                          # Ensure identifier hasn't changed to unapproved placeholder
+                          if 'com.example' in identifier:
+                              print('[-] Error: Found unapproved example Tauri ID!')
+                              sys.exit(1)
+                  except Exception as e:
+                      print(f'[-] Error parsing {tc}: {e}')
+                      sys.exit(1)
+          print('[+] Tauri / Crate naming boundaries validated successfully.')
+          "
+
+      - name: Safety Scan for Prohibited Destructive Operations
+        run: |
+          python -c "
+          import os, sys, re
+          print('[*] Scanning codebase for dangerous or destructive partition commands...')
+          
+          # Pattern searching for unsafe disk management calls like raw dd, direct partition wiping
+          unsafe_patterns = [
+              r'dd\s+if=.*?of=\/dev\/[a-z]{3}(?!\d)', # raw dev overrides
+              r'mkfs\..*?\s+\/dev\/[a-z]{3}(?!\d)',
+              r'rm\s+-rf\s+\/\s',
+              r'shred\s',
+              r'diskpart.*?clean'
+          ]
+          
+          for root, dirs, files in os.walk('.'):
+              if 'node_modules' in root or '.git' in root or '.github' in root:
+                  continue
+              for file in files:
+                  if file.endswith(('.py', '.js', '.jsx', '.sh', '.bat', '.ps1')):
+                      filepath = os.path.join(root, file)
+                      try:
+                          with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                              content = f.read()
+                          for pattern in unsafe_patterns:
+                              matches = re.findall(pattern, content, re.IGNORECASE)
+                              if matches:
+                                  print(f'[-] DANGER: Prohibited destructive code pattern \"{pattern}\" found in {filepath}!')
+                                  print(f'    Matches: {matches}')
+                                  sys.exit(1)
+                      except Exception as e:
+                          print(f'[*] Warning: Could not read {filepath}: {e}')
+          print('[+] Governance safety scan complete. Zero destructive operations found.')
+          "

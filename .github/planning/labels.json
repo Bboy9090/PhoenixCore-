@@ -1,0 +1,97 @@
+[
+  {
+    "name": "type:epic",
+    "color": "3E2723",
+    "description": "Top-level strategic initiative or major architectural stack milestone"
+  },
+  {
+    "name": "type:feature",
+    "color": "1B5E20",
+    "description": "New functionality or capability added to a stack"
+  },
+  {
+    "name": "type:bug",
+    "color": "B71C1C",
+    "description": "Defect or issue impacting stability, boot, or functionality"
+  },
+  {
+    "name": "type:docs",
+    "color": "0D47A1",
+    "description": "Documentation, specifications, and architecture validation guides"
+  },
+  {
+    "name": "type:ci",
+    "color": "006064",
+    "description": "Continuous Integration, verification scripts, and workflow pipelines"
+  },
+  {
+    "name": "type:release",
+    "color": "4A148C",
+    "description": "Release gates, deployment checklists, and public packaging validation"
+  },
+  {
+    "name": "priority:p0",
+    "color": "FF1744",
+    "description": "Critical blocker. Must resolve immediately. Production/boot failure"
+  },
+  {
+    "name": "priority:p1",
+    "color": "FF9100",
+    "description": "High priority. Required for the milestone to ship"
+  },
+  {
+    "name": "priority:p2",
+    "color": "FFD600",
+    "description": "Medium/Low priority. Enhancements or nice-to-haves"
+  },
+  {
+    "name": "stack:os",
+    "color": "00E5FF",
+    "description": "Home Aurelia OS, ISO stability, and kernel/base environment"
+  },
+  {
+    "name": "stack:bootforge",
+    "color": "76FF03",
+    "description": "BootForge USB imaging toolkit and creator scripts"
+  },
+  {
+    "name": "stack:arcwyre",
+    "color": "D500F9",
+    "description": "ARCWYRE Recovery Toolkit and technician diagnostics suite"
+  },
+  {
+    "name": "stack:compatibility",
+    "color": "2979FF",
+    "description": "Compatibility Center for running Windows apps securely on host"
+  },
+  {
+    "name": "stack:command",
+    "color": "F50057",
+    "description": "Command & Control Center dashboard and state manager"
+  },
+  {
+    "name": "stack:apps",
+    "color": "1DE9B6",
+    "description": "App Reality Matrix and runtime layer launchers"
+  },
+  {
+    "name": "stack:native",
+    "color": "9E9D24",
+    "description": "Native research-only track, non-shipping components"
+  },
+  {
+    "name": "safety:governed",
+    "color": "E65100",
+    "description": "Regulated safety boundaries. Requires cryptographic validation"
+  },
+  {
+    "name": "status:blocked",
+    "color": "37474F",
+    "description": "Blocked by external issues, dependencies, or unresolved reviews"
+  },
+  {
+    "name": "status:ready",
+    "color": "00C853",
+    "description": "Ready for implementation or integration verification"
+  }
+]

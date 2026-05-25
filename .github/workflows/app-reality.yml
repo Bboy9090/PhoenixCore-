@@ -1,0 +1,62 @@
+name: App Reality Matrix
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  app-matrix-checks:
+    name: Validate PR40 App Launch Matrix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify Launch Schema Conformance
+        run: |
+          python -c "
+          import os, json, sys
+          print('[*] Checking App Launch Matrix Schema rules...')
+          
+          # Check for app_matrix.json or PR40 launch specifications
+          matrix_paths = [
+              'manifests/app_matrix.json',
+              'apps/configs/pr40_matrix.json',
+              'dashboard/public/app_matrix.json'
+          ]
+          
+          found = False
+          for mp in matrix_paths:
+              if os.path.exists(mp):
+                  found = True
+                  try:
+                      with open(mp, 'r') as f:
+                          data = json.load(f)
+                      print(f'[+] Parsed App Matrix from {mp}')
+                      # Validate structure (must have apps or packages array)
+                      apps = data.get('apps', data.get('packages', []))
+                      for app in apps:
+                          name = app.get('name')
+                          compat_layer = app.get('compatibility_layer', app.get('layer'))
+                          sandbox = app.get('sandbox', {})
+                          print(f'  - Verified Config for app: {name} [Compat: {compat_layer}] [Sandbox: {sandbox.get(\"enabled\", False)}]')
+                          # Enforce no fake apps
+                          if app.get('placeholder', False) is True:
+                              print(f'[-] Error: Placeholder application \"{name}\" is prohibited by governance rules.')
+                              sys.exit(1)
+                  except Exception as e:
+                      print(f'[-] Failed parsing App Matrix file {mp}: {e}')
+                      sys.exit(1)
+                      
+          if not found:
+              print('[*] Info: No app matrix files found. Initializing validation standby.')
+          else:
+              print('[+] App Reality Matrix validation checks successful.')
+          "

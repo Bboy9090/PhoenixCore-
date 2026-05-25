@@ -1,0 +1,15 @@
+{
+  "name": "BWOS Platform Factory",
+  "description": "Unified kanban board for tracking the development, validation, packaging, and release processes of all active BWOS stacks.",
+  "columns": [
+    "Backlog",
+    "Ready",
+    "In Progress",
+    "Needs Review",
+    "Needs QA",
+    "Blocked",
+    "Packaging",
+    "Release Candidate",
+    "Done"
+  ]
+}

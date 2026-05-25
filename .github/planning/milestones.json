@@ -1,0 +1,32 @@
+[
+  {
+    "title": "M0 Home Aurelia ISO Stability",
+    "description": "Stabilize Home Aurelia core boot components, presentation markers, shutdown routines, and validate baseline ISO stability.",
+    "due_on": "2026-06-30T23:59:59Z"
+  },
+  {
+    "title": "M1 ARCWYRE / BootForge Recovery Toolkit",
+    "description": "Implement read-only technician diagnostics MVP (ARCWYRE) and BootForge Recovery USB creator utility validation.",
+    "due_on": "2026-08-31T23:59:59Z"
+  },
+  {
+    "title": "M2 Compatibility Center",
+    "description": "Develop and validate the governed Windows application compatibility layer configurations and sandboxing limits.",
+    "due_on": "2026-10-31T23:59:59Z"
+  },
+  {
+    "title": "M3 Command + App Reality Matrix",
+    "description": "Integrate the Command & Control dashboard with the App Reality Matrix launcher configuration to track active systems.",
+    "due_on": "2026-12-31T23:59:59Z"
+  },
+  {
+    "title": "M4 Release Gate + Public Alpha",
+    "description": "Establish automated release gates, verification mechanisms, cryptographic integrity checks, and prepare Public Alpha.",
+    "due_on": "2027-02-28T23:59:59Z"
+  },
+  {
+    "title": "M5 Native Research Track",
+    "description": "Ensure isolation of the Native research-only track, preventing shipping of experimental/non-shipping modules.",
+    "due_on": "2027-04-30T23:59:59Z"
+  }
+]
