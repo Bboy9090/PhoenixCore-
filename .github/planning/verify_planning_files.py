@@ -32,8 +32,8 @@ def test_markdown_parsing():
         for i, epic in enumerate(epics):
             num_issues = len(epic['child_issues'])
             print(f"    - Epic {i+1} \"{epic['title']}\": {num_issues} child issues parsed.")
-            if num_issues != 4:
-                print(f"[-] Expected 4 child issues for epic, found {num_issues}")
+            if not (3 <= num_issues <= 7):
+                print(f"[-] Expected between 3 and 7 child issues for epic, found {num_issues}")
                 sys.exit(1)
     except Exception as e:
         print(f"[-] Markdown parsing verification failed: {e}")

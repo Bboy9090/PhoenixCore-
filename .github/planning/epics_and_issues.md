@@ -196,6 +196,17 @@ This document defines the 9 Epics and 36 Child Issues comprising the planning la
 - **Blocked-by Dependencies:** Issue 4.1, Issue 4.2, Issue 4.3
 - **Safety Notes:** Absolutely DO NOT execute partition format commands on real hosts during automation.
 
+### Issue 4.5: Add checksum verification and dry-run execution framework
+- **Scope:** Dortania assets security and dry-run execution boundaries in usb_creator.py.
+- **Definition of Done:** usb_creator.py verifies SHA256 checksums of downloaded assets, implements a CLI dry-run flag mapping all directories without writing to the disk, and logs the execution flow successfully.
+- **Validation Commands:** 
+  ```bash
+  python usb_creator.py --create C:\temp_mock --dry-run
+  python -m unittest tests/test_usb_creator.py
+  ```
+- **Blocked-by Dependencies:** Issue 4.1, Issue 4.2, Issue 4.4
+- **Safety Notes:** Strictly enforce that --dry-run executes zero mkdir/write syscalls to real folders when active.
+
 ---
 
 ## Epic 5: epic(compatibility)
