@@ -102,7 +102,7 @@ class TestUSBCreator(unittest.TestCase):
 
         # Mock calculate_file_sha256 to prevent reading non-existent file
         with patch("usb_creator.calculate_file_sha256") as mock_sha:
-            mock_sha.return_value = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            mock_sha.return_value = "1339b694899a0aec51dd32b20f9e7b84df6be08aac56837a94d2bfaf806c155e"
             
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmpdir_path = Path(tmpdir)
@@ -219,16 +219,17 @@ class TestUSBCreator(unittest.TestCase):
         result = usb_creator.validate_tool_against_registry(tool_id, download_url=bad_url)
         self.assertFalse(result)
 
-    def test_validate_tool_against_registry_checksum_success(self):
+    @patch("usb_creator.calculate_file_sha256")
+    def test_validate_tool_against_registry_checksum_success(self, mock_sha):
         """Verify registry validates and approves matching cryptographic checksums."""
         tool_id = "opencore-legacy-patcher"
+        mock_sha.return_value = "1339b694899a0aec51dd32b20f9e7b84df6be08aac56837a94d2bfaf806c155e"
         
         # Create a mock empty file
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp_path = Path(tmp.name)
             
         try:
-            # Expected empty file hash e3b0c442... matches opencore-legacy-patcher expected_sha256 in catalog
             result = usb_creator.validate_tool_against_registry(tool_id, file_path=tmp_path)
             self.assertTrue(result)
         finally:
