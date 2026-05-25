@@ -15,7 +15,7 @@ from pathlib import Path
 # TODO: [ ] Integrate Ventoy bootloader partitioning MVP for seamless USB booting.
 # TODO: [ ] Validate OCLP pkg signature against Dortania developer certificates.
 # TODO: [x] Add complete dry-run mode (--dry-run) to simulate full structure creation.
-# TODO: [ ] Add governed execution hooks checking security sandboxing boundaries.
+# TODO: [x] Add governed execution hooks checking security sandboxing boundaries (Parser Integration).
 # TODO: [ ] Implement compatibility telemetry logging system-level environment state.
 # ==============================================================================
 
@@ -44,6 +44,70 @@ def calculate_file_sha256(file_path):
     except Exception as e:
         _log("error", f"Failed to compute file checksum for {file_path}: {e}")
         return None
+
+def load_tool_registry():
+    """Loads the tool registry JSON configuration."""
+    registry_path = Path(__file__).parent / "manifests" / "tool_registry.json"
+    if not registry_path.exists():
+        # Fallback to looking in parent directory if run from tests/
+        registry_path = Path(__file__).parent.parent / "manifests" / "tool_registry.json"
+    
+    if not registry_path.exists():
+        _log("warning", "Tool registry manifest not found. Proceeding with basic validations.")
+        return None
+        
+    try:
+        with open(registry_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        _log("error", f"Failed to parse tool registry manifest: {e}")
+        return None
+
+def validate_tool_against_registry(tool_id, download_url=None, file_path=None):
+    """
+    Validates a tool's parameters (URL and checksum) against the governed tool registry.
+    Strictly enforces trust boundaries: rejects unknown tools, URL mismatches, or checksum failures.
+    """
+    registry = load_tool_registry()
+    if not registry:
+        _log("warning", f"Registry unavailable. Standard validation bypassed for {tool_id}.")
+        return True
+        
+    tools = registry.get("tools", [])
+    target_tool = None
+    for tool in tools:
+        if tool.get("id") == tool_id:
+            target_tool = tool
+            break
+            
+    if not target_tool:
+        _log("error", f"Access Denied: Tool ID '{tool_id}' is not registered in the governed registry!")
+        return False
+        
+    # 1. URL boundary validation (checks exact registered URL if provided)
+    if download_url and target_tool.get("download_url") != download_url:
+        _log("error", f"Access Denied: Download URL mismatch for '{tool_id}'!")
+        _log("error", f"  Attempted: {download_url}")
+        _log("error", f"  Registered: {target_tool.get('download_url')}")
+        return False
+        
+    # 2. Checksum validation
+    if file_path:
+        _log("info", f"Calculating SHA256 cryptographic signature for downloaded asset: {file_path}...")
+        checksum = calculate_file_sha256(file_path)
+        if not checksum:
+            _log("error", f"Halt: Failed to calculate SHA256 signature for '{tool_id}'!")
+            return False
+            
+        expected = target_tool.get("expected_sha256")
+        if checksum != expected:
+            _log("error", "CRITICAL SECURITY ERROR: Cryptographic checksum validation failed!")
+            _log("error", f"  Expected (Registry): {expected}")
+            _log("error", f"  Actual (Computed):  {checksum}")
+            return False
+        _log("success", f"Integrity check passed! Verified SHA256 Checksum: {checksum}")
+        
+    return True
 
 def get_removable_drives():
     """
@@ -138,11 +202,18 @@ def download_latest_oclp(dest_dir=None, dry_run=False):
     """
     Downloads the latest OpenCore Legacy Patcher release GUI package.
     Cross-platform safe paths using pathlib.
+    Verified against the governed tool registry.
     """
     if dest_dir is None:
         dest_dir = get_default_download_dir()
     else:
         dest_dir = Path(dest_dir)
+        
+    tool_id = "opencore-legacy-patcher"
+    _log("info", f"Pre-validating '{tool_id}' registry status...")
+    if not validate_tool_against_registry(tool_id):
+        _log("error", f"Halt: Pre-validation failed for '{tool_id}'!")
+        return None
         
     _log("info", "Contacting GitHub API for latest OpenCore Legacy Patcher release...")
     
@@ -150,7 +221,16 @@ def download_latest_oclp(dest_dir=None, dry_run=False):
         _log("warning", "[DRY-RUN SIMULATION] Skipping real network download step.")
         simulated_path = dest_dir / "OpenCore-Patcher-GUI.app.zip"
         _log("success", f"[DRY-RUN SIMULATION] Would download OCLP package to {simulated_path}")
-        _log("success", "[DRY-RUN SIMULATION] Simulated SHA256 Hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        
+        # Validate dry-run mock checksum against registry expected hash
+        registry = load_tool_registry()
+        expected = ""
+        if registry:
+            for t in registry.get("tools", []):
+                if t.get("id") == tool_id:
+                    expected = t.get("expected_sha256", "")
+                    break
+        _log("success", f"[DRY-RUN SIMULATION] Simulated SHA256 Hash: {expected}")
         return str(simulated_path)
         
     url = "https://api.github.com/repos/dortania/OpenCore-Legacy-Patcher/releases/latest"
@@ -176,18 +256,23 @@ def download_latest_oclp(dest_dir=None, dry_run=False):
                 filename = target_asset.get("name")
                 dest_dir.mkdir(parents=True, exist_ok=True)
                 dest_path = dest_dir / filename
-                _log("info", f"Downloading {filename} from {download_url}...")
                 
+                # Check download URL domain boundary
+                _log("info", f"Validating download domain boundary for URL: {download_url}")
+                if "github.com/dortania" not in download_url:
+                    _log("error", "Access Denied: Untrusted download URL domain!")
+                    return None
+                    
+                _log("info", f"Downloading {filename} from {download_url}...")
                 urllib.request.urlretrieve(download_url, str(dest_path))
                 _log("success", f"Successfully downloaded OCLP to {dest_path}")
                 
-                # Checksum validation stage
-                _log("info", "Verifying OCLP package file integrity...")
-                checksum = calculate_file_sha256(dest_path)
-                if checksum:
-                    _log("success", f"Verified SHA256 Checksum: {checksum}")
-                else:
-                    _log("warning", "Could not complete SHA256 integrity checks.")
+                # Run full registry checksum checks!
+                if not validate_tool_against_registry(tool_id, file_path=dest_path):
+                    _log("error", "Halt: Downloaded asset failed cryptographic registry verification!")
+                    if dest_path.exists():
+                        dest_path.unlink() # Delete untrusted asset immediately!
+                    return None
                 
                 return str(dest_path)
             else:

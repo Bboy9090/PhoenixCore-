@@ -207,5 +207,49 @@ class TestUSBCreator(unittest.TestCase):
         except Exception as e:
             self.fail(f"Failed parsing tool_registry.json manifest: {e}")
 
+    def test_validate_tool_against_registry_unknown_tool(self):
+        """Verify registry rejects unknown/unregistered tools immediately."""
+        result = usb_creator.validate_tool_against_registry("malicious-unregistered-tool")
+        self.assertFalse(result)
+
+    def test_validate_tool_against_registry_url_mismatch(self):
+        """Verify registry rejects tools with unapproved or altered download URLs."""
+        tool_id = "opencore-legacy-patcher"
+        bad_url = "https://untrusted-domain.com/hacked-patcher.zip"
+        result = usb_creator.validate_tool_against_registry(tool_id, download_url=bad_url)
+        self.assertFalse(result)
+
+    def test_validate_tool_against_registry_checksum_success(self):
+        """Verify registry validates and approves matching cryptographic checksums."""
+        tool_id = "opencore-legacy-patcher"
+        
+        # Create a mock empty file
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            
+        try:
+            # Expected empty file hash e3b0c442... matches opencore-legacy-patcher expected_sha256 in catalog
+            result = usb_creator.validate_tool_against_registry(tool_id, file_path=tmp_path)
+            self.assertTrue(result)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+    def test_validate_tool_against_registry_checksum_failure(self):
+        """Verify registry throws critical failure and rejects mismatched cryptographic signatures."""
+        tool_id = "opencore-legacy-patcher"
+        
+        # Write custom content to cause checksum mismatch (expected empty file hash)
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            tmp.write(b"untrusted hacked content")
+            
+        try:
+            result = usb_creator.validate_tool_against_registry(tool_id, file_path=tmp_path)
+            self.assertFalse(result)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
 if __name__ == "__main__":
     unittest.main()

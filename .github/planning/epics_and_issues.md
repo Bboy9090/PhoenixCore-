@@ -218,6 +218,16 @@ This document defines the 9 Epics and 36 Child Issues comprising the planning la
 - **Blocked-by Dependencies:** Issue 4.2, Issue 4.5
 - **Safety Notes:** Do not execute download operations for unlisted or unverified tool URLs. Force-fail immediately if checksum mismatch occurs.
 
+### Issue 4.7: Replace placeholder registry hashes with real artifact verification
+- **Scope:** Cryptographic verification integrity and real-world hash mapping.
+- **Definition of Done:** Audit and replace all mock/placeholder SHA256 hashes (e.g. empty string hash `e3b0c442...`) inside `manifests/tool_registry.json` with actual computed production artifact hashes for OCLP, Rufus, and other recovery modules.
+- **Validation Commands:** 
+  ```bash
+  python -m unittest tests/test_usb_creator.py
+  ```
+- **Blocked-by Dependencies:** Issue 4.6
+- **Safety Notes:** Strictly ensure all updated hashes match public developer-signed releases. Never use fabricated scaffolding signatures.
+
 ---
 
 ## Epic 5: epic(compatibility)
