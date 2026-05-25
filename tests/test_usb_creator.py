@@ -252,5 +252,44 @@ class TestUSBCreator(unittest.TestCase):
             if tmp_path.exists():
                 tmp_path.unlink()
 
+    def test_load_tool_registry_signature_success(self):
+        """Verify the standard registry manifest detached signature verification is successful."""
+        registry = usb_creator.load_tool_registry()
+        self.assertIsNotNone(registry)
+        self.assertEqual("BootForge Trusted Recovery Tool Registry", registry.get("name"))
+
+    def test_load_tool_registry_signature_failure_on_tamper(self):
+        """Verify that tampering with the tool registry JSON causes a critical security halt (SystemExit)."""
+        registry_path = Path(usb_creator.__file__).parent / "manifests" / "tool_registry.json"
+        if not registry_path.exists():
+            registry_path = Path(usb_creator.__file__).parent.parent / "manifests" / "tool_registry.json"
+            
+        original_content = registry_path.read_bytes()
+        tampered_content = original_content + b"\n# malicious append"
+        
+        # Temporarily mock the file read to simulate tampering
+        with patch.object(Path, "read_bytes", return_value=tampered_content):
+            with self.assertRaises(SystemExit) as context:
+                usb_creator.load_tool_registry()
+            self.assertEqual(1, context.exception.code)
+
+    def test_load_tool_registry_signature_failure_on_missing_sig(self):
+        """Verify that a missing detached signature file causes an immediate critical security halt."""
+        call_count = 0
+        
+        def mock_exists(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            # First two calls are for registry_path.exists()
+            if call_count <= 2:
+                return True
+            # Third call is for sig_path.exists() -> simulate missing (.sig) file
+            return False
+            
+        with patch.object(Path, "exists", side_effect=mock_exists):
+            with self.assertRaises(SystemExit) as context:
+                usb_creator.load_tool_registry()
+            self.assertEqual(1, context.exception.code)
+
 if __name__ == "__main__":
     unittest.main()
