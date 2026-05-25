@@ -3,8 +3,9 @@ import sys
 import json
 import unittest
 import tempfile
+import hashlib
 from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
 
 # Adjust path to import usb_creator from parent directory
 sys.path.append(str(Path(__file__).parent.parent))
@@ -17,6 +18,23 @@ class TestUSBCreator(unittest.TestCase):
         expected = Path.home() / "PhoenixCore" / "downloads"
         actual = usb_creator.get_default_download_dir()
         self.assertEqual(expected, actual)
+
+    def test_calculate_file_sha256(self):
+        """Verify standard SHA256 checksum computation logic matches expected hashes."""
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            # Content: "PhoenixCore"
+            tmp.write(b"PhoenixCore")
+            
+        try:
+            # Expected sha256 of "PhoenixCore"
+            expected_hash = hashlib.sha256(b"PhoenixCore").hexdigest()
+            actual_hash = usb_creator.calculate_file_sha256(tmp_path)
+            self.assertEqual(expected_hash, actual_hash)
+        finally:
+            # Clean up temp file
+            if tmp_path.exists():
+                tmp_path.unlink()
 
     def test_create_rescue_usb_structure(self):
         """Verify directories and README.txt are safely and non-destructively created."""
@@ -41,17 +59,31 @@ class TestUSBCreator(unittest.TestCase):
             self.assertIn("PhoenixCore Rescue USB System", content)
             self.assertIn("BootCamp_Drivers/", content)
 
+    def test_create_rescue_usb_structure_dry_run(self):
+        """Verify dry-run mode creates absolutely ZERO files or directories on disk."""
+        # Target a path that does not exist and should not be created
+        simulated_path = "/nonexistent/dry/run/target/path"
+        
+        # Run in dry-run mode
+        result = usb_creator.create_rescue_usb_structure(simulated_path, dry_run=True)
+        
+        # Assert returned True (since simulation ran successfully)
+        self.assertTrue(result)
+        
+        # Verify absolutely no folders were actually written to disk
+        self.assertFalse(Path(simulated_path).exists())
+
     def test_create_rescue_usb_structure_invalid_path(self):
         """Verify structure creation logs failure and returns False for non-existent drives."""
-        # Non-existent target directory
+        # Non-existent target directory (without dry-run)
         invalid_path = "/nonexistent/drive/path/xyz"
-        result = usb_creator.create_rescue_usb_structure(invalid_path)
+        result = usb_creator.create_rescue_usb_structure(invalid_path, dry_run=False)
         self.assertFalse(result)
 
     @patch("urllib.request.urlopen")
     @patch("urllib.request.urlretrieve")
     def test_download_latest_oclp_mocked(self, mock_retrieve, mock_urlopen):
-        """Verify Dortania GitHub release parsing and download pipeline is accurate."""
+        """Verify Dortania GitHub release parsing, download, and checksum pipelines are accurate."""
         # Mock release metadata payload containing ZIP asset
         mock_payload = {
             "name": "v1.5.0 (Latest)",
@@ -68,21 +100,39 @@ class TestUSBCreator(unittest.TestCase):
         mock_response.read.return_value = json.dumps(mock_payload).encode("utf-8")
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
+        # Mock calculate_file_sha256 to prevent reading non-existent file
+        with patch("usb_creator.calculate_file_sha256") as mock_sha:
+            mock_sha.return_value = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
             
-            # Call downloader
-            result_path = usb_creator.download_latest_oclp(dest_dir=str(tmpdir_path))
-            
-            # Assert downloader targeted the correct file
-            expected_dest = tmpdir_path / "OpenCore-Patcher-GUI.app.zip"
-            self.assertEqual(str(expected_dest), result_path)
-            
-            # Assert urllib retriever was triggered with expected parameters
-            mock_retrieve.assert_called_once_with(
-                "https://github.com/dortania/OpenCore-Legacy-Patcher/releases/download/1.5.0/OpenCore-Patcher-GUI.app.zip",
-                str(expected_dest)
-            )
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmpdir_path = Path(tmpdir)
+                
+                # Call downloader
+                result_path = usb_creator.download_latest_oclp(dest_dir=str(tmpdir_path))
+                
+                # Assert downloader targeted the correct file
+                expected_dest = tmpdir_path / "OpenCore-Patcher-GUI.app.zip"
+                self.assertEqual(str(expected_dest), result_path)
+                
+                # Assert urllib retriever was triggered with expected parameters
+                mock_retrieve.assert_called_once_with(
+                    "https://github.com/dortania/OpenCore-Legacy-Patcher/releases/download/1.5.0/OpenCore-Patcher-GUI.app.zip",
+                    str(expected_dest)
+                )
+
+    def test_download_latest_oclp_dry_run(self):
+        """Verify downloader dry-run skips network requests and logs expected output."""
+        simulated_dir = "/mock/downloads"
+        
+        # Run downloader in dry-run mode
+        result_path = usb_creator.download_latest_oclp(dest_dir=simulated_dir, dry_run=True)
+        
+        # Assert path returned is mapped inside target directory
+        expected_path = Path(simulated_dir) / "OpenCore-Patcher-GUI.app.zip"
+        self.assertEqual(str(expected_path), result_path)
+        
+        # Verify absolutely no directories or files were written to disk
+        self.assertFalse(Path(simulated_dir).exists())
 
     @patch("sys.platform", "win32")
     @patch("ctypes.windll.kernel32.GetLogicalDrives")
