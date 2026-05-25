@@ -179,5 +179,33 @@ class TestUSBCreator(unittest.TestCase):
         drives = usb_creator.get_removable_drives()
         self.assertEqual(0, len(drives))
 
+    def test_tool_registry_manifest(self):
+        """Verify the manifests/tool_registry.json exists, parses cleanly, and maps correct schemas."""
+        registry_path = Path(__file__).parent.parent / "manifests" / "tool_registry.json"
+        self.assertTrue(registry_path.is_file(), "tool_registry.json manifest file must exist!")
+        
+        try:
+            with open(registry_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            # Assert core headers exist
+            self.assertIn("name", data)
+            self.assertIn("version", data)
+            self.assertIn("tools", data)
+            
+            # Assert tools list has populated entries
+            tools = data["tools"]
+            self.assertGreater(len(tools), 0)
+            
+            for tool in tools:
+                self.assertIn("id", tool)
+                self.assertIn("name", tool)
+                self.assertIn("version", tool)
+                self.assertIn("expected_sha256", tool)
+                self.assertIn("download_url", tool)
+                self.assertTrue(isinstance(tool["verified"], bool))
+        except Exception as e:
+            self.fail(f"Failed parsing tool_registry.json manifest: {e}")
+
 if __name__ == "__main__":
     unittest.main()

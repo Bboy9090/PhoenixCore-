@@ -207,6 +207,17 @@ This document defines the 9 Epics and 36 Child Issues comprising the planning la
 - **Blocked-by Dependencies:** Issue 4.1, Issue 4.2, Issue 4.4
 - **Safety Notes:** Strictly enforce that --dry-run executes zero mkdir/write syscalls to real folders when active.
 
+### Issue 4.6: Manifest-based tool registry and checksum catalog
+- **Scope:** Trusted recovery downloads and cryptographic registry configurations.
+- **Definition of Done:** Implement a structured JSON manifest file `manifests/tool_registry.json` detailing versions, URLs, expected SHA256 checksums, and trusted verification states for tools. Add parser functions inside `usb_creator.py` to validate downloaded assets against the registry before allowing execution.
+- **Validation Commands:** 
+  ```bash
+  python -c "import json; json.load(open('manifests/tool_registry.json'))"
+  python -m unittest tests/test_usb_creator.py
+  ```
+- **Blocked-by Dependencies:** Issue 4.2, Issue 4.5
+- **Safety Notes:** Do not execute download operations for unlisted or unverified tool URLs. Force-fail immediately if checksum mismatch occurs.
+
 ---
 
 ## Epic 5: epic(compatibility)
