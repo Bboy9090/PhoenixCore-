@@ -1,0 +1,154 @@
+#!/bin/bash
+# PR40 App Launch Matrix — in-guest probe hook
+# Installs bwos-app-launch-matrix.service which:
+#   - waits for bwos-desktop-observer.service
+#   - launches each target app and checks process stability
+#   - emits structured BWOS_APP_LAUNCH_RESULT markers on ttyS0
+#   - emits BWOS_APP_LAUNCH_MATRIX_COMPLETE when done
+# This service only activates when the kernel cmdline contains bwos.app_probe=1
+set -euo pipefail
+
+cat > /usr/local/bin/bwos-app-launch-probe << 'PROBE_SCRIPT'
+#!/bin/bash
+# bwos-app-launch-probe — PR40 App Launch Matrix in-guest runner
+set -euo pipefail
+
+SERIAL="/dev/ttyS0"
+TIMEOUT_SECONDS="${BWOS_APP_PROBE_TIMEOUT:-15}"
+LOG_DIR="/tmp/bwos-app-launch-matrix"
+mkdir -p "$LOG_DIR"
+
+serial_emit() {
+    echo "$1" | tee -a "$LOG_DIR/probe.log" > "$SERIAL" 2>/dev/null || true
+}
+
+# Only run when probe mode is requested
+if ! grep -q 'bwos\.app_probe=1' /proc/cmdline 2>/dev/null; then
+    serial_emit "BWOS_APP_LAUNCH_MATRIX_SKIPPED reason=not_requested"
+    exit 0
+fi
+
+serial_emit "BWOS_APP_LAUNCH_MATRIX_STARTED timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Target app definitions: id|command|desktop_entry_check
+declare -a APPS=(
+    "firefox-esr|firefox-esr|/usr/share/applications/firefox-esr.desktop"
+    "dolphin|dolphin|/usr/share/applications/org.kde.dolphin.desktop"
+    "konsole|konsole|/usr/share/applications/org.kde.konsole.desktop"
+    "kcalc|kcalc|/usr/share/applications/org.kde.kcalc.desktop"
+    "kwrite|kwrite|/usr/share/applications/org.kde.kwrite.desktop"
+    "gwenview|gwenview|/usr/share/applications/org.kde.gwenview.desktop"
+    "systemsettings|systemsettings5|/usr/share/applications/systemsettings.desktop"
+    "discover|plasma-discover|/usr/share/applications/org.kde.discover.desktop"
+)
+
+probe_app() {
+    local app_id="$1"
+    local command="$2"
+    local desktop_entry="$3"
+
+    local status="APP_LAUNCH_PASS"
+    local pid=""
+    local exit_code=""
+    local desktop_present="false"
+    local cmd_found="false"
+
+    # Check desktop entry
+    if [ -f "$desktop_entry" ]; then
+        desktop_present="true"
+    else
+        serial_emit "BWOS_APP_LAUNCH_RESULT app=$app_id status=APP_DESKTOP_ENTRY_MISSING desktop_entry=$desktop_entry pid= exit_code="
+        return
+    fi
+
+    # Check command exists
+    local cmd_path
+    cmd_path="$(command -v "$command" 2>/dev/null || true)"
+    if [ -z "$cmd_path" ]; then
+        serial_emit "BWOS_APP_LAUNCH_RESULT app=$app_id status=APP_NOT_INSTALLED desktop_entry=$desktop_entry pid= exit_code="
+        return
+    fi
+    cmd_found="true"
+
+    # Launch app in background, capturing stdout/stderr
+    local log_out="$LOG_DIR/${app_id}.stdout"
+    local log_err="$LOG_DIR/${app_id}.stderr"
+
+    # Set up minimal display env if available
+    export DISPLAY="${DISPLAY:-:0}"
+    export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/1000/bus}"
+
+    "$cmd_path" --no-sandbox 2>"$log_err" >"$log_out" &
+    pid=$!
+
+    # Wait up to TIMEOUT_SECONDS for stability
+    local elapsed=0
+    local crashed=false
+    while [ "$elapsed" -lt "$TIMEOUT_SECONDS" ]; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid" 2>/dev/null && exit_code=0 || exit_code=$?
+            crashed=true
+            break
+        fi
+    done
+
+    if [ "$crashed" = "true" ]; then
+        if [ "${exit_code:-1}" -eq 0 ]; then
+            status="APP_LAUNCH_PASS"
+        else
+            status="APP_LAUNCH_CRASH"
+        fi
+    else
+        # Still running after timeout — that's a pass for daemon-style apps
+        status="APP_LAUNCH_PASS"
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+        exit_code=0
+    fi
+
+    serial_emit "BWOS_APP_LAUNCH_RESULT app=$app_id status=$status pid=$pid exit_code=${exit_code:-} desktop_entry=$desktop_entry cmd=$cmd_path"
+}
+
+for entry in "${APPS[@]}"; do
+    IFS='|' read -r app_id command desktop_entry <<< "$entry"
+    probe_app "$app_id" "$command" "$desktop_entry" || \
+        serial_emit "BWOS_APP_LAUNCH_RESULT app=$app_id status=APP_LAUNCH_CRASH pid= exit_code=probe_error"
+done
+
+serial_emit "BWOS_APP_LAUNCH_MATRIX_COMPLETE timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Signal graceful shutdown if running in probe-only mode
+if grep -q 'bwos\.shutdown_probe=1' /proc/cmdline 2>/dev/null; then
+    sleep 2
+    systemctl poweroff --no-block || true
+fi
+PROBE_SCRIPT
+
+chmod +x /usr/local/bin/bwos-app-launch-probe
+
+# Install systemd service
+cat > /etc/systemd/system/bwos-app-launch-matrix.service << 'UNIT'
+[Unit]
+Description=BWOS PR40 App Launch Matrix Probe
+After=bwos-desktop-observer.service graphical.target
+Requires=bwos-desktop-observer.service
+ConditionKernelCommandLine=bwos.app_probe=1
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+ExecStart=/usr/local/bin/bwos-app-launch-probe
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=300
+
+[Install]
+WantedBy=graphical.target
+UNIT
+
+systemctl enable bwos-app-launch-matrix.service
+
+echo "[PR40] bwos-app-launch-matrix.service installed and enabled."
