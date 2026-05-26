@@ -1,45 +1,48 @@
 # Shutdown Telemetry
 
-Status: partial. Shutdown telemetry can fire, but clean shutdown is not verified.
+This file defines the BWOS / Blue Phoenix OS clean shutdown evidence rule for VM validation.
 
-## Current Home Artifact
+## Clean Shutdown Requirements
 
-- ISO: `bwos-home.iso`
-- SHA256: `f113419abc4ad8c343cedb00a667e64fd13076f3c2ed87e658b63dea8059806d`
-- Size: `2276358144` bytes
+Clean shutdown is valid only when all required events occur in the same VM attempt and on the same artifact hash:
 
-## Current Evidence
+- Desktop session marker: `BWOS_DESKTOP_SESSION_STARTED`
+- Presentation identity marker: `BWOS_PRESENTATION_LOCK_ACTIVE`
+- Wallpaper marker: `BWOS_WALLPAPER_APPLIED`
+- Shutdown marker: `BWOS_SHUTDOWN_TELEMETRY_STARTED`
+- QEMU exits normally
+- The VM harness does not terminate or kill QEMU
 
-For the current Home hash:
+## Non-Pass Conditions
 
-- GRUB/display-manager boundary reached: `true`
-- SDDM autologin configured: `true`
-- selected session: `plasma.desktop`
-- live user provisioning OK: `true`
-- desktop marker reached: `false`
-- wallpaper marker reached: `false`
-- valid shutdown marker reached: `false`
-- clean shutdown verified: `false`
+The following are not clean shutdown passes:
 
-Older desktop evidence for hash `4887e18f...` remains preserved, but it does not apply to the current rebuilt artifact.
+- Shutdown marker appears in a separate attempt from the desktop marker.
+- QEMU is terminated by the harness after timeout.
+- QEMU is killed after failed graceful termination.
+- The guest begins shutdown but live media loopback detach stalls indefinitely.
+- The desktop reaches Plasma but ACPI/QMP powerdown is ignored.
 
-## Interpretation
+## Current Home Status
 
-The current Home ISO proves SDDM prestart and live-user setup, but not Plasma desktop startup. Shutdown markers emitted while QEMU is being terminated after a failed desktop attempt are not valid clean-shutdown evidence and are now ignored by the VM matrix parser.
+Current Home artifact under PR39J:
 
-## Evidence Rule
+- Artifact: `os/phoenix-os/build/bwos-home.iso`
+- SHA256: `ae023f8aeac29990799b22fb7b64af1f349a89be4b947021488318eb7eba9705`
+- Clean shutdown: not yet verified
 
-Do not claim clean desktop shutdown until one attempt proves all of the following for the same artifact hash:
+PR39J normal ACPI probe result:
 
-- bootloader reached
-- kernel reached
-- initramfs reached
-- display manager reached
-- desktop marker reached
-- wallpaper marker reached
-- shutdown marker reached from inside the confirmed desktop path
-- QEMU exits cleanly without forced kill
+- Attempt: `PR39J-HOME-X11-SAME-ATTEMPT-ACPI`
+- Evidence: `iso/outputs/vm-boot-evidence/home/20260525T092052Z`
+- Desktop marker: `true`
+- Wallpaper marker: `true`
+- Presentation lock marker: `false`
+- ACPI/QMP powerdown requested: `true`
+- QMP powerdown sent: `true`
+- Shutdown marker: `false`
+- QEMU exited normally: `false`
+- Forced termination: `true`
+- Clean shutdown: `false`
 
-## Next Probe
-
-The next controlled probe should diagnose SDDM-to-Plasma session handoff before trying shutdown again. A shutdown probe is only meaningful after the desktop and wallpaper markers are observed in the same attempt.
+The guest showed KDE shutdown/logout activity after the ACPI request, but `BWOS_SHUTDOWN_TELEMETRY_STARTED` did not appear and QEMU did not exit normally. No `/dev/loop0` or `/run/live/medium` teardown failure was observed in this attempt because systemd shutdown did not begin. This is not a clean shutdown pass.
