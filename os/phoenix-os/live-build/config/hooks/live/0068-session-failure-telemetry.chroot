@@ -63,7 +63,7 @@ X11_SESSION="$(first_existing \
 if [ -n "$X11_SESSION" ]; then
     X11_EXEC="$(session_exec "$X11_SESSION" || true)"
     log "BWOS_SESSION_FILE_X11_EXISTS path=${X11_SESSION} exec=${X11_EXEC}"
-    if command -v ${X11_EXEC%% *} >/dev/null 2>&1; then
+    if [ -n "$X11_EXEC" ] && command -v ${X11_EXEC%% *} >/dev/null 2>&1; then
         log "BWOS_SESSION_EXEC_X11_EXISTS command=${X11_EXEC%% *}"
     else
         log "BWOS_SESSION_EXEC_X11_MISSING command=${X11_EXEC%% *}"
@@ -75,7 +75,7 @@ fi
 if [ -n "$WAYLAND_SESSION" ]; then
     WAYLAND_EXEC="$(session_exec "$WAYLAND_SESSION" || true)"
     log "BWOS_SESSION_FILE_WAYLAND_EXISTS path=${WAYLAND_SESSION} exec=${WAYLAND_EXEC}"
-    if command -v ${WAYLAND_EXEC%% *} >/dev/null 2>&1; then
+    if [ -n "$WAYLAND_EXEC" ] && command -v ${WAYLAND_EXEC%% *} >/dev/null 2>&1; then
         log "BWOS_SESSION_EXEC_WAYLAND_EXISTS command=${WAYLAND_EXEC%% *}"
     else
         log "BWOS_SESSION_EXEC_WAYLAND_MISSING command=${WAYLAND_EXEC%% *}"

@@ -31,6 +31,7 @@ Make the Home live session deterministic enough that unattended boots reliably:
 
 - Live user provisioning: `os/phoenix-os/live-build/config/hooks/live/0055-configure-live-user.chroot`
 - Home Aurelia wallpaper pin: `os/phoenix-os/live-build/config/hooks/live/0072-pin-blue-phoenix-wallpaper.chroot`
+- Home Aurelia presentation lock: `os/phoenix-os/live-build/config/hooks/live/0066-home-aurelia-presentation-lock.chroot`
 - SDDM Wayland autologin: `os/phoenix-os/live-build/config/hooks/live/0060-set-sddm-theme.chroot`
 - Plasma session token seeding: `os/phoenix-os/live-build/config/hooks/live/0065-seed-plasma-session.chroot`
 - Desktop marker: `os/phoenix-os/live-build/config/hooks/live/0110-desktop-heartbeat.chroot`
@@ -55,15 +56,17 @@ Result classification:
 
 ## Current Evidence
 
-- Current Home artifact hash under test: `fc57d42359f615fa7b5f101f3d058d6848138f739f6b201f0730a00af65246d8`
-- Current repeatability run labels: `PR39F-WAYLAND`, `PR39F-WAYLAND-ACTUAL`, `PR39F-X11-CONTROLLED`
-- Current repeatability class: `PASS` for the observed X11 session path
-- Desktop marker count for the current hash: `3 / 3`
-- Wallpaper marker count for the current hash: `3 / 3`
-- Shutdown telemetry count for the current hash: `0 / 3`
+- Current Home artifact hash under test: `ae023f8aeac29990799b22fb7b64af1f349a89be4b947021488318eb7eba9705`
+- Current probe label: `PR39I-HOME-AURELIA-PRESENTATION-LOCK`
+- Current probe class: `BOOT_PASS_DESKTOP` for the controlled X11 alpha session path
+- Desktop marker count for the current hash: `1 / 2`
+- Wallpaper marker count for the current hash: `1 / 2`
+- Presentation lock marker count for the current hash: `1 / 2`
+- Valid same-attempt shutdown marker count for the current hash: `0 / 2`
 - Clean shutdown verified for the current hash: `false`
 - Canonical PR39C desktop evidence remains preserved on the older stronger artifact hash.
-- Wayland remains unproven: Wayland-requested attempts selected `plasmawayland.desktop` in BWOS telemetry, but SDDM actually launched `plasma.desktop` with `XDG_SESSION_TYPE=x11`.
+- Wayland remains unproven. X11 is the current VM alpha session path until repeatability and shutdown are stable.
+- The `PR39J-HOME-X11-SHUTDOWN-PROBE` rerun emitted shutdown telemetry, but without a prior desktop marker in the same attempt; it is not clean shutdown proof.
 
 ## Remaining Risk
 
@@ -72,3 +75,13 @@ Result classification:
 - If a future VM reaches login but not the desktop marker, the problem is session determinism, not payload absence.
 - If the wallpaper marker is missing, the desktop identity pin is not deterministic even if Plasma itself starts.
 - Plasma wallpaper state is seeded in `/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc`, mirrored into `/etc/xdg`, and re-applied by a KDE autostart helper so the session cannot silently fall back to Breeze once the desktop starts.
+
+## Home Aurelia Presentation Lock
+
+- Canonical alpha presentation identity: `Home Aurelia OS`
+- Canonical tagline: `Four Legacies. One Throne.`
+- The lock is presentation-layer only and does not rename `home`, build targets, service ids, package ids, or artifact paths.
+- Controlled layers: KDE color scheme, inherited icon theme, Plymouth theme, SDDM theme, wallpaper, splash assets, and taskbar/menu accent colors.
+- The lock is not release evidence by itself. It becomes valid only when the rebuilt live Plasma session reaches the desktop marker and the wallpaper marker for the exact artifact hash under test.
+- Runtime confirmation is emitted as `BWOS_PRESENTATION_LOCK_ACTIVE` only after Plasma reaches the desktop marker and the session observes the seeded metadata, KDE color scheme, and inherited icon theme.
+- The latest Home rebuild completed with SHA256 `ae023f8aeac29990799b22fb7b64af1f349a89be4b947021488318eb7eba9705`; PR39I VM evidence observed `BWOS_PRESENTATION_LOCK_ACTIVE`, `BWOS_WALLPAPER_APPLIED`, and `BWOS_DESKTOP_SESSION_STARTED` for that exact hash.

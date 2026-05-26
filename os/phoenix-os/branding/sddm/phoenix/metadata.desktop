@@ -1,11 +1,11 @@
 [SddmGreeterTheme]
-Name=Phoenix OS
-Description=Phoenix OS login theme — dark, ember-fire aesthetic
+Name=Home Aurelia
+Description=Home Aurelia login theme - dark navy, electric blue, restrained gold
 Author=Phoenix OS Project
 AuthorEmail=design@phoenix-os.io
 License=MIT
 Type=sddm-theme
-Version=0.1.0
+Version=0.2.0
 
 [sddm]
 # Recommended SDDM settings for this theme

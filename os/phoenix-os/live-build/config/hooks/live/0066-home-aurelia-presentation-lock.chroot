@@ -1,0 +1,209 @@
+#!/bin/sh
+set -eu
+
+LIVE_USER="phoenix"
+LIVE_HOME="/home/${LIVE_USER}"
+WALLPAPER_PATH="/usr/share/images/desktop-base/desktop-background.png"
+LOGO_SOURCE="/usr/share/sddm/themes/phoenix/logo.png"
+PRESENTATION_DIR="/usr/share/bwos/presentation"
+PRESENTATION_LOCK="${PRESENTATION_DIR}/home-aurelia.lock"
+PRESENTATION_JSON="/etc/bwos/presentation-layer.json"
+COLOR_SCHEME="/usr/share/color-schemes/HomeAurelia.colors"
+ICON_THEME_DIR="/usr/share/icons/home-aurelia"
+KDEGLOBALS="/etc/skel/.config/kdeglobals"
+PLASMARC="/etc/skel/.config/plasmarc"
+
+install -d -m 0755 /etc/bwos "${PRESENTATION_DIR}" /etc/skel/.config /etc/xdg
+install -d -m 0755 /usr/share/color-schemes
+install -d -m 0755 "${ICON_THEME_DIR}/512x512/apps" "${ICON_THEME_DIR}/512x512/places"
+
+cat > "${PRESENTATION_LOCK}" <<'EOF_LOCK'
+Home Aurelia presentation layer is the canonical alpha desktop identity.
+Internal edition ids, build ids, package ids, service ids, and paths remain unchanged.
+Boot/session determinism remains the release gate; presentation assets are not proof of desktop success.
+EOF_LOCK
+
+cat > "${PRESENTATION_JSON}" <<EOF_JSON
+{
+  "schema_version": 1,
+  "identity": "home-aurelia",
+  "public_name": "Home Aurelia OS",
+  "tagline": "Four Legacies. One Throne.",
+  "scope": "alpha-presentation-layer",
+  "internal_edition_id_renamed": false,
+  "controlled_layers": {
+    "kde_shell": "HomeAurelia color scheme plus inherited Breeze shell behavior",
+    "plymouth": "/usr/share/plymouth/themes/phoenix",
+    "sddm": "/usr/share/sddm/themes/phoenix",
+    "wallpaper": "${WALLPAPER_PATH}",
+    "icon_pack": "home-aurelia, inheriting Breeze and hicolor",
+    "splash_assets": "Plymouth and SDDM phoenix theme assets",
+    "taskbar_menu_accents": "KDE color scheme active/accent colors"
+  },
+  "evidence_required": [
+    "BWOS_DESKTOP_SESSION_STARTED",
+    "BWOS_WALLPAPER_APPLIED"
+  ],
+  "release_candidate": false
+}
+EOF_JSON
+
+cat > "${COLOR_SCHEME}" <<'EOF_COLORS'
+[ColorScheme]
+Name=HomeAurelia
+shadeSortColumn=true
+
+[Colors:Button]
+BackgroundAlternate=16,24,39
+BackgroundNormal=10,18,38
+DecorationFocus=47,128,255
+DecorationHover=122,200,255
+ForegroundActive=47,128,255
+ForegroundInactive=144,161,185
+ForegroundLink=122,200,255
+ForegroundNegative=197,57,53
+ForegroundNeutral=212,169,79
+ForegroundNormal=248,250,252
+ForegroundPositive=59,179,115
+ForegroundVisited=122,200,255
+
+[Colors:Selection]
+BackgroundAlternate=47,128,255
+BackgroundNormal=47,128,255
+DecorationFocus=122,200,255
+DecorationHover=122,200,255
+ForegroundActive=255,255,255
+ForegroundInactive=229,238,249
+ForegroundLink=255,255,255
+ForegroundNegative=255,190,190
+ForegroundNeutral=255,221,150
+ForegroundNormal=255,255,255
+ForegroundPositive=190,255,220
+ForegroundVisited=255,255,255
+
+[Colors:Tooltip]
+BackgroundAlternate=16,24,39
+BackgroundNormal=5,7,10
+DecorationFocus=47,128,255
+DecorationHover=212,169,79
+ForegroundActive=47,128,255
+ForegroundInactive=144,161,185
+ForegroundLink=122,200,255
+ForegroundNegative=197,57,53
+ForegroundNeutral=212,169,79
+ForegroundNormal=248,250,252
+ForegroundPositive=59,179,115
+ForegroundVisited=122,200,255
+
+[Colors:View]
+BackgroundAlternate=16,24,39
+BackgroundNormal=5,7,10
+DecorationFocus=47,128,255
+DecorationHover=212,169,79
+ForegroundActive=47,128,255
+ForegroundInactive=144,161,185
+ForegroundLink=122,200,255
+ForegroundNegative=197,57,53
+ForegroundNeutral=212,169,79
+ForegroundNormal=248,250,252
+ForegroundPositive=59,179,115
+ForegroundVisited=122,200,255
+
+[Colors:Window]
+BackgroundAlternate=16,24,39
+BackgroundNormal=5,7,10
+DecorationFocus=47,128,255
+DecorationHover=212,169,79
+ForegroundActive=47,128,255
+ForegroundInactive=144,161,185
+ForegroundLink=122,200,255
+ForegroundNegative=197,57,53
+ForegroundNeutral=212,169,79
+ForegroundNormal=248,250,252
+ForegroundPositive=59,179,115
+ForegroundVisited=122,200,255
+
+[General]
+ColorScheme=HomeAurelia
+Name=HomeAurelia
+
+[KDE]
+contrast=4
+
+[WM]
+activeBackground=5,7,10
+activeBlend=47,128,255
+activeForeground=248,250,252
+inactiveBackground=16,24,39
+inactiveBlend=144,161,185
+inactiveForeground=144,161,185
+EOF_COLORS
+
+cat > "${ICON_THEME_DIR}/index.theme" <<'EOF_ICON'
+[Icon Theme]
+Name=Home Aurelia
+Comment=Home Aurelia alpha icon layer; inherits Breeze for complete daily-use coverage.
+Inherits=breeze-dark,breeze,hicolor
+Directories=512x512/apps,512x512/places
+
+[512x512/apps]
+Size=512
+Context=Applications
+Type=Fixed
+
+[512x512/places]
+Size=512
+Context=Places
+Type=Fixed
+EOF_ICON
+
+if [ -f "${LOGO_SOURCE}" ]; then
+    cp "${LOGO_SOURCE}" "${ICON_THEME_DIR}/512x512/apps/distributor-logo.png"
+    cp "${LOGO_SOURCE}" "${ICON_THEME_DIR}/512x512/apps/start-here-kde.png"
+    cp "${LOGO_SOURCE}" "${ICON_THEME_DIR}/512x512/places/user-home.png"
+fi
+
+cat > "${KDEGLOBALS}" <<'EOF_KDEGLOBALS'
+[General]
+ColorScheme=HomeAurelia
+Name=HomeAurelia
+TerminalApplication=konsole
+
+[Icons]
+Theme=home-aurelia
+
+[KDE]
+LookAndFeelPackage=org.kde.breezedark.desktop
+SingleClick=false
+widgetStyle=Breeze
+
+[WM]
+activeBackground=5,7,10
+activeBlend=47,128,255
+activeForeground=248,250,252
+inactiveBackground=16,24,39
+inactiveBlend=144,161,185
+inactiveForeground=144,161,185
+EOF_KDEGLOBALS
+
+cat > "${PLASMARC}" <<EOF_PLASMA
+[General]
+ColorScheme=HomeAurelia
+Name=HomeAurelia
+wallpaper=${WALLPAPER_PATH}
+
+[Theme]
+name=default
+EOF_PLASMA
+
+cp "${KDEGLOBALS}" /etc/xdg/kdeglobals
+chmod 0644 "${PRESENTATION_LOCK}" "${PRESENTATION_JSON}" "${COLOR_SCHEME}" "${ICON_THEME_DIR}/index.theme" "${KDEGLOBALS}" /etc/xdg/kdeglobals "${PLASMARC}"
+
+if [ -d "${LIVE_HOME}" ]; then
+    install -d -m 0755 "${LIVE_HOME}/.config"
+    cp "${KDEGLOBALS}" "${LIVE_HOME}/.config/kdeglobals" || true
+    cp "${PLASMARC}" "${LIVE_HOME}/.config/plasmarc" || true
+    chown -R "${LIVE_USER}:${LIVE_USER}" "${LIVE_HOME}/.config" || true
+fi
+
+echo "Home Aurelia presentation lock staged."

@@ -13,11 +13,107 @@ set -eu
 
 WALLPAPER="/usr/share/images/desktop-base/desktop-background.png"
 USER_CONFIG="${HOME:-/home/phoenix}/.config/plasma-org.kde.plasma.desktop-appletsrc"
+PRESENTATION_JSON="/etc/bwos/presentation-layer.json"
+KDEGLOBALS="${HOME:-/home/phoenix}/.config/kdeglobals"
+ICON_THEME="/usr/share/icons/home-aurelia/index.theme"
+SKEL_KDEGLOBALS="/etc/skel/.config/kdeglobals"
+SYSTEM_KDEGLOBALS="/etc/xdg/kdeglobals"
 PROFILE="$(cat /run/bwos-session-profile 2>/dev/null || echo unknown)"
+START_DELAY="${BWOS_MARKER_START_DELAY:-0}"
+WAIT_SECONDS="${BWOS_MARKER_WAIT_SECONDS:-180}"
 
 serial_log() {
-    printf '%s\n' "$*" > /dev/ttyS0 2>/dev/null || true
+    ( printf '%s\n' "$*" > /dev/ttyS0 ) 2>/dev/null || true
     logger -t BWOS-SESSION "$*" >/dev/null 2>&1 || true
+}
+
+case "$START_DELAY" in
+    ''|*[!0-9]*) START_DELAY=0 ;;
+esac
+case "$WAIT_SECONDS" in
+    ''|*[!0-9]*) WAIT_SECONDS=180 ;;
+esac
+
+if [ "$START_DELAY" -gt 0 ]; then
+    sleep "$START_DELAY"
+fi
+
+if [ -e /run/bwos-desktop-reached ]; then
+    serial_log "BWOS_DESKTOP_MARKER_ALREADY_COMPLETED"
+    exit 0
+fi
+
+lock_dir="${XDG_RUNTIME_DIR:-/tmp}/bwos-desktop-session-marker.lock"
+if ! mkdir "$lock_dir" >/dev/null 2>&1; then
+    serial_log "BWOS_DESKTOP_MARKER_ALREADY_RUNNING"
+    exit 0
+fi
+trap 'rmdir "$lock_dir" >/dev/null 2>&1 || true' EXIT
+
+load_session_env() {
+    for process_name in plasmashell ksmserver kwin_x11 kwin_wayland startplasma-x11 startplasma-wayland; do
+        pid="$(pgrep -u "$(id -u)" -x "$process_name" 2>/dev/null | head -n 1 || true)"
+        [ -n "$pid" ] || continue
+        [ -r "/proc/${pid}/environ" ] || continue
+
+        env_dump="$(tr '\0' '\n' < "/proc/${pid}/environ" 2>/dev/null || true)"
+        old_ifs="$IFS"
+        IFS='
+'
+        for env_line in $env_dump; do
+            case "$env_line" in
+                DISPLAY=*) export DISPLAY="${env_line#DISPLAY=}" ;;
+                WAYLAND_DISPLAY=*) export WAYLAND_DISPLAY="${env_line#WAYLAND_DISPLAY=}" ;;
+                XDG_RUNTIME_DIR=*) export XDG_RUNTIME_DIR="${env_line#XDG_RUNTIME_DIR=}" ;;
+                DBUS_SESSION_BUS_ADDRESS=*) export DBUS_SESSION_BUS_ADDRESS="${env_line#DBUS_SESSION_BUS_ADDRESS=}" ;;
+                XDG_SESSION_TYPE=*) export XDG_SESSION_TYPE="${env_line#XDG_SESSION_TYPE=}" ;;
+            esac
+        done
+        IFS="$old_ifs"
+        serial_log "BWOS_SESSION_ENV_IMPORTED source=${process_name} pid=${pid}"
+        return 0
+    done
+    return 1
+}
+
+ensure_presentation_lock_config() {
+    config_dir="$(dirname "$KDEGLOBALS")"
+    mkdir -p "$config_dir" >/dev/null 2>&1 || true
+
+    if [ ! -f "$KDEGLOBALS" ]; then
+        if [ -f "$SKEL_KDEGLOBALS" ]; then
+            cp "$SKEL_KDEGLOBALS" "$KDEGLOBALS" >/dev/null 2>&1 || true
+            serial_log "BWOS_PRESENTATION_LOCK_SELF_HEAL source=skel"
+        elif [ -f "$SYSTEM_KDEGLOBALS" ]; then
+            cp "$SYSTEM_KDEGLOBALS" "$KDEGLOBALS" >/dev/null 2>&1 || true
+            serial_log "BWOS_PRESENTATION_LOCK_SELF_HEAL source=system"
+        fi
+    fi
+
+    if command -v kwriteconfig5 >/dev/null 2>&1; then
+        kwriteconfig5 --file "$KDEGLOBALS" --group General --key ColorScheme HomeAurelia >/dev/null 2>&1 || true
+        kwriteconfig5 --file "$KDEGLOBALS" --group General --key Name HomeAurelia >/dev/null 2>&1 || true
+        kwriteconfig5 --file "$KDEGLOBALS" --group Icons --key Theme home-aurelia >/dev/null 2>&1 || true
+        serial_log "BWOS_PRESENTATION_LOCK_KWRITECONFIG_APPLIED tool=kwriteconfig5"
+    elif command -v kwriteconfig6 >/dev/null 2>&1; then
+        kwriteconfig6 --file "$KDEGLOBALS" --group General --key ColorScheme HomeAurelia >/dev/null 2>&1 || true
+        kwriteconfig6 --file "$KDEGLOBALS" --group General --key Name HomeAurelia >/dev/null 2>&1 || true
+        kwriteconfig6 --file "$KDEGLOBALS" --group Icons --key Theme home-aurelia >/dev/null 2>&1 || true
+        serial_log "BWOS_PRESENTATION_LOCK_KWRITECONFIG_APPLIED tool=kwriteconfig6"
+    else
+        if ! grep -q "ColorScheme=HomeAurelia" "$KDEGLOBALS" 2>/dev/null; then
+            cat >> "$KDEGLOBALS" <<'EOF3'
+
+[General]
+ColorScheme=HomeAurelia
+Name=HomeAurelia
+
+[Icons]
+Theme=home-aurelia
+EOF3
+            serial_log "BWOS_PRESENTATION_LOCK_FALLBACK_APPEND_APPLIED"
+        fi
+    fi
 }
 
 apply_wallpaper() {
@@ -53,6 +149,44 @@ apply_wallpaper() {
     fi
 }
 
+verify_presentation_lock() {
+    lock_ok=1
+    if [ -f "$PRESENTATION_JSON" ]; then
+        serial_log "BWOS_PRESENTATION_LOCK_PRESENT identity=home-aurelia"
+    else
+        serial_log "BWOS_PRESENTATION_LOCK_MISSING path=${PRESENTATION_JSON}"
+        lock_ok=0
+    fi
+
+    if [ -f "$KDEGLOBALS" ] && grep -q "ColorScheme=HomeAurelia" "$KDEGLOBALS"; then
+        serial_log "BWOS_KDE_COLOR_SCHEME_HOME_AURELIA"
+    else
+        serial_log "BWOS_KDE_COLOR_SCHEME_NOT_CONFIRMED"
+        lock_ok=0
+    fi
+
+    if [ -f "$KDEGLOBALS" ] && grep -q "Theme=home-aurelia" "$KDEGLOBALS"; then
+        serial_log "BWOS_ICON_THEME_HOME_AURELIA"
+    else
+        serial_log "BWOS_ICON_THEME_NOT_CONFIRMED"
+        lock_ok=0
+    fi
+
+    if [ -f "$ICON_THEME" ]; then
+        serial_log "BWOS_ICON_THEME_INDEX_PRESENT"
+    else
+        serial_log "BWOS_ICON_THEME_INDEX_MISSING"
+        lock_ok=0
+    fi
+
+    if [ "$lock_ok" -eq 1 ]; then
+        printf '%s\n' "BWOS_PRESENTATION_LOCK_ACTIVE" | sudo -n /usr/bin/tee /run/bwos-presentation-lock-active >/dev/null 2>&1 || true
+        serial_log "BWOS_PRESENTATION_LOCK_ACTIVE"
+    else
+        serial_log "BWOS_PRESENTATION_LOCK_NOT_CONFIRMED"
+    fi
+}
+
 serial_log "BWOS_SESSION_LAUNCH_ATTEMPTED profile=${PROFILE}"
 case "$PROFILE" in
     x11) serial_log "BWOS_X11_SESSION_ATTEMPTED" ;;
@@ -65,11 +199,11 @@ mkdir -p /run
 kwin_observed=0
 plasmashell_observed=0
 attempt=0
-while [ "$attempt" -lt 30 ]; do
-    if pgrep -x kwin_wayland >/dev/null 2>&1 || pgrep -x kwin_x11 >/dev/null 2>&1; then
+while [ "$attempt" -lt "$WAIT_SECONDS" ]; do
+    if pgrep -u "$(id -u)" -x kwin_wayland >/dev/null 2>&1 || pgrep -u "$(id -u)" -x kwin_x11 >/dev/null 2>&1; then
         kwin_observed=1
     fi
-    if pgrep -x plasmashell >/dev/null 2>&1; then
+    if pgrep -u "$(id -u)" -x plasmashell >/dev/null 2>&1; then
         plasmashell_observed=1
     fi
     if [ "$kwin_observed" -eq 1 ] && [ "$plasmashell_observed" -eq 1 ]; then
@@ -92,8 +226,12 @@ else
 fi
 
 if [ "$kwin_observed" -eq 1 ] && [ "$plasmashell_observed" -eq 1 ]; then
+    load_session_env >/dev/null 2>&1 || true
+    serial_log "BWOS_SESSION_ENV_EFFECTIVE XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-} DISPLAY=${DISPLAY:-} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}"
     printf '%s\n' "BWOS_DESKTOP_SESSION_STARTED" | sudo -n /usr/bin/tee /run/bwos-desktop-reached >/dev/null 2>&1 || true
     serial_log "BWOS_DESKTOP_SESSION_STARTED"
+    ensure_presentation_lock_config
+    verify_presentation_lock
     apply_wallpaper
     printf '%s\n' "BWOS_WALLPAPER_APPLIED" | sudo -n /usr/bin/tee /run/bwos-wallpaper-applied >/dev/null 2>&1 || true
     serial_log "BWOS_WALLPAPER_APPLIED"
@@ -106,13 +244,7 @@ serial_log "BWOS_KERNEL_CMDLINE ${CMDLINE}"
 case " ${CMDLINE} " in
     *" bwos.shutdown_probe=1 "*)
         if [ "$kwin_observed" -eq 1 ] && [ "$plasmashell_observed" -eq 1 ]; then
-            serial_log "BWOS_SHUTDOWN_PROBE_REQUESTED"
-            sleep 3
-            if command -v systemctl >/dev/null 2>&1; then
-                sudo -n "$(command -v systemctl)" poweroff >/dev/null 2>&1 || true
-            elif command -v poweroff >/dev/null 2>&1; then
-                sudo -n "$(command -v poweroff)" >/dev/null 2>&1 || true
-            fi
+            serial_log "BWOS_SHUTDOWN_PROBE_DELEGATED_TO_ROOT_OBSERVER"
         else
             serial_log "BWOS_SHUTDOWN_PROBE_BLOCKED_DESKTOP_NOT_CONFIRMED"
         fi
@@ -133,3 +265,192 @@ X-GNOME-autostart-enabled=true
 OnlyShowIn=KDE;Plasma;
 X-KDE-autostart-phase=2
 EOF2
+
+mkdir -p /etc/systemd/user/default.target.wants
+cat > /etc/systemd/user/bwos-desktop-session-marker.service <<'EOF2'
+[Unit]
+Description=BWOS Desktop Session Marker
+Documentation=file:/usr/local/bin/bwos-desktop-session-marker
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+Environment=BWOS_MARKER_START_DELAY=60
+Environment=BWOS_MARKER_WAIT_SECONDS=180
+ExecStart=/usr/local/bin/bwos-desktop-session-marker
+TimeoutStartSec=270
+
+[Install]
+WantedBy=default.target
+EOF2
+ln -sf ../bwos-desktop-session-marker.service /etc/systemd/user/default.target.wants/bwos-desktop-session-marker.service
+
+mkdir -p /usr/local/sbin /etc/systemd/system/graphical.target.wants
+cat > /usr/local/sbin/bwos-desktop-observer <<'EOF2'
+#!/bin/sh
+set -eu
+
+LIVE_USER="phoenix"
+WALLPAPER="/usr/share/images/desktop-base/desktop-background.png"
+USER_HOME="/home/${LIVE_USER}"
+USER_CONFIG="${USER_HOME}/.config/plasma-org.kde.plasma.desktop-appletsrc"
+KDEGLOBALS="${USER_HOME}/.config/kdeglobals"
+PRESENTATION_JSON="/etc/bwos/presentation-layer.json"
+ICON_THEME="/usr/share/icons/home-aurelia/index.theme"
+WAIT_SECONDS="${BWOS_OBSERVER_WAIT_SECONDS:-240}"
+
+serial_log() {
+    ( printf '%s\n' "$*" > /dev/ttyS0 ) 2>/dev/null || true
+    logger -t BWOS-SESSION "$*" >/dev/null 2>&1 || true
+}
+
+case "$WAIT_SECONDS" in
+    ''|*[!0-9]*) WAIT_SECONDS=240 ;;
+esac
+
+process_env() {
+    pid="$1"
+    [ -r "/proc/${pid}/environ" ] || return 0
+    tr '\0' '\n' < "/proc/${pid}/environ" 2>/dev/null | while IFS= read -r env_line; do
+        case "$env_line" in
+            DISPLAY=*|WAYLAND_DISPLAY=*|XDG_RUNTIME_DIR=*|DBUS_SESSION_BUS_ADDRESS=*|XDG_SESSION_TYPE=*) printf '%s\n' "$env_line" ;;
+        esac
+    done
+}
+
+apply_wallpaper_as_user() {
+    plasma_pid="$1"
+    env_file="/run/bwos-plasma-env"
+    process_env "$plasma_pid" > "$env_file" || true
+    chmod 0644 "$env_file" || true
+
+    if [ -f "$WALLPAPER" ] && command -v runuser >/dev/null 2>&1; then
+        env_args="$(awk '{ printf " %s", $0 }' "$env_file" 2>/dev/null || true)"
+        if command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
+            # shellcheck disable=SC2086
+            timeout 8s runuser -u "$LIVE_USER" -- env $env_args plasma-apply-wallpaperimage "$WALLPAPER" >/dev/null 2>&1 || true
+        fi
+    fi
+
+    mkdir -p "$(dirname "$USER_CONFIG")" >/dev/null 2>&1 || true
+    cat > "$USER_CONFIG" <<EOF_CONFIG
+[Containments][1]
+wallpaperplugin=org.kde.image
+
+[Containments][1][Wallpaper][org.kde.image][General]
+Image=file://${WALLPAPER}
+EOF_CONFIG
+    chown "$LIVE_USER:$LIVE_USER" "$USER_CONFIG" >/dev/null 2>&1 || true
+}
+
+confirm_presentation_lock() {
+    lock_ok=1
+    if [ -f "$PRESENTATION_JSON" ]; then
+        serial_log "BWOS_PRESENTATION_LOCK_PRESENT identity=home-aurelia"
+    else
+        serial_log "BWOS_PRESENTATION_LOCK_MISSING path=${PRESENTATION_JSON}"
+        lock_ok=0
+    fi
+    if [ -f "$KDEGLOBALS" ] && grep -q "ColorScheme=HomeAurelia" "$KDEGLOBALS"; then
+        serial_log "BWOS_KDE_COLOR_SCHEME_HOME_AURELIA"
+    else
+        serial_log "BWOS_KDE_COLOR_SCHEME_NOT_CONFIRMED"
+        lock_ok=0
+    fi
+    if [ -f "$KDEGLOBALS" ] && grep -q "Theme=home-aurelia" "$KDEGLOBALS"; then
+        serial_log "BWOS_ICON_THEME_HOME_AURELIA"
+    else
+        serial_log "BWOS_ICON_THEME_NOT_CONFIRMED"
+        lock_ok=0
+    fi
+    if [ -f "$ICON_THEME" ]; then
+        serial_log "BWOS_ICON_THEME_INDEX_PRESENT"
+    else
+        serial_log "BWOS_ICON_THEME_INDEX_MISSING"
+        lock_ok=0
+    fi
+    if [ "$lock_ok" -eq 1 ]; then
+        printf '%s\n' "BWOS_PRESENTATION_LOCK_ACTIVE" > /run/bwos-presentation-lock-active
+        serial_log "BWOS_PRESENTATION_LOCK_ACTIVE"
+    else
+        serial_log "BWOS_PRESENTATION_LOCK_NOT_CONFIRMED"
+    fi
+}
+
+serial_log "BWOS_DESKTOP_OBSERVER_STARTED wait_seconds=${WAIT_SECONDS}"
+
+kwin_pid=""
+plasma_pid=""
+ksm_pid=""
+attempt=0
+while [ "$attempt" -lt "$WAIT_SECONDS" ]; do
+    kwin_pid="$(pgrep -u "$LIVE_USER" -x kwin_x11 2>/dev/null | head -n 1 || true)"
+    [ -n "$kwin_pid" ] || kwin_pid="$(pgrep -u "$LIVE_USER" -x kwin_wayland 2>/dev/null | head -n 1 || true)"
+    plasma_pid="$(pgrep -u "$LIVE_USER" -x plasmashell 2>/dev/null | head -n 1 || true)"
+    ksm_pid="$(pgrep -u "$LIVE_USER" -x ksmserver 2>/dev/null | head -n 1 || true)"
+    if [ -n "$kwin_pid" ] && [ -n "$plasma_pid" ]; then
+        break
+    fi
+    attempt=$((attempt + 1))
+    sleep 1
+done
+
+if [ -n "$kwin_pid" ]; then
+    serial_log "BWOS_KWIN_STARTED"
+else
+    serial_log "BWOS_KWIN_NOT_OBSERVED"
+fi
+
+if [ -n "$ksm_pid" ]; then
+    serial_log "BWOS_KSMSERVER_STARTED"
+else
+    serial_log "BWOS_KSMSERVER_NOT_OBSERVED"
+fi
+
+if [ -n "$plasma_pid" ]; then
+    serial_log "BWOS_PLASMASHELL_STARTED"
+else
+    serial_log "BWOS_PLASMASHELL_NOT_OBSERVED"
+fi
+
+if [ -n "$kwin_pid" ] && [ -n "$plasma_pid" ]; then
+    process_env "$plasma_pid" | sed 's/^/BWOS_SESSION_ENV_EFFECTIVE /' > /dev/ttyS0 2>/dev/null || true
+    printf '%s\n' "BWOS_DESKTOP_SESSION_STARTED" > /run/bwos-desktop-reached
+    serial_log "BWOS_DESKTOP_SESSION_STARTED"
+    apply_wallpaper_as_user "$plasma_pid"
+    confirm_presentation_lock
+    printf '%s\n' "BWOS_WALLPAPER_APPLIED" > /run/bwos-wallpaper-applied
+    serial_log "BWOS_WALLPAPER_APPLIED"
+
+    CMDLINE="$(cat /proc/cmdline 2>/dev/null || true)"
+    serial_log "BWOS_KERNEL_CMDLINE ${CMDLINE}"
+    case " ${CMDLINE} " in
+        *" bwos.shutdown_probe=1 "*)
+            serial_log "BWOS_SHUTDOWN_PROBE_REQUESTED"
+            sleep 3
+            serial_log "BWOS_SHUTDOWN_PROBE_SYSTEMCTL_POWEROFF_REQUEST"
+            systemctl poweroff >/dev/null 2>&1 || poweroff >/dev/null 2>&1 || true
+            ;;
+    esac
+else
+    serial_log "BWOS_DESKTOP_SESSION_NOT_CONFIRMED"
+fi
+EOF2
+chmod 0755 /usr/local/sbin/bwos-desktop-observer
+
+cat > /etc/systemd/system/bwos-desktop-observer.service <<'EOF2'
+[Unit]
+Description=BWOS Desktop Observer
+After=sddm.service graphical.target
+Wants=sddm.service
+
+[Service]
+Type=oneshot
+Environment=BWOS_OBSERVER_WAIT_SECONDS=240
+ExecStart=/usr/local/sbin/bwos-desktop-observer
+TimeoutStartSec=300
+
+[Install]
+WantedBy=graphical.target
+EOF2
+ln -sf ../bwos-desktop-observer.service /etc/systemd/system/graphical.target.wants/bwos-desktop-observer.service

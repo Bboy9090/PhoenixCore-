@@ -3,7 +3,7 @@ set -eu
 
 LIVE_USER="phoenix"
 LIVE_HOME="/home/${LIVE_USER}"
-LIVE_GROUPS="sudo,audio,video,plugdev,cdrom,disk,netdev,input,render"
+LIVE_GROUPS="sudo,audio,video,plugdev,cdrom,disk,netdev,input,render,dialout"
 
 echo "Configuring live user ${LIVE_USER}..."
 
@@ -22,7 +22,7 @@ install -d -m 0755 "${LIVE_HOME}"
 install -d -m 0750 /etc/sudoers.d
 
 cat > /etc/sudoers.d/bwos-live-session-markers <<EOF2
-${LIVE_USER} ALL=(root) NOPASSWD: /usr/bin/tee /run/bwos-desktop-reached, /usr/bin/tee /run/bwos-wallpaper-applied
+${LIVE_USER} ALL=(root) NOPASSWD: /usr/bin/tee /run/bwos-desktop-reached, /usr/bin/tee /run/bwos-wallpaper-applied, /usr/bin/tee /run/bwos-presentation-lock-active
 ${LIVE_USER} ALL=(root) NOPASSWD: /bin/systemctl poweroff, /usr/bin/systemctl poweroff, /sbin/poweroff, /usr/sbin/poweroff
 EOF2
 chmod 0440 /etc/sudoers.d/bwos-live-session-markers

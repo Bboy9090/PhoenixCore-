@@ -6,6 +6,7 @@ ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 FORMAT="json"
 EDITION_FILTER=()
+ARTIFACT_FILTER=()
 TIMEOUT_SECONDS="900"
 ATTEMPT_LABEL=""
 SESSION_PROFILE=""
@@ -14,7 +15,7 @@ SHUTDOWN_PROBE="false"
 
 usage() {
   cat <<'USAGE'
-Usage: iso/scripts/vm-boot-checklist.sh [--json|--markdown] [--root PATH] [--timeout SECONDS] [--edition ID] [--session-profile wayland|x11] [--shutdown-probe] [--from-existing]
+Usage: iso/scripts/vm-boot-checklist.sh [--json|--markdown] [--root PATH] [--timeout SECONDS] [--edition ID] [--artifact-path PATH] [--session-profile wayland|x11] [--shutdown-probe] [--from-existing]
 
 Boot-tests each current BWOS / Blue Phoenix OS edition ISO in QEMU and records
 the exact stage reached without claiming more than was observed.
@@ -24,6 +25,8 @@ Outputs:
   --markdown   Print the human-readable boot matrix table
   --from-existing
                Regenerate matrix outputs from existing evidence without launching QEMU
+  --artifact-path PATH
+               Boot-test or render matrix data for one exact ISO/IMG artifact path
   --shutdown-probe
                Select the VM-only shutdown probe GRUB entry
 USAGE
@@ -49,6 +52,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --edition)
       EDITION_FILTER+=("$2")
+      shift 2
+      ;;
+    --artifact-path)
+      ARTIFACT_FILTER+=("$2")
       shift 2
       ;;
     --attempt-label)
@@ -88,6 +95,11 @@ done
 
 export ROOT FORMAT TIMEOUT_SECONDS
 export ATTEMPT_LABEL SESSION_PROFILE FROM_EXISTING SHUTDOWN_PROBE
+if [ "${#ARTIFACT_FILTER[@]}" -gt 0 ]; then
+  export ARTIFACT_FILTER_CSV="$(IFS=,; echo "${ARTIFACT_FILTER[*]}")"
+else
+  export ARTIFACT_FILTER_CSV=""
+fi
 if [ "${#EDITION_FILTER[@]}" -gt 0 ]; then
   export EDITION_FILTER_CSV="$(IFS=,; echo "${EDITION_FILTER[*]}")"
 else
@@ -111,6 +123,7 @@ ROOT = Path(os.environ["ROOT"]).resolve()
 FORMAT = os.environ["FORMAT"]
 TIMEOUT_SECONDS = int(os.environ["TIMEOUT_SECONDS"])
 FILTER = [item for item in os.environ.get("EDITION_FILTER_CSV", "").split(",") if item]
+ARTIFACT_FILTER = [item for item in os.environ.get("ARTIFACT_FILTER_CSV", "").split(",") if item]
 ATTEMPT_LABEL = os.environ.get("ATTEMPT_LABEL", "")
 SESSION_PROFILE = os.environ.get("SESSION_PROFILE", "")
 FROM_EXISTING = os.environ.get("FROM_EXISTING", "false") == "true"
@@ -140,6 +153,7 @@ DISPLAY_MANAGER_MARKER = "BWOS_BOOT_SUCCESS_GRAPHICAL_REACHED"
 DESKTOP_MARKER = "BWOS_DESKTOP_SESSION_STARTED"
 SHUTDOWN_MARKER = "BWOS_SHUTDOWN_TELEMETRY_STARTED"
 WALLPAPER_MARKER = "BWOS_WALLPAPER_APPLIED"
+PRESENTATION_LOCK_MARKER = "BWOS_PRESENTATION_LOCK_ACTIVE"
 SDDM_AUTLOGIN_MARKER = "BWOS_SDDM_AUTOLOGIN_CONFIGURED"
 SESSION_LAUNCH_MARKER = "BWOS_SESSION_LAUNCH_ATTEMPTED"
 WAYLAND_ATTEMPT_MARKER = "BWOS_WAYLAND_SESSION_ATTEMPTED"
@@ -168,6 +182,7 @@ PROCESS_MARKERS = {
 SESSION_DETERMINISM_GOAL = 3
 PR39E_PREFIX = "PR39E-"
 PR39F_PREFIX = "PR39F-"
+PR39I_PREFIX = "PR39I-"
 ATTEMPT_STRENGTH = {
     "NOT_TESTED": 0,
     "BLOCKED_BY_VM_TOOLING": 0,
@@ -548,6 +563,7 @@ def attempt_from_row(row: dict, attempt_label: str = "canonical", canonical_upda
         "desktop_reached": bool(row.get("desktop_reached", False)),
         "desktop_marker_reached": bool(row.get("desktop_marker_reached", False)),
         "wallpaper_marker_reached": bool(row.get("wallpaper_marker_reached", False)),
+        "presentation_lock_reached": bool(row.get("presentation_lock_reached", False)),
         "shutdown_marker_reached": bool(row.get("shutdown_marker_reached", False)),
         "clean_shutdown_verified": bool(row.get("clean_shutdown_verified", False)),
         "session_profile": str(row.get("session_profile", "") or ""),
@@ -619,12 +635,14 @@ def apply_canonical_attempt_evidence(row: dict, attempts: list[dict], summary: d
     row["process_observations"] = dict(canonical_attempt.get("process_observations", row.get("process_observations", {})) or {})
     row["desktop_marker_reached"] = bool(canonical_attempt.get("desktop_marker_reached", False))
     row["wallpaper_marker_reached"] = bool(canonical_attempt.get("wallpaper_marker_reached", False))
+    row["presentation_lock_reached"] = bool(canonical_attempt.get("presentation_lock_reached", False))
     row["shutdown_marker_reached"] = bool(canonical_attempt.get("shutdown_marker_reached", False))
     row["clean_shutdown_verified"] = bool(canonical_attempt.get("clean_shutdown_verified", False))
     row["kernel_cmdline"] = str(canonical_attempt.get("kernel_cmdline", "") or row.get("kernel_cmdline", "") or "")
     row["shutdown_probe_cmdline_confirmed"] = any(bool(attempt.get("shutdown_probe_cmdline_confirmed", False)) for attempt in attempts)
     row["desktop_marker_attempt_count"] = summary["desktop_marker_attempt_count"]
     row["wallpaper_marker_attempt_count"] = summary["wallpaper_marker_attempt_count"]
+    row["presentation_lock_attempt_count"] = summary.get("presentation_lock_attempt_count", 0)
     row["shutdown_marker_attempt_count"] = summary["shutdown_marker_attempt_count"]
     row["clean_shutdown_attempt_count"] = summary["clean_shutdown_attempt_count"]
     row["desktop_shutdown_same_attempt"] = summary["desktop_shutdown_same_attempt"]
@@ -643,6 +661,7 @@ def summarize_boot_attempts(attempts: list[dict]) -> dict:
             "shutdown_method": "",
             "desktop_marker_attempt_count": 0,
             "wallpaper_marker_attempt_count": 0,
+            "presentation_lock_attempt_count": 0,
             "shutdown_marker_attempt_count": 0,
             "clean_shutdown_attempt_count": 0,
             "desktop_shutdown_same_attempt": False,
@@ -656,6 +675,7 @@ def summarize_boot_attempts(attempts: list[dict]) -> dict:
     shutdown_clean = any(bool(a.get("clean_shutdown_verified", False)) for a in attempts)
     desktop_marker_count = sum(bool(a.get("desktop_marker_reached", False)) for a in attempts)
     wallpaper_marker_count = sum(bool(a.get("wallpaper_marker_reached", False)) for a in attempts)
+    presentation_lock_count = sum(bool(a.get("presentation_lock_reached", False)) for a in attempts)
     shutdown_marker_count = sum(bool(a.get("shutdown_marker_reached", False)) for a in attempts)
     clean_shutdown_count = sum(bool(a.get("clean_shutdown_verified", False)) for a in attempts)
     desktop_shutdown_same_attempt = any(
@@ -690,6 +710,7 @@ def summarize_boot_attempts(attempts: list[dict]) -> dict:
         "shutdown_method": shutdown_method,
         "desktop_marker_attempt_count": desktop_marker_count,
         "wallpaper_marker_attempt_count": wallpaper_marker_count,
+        "presentation_lock_attempt_count": presentation_lock_count,
         "shutdown_marker_attempt_count": shutdown_marker_count,
         "clean_shutdown_attempt_count": clean_shutdown_count,
         "desktop_shutdown_same_attempt": desktop_shutdown_same_attempt,
@@ -705,6 +726,7 @@ def summarize_session_attempts(attempts: list[dict]) -> dict:
         and (
             str(item.get("attempt_label", "")).startswith(PR39E_PREFIX)
             or str(item.get("attempt_label", "")).startswith(PR39F_PREFIX)
+            or str(item.get("attempt_label", "")).startswith(PR39I_PREFIX)
         )
     ]
     if not attempts:
@@ -712,6 +734,7 @@ def summarize_session_attempts(attempts: list[dict]) -> dict:
             "attempt_count": 0,
             "desktop_marker_count": 0,
             "wallpaper_marker_count": 0,
+            "presentation_lock_count": 0,
             "shutdown_marker_count": 0,
             "session_determinism_class": "NOT_RUN",
             "repeatability_risk": False,
@@ -720,6 +743,7 @@ def summarize_session_attempts(attempts: list[dict]) -> dict:
 
     desktop_marker_count = sum(bool(a.get("desktop_marker_reached", False)) for a in attempts)
     wallpaper_marker_count = sum(bool(a.get("wallpaper_marker_reached", False)) for a in attempts)
+    presentation_lock_count = sum(bool(a.get("presentation_lock_reached", False)) for a in attempts)
     shutdown_marker_count = sum(bool(a.get("shutdown_marker_reached", False)) for a in attempts)
     shutdown_clean = any(bool(a.get("clean_shutdown_verified", False)) for a in attempts)
     classifications = {str(a.get("result_stage", "NOT_TESTED")) for a in attempts}
@@ -735,6 +759,7 @@ def summarize_session_attempts(attempts: list[dict]) -> dict:
         "attempt_count": len(attempts),
         "desktop_marker_count": desktop_marker_count,
         "wallpaper_marker_count": wallpaper_marker_count,
+        "presentation_lock_count": presentation_lock_count,
         "shutdown_marker_count": shutdown_marker_count,
         "session_determinism_class": session_class,
         "repeatability_risk": repeatability_risk,
@@ -775,9 +800,11 @@ def normalize_row(row: dict) -> dict:
     normalized["repeatability_risk"] = bool(normalized.get("repeatability_risk", False))
     normalized["desktop_marker_reached"] = bool(normalized.get("desktop_marker_reached", False))
     normalized["wallpaper_marker_reached"] = bool(normalized.get("wallpaper_marker_reached", False))
+    normalized["presentation_lock_reached"] = bool(normalized.get("presentation_lock_reached", False))
     normalized["shutdown_marker_reached"] = bool(normalized.get("shutdown_marker_reached", False))
     normalized["desktop_marker_attempt_count"] = int(normalized.get("desktop_marker_attempt_count", 0) or 0)
     normalized["wallpaper_marker_attempt_count"] = int(normalized.get("wallpaper_marker_attempt_count", 0) or 0)
+    normalized["presentation_lock_attempt_count"] = int(normalized.get("presentation_lock_attempt_count", 0) or 0)
     normalized["shutdown_marker_attempt_count"] = int(normalized.get("shutdown_marker_attempt_count", 0) or 0)
     normalized["clean_shutdown_attempt_count"] = int(normalized.get("clean_shutdown_attempt_count", 0) or 0)
     normalized["desktop_shutdown_same_attempt"] = bool(normalized.get("desktop_shutdown_same_attempt", False))
@@ -793,6 +820,7 @@ def normalize_row(row: dict) -> dict:
     normalized["session_attempt_count"] = int(normalized.get("session_attempt_count", 0) or 0)
     normalized["session_desktop_marker_count"] = int(normalized.get("session_desktop_marker_count", 0) or 0)
     normalized["session_wallpaper_marker_count"] = int(normalized.get("session_wallpaper_marker_count", 0) or 0)
+    normalized["session_presentation_lock_count"] = int(normalized.get("session_presentation_lock_count", 0) or 0)
     normalized["session_shutdown_marker_count"] = int(normalized.get("session_shutdown_marker_count", 0) or 0)
     normalized["session_repeatability_risk"] = bool(normalized.get("session_repeatability_risk", False))
     normalized["session_profile"] = str(normalized.get("session_profile", "") or "")
@@ -810,6 +838,7 @@ def normalize_row(row: dict) -> dict:
     normalized["sddm_autologin_configured"] = bool(normalized.get("sddm_autologin_configured", False))
     normalized["user_provisioning_ok"] = normalized.get("user_provisioning_ok", None)
     normalized["session_config_failure"] = bool(normalized.get("session_config_failure", False))
+    normalized["process_observations"] = dict(normalized.get("process_observations", {}) or {})
     normalized["session_probe_classification"] = str(normalized.get("session_probe_classification", "NOT_RUN") or "NOT_RUN")
     normalized["session_logs_path"] = str(normalized.get("session_logs_path", "") or "")
     normalized["boot_attempts"] = normalized.get("boot_attempts") if isinstance(normalized.get("boot_attempts"), list) else []
@@ -857,7 +886,10 @@ def selected_session_from_text(text: str) -> str:
 
 def actual_session_type_from_text(text: str) -> str:
     matches = SESSION_ENV_RE.findall(text)
-    return matches[-1] if matches else ""
+    if matches:
+        return matches[-1]
+    loginctl_matches = LOGINCTL_SESSION_TYPE_RE.findall(text)
+    return loginctl_matches[-1] if loginctl_matches else ""
 
 def actual_sddm_session_from_text(text: str) -> str:
     matches = SDDM_ACTUAL_SESSION_RE.findall(text)
@@ -880,16 +912,24 @@ def attempt_reached_actual_session(attempt: dict, session_type: str) -> bool:
 def enrich_attempt_from_logs(attempt: dict) -> dict:
     enriched = dict(attempt)
     log_path = str(enriched.get("session_logs_path", "") or "")
+    text = ""
     if log_path:
         text = read_text(ROOT / log_path)
         if not str(enriched.get("actual_session_type", "") or ""):
             enriched["actual_session_type"] = actual_session_type_from_text(text)
         if not str(enriched.get("actual_sddm_session_file", "") or ""):
             enriched["actual_sddm_session_file"] = actual_sddm_session_from_text(text)
+    serial_path = str(enriched.get("serial_log_path", "") or "")
+    if serial_path:
+        text = f"{text}\n{read_text(ROOT / serial_path)}"
     if str(enriched.get("session_profile", "")) in {"wayland", "x11"}:
         enriched["session_probe_classification"] = session_probe_classification([enriched])
+    if not dict(enriched.get("process_observations", {}) or {}):
+        enriched["process_observations"] = {
+            name: marker in text
+            for name, marker in PROCESS_MARKERS.items()
+        }
     if not str(enriched.get("kernel_cmdline", "") or ""):
-        serial_path = str(enriched.get("serial_log_path", "") or "")
         if serial_path:
             enriched["kernel_cmdline"] = kernel_cmdline_from_text(read_text(ROOT / serial_path))
     enriched["shutdown_probe_cmdline_confirmed"] = "bwos.shutdown_probe=1" in str(enriched.get("kernel_cmdline", ""))
@@ -941,7 +981,7 @@ def session_probe_classification(profile_attempts: list[dict]) -> str:
 def write_session_extract(serial_path: Path, output_path: Path) -> str:
     text = read_text(serial_path)
     interesting = []
-    patterns = re.compile(r"BWOS_|sddm|plasma|kwin|wayland|x11|xorg|XDG_RUNTIME_DIR|DISPLAY|WAYLAND_DISPLAY", re.IGNORECASE)
+    patterns = re.compile(r"BWOS_|sddm|plasma|kwin|ksmserver|startplasma|wayland|x11|xorg|pam|dbus|loginctl|XDG_RUNTIME_DIR|DISPLAY|WAYLAND_DISPLAY|DBUS_SESSION_BUS_ADDRESS", re.IGNORECASE)
     for line in text.splitlines():
         if patterns.search(line):
             interesting.append(line)
@@ -970,12 +1010,12 @@ def render_markdown(rows: list[dict], generated_at: str, audit: dict) -> str:
 
     lines.extend([
         "",
-        "| Edition ID | Artifact Filename | Path | Format | Size Bytes | SHA256 | Build Summary | Build Status | Telemetry | VM Tool | EFI | Secure Boot | RAM | CPU | Disk | Attempts | Desktop Repeatable | Repeatability Risk | Desktop Marker | Wallpaper Marker | Shutdown Marker | Desktop+Shutdown Same Attempt | Desktop+Wallpaper+Shutdown Same Attempt | Desktop Marker Attempts | Wallpaper Marker Attempts | Shutdown Marker Attempts | Clean Shutdown Attempts | Session Class | Session Probe | Session Desktop Marker Count | Session Wallpaper Marker Count | Shutdown Clean | Shutdown Method | Boot Menu | Kernel | Initramfs | Display Manager | Desktop | Class | Failure Point |",
-        "|---|---|---|---|---:|---|---|---|---|---|---|---|---:|---:|---|---:|---|---|---|---|---|---|---|---:|---:|---:|---:|---|---|---:|---:|---|---|---|---|---|---|---|---|",
+        "| Edition ID | Artifact Filename | Path | Format | Size Bytes | SHA256 | Build Summary | Build Status | Telemetry | VM Tool | EFI | Secure Boot | RAM | CPU | Disk | Attempts | Desktop Repeatable | Repeatability Risk | Desktop Marker | Wallpaper Marker | Presentation Lock | Shutdown Marker | Desktop+Shutdown Same Attempt | Desktop+Wallpaper+Shutdown Same Attempt | Desktop Marker Attempts | Wallpaper Marker Attempts | Presentation Lock Attempts | Shutdown Marker Attempts | Clean Shutdown Attempts | Session Class | Session Probe | Session Desktop Marker Count | Session Wallpaper Marker Count | Session Presentation Lock Count | Shutdown Clean | Shutdown Method | Boot Menu | Kernel | Initramfs | Display Manager | Desktop | Class | Failure Point |",
+        "|---|---|---|---|---:|---|---|---|---|---|---|---|---:|---:|---|---:|---|---|---|---|---|---|---|---|---:|---:|---:|---:|---:|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|",
     ])
     for row in rows:
         lines.append(
-            "| {edition_id} | {iso_filename} | `{path}` | {artifact_format} | {size_bytes} | `{sha256}` | `{build_summary_path}` | {build_status} | {telemetry_status} | {vm_tool} | {efi_enabled} | {secure_boot_state} | {ram_mb} | {cpu_cores} | {disk_attached} | {attempt_count} | {desktop_repeatable} | {repeatability_risk} | {desktop_marker_reached} | {wallpaper_marker_reached} | {shutdown_marker_reached} | {desktop_shutdown_same_attempt} | {desktop_wallpaper_shutdown_same_attempt} | {desktop_marker_attempt_count} | {wallpaper_marker_attempt_count} | {shutdown_marker_attempt_count} | {clean_shutdown_attempt_count} | {session_determinism_class} | {session_probe_classification} | {session_desktop_marker_count} | {session_wallpaper_marker_count} | {clean_shutdown_verified} | {shutdown_method} | {boot_menu_reached} | {kernel_reached} | {initramfs_reached} | {display_manager_reached} | {desktop_reached} | {classification} | {failure_point} |".format(
+            "| {edition_id} | {iso_filename} | `{path}` | {artifact_format} | {size_bytes} | `{sha256}` | `{build_summary_path}` | {build_status} | {telemetry_status} | {vm_tool} | {efi_enabled} | {secure_boot_state} | {ram_mb} | {cpu_cores} | {disk_attached} | {attempt_count} | {desktop_repeatable} | {repeatability_risk} | {desktop_marker_reached} | {wallpaper_marker_reached} | {presentation_lock_reached} | {shutdown_marker_reached} | {desktop_shutdown_same_attempt} | {desktop_wallpaper_shutdown_same_attempt} | {desktop_marker_attempt_count} | {wallpaper_marker_attempt_count} | {presentation_lock_attempt_count} | {shutdown_marker_attempt_count} | {clean_shutdown_attempt_count} | {session_determinism_class} | {session_probe_classification} | {session_desktop_marker_count} | {session_wallpaper_marker_count} | {session_presentation_lock_count} | {clean_shutdown_verified} | {shutdown_method} | {boot_menu_reached} | {kernel_reached} | {initramfs_reached} | {display_manager_reached} | {desktop_reached} | {classification} | {failure_point} |".format(
                 **row
             )
         )
@@ -1004,26 +1044,29 @@ def render_repeatability(rows: list[dict], generated_at: str) -> str:
             f"- Desktop + wallpaper + shutdown same attempt: `{row.get('desktop_wallpaper_shutdown_same_attempt', False)}`",
             f"- Desktop marker attempts: `{row.get('desktop_marker_attempt_count', 0)}`",
             f"- Wallpaper marker attempts: `{row.get('wallpaper_marker_attempt_count', 0)}`",
+            f"- Presentation lock attempts: `{row.get('presentation_lock_attempt_count', 0)}`",
             f"- Shutdown marker attempts: `{row.get('shutdown_marker_attempt_count', 0)}`",
             f"- Clean shutdown attempts: `{row.get('clean_shutdown_attempt_count', 0)}`",
             f"- Session determinism class: `{row.get('session_determinism_class', 'NOT_RUN')}`",
             f"- Session desktop markers: `{row.get('session_desktop_marker_count', 0)}` / `{SESSION_DETERMINISM_GOAL}`",
             f"- Session wallpaper markers: `{row.get('session_wallpaper_marker_count', 0)}` / `{SESSION_DETERMINISM_GOAL}`",
+            f"- Session presentation lock markers: `{row.get('session_presentation_lock_count', 0)}` / `{SESSION_DETERMINISM_GOAL}`",
             f"- Wallpaper marker reached: `{row.get('wallpaper_marker_reached', False)}`",
             f"- Session shutdown markers: `{row.get('session_shutdown_marker_count', 0)}`",
             "",
-            "| Attempt | Timestamp | Result Stage | Desktop | Desktop Marker | Wallpaper Marker | Shutdown Marker | Clean Shutdown | Canonical Update | Screenshot | Reason/Note | Console Log | Serial Log |",
-            "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+            "| Attempt | Timestamp | Result Stage | Desktop | Desktop Marker | Wallpaper Marker | Presentation Lock | Shutdown Marker | Clean Shutdown | Canonical Update | Screenshot | Reason/Note | Console Log | Serial Log |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         ])
         for attempt in row.get("boot_attempts", []) or []:
             lines.append(
-                "| {attempt_label} | {attempt_timestamp} | {result_stage} | {desktop_reached} | {desktop_marker_reached} | {wallpaper_marker_reached} | {shutdown_marker_reached} | {clean_shutdown_verified} | {canonical_update} | {screenshot_path} | {reason} | {console_log} | {serial_log} |".format(
+                "| {attempt_label} | {attempt_timestamp} | {result_stage} | {desktop_reached} | {desktop_marker_reached} | {wallpaper_marker_reached} | {presentation_lock_reached} | {shutdown_marker_reached} | {clean_shutdown_verified} | {canonical_update} | {screenshot_path} | {reason} | {console_log} | {serial_log} |".format(
                     attempt_label=attempt.get("attempt_label", ""),
                     attempt_timestamp=attempt.get("attempt_timestamp", ""),
                     result_stage=attempt.get("result_stage", ""),
                     desktop_reached=attempt.get("desktop_reached", False),
                     desktop_marker_reached=attempt.get("desktop_marker_reached", False),
                     wallpaper_marker_reached=attempt.get("wallpaper_marker_reached", False),
+                    presentation_lock_reached=attempt.get("presentation_lock_reached", False),
                     shutdown_marker_reached=attempt.get("shutdown_marker_reached", False),
                     clean_shutdown_verified=attempt.get("clean_shutdown_verified", False),
                     canonical_update=attempt.get("canonical_update", False),
@@ -1038,18 +1081,19 @@ def render_repeatability(rows: list[dict], generated_at: str) -> str:
             for attempt in (row.get("boot_attempts", []) or [])
             if str(attempt.get("attempt_label", "")).startswith(PR39E_PREFIX)
             or str(attempt.get("attempt_label", "")).startswith(PR39F_PREFIX)
+            or str(attempt.get("attempt_label", "")).startswith(PR39I_PREFIX)
         ]
         if session_attempts:
             lines.extend([
                 "",
-                "### PR39E/PR39F Session Determinism Attempts",
+                "### PR39E/PR39F/PR39I Session Determinism Attempts",
                 "",
-                "| Attempt | Timestamp | Requested Profile | Selected Session | Actual Type | Actual SDDM Session | Shutdown Probe Cmdline | Desktop Marker | Wallpaper Marker | Shutdown Marker | Shutdown | Probe Class | Session Logs | Console Log | Serial Log | Reason/Note |",
-                "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+                "| Attempt | Timestamp | Requested Profile | Selected Session | Actual Type | Actual SDDM Session | Shutdown Probe Cmdline | Desktop Marker | Wallpaper Marker | Presentation Lock | Shutdown Marker | Shutdown | Probe Class | Session Logs | Console Log | Serial Log | Reason/Note |",
+                "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
             ])
             for attempt in session_attempts:
                 lines.append(
-                    "| {attempt_label} | {attempt_timestamp} | {session_profile} | {selected_session_file} | {actual_session_type} | {actual_sddm_session_file} | {shutdown_probe_cmdline_confirmed} | {desktop_marker_reached} | {wallpaper_marker_reached} | {shutdown_marker_reached} | {clean_shutdown_verified} | {session_probe_classification} | {session_logs} | {console_log} | {serial_log} | {reason} |".format(
+                    "| {attempt_label} | {attempt_timestamp} | {session_profile} | {selected_session_file} | {actual_session_type} | {actual_sddm_session_file} | {shutdown_probe_cmdline_confirmed} | {desktop_marker_reached} | {wallpaper_marker_reached} | {presentation_lock_reached} | {shutdown_marker_reached} | {clean_shutdown_verified} | {session_probe_classification} | {session_logs} | {console_log} | {serial_log} | {reason} |".format(
                         attempt_label=attempt.get("attempt_label", ""),
                         attempt_timestamp=attempt.get("attempt_timestamp", ""),
                         session_profile=attempt.get("session_profile", ""),
@@ -1059,6 +1103,7 @@ def render_repeatability(rows: list[dict], generated_at: str) -> str:
                         shutdown_probe_cmdline_confirmed=attempt.get("shutdown_probe_cmdline_confirmed", False),
                         desktop_marker_reached=attempt.get("desktop_marker_reached", False),
                         wallpaper_marker_reached=attempt.get("wallpaper_marker_reached", False),
+                        presentation_lock_reached=attempt.get("presentation_lock_reached", False),
                         shutdown_marker_reached=attempt.get("shutdown_marker_reached", False),
                         clean_shutdown_verified=attempt.get("clean_shutdown_verified", False),
                         session_probe_classification=attempt.get("session_probe_classification", ""),
@@ -1081,13 +1126,31 @@ def render_boot_log_excerpt(row: dict) -> str:
     )
 
 def list_target_isos() -> list[Path]:
+    if ARTIFACT_FILTER:
+        targets: list[Path] = []
+        for item in ARTIFACT_FILTER:
+            artifact = Path(item)
+            if not artifact.is_absolute():
+                artifact = ROOT / artifact
+            artifact = artifact.resolve()
+            if not artifact.exists():
+                raise SystemExit(f"Artifact path does not exist: {artifact}")
+            edition_id = edition_from_filename(artifact.name)
+            if edition_id == "unknown":
+                raise SystemExit(f"Cannot infer edition from artifact path: {artifact}")
+            manifest = ROOT / "editions" / edition_id / "edition.yaml"
+            if not manifest.exists() or edition_is_archived(manifest):
+                raise SystemExit(f"Artifact is not an active edition target: {artifact}")
+            targets.append(artifact)
+        return targets
+
     candidates = sorted(
         list(BUILD_DIR.glob("bwos-*.iso"))
         + list(BUILD_DIR.glob("bwos-*.img"))
         + list(ISO_DIR.glob("bwos-*.iso"))
         + list(ISO_DIR.glob("bwos-*.img"))
     )
-    chosen: dict[str, tuple[int, float, Path]] = {}
+    targets: list[Path] = []
     for iso in candidates:
         if not iso.exists():
             continue
@@ -1097,25 +1160,21 @@ def list_target_isos() -> list[Path]:
         manifest = ROOT / "editions" / edition_id / "edition.yaml"
         if not manifest.exists() or edition_is_archived(manifest):
             continue
-        artifact_role = 1 if iso.is_relative_to(BUILD_DIR) else 0
-        artifact_mtime = iso.stat().st_mtime
-        current = chosen.get(edition_id)
-        candidate = (artifact_role, artifact_mtime, iso)
-        if current is None or candidate > current:
-            chosen[edition_id] = candidate
+        targets.append(iso)
     if FILTER:
         wanted = set(FILTER)
         filtered = []
-        for _, _, iso in chosen.values():
+        for iso in targets:
             if iso.stem in wanted or edition_from_filename(iso.name) in wanted:
                 filtered.append(iso)
         return filtered
-    return [item[2] for item in sorted(
-        chosen.values(),
+    return [item for item in sorted(
+        targets,
         key=lambda item: (
-            {edition: index for index, edition in enumerate(EDITION_ORDER)}.get(edition_from_filename(item[2].name), len(EDITION_ORDER)),
-            edition_from_filename(item[2].name),
-            str(item[2].name),
+            {edition: index for index, edition in enumerate(EDITION_ORDER)}.get(edition_from_filename(item.name), len(EDITION_ORDER)),
+            edition_from_filename(item.name),
+            0 if item.is_relative_to(ISO_DIR) else 1,
+            str(item.name),
         ),
     )]
 
@@ -1310,6 +1369,7 @@ def main() -> int:
         desktop = False
         desktop_marker = False
         wallpaper_marker = False
+        presentation_lock = False
         shutdown_marker = False
         sddm_autologin_configured = False
         session_launch_attempted = False
@@ -1327,6 +1387,8 @@ def main() -> int:
         shutdown_requested = False
         failure_point = ""
         qmp_powered = False
+        qemu_exited_normally = False
+        forced_termination = False
         boot_profile_selected = False
         requested_session_profile = SESSION_PROFILE
         shutdown_probe_requested = SHUTDOWN_PROBE
@@ -1359,6 +1421,8 @@ def main() -> int:
                     desktop = True
                 if not wallpaper_marker and WALLPAPER_MARKER in serial_text:
                     wallpaper_marker = True
+                if not presentation_lock and PRESENTATION_LOCK_MARKER in serial_text:
+                    presentation_lock = True
                 if not shutdown_marker and SHUTDOWN_MARKER in serial_text:
                     shutdown_marker = True
                 if not sddm_autologin_configured and SDDM_AUTLOGIN_MARKER in serial_text:
@@ -1406,9 +1470,11 @@ def main() -> int:
 
                 if shutdown_requested and proc.poll() is not None:
                     shutdown = True
+                    qemu_exited_normally = True
                     break
 
                 if proc.poll() is not None:
+                    qemu_exited_normally = True
                     break
 
                 if shutdown_requested and shutdown_deadline is not None and time.time() > shutdown_deadline:
@@ -1417,6 +1483,7 @@ def main() -> int:
                 time.sleep(2)
         finally:
             if proc.poll() is None:
+                forced_termination = True
                 proc.terminate()
                 try:
                     proc.wait(timeout=10)
@@ -1464,6 +1531,11 @@ def main() -> int:
         if qmp_socket.exists():
             shutil.move(str(qmp_socket), saved_qmp)
 
+        saved_serial_text = read_text(saved_serial) if saved_serial.exists() else ""
+        process_observations = {
+            name: marker in saved_serial_text
+            for name, marker in PROCESS_MARKERS.items()
+        }
         attempt_timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         attempt = {
             "attempt_label": attempt_label,
@@ -1478,6 +1550,10 @@ def main() -> int:
             "kernel_cmdline": kernel_cmdline,
             "shutdown_probe_cmdline_confirmed": "bwos.shutdown_probe=1" in kernel_cmdline,
             "shutdown_probe": shutdown_probe_requested,
+            "acpi_powerdown_requested": shutdown_requested and not shutdown_probe_requested,
+            "qmp_powerdown_sent": qmp_powered,
+            "qemu_exited_normally": qemu_exited_normally,
+            "forced_termination": forced_termination,
             "vm_tool": plan["vm_tool"],
             "vm_settings": build_vm_settings(plan),
             "result_stage": classification,
@@ -1488,6 +1564,7 @@ def main() -> int:
             "desktop_reached": desktop,
             "desktop_marker_reached": desktop_marker,
             "wallpaper_marker_reached": wallpaper_marker,
+            "presentation_lock_reached": presentation_lock,
             "shutdown_marker_reached": effective_shutdown_marker,
             "sddm_autologin_configured": sddm_autologin_configured,
             "session_launch_attempted": session_launch_attempted,
@@ -1497,6 +1574,7 @@ def main() -> int:
             "plasmashell_started": plasmashell_started,
             "user_provisioning_ok": user_provisioning_ok,
             "session_config_failure": session_config_failure,
+            "process_observations": process_observations,
             "session_probe_classification": session_probe_classification([{
                 "session_profile": requested_session_profile,
                 "display_manager_reached": display,
@@ -1544,6 +1622,7 @@ def main() -> int:
             "desktop_reached": desktop,
             "desktop_marker_reached": desktop_marker,
             "wallpaper_marker_reached": wallpaper_marker,
+            "presentation_lock_reached": presentation_lock,
             "shutdown_marker_reached": effective_shutdown_marker,
             "sddm_autologin_configured": sddm_autologin_configured,
             "session_launch_attempted": session_launch_attempted,
@@ -1553,6 +1632,7 @@ def main() -> int:
             "plasmashell_started": plasmashell_started,
             "user_provisioning_ok": user_provisioning_ok,
             "session_config_failure": session_config_failure,
+            "process_observations": process_observations,
             "session_profile": requested_session_profile,
             "selected_session_file": selected_session_file,
             "actual_session_type": actual_session_type,
@@ -1560,6 +1640,10 @@ def main() -> int:
             "kernel_cmdline": kernel_cmdline,
             "shutdown_probe_cmdline_confirmed": "bwos.shutdown_probe=1" in kernel_cmdline,
             "shutdown_probe": shutdown_probe_requested,
+            "acpi_powerdown_requested": shutdown_requested and not shutdown_probe_requested,
+            "qmp_powerdown_sent": qmp_powered,
+            "qemu_exited_normally": qemu_exited_normally,
+            "forced_termination": forced_termination,
             "session_probe_classification": attempt["session_probe_classification"],
             "session_logs_path": session_logs_path,
             "clean_shutdown_verified": shutdown,
@@ -1575,11 +1659,13 @@ def main() -> int:
             "repeatability_risk": False,
             "desktop_marker_reached": desktop_marker,
             "wallpaper_marker_reached": wallpaper_marker,
+            "presentation_lock_reached": presentation_lock,
             "shutdown_marker_reached": effective_shutdown_marker,
             "session_determinism_class": "NOT_RUN",
             "session_attempt_count": 0,
             "session_desktop_marker_count": 0,
             "session_wallpaper_marker_count": 0,
+            "session_presentation_lock_count": 0,
             "session_shutdown_marker_count": 0,
             "session_repeatability_risk": False,
             "shutdown_method": shutdown_method,
@@ -1729,6 +1815,7 @@ def not_tested_row(meta: dict, plan: dict, generated_at: str) -> dict:
         "desktop_reached": False,
         "desktop_marker_reached": False,
         "wallpaper_marker_reached": False,
+        "presentation_lock_reached": False,
         "shutdown_marker_reached": False,
         "sddm_autologin_configured": False,
         "session_launch_attempted": False,
@@ -1762,11 +1849,13 @@ def not_tested_row(meta: dict, plan: dict, generated_at: str) -> dict:
         "session_attempt_count": 0,
         "session_desktop_marker_count": 0,
         "session_wallpaper_marker_count": 0,
+        "session_presentation_lock_count": 0,
         "session_shutdown_marker_count": 0,
         "session_repeatability_risk": False,
         "shutdown_method": "",
         "desktop_marker_attempt_count": 0,
         "wallpaper_marker_attempt_count": 0,
+        "presentation_lock_attempt_count": 0,
         "shutdown_marker_attempt_count": 0,
         "clean_shutdown_attempt_count": 0,
         "desktop_shutdown_same_attempt": False,
@@ -1791,11 +1880,13 @@ def row_from_artifact_and_evidence(meta: dict, plan: dict, attempts: list[dict],
     row["session_attempt_count"] = session_summary["attempt_count"]
     row["session_desktop_marker_count"] = session_summary["desktop_marker_count"]
     row["session_wallpaper_marker_count"] = session_summary["wallpaper_marker_count"]
+    row["session_presentation_lock_count"] = session_summary.get("presentation_lock_count", 0)
     row["session_shutdown_marker_count"] = session_summary["shutdown_marker_count"]
     row["session_repeatability_risk"] = session_summary["repeatability_risk"]
     profile_attempts = [
         attempt for attempt in clean_attempts
         if str(attempt.get("attempt_label", "")).startswith(PR39F_PREFIX)
+        or str(attempt.get("attempt_label", "")).startswith(PR39I_PREFIX)
         or str(attempt.get("session_profile", "")) in {"wayland", "x11"}
     ]
     row["session_probe_classification"] = session_probe_classification(profile_attempts)
@@ -1857,12 +1948,14 @@ def merge_rows(existing: dict | None, incoming: dict | None) -> dict | None:
     merged["session_attempt_count"] = session_summary["attempt_count"]
     merged["session_desktop_marker_count"] = session_summary["desktop_marker_count"]
     merged["session_wallpaper_marker_count"] = session_summary["wallpaper_marker_count"]
+    merged["session_presentation_lock_count"] = session_summary.get("presentation_lock_count", 0)
     merged["session_shutdown_marker_count"] = session_summary["shutdown_marker_count"]
     merged["session_repeatability_risk"] = session_summary["repeatability_risk"]
     profile_attempts = [
         attempt
         for attempt in all_attempts
         if str(attempt.get("attempt_label", "")).startswith(PR39F_PREFIX)
+        or str(attempt.get("attempt_label", "")).startswith(PR39I_PREFIX)
         or str(attempt.get("session_profile", "")) in {"wayland", "x11"}
     ]
     merged["session_probe_classification"] = session_probe_classification(profile_attempts)
