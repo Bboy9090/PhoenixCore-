@@ -39,17 +39,6 @@ wallpaperplugin=org.kde.image
 Image=file://${WALLPAPER}
 EOF2
 
-cat > /etc/skel/.config/autostart/bwos-desktop-session-marker.desktop <<'EOF2'
-[Desktop Entry]
-Type=Application
-Name=BWOS Desktop Session Marker
-Exec=/usr/local/bin/bwos-desktop-session-marker
-Terminal=false
-NoDisplay=true
-X-GNOME-autostart-enabled=true
-OnlyShowIn=KDE;Plasma;
-X-KDE-autostart-phase=2
-EOF2
 
 if [ -d "${LIVE_HOME}" ]; then
     cp -a /etc/skel/. "${LIVE_HOME}/" 2>/dev/null || true
