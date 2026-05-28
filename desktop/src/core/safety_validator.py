@@ -13,6 +13,8 @@ import logging
 import platform
 import subprocess
 import psutil
+import plistlib
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Set, Any
 from dataclasses import dataclass, field
@@ -1625,6 +1627,442 @@ def run_dry_run_tests():
     finally:
         if "PHOENIX_SAFETY_DEVELOPER_OVERRIDE" in os.environ:
             del os.environ["PHOENIX_SAFETY_DEVELOPER_OVERRIDE"]
+
+
+# ==============================================================================
+# CONSOLIDATED PHYSICAL STORAGE DISCOVERY & FORENSIC AUDIT PERSISTENCE MIDDLEWARE
+# ==============================================================================
+
+def get_audit_log_path() -> Path:
+    """Resolve the forensic audit log path using PHOENIX_SAFETY_AUDIT_PATH or fallbacks"""
+    env_path = os.environ.get("PHOENIX_SAFETY_AUDIT_PATH")
+    if env_path:
+        return Path(env_path)
+
+    # Fallbacks in precedence order
+    fallbacks = [
+        # 1. Dev workspace scratch path
+        Path("/Users/bj90-m1/.gemini/antigravity/brain/502c977f-27e0-4033-913a-921365ab4a5c/scratch/safety_audit.json"),
+        # 2. Project-local logs path
+        Path(__file__).resolve().parents[3] / "logs" / "safety" / "safety_audit.json",
+        # 3. User config log path
+        Path.home() / ".config" / "phoenix" / "safety_audit.json",
+        # 4. System-wide log folder for packaged builds
+        Path("/Library/Logs/Phoenix/safety_audit.json") if platform.system() == "Darwin" else Path("/var/log/phoenix/safety_audit.json")
+    ]
+
+    for fb in fallbacks:
+        try:
+            fb.parent.mkdir(parents=True, exist_ok=True)
+            fb.touch(exist_ok=True)
+            return fb
+        except Exception:
+            continue
+
+    # Ultimate fallback in /tmp
+    tmp_path = Path("/tmp/phoenix_safety_audit.json")
+    try:
+        tmp_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path.touch(exist_ok=True)
+    except Exception:
+        pass
+    return tmp_path
+
+
+def persist_audit_record(verdict: SafetyVerdict) -> bool:
+    """Write the forensic safety audit log to the active JSONL file.
+    Returns True if successfully written, otherwise False (audit_write_failure)."""
+    log_path = get_audit_log_path()
+    audit_dict = verdict.to_audit_dict()
+
+    # Ensure audit_persistence metadata field is tracked
+    if hasattr(verdict, "audit_persistence"):
+        audit_dict["audit_persistence"] = verdict.audit_persistence
+    else:
+        audit_dict["audit_persistence"] = "SUCCESS"
+
+    try:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(audit_dict) + "\n")
+        return True
+    except Exception as e:
+        # Emit a highly visible console warning to stderr
+        RED = "\033[1;31m"
+        RESET = "\033[0m"
+        print(f"\n{RED}⚠️  WARNING: AUDIT PERSISTENCE FAILURE! Failed to write forensic audit record to {log_path}: {e}{RESET}", file=sys.stderr)
+        verdict.audit_persistence = "FAILED"
+        return False
+
+
+def probe_device_macos(disk_id: str, root_disk_parent: str, apfs_containers: List[str]) -> DeviceProbe:
+    """Execute diskutil plist queries and construct a DeviceProbe on macOS.
+    Implements fail-closed heuristics for parser/command uncertainty."""
+    device_path = f"/dev/{disk_id}"
+    try:
+        # Query target details via diskutil info -plist
+        result = subprocess.run(
+            ["diskutil", "info", "-plist", device_path],
+            capture_output=True, check=False, timeout=10
+        )
+        if result.returncode != 0:
+            probe = DeviceProbe(device_path=device_path)
+            probe.is_probe_failure = True
+            probe.probe_failure_reason = f"diskutil info returned non-zero exit code {result.returncode}"
+            probe.is_host_root_parent = True
+            return probe
+
+        try:
+            plist = plistlib.loads(result.stdout)
+        except Exception as pe:
+            probe = DeviceProbe(device_path=device_path)
+            probe.is_probe_failure = True
+            probe.probe_failure_reason = f"Malformed plist output from diskutil: {pe}"
+            probe.is_host_root_parent = True
+            return probe
+        
+        whole_disk = plist.get("ParentWholeDisk", disk_id)
+        
+        # 1. Is active host root parent?
+        is_host_root_parent = (whole_disk == root_disk_parent)
+
+        # 2. Is internal SATA or PCIe NVMe?
+        device_location = plist.get("DeviceLocation", "Internal")
+        bus_protocol = plist.get("BusProtocol", "SATA")
+        is_internal_sata_nvme = (
+            device_location == "Internal" and 
+            bus_protocol in ("SATA", "PCI-Express", "PCI")
+        )
+
+        # 3. Is APFS system container backing store?
+        is_apfs_system_container = (
+            whole_disk in apfs_containers or 
+            plist.get("Content") == "Apple_APFS" or
+            plist.get("APFSContainerBacking", False)
+        )
+
+        # 4. Mounted partitions check
+        active_mount_points = []
+        mount_point = plist.get("MountPoint", "")
+        if mount_point:
+            active_mount_points.append(mount_point)
+
+        # If it's a whole disk, query partition mount points manually
+        if plist.get("WholeDisk", True):
+            # Run df or mount check
+            mounts_res = subprocess.run(["mount"], capture_output=True, text=True, check=False)
+            if mounts_res.returncode == 0:
+                for line in mounts_res.stdout.splitlines():
+                    if f"/dev/{disk_id}s" in line:
+                        # Extract mount point: "/dev/disk2s1 on /Volumes/BOOT (msdos...)"
+                        parts = line.split(" on ")
+                        if len(parts) >= 2:
+                            m_point = parts[1].split(" (")[0]
+                            active_mount_points.append(m_point)
+
+        is_removable = plist.get("RemovableMedia", False)
+        capacity_bytes = plist.get("Size", 0)
+        has_serial = bool(plist.get("DeviceGUID") or plist.get("MediaUUID"))
+        has_model = bool(plist.get("DeviceName") or plist.get("MediaName"))
+
+        return DeviceProbe(
+            device_path=device_path,
+            is_host_root_parent=is_host_root_parent,
+            is_internal_sata_nvme=is_internal_sata_nvme,
+            is_apfs_system_container=is_apfs_system_container,
+            active_mount_points=active_mount_points,
+            is_loopback_virtual=(bus_protocol == "Virtual"),
+            is_live_session_self=False,
+            is_removable=is_removable,
+            bus_type=bus_protocol.lower(),
+            capacity_bytes=capacity_bytes,
+            has_serial=has_serial,
+            has_model=has_model
+        )
+
+    except Exception as e:
+        probe = DeviceProbe(device_path=device_path)
+        probe.is_probe_failure = True
+        probe.probe_failure_reason = f"Exception during macOS disk probing: {e}"
+        probe.is_host_root_parent = True
+        return probe
+
+
+def enumerate_macos() -> List[DeviceProbe]:
+    """Discover all whole disks and synthesize probes on macOS"""
+    probes = []
+    
+    # 1. Resolve host root's whole parent disk
+    root_disk_parent = ""
+    root_res = subprocess.run(["diskutil", "info", "-plist", "/"], capture_output=True, check=False)
+    if root_res.returncode == 0:
+        try:
+            plist = plistlib.loads(root_res.stdout)
+            root_disk_parent = plist.get("ParentWholeDisk", "")
+        except Exception:
+            pass
+
+    # 2. Resolve APFS container backing disks
+    apfs_containers = []
+    apfs_res = subprocess.run(["diskutil", "apfs", "list"], capture_output=True, text=True, check=False)
+    if apfs_res.returncode == 0:
+        # Match lines like "APFS Container Reference: disk1" or backing stores
+        for line in apfs_res.stdout.splitlines():
+            if "APFS Container Reference:" in line or "APFS Physical Store" in line:
+                match = re.search(r'(disk\d+)', line)
+                if match:
+                    apfs_containers.append(match.group(1))
+
+    # 3. List all disk identifiers
+    list_res = subprocess.run(["diskutil", "list"], capture_output=True, text=True, check=False)
+    if list_res.returncode != 0:
+        # Fails closed on command failure
+        probe = DeviceProbe(device_path="/dev/all_disks")
+        probe.is_probe_failure = True
+        probe.probe_failure_reason = f"diskutil list returned error exit code {list_res.returncode}"
+        probe.is_host_root_parent = True
+        return [probe]
+
+    # Find all whole disks anchored securely via /dev/ disk prefix
+    identifiers = set(re.findall(r'^/dev/(disk\d+)\b', list_res.stdout, re.MULTILINE))
+    for disk_id in sorted(identifiers):
+        probe = probe_device_macos(disk_id, root_disk_parent, apfs_containers)
+        if probe:
+            probes.append(probe)
+
+    return probes
+
+
+def probe_device_linux(dev_name: str, root_disk_parent: str) -> DeviceProbe:
+    """Query sysfs / udev and construct a DeviceProbe on Linux.
+    Implements fail-closed heuristics for parser/command uncertainty."""
+    device_path = f"/dev/{dev_name}"
+    try:
+        sys_block_path = Path(f"/sys/block/{dev_name}")
+        if not sys_block_path.exists():
+            probe = DeviceProbe(device_path=device_path)
+            probe.is_probe_failure = True
+            probe.probe_failure_reason = f"sysfs block path {sys_block_path} does not exist"
+            probe.is_host_root_parent = True
+            return probe
+
+        # 1. Is active host root parent?
+        is_host_root_parent = (dev_name == root_disk_parent)
+
+        # Query udevadm properties for attributes
+        udev_res = subprocess.run(
+            ["udevadm", "info", "-q", "property", "-n", device_path],
+            capture_output=True, text=True, check=False, timeout=5
+        )
+        if udev_res.returncode != 0:
+            probe = DeviceProbe(device_path=device_path)
+            probe.is_probe_failure = True
+            probe.probe_failure_reason = f"udevadm info returned exit code {udev_res.returncode}"
+            probe.is_host_root_parent = True
+            return probe
+
+        udev_props = {}
+        for line in udev_res.stdout.splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                udev_props[k.strip()] = v.strip()
+
+        bus_type = udev_props.get("ID_BUS", "")
+        
+        try:
+            removable_raw = sys_block_path.joinpath("removable").read_text().strip()
+        except Exception as re_err:
+            probe = DeviceProbe(device_path=device_path)
+            probe.is_probe_failure = True
+            probe.probe_failure_reason = f"Failed to read sysfs removable attribute: {re_err}"
+            probe.is_host_root_parent = True
+            return probe
+
+        is_internal_sata_nvme = (
+            bus_type in ("ata", "scsi", "nvme") and
+            removable_raw != "1"
+        )
+
+        is_apfs_system_container = False
+
+        # Read active mount points on partitions of this disk
+        active_mount_points = []
+        try:
+            with open("/proc/mounts", "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        mount_source = parts[0]
+                        mount_point = parts[1]
+                        if mount_source.startswith(device_path):
+                            active_mount_points.append(mount_point)
+        except Exception as mount_err:
+            probe = DeviceProbe(device_path=device_path)
+            probe.is_probe_failure = True
+            probe.probe_failure_reason = f"Failed to read active mounts from /proc/mounts: {mount_err}"
+            probe.is_host_root_parent = True
+            return probe
+
+        is_loopback_virtual = "virtual" in sys_block_path.resolve().as_posix()
+        is_removable = (removable_raw == "1")
+
+        try:
+            size_sectors = int(sys_block_path.joinpath("size").read_text().strip())
+            capacity_bytes = size_sectors * 512
+        except Exception as size_err:
+            probe = DeviceProbe(device_path=device_path)
+            probe.is_probe_failure = True
+            probe.probe_failure_reason = f"Failed to read block capacity size: {size_err}"
+            probe.is_host_root_parent = True
+            return probe
+
+        has_serial = bool(udev_props.get("ID_SERIAL") or udev_props.get("ID_SERIAL_SHORT"))
+        has_model = bool(udev_props.get("ID_MODEL") or udev_props.get("ID_VENDOR"))
+
+        return DeviceProbe(
+            device_path=device_path,
+            is_host_root_parent=is_host_root_parent,
+            is_internal_sata_nvme=is_internal_sata_nvme,
+            is_apfs_system_container=is_apfs_system_container,
+            active_mount_points=active_mount_points,
+            is_loopback_virtual=is_loopback_virtual,
+            is_live_session_self=False,
+            is_removable=is_removable,
+            bus_type=bus_type.lower(),
+            capacity_bytes=capacity_bytes,
+            has_serial=has_serial,
+            has_model=has_model
+        )
+
+    except Exception as e:
+        probe = DeviceProbe(device_path=device_path)
+        probe.is_probe_failure = True
+        probe.probe_failure_reason = f"Exception during Linux disk probing: {e}"
+        probe.is_host_root_parent = True
+        return probe
+
+
+def enumerate_linux() -> List[DeviceProbe]:
+    """Discover all block devices and synthesize probes on Linux"""
+    probes = []
+
+    # 1. Resolve host root's parent disk
+    root_disk_parent = ""
+    findmnt_res = subprocess.run(["findmnt", "-n", "-o", "SOURCE", "/"], capture_output=True, text=True, check=False)
+    if findmnt_res.returncode == 0:
+        root_partition = findmnt_res.stdout.strip()
+        root_dev_name = os.path.basename(root_partition)
+        if root_dev_name.startswith("nvme"):
+            root_disk_parent = root_dev_name.split("p")[0]
+        else:
+            root_disk_parent = "".join([c for c in root_dev_name if not c.isdigit()])
+
+    # 2. Iterate sysfs block structures
+    sys_block = Path("/sys/block")
+    if not sys_block.exists():
+        # Fails closed on missing sysfs
+        probe = DeviceProbe(device_path="/dev/all_disks")
+        probe.is_probe_failure = True
+        probe.probe_failure_reason = "sysfs block directory /sys/block does not exist"
+        probe.is_host_root_parent = True
+        return [probe]
+
+    for dev_path in sorted(sys_block.iterdir()):
+        dev_name = dev_path.name
+        if dev_name.startswith(("sd", "nvme", "loop", "mmcblk")):
+            probe = probe_device_linux(dev_name, root_disk_parent)
+            if probe:
+                probes.append(probe)
+
+    return probes
+
+
+def enumerate_host_devices() -> List[DeviceProbe]:
+    """Centralized cross-platform host block storage enumeration"""
+    sys_type = platform.system()
+    if sys_type == "Darwin":
+        probes = enumerate_macos()
+    elif sys_type == "Linux":
+        probes = enumerate_linux()
+    else:
+        # Fails closed on unsupported OS
+        probe = DeviceProbe(device_path="/dev/all_disks")
+        probe.is_probe_failure = True
+        probe.probe_failure_reason = f"Unsupported host platform: {sys_type}"
+        probe.is_host_root_parent = True
+        probes = [probe]
+
+    # Model duplicate ambiguity checks
+    model_counts = {}
+    for p in probes:
+        key = f"{p.bus_type}_{p.capacity_bytes}"
+        model_counts[key] = model_counts.get(key, 0) + 1
+
+    for p in probes:
+        key = f"{p.bus_type}_{p.capacity_bytes}"
+        p.is_ambiguous_duplicate = (model_counts[key] > 1)
+
+    return probes
+
+
+def _get_base_device_name(path: str) -> str:
+    """Normalize and resolve base block device name (e.g. disk0s1 -> disk0, sda1 -> sda)"""
+    name = path.replace("/dev/", "").strip()
+    sys_type = platform.system()
+    if sys_type == "Darwin":
+        # macOS: disk0s1 -> disk0
+        return re.sub(r's\d+$', '', name)
+    elif sys_type == "Linux":
+        # Linux: sda1 -> sda, nvme0n1p1 -> nvme0n1
+        if "nvme" in name:
+            return name.split("p")[0] if "p" in name else name
+        return re.sub(r'\d+$', '', name)
+    return name
+
+
+def validate_target_safety(device_path: str) -> SafetyVerdict:
+    """Enforce centralized safety validation gating on a targeted block storage path.
+    Gathers platform probes, runs checks, logs forensic trails, and returns the SafetyVerdict."""
+    # 1. Discover all host devices
+    probes = enumerate_host_devices()
+
+    # 2. Match device probe by path
+    target_base = _get_base_device_name(device_path)
+    target_probe = None
+    for p in probes:
+        p_base = _get_base_device_name(p.device_path)
+        if p.device_path == device_path or p_base == target_base:
+            target_probe = p
+            break
+
+    # If target is completely unknown and not listed during enumeration, it fails closed
+    if not target_probe:
+        # Construct fallback critical blocked probe
+        target_probe = DeviceProbe(device_path=device_path)
+        target_probe.is_probe_failure = True
+        target_probe.probe_failure_reason = f"Target block device {device_path} not found on host storage bus."
+        target_probe.is_host_root_parent = True
+
+    # 3. Classify target device
+    verdict = classify_device(target_probe)
+
+    # 4. Trapping fail-closed overrides on parser/gathering failures
+    if getattr(target_probe, "is_probe_failure", False):
+        verdict.severity = SafetySeverity.SAFETY_CRITICAL_BLOCK
+        verdict.confidence_score = -1000
+        verdict.hardlock_reason = f"Intake validation failed: {getattr(target_probe, 'probe_failure_reason', 'Unknown parser error')}"
+        verdict.operator_message = "CRITICAL_ERROR: Probe gathering failed. Uncertainty fails closed to prevent data destruction."
+
+    # 5. Enforce lockout on ambiguous duplicate targets lacking serial descriptors
+    if target_probe.is_ambiguous_duplicate and not target_probe.has_serial:
+        verdict.severity = SafetySeverity.SAFETY_CRITICAL_BLOCK
+        verdict.confidence_score = -500
+        verdict.hardlock_reason = "Ambiguous duplicate devices detected with missing hardware serial descriptors"
+        verdict.operator_message = "CRITICAL_ERROR: Multiple identical devices found on USB bus but they lack distinct serial numbers. Refusing operation to prevent writing to the wrong target."
+
+    # 6. Persistent forensic audit log registration
+    persist_audit_record(verdict)
+
+    return verdict
 
 
 if __name__ == "__main__":

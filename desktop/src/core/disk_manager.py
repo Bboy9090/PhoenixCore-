@@ -116,6 +116,20 @@ class DiskWriter(QThread):
             if not os.path.exists(self.target_device):
                 return False
 
+            # Enforce centralized safety validation gating middleware
+            from src.core.safety_validator import validate_target_safety, SafetySeverity
+            
+            verdict = validate_target_safety(self.target_device)
+            is_safe = (verdict.confidence_score >= 90 and 
+                       verdict.severity not in (SafetySeverity.SAFETY_CRITICAL_BLOCK, SafetySeverity.SAFETY_BLOCK))
+            
+            if not is_safe:
+                self.logger.error(
+                    f"Refusing write on target {self.target_device}: Safety Lockout Enforced! "
+                    f"Severity: {verdict.severity.value}, Reason: {verdict.hardlock_reason}"
+                )
+                return False
+
             # Additional platform-specific checks
             system = platform.system()
 
@@ -325,6 +339,17 @@ class DiskManager:
 
             for partition in partitions:
                 if self._is_removable_drive(partition.device):
+                    # Enforce centralized safety validation screening on candidate storage devices
+                    from src.core.safety_validator import validate_target_safety, SafetySeverity
+                    
+                    verdict = validate_target_safety(partition.device)
+                    is_safe = (verdict.confidence_score >= 90 and 
+                               verdict.severity not in (SafetySeverity.SAFETY_CRITICAL_BLOCK, SafetySeverity.SAFETY_BLOCK))
+                    
+                    if not is_safe:
+                        self.logger.info(f"Filtering out unsafe storage device from removable selection pool: {partition.device} ({verdict.hardlock_reason})")
+                        continue
+
                     try:
                         usage = psutil.disk_usage(partition.mountpoint)
 
@@ -720,6 +745,20 @@ class DiskManager:
     def format_device(self, device_path: str, filesystem: str = "fat32") -> bool:
         """Format device with specified filesystem"""
         try:
+            # Enforce centralized safety validation gating middleware
+            from src.core.safety_validator import validate_target_safety, SafetySeverity
+            
+            verdict = validate_target_safety(device_path)
+            is_safe = (verdict.confidence_score >= 90 and 
+                       verdict.severity not in (SafetySeverity.SAFETY_CRITICAL_BLOCK, SafetySeverity.SAFETY_BLOCK))
+            
+            if not is_safe:
+                self.logger.error(
+                    f"Refusing format on target {device_path}: Safety Lockout Enforced! "
+                    f"Severity: {verdict.severity.value}, Reason: {verdict.hardlock_reason}"
+                )
+                return False
+
             system = platform.system()
 
             if system == "Linux":
