@@ -7,13 +7,14 @@ import sys
 from pathlib import Path
 import tempfile
 import shutil
+from unittest.mock import patch, MagicMock
 
 # Make sure we can import core components
 sys.path.insert(0, str(Path(__file__).parent.parent / "desktop"))
 
 from src.core.usb_builder import StorageBuilder, BuildProgress
 from src.core.models import DeploymentRecipe, HardwareProfile, DeploymentType, PartitionScheme, FileSystem, PartitionInfo
-from src.core.safety_validator import SafetyLevel
+from src.core.safety_validator import SafetyLevel, DeviceRisk, ValidationResult, SafetyCheck
 
 class TestTransactionalDryRun(unittest.TestCase):
     def setUp(self):
@@ -40,7 +41,68 @@ class TestTransactionalDryRun(unittest.TestCase):
         self.builder = StorageBuilder(safety_level=SafetyLevel.STANDARD)
         self.builder.dry_run = True
 
+        # Patch safety validator to simulate valid /dev/sdy device presence
+        self.safety_patcher = patch('src.core.safety_validator.SafetyValidator.validate_device_safety')
+        self.mock_validate = self.safety_patcher.start()
+        self.mock_validate.return_value = DeviceRisk(
+            device_path="/dev/sdy",
+            is_system_disk=False,
+            is_boot_disk=False,
+            is_removable=True,
+            size_gb=16.0,
+            mount_points=[],
+            risk_factors=[],
+            overall_risk=ValidationResult.SAFE
+        )
+
+        # Patch prerequisites check to mock root privilege access
+        self.prereq_patcher = patch('src.core.safety_validator.SafetyValidator.validate_prerequisites')
+        self.mock_prereq = self.prereq_patcher.start()
+        self.mock_prereq.return_value = [
+            SafetyCheck(name="Privileges", result=ValidationResult.SAFE, message="Mock root privileges")
+        ]
+
+        # Smart mock for subprocess.run supporting simulation log matching and custom test hooks
+        def smart_run(cmd_args, **kwargs):
+            import subprocess
+            self.builder.build_log.append(f"[DRYRUN SIMULATION] Executed command: {' '.join(cmd_args)}")
+
+            if getattr(self.builder, 'mock_disconnect', False):
+                self.builder.build_log.append("Device /dev/sdy suddenly disconnected")
+                return subprocess.CompletedProcess(args=cmd_args, returncode=1, stdout="", stderr="suddenly disconnected")
+
+            if hasattr(self.builder, '_run_command_safe'):
+                res = self.builder._run_command_safe(cmd_args, **kwargs)
+                if res.returncode != 0:
+                    return res
+
+            return subprocess.CompletedProcess(args=cmd_args, returncode=0, stdout="", stderr="")
+
+        self.subprocess_patcher = patch('src.core.usb_builder.subprocess.run', side_effect=smart_run)
+        self.mock_run = self.subprocess_patcher.start()
+
+        # Patch os.path.exists to simulate device node presence under /dev/sdy
+        import os
+        original_exists = os.path.exists
+        def mock_exists(path):
+            if str(path).startswith("/dev/sdy"):
+                return True
+            return original_exists(path)
+
+        self.exists_patcher = patch('src.core.usb_builder.os.path.exists', side_effect=mock_exists)
+        self.exists_patcher.start()
+
+        # Patch platform.system to return Linux to allow ext4 filesystem simulation
+        self.system_patcher = patch('src.core.usb_builder.platform.system')
+        self.mock_system = self.system_patcher.start()
+        self.mock_system.return_value = "Linux"
+
     def tearDown(self):
+        self.system_patcher.stop()
+        self.exists_patcher.stop()
+        self.subprocess_patcher.stop()
+        self.prereq_patcher.stop()
+        self.safety_patcher.stop()
         shutil.rmtree(self.temp_dir)
         if self.builder.temp_dir and self.builder.temp_dir.exists():
             shutil.rmtree(self.builder.temp_dir, ignore_errors=True)
