@@ -1,0 +1,1155 @@
+[   16.340063] systemd[1]: Failed unmounting /run/live/medium.
+BWOS_KERNEL_CMDLINE BOOT_IMAGE=/live/vmlinuz-5.10.0-43-amd64 boot=live components quiet splash username=phoenix bwos.session=x11 bwos.app_probe=1 plymouth.ignore-serial-consoles console=tty0 console=ttyS0,115200n8 locales=en_US.UTF-8 keyboard-layouts=us findiso=
+BWOS_SESSION_FILE_X11_EXISTS path=/usr/share/xsessions/plasma.desktop exec=/usr/bin/startplasma-x11
+BWOS_SESSION_EXEC_X11_EXISTS command=/usr/bin/startplasma-x11
+BWOS_SESSION_FILE_WAYLAND_EXISTS path=/usr/share/wayland-sessions/plasmawayland.desktop exec=/usr/lib/x86_64-linux-gnu/libexec/plasma-dbus-run-session-if-needed /usr/bin/startplasma-wayland
+BWOS_SESSION_EXEC_WAYLAND_EXISTS command=/usr/lib/x86_64-linux-gnu/libexec/plasma-dbus-run-session-if-needed
+BWOS_SDDM_SERVICE_PRESTART
+BWOS_SDDM_AUTOLOGIN_CONFIGURED user=phoenix session=plasma.desktop profile=x11
+BWOS_SELECTED_SESSION_FILE=plasma.desktop
+BWOS_X11_SESSION_ATTEMPTED
+BWOS_USER_PROVISIONING_OK user=phoenix home=/home/phoenix owner=phoenix:phoenix mode=755
+BWOS_PLASMA_CONFIG_READABLE
+BWOS_AUTOSTART_MARKER_MISSING
+BWOS_USER_GROUPS phoenix : phoenix disk dialout cdrom sudo audio video plugdev input render netdev
+
+Debian GNU/Linux 11 debian ttyS0
+
+debian login: BWOS_DESKTOP_OBSERVER_STARTED wait_seconds=240
+BWOS_BOOT_SUCCESS_GRAPHICAL_REACHED
+BWOS_HANDOFF_TRACE_BEGIN elapsed=20
+BWOS_SDDM_ACTIVE_STATE active
+BWOS_SDDM_SUB_STATE running
+BWOS_SDDM_MAINPID 877
+BWOS_LOGINCTL_SESSION 1 1000 phoenix seat0 
+BWOS_LOGINCTL_SHOW User=1000
+BWOS_LOGINCTL_SHOW Name=phoenix
+BWOS_LOGINCTL_SHOW Display=:0
+BWOS_LOGINCTL_SHOW Remote=no
+BWOS_LOGINCTL_SHOW Service=sddm-autologin
+BWOS_LOGINCTL_SHOW Leader=1249
+BWOS_LOGINCTL_SHOW Type=x11
+BWOS_LOGINCTL_SHOW Class=user
+BWOS_LOGINCTL_SHOW State=active
+BWOS_LOGINCTL_SESSION_FOUND id=1
+BWOS_USER_PROCESS pid=1251 /lib/systemd/systemd --user BWOS_USER_ENV pid=1251 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_PROCESS pid=1281 /usr/bin/startplasma-x11 BWOS_USER_ENV pid=1281 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1281 DISPLAY=:0
+BWOS_USER_ENV pid=1281 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1281 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1302 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only BWOS_USER_ENV pid=1302 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1302 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1357 /usr/bin/ssh-agent /usr/bin/startplasma-x11 BWOS_USER_ENV pid=1357 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1357 DISPLAY=:0
+BWOS_USER_ENV pid=1357 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1357 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_PROC_KWIN_X11_NOT_RUNNING
+BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+BWOS_PROC_PLASMASHELL_NOT_RUNNING
+BWOS_PROC_KSMSERVER_NOT_RUNNING
+BWOS_PROC_STARTPLASMA_X11_STARTED
+BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+BWOS_PROC_DBUS_DAEMON_STARTED
+BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+BWOS_PROC_SYSTEMD_USER_STARTED
+    782 message+ dbus-daemon     /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+    877 root     sddm            /usr/bin/sddm
+    972 root     Xorg            /usr/lib/xorg/Xorg -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+   1249 root     sddm-helper     /usr/lib/x86_64-linux-gnu/sddm/sddm-helper --socket /tmp/sddm-auth4670a8b8-9d8c-4322-8c61-dcff90c758a2 --id 1 --start /usr/bin/startplasma-x11 --user phoenix --autologin
+   1251 phoenix  systemd         /lib/systemd/systemd --user
+   1281 phoenix  startplasma-x11 /usr/bin/startplasma-x11
+   1302 phoenix  dbus-daemon     /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1357 phoenix  ssh-agent       /usr/bin/ssh-agent /usr/bin/startplasma-x11
+   1405 phoenix  plasma_session  /usr/bin/plasma_session
+-- Journal begins at Thu 2026-05-28 02:09:17 UTC, ends at Thu 2026-05-28 02:10:31 UTC. --
+May 28 02:10:02 debian systemd[1]: Started Simple Desktop Display Manager.
+May 28 02:10:04 debian sddm[877]: Initializing...
+May 28 02:10:04 debian sddm[877]: Starting...
+May 28 02:10:04 debian sddm[877]: Logind interface found
+May 28 02:10:04 debian sddm[877]: Adding new display on vt 7 ...
+May 28 02:10:05 debian sddm[877]: Loading theme configuration from ""
+May 28 02:10:05 debian sddm[877]: Display server starting...
+May 28 02:10:05 debian sddm[877]: Adding cookie to "/var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750}"
+May 28 02:10:05 debian sddm[877]: Running: /usr/bin/X -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+May 28 02:10:12 debian sddm[877]: Setting default cursor
+May 28 02:10:12 debian sddm[877]: Running display setup script  "/usr/share/sddm/scripts/Xsetup"
+May 28 02:10:12 debian sddm[877]: Display server started.
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Session "/usr/share/xsessions/plasma.desktop" selected, command: "/usr/bin/startplasma-x11"
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Starting...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Authenticating...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] returning.
+May 28 02:10:12 debian sddm[877]: Authenticated successfully
+May 28 02:10:13 debian sddm-helper[1249]: pam_unix(sddm-autologin:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:14 debian sddm[877]: Session started
+May 28 02:10:01 debian BWOS-SESSION[839]: BWOS_SESSION_FILE_X11_EXISTS path=/usr/share/xsessions/plasma.desktop exec=/usr/bin/startplasma-x11
+May 28 02:10:01 debian BWOS-SESSION[841]: BWOS_SESSION_EXEC_X11_EXISTS command=/usr/bin/startplasma-x11
+May 28 02:10:01 debian BWOS-SESSION[845]: BWOS_SESSION_FILE_WAYLAND_EXISTS path=/usr/share/wayland-sessions/plasmawayland.desktop exec=/usr/lib/x86_64-linux-gnu/libexec/plasma-dbus-run-session-if-needed /usr/bin/startplasma-wayland
+May 28 02:10:01 debian BWOS-SESSION[847]: BWOS_SESSION_EXEC_WAYLAND_EXISTS command=/usr/lib/x86_64-linux-gnu/libexec/plasma-dbus-run-session-if-needed
+May 28 02:10:01 debian BWOS-SESSION[853]: BWOS_SDDM_SERVICE_PRESTART
+May 28 02:10:01 debian BWOS-SESSION[855]: BWOS_SDDM_AUTOLOGIN_CONFIGURED user=phoenix session=plasma.desktop profile=x11
+May 28 02:10:01 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.hostname1'
+May 28 02:10:01 debian BWOS-SESSION[857]: BWOS_SELECTED_SESSION_FILE=plasma.desktop
+May 28 02:10:01 debian BWOS-SESSION[859]: BWOS_X11_SESSION_ATTEMPTED
+May 28 02:10:02 debian BWOS-SESSION[870]: BWOS_USER_PROVISIONING_OK user=phoenix home=/home/phoenix owner=phoenix:phoenix mode=755
+May 28 02:10:02 debian BWOS-SESSION[872]: BWOS_PLASMA_CONFIG_READABLE
+May 28 02:10:02 debian BWOS-SESSION[874]: BWOS_AUTOSTART_MARKER_MISSING
+May 28 02:10:02 debian systemd[1]: bwos-session-profile.service: Succeeded.
+May 28 02:10:02 debian audit[1]: SERVICE_START pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-session-profile comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:02 debian audit[1]: SERVICE_STOP pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-session-profile comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:02 debian systemd[1]: Finished BWOS Session Profile Selection.
+May 28 02:10:02 debian audit[1]: SERVICE_START pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=sddm comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:02 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.nm_dispatcher' unit='dbus-org.freedesktop.nm-dispatcher.service' requested by ':1.8' (uid=0 pid=783 comm="/usr/sbin/NetworkManager --no-daemon ")
+May 28 02:10:02 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.nm_dispatcher'
+May 28 02:10:04 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.resolve1' unit='dbus-org.freedesktop.resolve1.service' requested by ':1.8' (uid=0 pid=783 comm="/usr/sbin/NetworkManager --no-daemon ")
+May 28 02:10:04 debian dbus-daemon[782]: [system] Activation via systemd failed for unit 'dbus-org.freedesktop.resolve1.service': Unit dbus-org.freedesktop.resolve1.service not found.
+May 28 02:10:04 debian sddm[877]: Initializing...
+May 28 02:10:04 debian sddm[877]: Starting...
+May 28 02:10:04 debian sddm[877]: Logind interface found
+May 28 02:10:04 debian sddm[877]: Adding new display on vt 7 ...
+May 28 02:10:05 debian sddm[877]: Loading theme configuration from ""
+May 28 02:10:05 debian sddm[877]: Display server starting...
+May 28 02:10:05 debian sddm[877]: Adding cookie to "/var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750}"
+May 28 02:10:05 debian sddm[877]: Running: /usr/bin/X -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+May 28 02:10:07 debian systemd[1]: Starting BWOS Desktop Observer...
+May 28 02:10:07 debian systemd[1]: Starting BWOS Graphical Heartbeat...
+May 28 02:10:07 debian BWOS-SESSION[1157]: BWOS_DESKTOP_OBSERVER_STARTED wait_seconds=240
+May 28 02:10:07 debian systemd[1]: Started BWOS SDDM to Plasma Handoff Diagnostics.
+May 28 02:10:07 debian audit[1]: SERVICE_START pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-session-diagnostics comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:07 debian systemd[1]: Finished BWOS Graphical Heartbeat.
+May 28 02:10:07 debian audit[1]: SERVICE_START pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-heartbeat comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:12 debian sddm[877]: Setting default cursor
+May 28 02:10:12 debian sddm[877]: Running display setup script  "/usr/share/sddm/scripts/Xsetup"
+May 28 02:10:12 debian sddm[877]: Display server started.
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Session "/usr/share/xsessions/plasma.desktop" selected, command: "/usr/bin/startplasma-x11"
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Starting...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Authenticating...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] returning.
+May 28 02:10:12 debian audit[1249]: USER_AUTH pid=1249 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=pam_permit acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=? res=success'
+May 28 02:10:12 debian audit[1249]: USER_ACCT pid=1249 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:accounting grantors=pam_permit acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=? res=success'
+May 28 02:10:12 debian sddm[877]: Authenticated successfully
+May 28 02:10:12 debian audit[1249]: CRED_ACQ pid=1249 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:setcred grantors=pam_permit acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=? res=success'
+May 28 02:10:13 debian sddm-helper[1249]: pam_unix(sddm-autologin:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:13 debian audit[1251]: USER_ACCT pid=1251 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:accounting grantors=pam_permit acct="phoenix" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:13 debian audit[1251]: CRED_ACQ pid=1251 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:setcred grantors=pam_permit acct="phoenix" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:13 debian systemd[1251]: pam_unix(systemd-user:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:13 debian audit[1251]: USER_START pid=1251 uid=0 auid=1000 ses=2 subj=unconfined msg='op=PAM:session_open grantors=pam_selinux,pam_selinux,pam_loginuid,pam_limits,pam_permit,pam_unix,pam_keyinit,pam_systemd acct="phoenix" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:14 debian audit[1249]: USER_START pid=1249 uid=0 auid=1000 ses=1 subj=unconfined msg='op=PAM:session_open grantors=pam_selinux,pam_keyinit,pam_limits,pam_loginuid,pam_permit,pam_unix,pam_systemd,pam_selinux,pam_env,pam_env acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=:0 res=success'
+May 28 02:10:14 debian sddm-helper[1249]: Starting: "/etc/sddm/Xsession \"/usr/bin/startplasma-x11\""
+May 28 02:10:14 debian sddm-helper[1281]: Adding cookie to "/home/phoenix/.Xauthority"
+May 28 02:10:14 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.RealtimeKit1' unit='rtkit-daemon.service' requested by ':1.24' (uid=1000 pid=1279 comm="/usr/bin/pipewire ")
+May 28 02:10:14 debian sddm[877]: Session started
+May 28 02:10:14 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.RealtimeKit1'
+May 28 02:10:15 debian pipewire[1279]: Failed to receive portal pid: org.freedesktop.DBus.Error.NameHasNoOwner: Could not get PID of name 'org.freedesktop.portal.Desktop': no such name
+May 28 02:10:20 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.KSplash' requested by ':1.7' (uid=1000 pid=1281 comm="/usr/bin/startplasma-x11 ")
+May 28 02:10:22 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.KSplash'
+May 28 02:10:27 debian BWOS-SESSION[1503]: BWOS_HANDOFF_TRACE_BEGIN elapsed=20
+May 28 02:10:28 debian BWOS-SESSION[1511]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:10:28 debian BWOS-SESSION[1518]: BWOS_SDDM_SUB_STATE running
+May 28 02:10:28 debian BWOS-SESSION[1522]: BWOS_SDDM_MAINPID 877
+May 28 02:10:28 debian BWOS-SESSION[1531]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:10:29 debian BWOS-SESSION[1562]: BWOS_PROC_KWIN_X11_NOT_RUNNING
+May 28 02:10:29 debian BWOS-SESSION[1572]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:10:29 debian BWOS-SESSION[1575]: BWOS_PROC_PLASMASHELL_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1578]: BWOS_PROC_KSMSERVER_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1581]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:10:30 debian BWOS-SESSION[1587]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1600]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:10:30 debian BWOS-SESSION[1603]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:10:31 debian BWOS-SESSION[1606]: BWOS_PROC_SYSTEMD_USER_STARTED
+BWOS_HANDOFF_TRACE_END elapsed=20
+BWOS_OBSERVER_STABILITY_CHECK stable_seconds=1/5
+BWOS_OBSERVER_STABILITY_CHECK stable_seconds=2/5
+BWOS_HANDOFF_TRACE_BEGIN elapsed=45
+BWOS_SDDM_ACTIVE_STATE active
+BWOS_SDDM_SUB_STATE running
+BWOS_SDDM_MAINPID 877
+BWOS_LOGINCTL_SESSION 1 1000 phoenix seat0 
+BWOS_LOGINCTL_SHOW User=1000
+BWOS_LOGINCTL_SHOW Name=phoenix
+BWOS_LOGINCTL_SHOW Display=:0
+BWOS_LOGINCTL_SHOW Remote=no
+BWOS_LOGINCTL_SHOW Service=sddm-autologin
+BWOS_LOGINCTL_SHOW Leader=1249
+BWOS_LOGINCTL_SHOW Type=x11
+BWOS_LOGINCTL_SHOW Class=user
+BWOS_LOGINCTL_SHOW State=active
+BWOS_LOGINCTL_SESSION_FOUND id=1
+BWOS_OBSERVER_STABILITY_CHECK stable_seconds=3/5
+BWOS_USER_PROCESS pid=1251 /lib/systemd/systemd --user BWOS_USER_ENV pid=1251 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_PROCESS pid=1281 /usr/bin/startplasma-x11 BWOS_USER_ENV pid=1281 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1281 DISPLAY=:0
+BWOS_USER_ENV pid=1281 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1281 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1302 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only BWOS_USER_ENV pid=1302 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1302 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1357 /usr/bin/ssh-agent /usr/bin/startplasma-x11 BWOS_USER_ENV pid=1357 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1357 DISPLAY=:0
+BWOS_USER_ENV pid=1357 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1357 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1701 /usr/bin/kwin_x11 BWOS_USER_ENV pid=1701 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_ENV pid=1701 DISPLAY=:0
+BWOS_USER_ENV pid=1701 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1701 XDG_SESSION_TYPE=x11
+BWOS_USER_PROCESS pid=1822 /usr/bin/ksmserver BWOS_USER_ENV pid=1822 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_ENV pid=1822 DISPLAY=:0
+BWOS_USER_ENV pid=1822 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1822 XDG_SESSION_TYPE=x11
+BWOS_USER_PROCESS pid=1864 /usr/bin/plasmashell BWOS_USER_ENV pid=1864 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1864 DISPLAY=:0
+BWOS_USER_ENV pid=1864 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1864 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1914 plasmashell -v BWOS_USER_ENV pid=1914 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1914 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_ENV pid=1914 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1914 DISPLAY=:0
+BWOS_USER_PROCESS pid=1915 sed -n s/^plasmashell \([0-9][0-9]*\)\.\([0-9][0-9]*\)\.\([0-9][0-9]*\)/\1*1000000+\2*1000+\3/p BWOS_USER_ENV pid=1915 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1915 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_ENV pid=1915 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1915 DISPLAY=:0
+BWOS_USER_PROCESS pid=1933 /usr/bin/dbus-daemon --config-file=/usr/share/defaults/at-spi2/accessibility.conf --nofork --print-address 3 BWOS_USER_ENV pid=1933 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1933 DISPLAY=:0
+BWOS_USER_ENV pid=1933 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1933 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_OBSERVER_STABILITY_CHECK stable_seconds=4/5
+BWOS_PROC_KWIN_X11_STARTED
+BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+BWOS_PROC_PLASMASHELL_STARTED
+BWOS_PROC_KSMSERVER_STARTED
+BWOS_OBSERVER_STABILITY_CHECK stable_seconds=5/5
+BWOS_PROC_STARTPLASMA_X11_STARTED
+BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+BWOS_KWIN_STARTED
+BWOS_KSMSERVER_STARTED
+BWOS_PLASMASHELL_STARTED
+BWOS_DESKTOP_SESSION_STARTED
+BWOS_WALLPAPER_APPLIED
+BWOS_PRESENTATION_LOCK_ACTIVE
+BWOS_PROC_DBUS_DAEMON_STARTED
+BWOS_KERNEL_CMDLINE BOOT_IMAGE=/live/vmlinuz-5.10.0-43-amd64 boot=live components quiet splash username=phoenix bwos.session=x11 bwos.app_probe=1 plymouth.ignore-serial-consoles console=tty0 console=ttyS0,115200n8 locales=en_US.UTF-8 keyboard-layouts=us findiso=
+BWOS_APP_LAUNCH_MATRIX_STARTED timestamp=2026-05-28T02:11:07Z
+BWOS_DIAG_WHOAMI phoenix
+BWOS_DIAG_ID uid=1000(phoenix) gid=1000(phoenix) groups=1000(phoenix),6(disk),20(dialout),24(cdrom),27(sudo),29(audio),44(video),46(plugdev),104(input),106(render),108(netdev)
+BWOS_DIAG_ENV DISPLAY=:0 XAUTHORITY=/home/phoenix/.Xauthority XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_DIAG_XAUTHORITY_EXISTS true
+BWOS_DIAG_BUS_EXISTS true
+BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+BWOS_PROC_SYSTEMD_USER_STARTED
+    782 message+ dbus-daemon     /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+    877 root     sddm            /usr/bin/sddm
+    972 root     Xorg            /usr/lib/xorg/Xorg -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+   1249 root     sddm-helper     /usr/lib/x86_64-linux-gnu/sddm/sddm-helper --socket /tmp/sddm-auth4670a8b8-9d8c-4322-8c61-dcff90c758a2 --id 1 --start /usr/bin/startplasma-x11 --user phoenix --autologin
+   1251 phoenix  systemd         /lib/systemd/systemd --user
+   1281 phoenix  startplasma-x11 /usr/bin/startplasma-x11
+   1302 phoenix  dbus-daemon     /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1357 phoenix  ssh-agent       /usr/bin/ssh-agent /usr/bin/startplasma-x11
+   1405 phoenix  plasma_session  /usr/bin/plasma_session
+   1701 phoenix  kwin_x11        /usr/bin/kwin_x11
+   1822 phoenix  ksmserver       /usr/bin/ksmserver
+   1864 phoenix  plasmashell     /usr/bin/plasmashell
+   1890 phoenix  gmenudbusmenupr /usr/bin/gmenudbusmenuproxy
+   1933 phoenix  dbus-daemon     /usr/bin/dbus-daemon --config-file=/usr/share/defaults/at-spi2/accessibility.conf --nofork --print-address 3
+   2159 phoenix  dbus-daemon     /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   2161 phoenix  plasma_waitforn /usr/bin/plasma_waitforname org.freedesktop.Notifications
+-- Journal begins at Thu 2026-05-28 02:09:17 UTC, ends at Thu 2026-05-28 02:11:07 UTC. --
+May 28 02:10:02 debian systemd[1]: Started Simple Desktop Display Manager.
+May 28 02:10:04 debian sddm[877]: Initializing...
+May 28 02:10:04 debian sddm[877]: Starting...
+May 28 02:10:04 debian sddm[877]: Logind interface found
+May 28 02:10:04 debian sddm[877]: Adding new display on vt 7 ...
+May 28 02:10:05 debian sddm[877]: Loading theme configuration from ""
+May 28 02:10:05 debian sddm[877]: Display server starting...
+May 28 02:10:05 debian sddm[877]: Adding cookie to "/var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750}"
+May 28 02:10:05 debian sddm[877]: Running: /usr/bin/X -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+May 28 02:10:12 debian sddm[877]: Setting default cursor
+May 28 02:10:12 debian sddm[877]: Running display setup script  "/usr/share/sddm/scripts/Xsetup"
+May 28 02:10:12 debian sddm[877]: Display server started.
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Session "/usr/share/xsessions/plasma.desktop" selected, command: "/usr/bin/startplasma-x11"
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Starting...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Authenticating...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] returning.
+May 28 02:10:12 debian sddm[877]: Authenticated successfully
+May 28 02:10:13 debian sddm-helper[1249]: pam_unix(sddm-autologin:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:14 debian sddm[877]: Session started
+May 28 02:10:04 debian dbus-daemon[782]: [system] Activation via systemd failed for unit 'dbus-org.freedesktop.resolve1.service': Unit dbus-org.freedesktop.resolve1.service not found.
+May 28 02:10:04 debian sddm[877]: Initializing...
+May 28 02:10:04 debian sddm[877]: Starting...
+May 28 02:10:04 debian sddm[877]: Logind interface found
+May 28 02:10:04 debian sddm[877]: Adding new display on vt 7 ...
+May 28 02:10:05 debian sddm[877]: Loading theme configuration from ""
+May 28 02:10:05 debian sddm[877]: Display server starting...
+May 28 02:10:05 debian sddm[877]: Adding cookie to "/var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750}"
+May 28 02:10:05 debian sddm[877]: Running: /usr/bin/X -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+May 28 02:10:07 debian systemd[1]: Starting BWOS Desktop Observer...
+May 28 02:10:07 debian systemd[1]: Starting BWOS Graphical Heartbeat...
+May 28 02:10:07 debian BWOS-SESSION[1157]: BWOS_DESKTOP_OBSERVER_STARTED wait_seconds=240
+May 28 02:10:07 debian systemd[1]: Started BWOS SDDM to Plasma Handoff Diagnostics.
+May 28 02:10:07 debian audit[1]: SERVICE_START pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-session-diagnostics comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:07 debian systemd[1]: Finished BWOS Graphical Heartbeat.
+May 28 02:10:07 debian audit[1]: SERVICE_START pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-heartbeat comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:12 debian sddm[877]: Setting default cursor
+May 28 02:10:12 debian sddm[877]: Running display setup script  "/usr/share/sddm/scripts/Xsetup"
+May 28 02:10:12 debian sddm[877]: Display server started.
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Session "/usr/share/xsessions/plasma.desktop" selected, command: "/usr/bin/startplasma-x11"
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Starting...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Authenticating...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] returning.
+May 28 02:10:12 debian audit[1249]: USER_AUTH pid=1249 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:authentication grantors=pam_permit acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=? res=success'
+May 28 02:10:12 debian audit[1249]: USER_ACCT pid=1249 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:accounting grantors=pam_permit acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=? res=success'
+May 28 02:10:12 debian sddm[877]: Authenticated successfully
+May 28 02:10:12 debian audit[1249]: CRED_ACQ pid=1249 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:setcred grantors=pam_permit acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=? res=success'
+May 28 02:10:13 debian sddm-helper[1249]: pam_unix(sddm-autologin:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:13 debian audit[1251]: USER_ACCT pid=1251 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:accounting grantors=pam_permit acct="phoenix" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:13 debian audit[1251]: CRED_ACQ pid=1251 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:setcred grantors=pam_permit acct="phoenix" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:13 debian systemd[1251]: pam_unix(systemd-user:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:13 debian audit[1251]: USER_START pid=1251 uid=0 auid=1000 ses=2 subj=unconfined msg='op=PAM:session_open grantors=pam_selinux,pam_selinux,pam_loginuid,pam_limits,pam_permit,pam_unix,pam_keyinit,pam_systemd acct="phoenix" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:14 debian audit[1249]: USER_START pid=1249 uid=0 auid=1000 ses=1 subj=unconfined msg='op=PAM:session_open grantors=pam_selinux,pam_keyinit,pam_limits,pam_loginuid,pam_permit,pam_unix,pam_systemd,pam_selinux,pam_env,pam_env acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=:0 res=success'
+May 28 02:10:14 debian sddm-helper[1249]: Starting: "/etc/sddm/Xsession \"/usr/bin/startplasma-x11\""
+May 28 02:10:14 debian sddm-helper[1281]: Adding cookie to "/home/phoenix/.Xauthority"
+May 28 02:10:14 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.RealtimeKit1' unit='rtkit-daemon.service' requested by ':1.24' (uid=1000 pid=1279 comm="/usr/bin/pipewire ")
+May 28 02:10:14 debian sddm[877]: Session started
+May 28 02:10:14 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.RealtimeKit1'
+May 28 02:10:15 debian pipewire[1279]: Failed to receive portal pid: org.freedesktop.DBus.Error.NameHasNoOwner: Could not get PID of name 'org.freedesktop.portal.Desktop': no such name
+May 28 02:10:20 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.KSplash' requested by ':1.7' (uid=1000 pid=1281 comm="/usr/bin/startplasma-x11 ")
+May 28 02:10:22 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.KSplash'
+May 28 02:10:27 debian BWOS-SESSION[1503]: BWOS_HANDOFF_TRACE_BEGIN elapsed=20
+May 28 02:10:28 debian BWOS-SESSION[1511]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:10:28 debian BWOS-SESSION[1518]: BWOS_SDDM_SUB_STATE running
+May 28 02:10:28 debian BWOS-SESSION[1522]: BWOS_SDDM_MAINPID 877
+May 28 02:10:28 debian BWOS-SESSION[1531]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:10:29 debian BWOS-SESSION[1562]: BWOS_PROC_KWIN_X11_NOT_RUNNING
+May 28 02:10:29 debian BWOS-SESSION[1572]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:10:29 debian BWOS-SESSION[1575]: BWOS_PROC_PLASMASHELL_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1578]: BWOS_PROC_KSMSERVER_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1581]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:10:30 debian BWOS-SESSION[1587]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1600]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:10:30 debian BWOS-SESSION[1603]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:10:31 debian BWOS-SESSION[1606]: BWOS_PROC_SYSTEMD_USER_STARTED
+May 28 02:10:31 debian BWOS-SESSION[1614]: BWOS_HANDOFF_TRACE_END elapsed=20
+May 28 02:10:40 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='ca.desrt.dconf' requested by ':1.14' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:10:40 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'ca.desrt.dconf'
+May 28 02:10:43 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating via systemd: service name='org.kde.kglobalaccel' unit='plasma-kglobalaccel.service' requested by ':1.13' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:10:44 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.kglobalaccel'
+May 28 02:10:44 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.ActivityManager' requested by ':1.15' (uid=1000 pid=1701 comm="/usr/bin/kwin_x11 ")
+May 28 02:10:45 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.ActivityManager'
+May 28 02:10:46 debian NetworkManager[783]: <info>  [1779934246.9551] agent-manager: agent[2de4a22b4f36ae92,:1.51/org.kde.plasma.networkmanagement/1000]: agent registered
+May 28 02:10:47 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.UPower' unit='upower.service' requested by ':1.51' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:10:49 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.UPower'
+May 28 02:10:53 debian BWOS-SESSION[1931]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=1/5
+May 28 02:10:56 debian BWOS-SESSION[1968]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=2/5
+May 28 02:10:56 debian BWOS-SESSION[1975]: BWOS_HANDOFF_TRACE_BEGIN elapsed=45
+May 28 02:10:56 debian BWOS-SESSION[1982]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:10:57 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.PackageKit' unit='packagekit.service' requested by ':1.68' (uid=1000 pid=1873 comm="/usr/lib/x86_64-linux-gnu/libexec/DiscoverNotifier")
+May 28 02:10:57 debian BWOS-SESSION[1988]: BWOS_SDDM_SUB_STATE running
+May 28 02:10:58 debian BWOS-SESSION[2006]: BWOS_SDDM_MAINPID 877
+May 28 02:11:00 debian BWOS-SESSION[2044]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:11:00 debian BWOS-SESSION[2046]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=3/5
+May 28 02:11:00 debian dbus-daemon[782]: [system] Activating service name='org.kde.powerdevil.discretegpuhelper' requested by ':1.71' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev") (using servicehelper)
+May 28 02:11:01 debian dbus-daemon[782]: [system] Successfully activated service 'org.kde.powerdevil.discretegpuhelper'
+May 28 02:11:01 debian dbus-daemon[782]: [system] Activating service name='org.kde.powerdevil.chargethresholdhelper' requested by ':1.71' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev") (using servicehelper)
+May 28 02:11:02 debian dbus-daemon[782]: [system] Successfully activated service 'org.kde.powerdevil.chargethresholdhelper'
+May 28 02:11:02 debian dbus-daemon[782]: [system] Activating service name='org.kde.powerdevil.backlighthelper' requested by ':1.71' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev") (using servicehelper)
+May 28 02:11:02 debian BWOS-SESSION[2129]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=4/5
+May 28 02:11:02 debian BWOS-SESSION[2132]: BWOS_PROC_KWIN_X11_STARTED
+May 28 02:11:03 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.PackageKit'
+May 28 02:11:03 debian dbus-daemon[782]: [system] Successfully activated service 'org.kde.powerdevil.backlighthelper'
+May 28 02:11:03 debian BWOS-SESSION[2141]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:11:04 debian BWOS-SESSION[2158]: BWOS_PROC_PLASMASHELL_STARTED
+May 28 02:11:04 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.freedesktop.Notifications' requested by ':1.25' (uid=1000 pid=1879 comm="/usr/lib/x86_64-linux-gnu/libexec/kdeconnectd ")
+May 28 02:11:04 debian BWOS-SESSION[2178]: BWOS_PROC_KSMSERVER_STARTED
+May 28 02:11:05 debian BWOS-SESSION[2183]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=5/5
+May 28 02:11:05 debian BWOS-SESSION[2193]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2205]: BWOS_KWIN_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2207]: BWOS_KSMSERVER_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2204]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:11:06 debian BWOS-SESSION[2209]: BWOS_PLASMASHELL_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2213]: BWOS_DESKTOP_SESSION_STARTED
+May 28 02:11:06 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.KScreen' requested by ':1.31' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev")
+May 28 02:11:06 debian BWOS-SESSION[2227]: BWOS_WALLPAPER_APPLIED
+May 28 02:11:06 debian BWOS-SESSION[2230]: BWOS_PRESENTATION_LOCK_ACTIVE
+May 28 02:11:06 debian BWOS-SESSION[2234]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:11:07 debian BWOS-SESSION[2236]: BWOS_KERNEL_CMDLINE BOOT_IMAGE=/live/vmlinuz-5.10.0-43-amd64 boot=live components quiet splash username=phoenix bwos.session=x11 bwos.app_probe=1 plymouth.ignore-serial-consoles console=tty0 console=ttyS0,115200n8 locales=en_US.UTF-8 keyboard-layouts=us findiso=
+May 28 02:11:07 debian systemd[1]: bwos-desktop-observer.service: Succeeded.
+May 28 02:11:07 debian systemd[1]: Finished BWOS Desktop Observer.
+May 28 02:11:07 debian audit[1]: SERVICE_START pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-desktop-observer comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:11:07 debian audit[1]: SERVICE_STOP pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-desktop-observer comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:11:07 debian systemd[1]: bwos-desktop-observer.service: Consumed 7.160s CPU time.
+May 28 02:11:07 debian systemd[1]: Starting BWOS PR40 App Launch Matrix Probe...
+May 28 02:11:07 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.KScreen'
+May 28 02:11:07 debian BWOS-SESSION[2248]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:11:07 debian BWOS-SESSION[2257]: BWOS_PROC_SYSTEMD_USER_STARTED
+BWOS_HANDOFF_TRACE_END elapsed=45
+BWOS_APP_LAUNCH_RESULT app=firefox-esr status=APP_LAUNCH_PASS pid=2251 exit_code=0 desktop_entry=/usr/share/applications/firefox-esr.desktop cmd=/usr/bin/firefox-esr
+BWOS_APP_LAUNCH_RESULT app=dolphin status=APP_LAUNCH_PASS pid=2345 exit_code=0 desktop_entry=/usr/share/applications/org.kde.dolphin.desktop cmd=/usr/bin/dolphin
+BWOS_HANDOFF_TRACE_BEGIN elapsed=75
+BWOS_SDDM_ACTIVE_STATE active
+BWOS_SDDM_SUB_STATE running
+BWOS_SDDM_MAINPID 877
+BWOS_LOGINCTL_SESSION 1 1000 phoenix seat0 
+BWOS_LOGINCTL_SHOW User=1000
+BWOS_LOGINCTL_SHOW Name=phoenix
+BWOS_LOGINCTL_SHOW Display=:0
+BWOS_LOGINCTL_SHOW Remote=no
+BWOS_LOGINCTL_SHOW Service=sddm-autologin
+BWOS_LOGINCTL_SHOW Leader=1249
+BWOS_LOGINCTL_SHOW Type=x11
+BWOS_LOGINCTL_SHOW Class=user
+BWOS_LOGINCTL_SHOW State=active
+BWOS_LOGINCTL_SESSION_FOUND id=1
+BWOS_USER_PROCESS pid=1251 /lib/systemd/systemd --user BWOS_USER_ENV pid=1251 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_PROCESS pid=1281 /usr/bin/startplasma-x11 BWOS_USER_ENV pid=1281 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1281 DISPLAY=:0
+BWOS_USER_ENV pid=1281 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1281 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1302 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only BWOS_USER_ENV pid=1302 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1302 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1357 /usr/bin/ssh-agent /usr/bin/startplasma-x11 BWOS_USER_ENV pid=1357 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1357 DISPLAY=:0
+BWOS_USER_ENV pid=1357 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1357 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1701 /usr/bin/kwin_x11 BWOS_USER_ENV pid=1701 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_ENV pid=1701 DISPLAY=:0
+BWOS_USER_ENV pid=1701 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1701 XDG_SESSION_TYPE=x11
+BWOS_USER_PROCESS pid=1822 /usr/bin/ksmserver BWOS_USER_ENV pid=1822 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_ENV pid=1822 DISPLAY=:0
+BWOS_USER_ENV pid=1822 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1822 XDG_SESSION_TYPE=x11
+BWOS_USER_PROCESS pid=1864 /usr/bin/plasmashell BWOS_USER_ENV pid=1864 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1864 DISPLAY=:0
+BWOS_USER_ENV pid=1864 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1864 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1933 /usr/bin/dbus-daemon --config-file=/usr/share/defaults/at-spi2/accessibility.conf --nofork --print-address 3 BWOS_USER_ENV pid=1933 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1933 DISPLAY=:0
+BWOS_USER_ENV pid=1933 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1933 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=2290 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only BWOS_USER_ENV pid=2290 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=2290 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=2352 desktop.so [kdeinit5] desktop local:/run/user/1000/klaunchermkFQIq.1.slave-socket local:/run/user/1000/plasmashellKWzJRJ.1.slave-socket BWOS_PROC_KWIN_X11_STARTED
+BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+BWOS_PROC_PLASMASHELL_STARTED
+BWOS_PROC_KSMSERVER_STARTED
+BWOS_PROC_STARTPLASMA_X11_STARTED
+BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+BWOS_PROC_DBUS_DAEMON_STARTED
+BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+BWOS_PROC_SYSTEMD_USER_STARTED
+    782 message+ dbus-daemon     /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+    877 root     sddm            /usr/bin/sddm
+    972 root     Xorg            /usr/lib/xorg/Xorg -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+   1249 root     sddm-helper     /usr/lib/x86_64-linux-gnu/sddm/sddm-helper --socket /tmp/sddm-auth4670a8b8-9d8c-4322-8c61-dcff90c758a2 --id 1 --start /usr/bin/startplasma-x11 --user phoenix --autologin
+   1251 phoenix  systemd         /lib/systemd/systemd --user
+   1281 phoenix  startplasma-x11 /usr/bin/startplasma-x11
+   1302 phoenix  dbus-daemon     /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1357 phoenix  ssh-agent       /usr/bin/ssh-agent /usr/bin/startplasma-x11
+   1701 phoenix  kwin_x11        /usr/bin/kwin_x11
+   1822 phoenix  ksmserver       /usr/bin/ksmserver
+   1864 phoenix  plasmashell     /usr/bin/plasmashell
+   1890 phoenix  gmenudbusmenupr /usr/bin/gmenudbusmenuproxy
+   1933 phoenix  dbus-daemon     /usr/bin/dbus-daemon --config-file=/usr/share/defaults/at-spi2/accessibility.conf --nofork --print-address 3
+   2290 phoenix  dbus-daemon     /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   2291 phoenix  plasma_waitforn /usr/bin/plasma_waitforname org.kde.KSplash
+   2352 phoenix  desktop.so      desktop.so [kdeinit5] desktop local:/run/user/1000/klaunchermkFQIq.1.slave-socket local:/run/user/1000/plasmashellKWzJRJ.1.slave-socket
+-- Journal begins at Thu 2026-05-28 02:09:17 UTC, ends at Thu 2026-05-28 02:11:42 UTC. --
+May 28 02:10:02 debian systemd[1]: Started Simple Desktop Display Manager.
+May 28 02:10:04 debian sddm[877]: Initializing...
+May 28 02:10:04 debian sddm[877]: Starting...
+May 28 02:10:04 debian sddm[877]: Logind interface found
+May 28 02:10:04 debian sddm[877]: Adding new display on vt 7 ...
+May 28 02:10:05 debian sddm[877]: Loading theme configuration from ""
+May 28 02:10:05 debian sddm[877]: Display server starting...
+May 28 02:10:05 debian sddm[877]: Adding cookie to "/var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750}"
+May 28 02:10:05 debian sddm[877]: Running: /usr/bin/X -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+May 28 02:10:12 debian sddm[877]: Setting default cursor
+May 28 02:10:12 debian sddm[877]: Running display setup script  "/usr/share/sddm/scripts/Xsetup"
+May 28 02:10:12 debian sddm[877]: Display server started.
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Session "/usr/share/xsessions/plasma.desktop" selected, command: "/usr/bin/startplasma-x11"
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Starting...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Authenticating...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] returning.
+May 28 02:10:12 debian sddm[877]: Authenticated successfully
+May 28 02:10:13 debian sddm-helper[1249]: pam_unix(sddm-autologin:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:14 debian sddm[877]: Session started
+May 28 02:10:13 debian audit[1251]: USER_ACCT pid=1251 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:accounting grantors=pam_permit acct="phoenix" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:13 debian audit[1251]: CRED_ACQ pid=1251 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='op=PAM:setcred grantors=pam_permit acct="phoenix" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:13 debian systemd[1251]: pam_unix(systemd-user:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:13 debian audit[1251]: USER_START pid=1251 uid=0 auid=1000 ses=2 subj=unconfined msg='op=PAM:session_open grantors=pam_selinux,pam_selinux,pam_loginuid,pam_limits,pam_permit,pam_unix,pam_keyinit,pam_systemd acct="phoenix" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:10:14 debian audit[1249]: USER_START pid=1249 uid=0 auid=1000 ses=1 subj=unconfined msg='op=PAM:session_open grantors=pam_selinux,pam_keyinit,pam_limits,pam_loginuid,pam_permit,pam_unix,pam_systemd,pam_selinux,pam_env,pam_env acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=:0 res=success'
+May 28 02:10:14 debian sddm-helper[1249]: Starting: "/etc/sddm/Xsession \"/usr/bin/startplasma-x11\""
+May 28 02:10:14 debian sddm-helper[1281]: Adding cookie to "/home/phoenix/.Xauthority"
+May 28 02:10:14 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.RealtimeKit1' unit='rtkit-daemon.service' requested by ':1.24' (uid=1000 pid=1279 comm="/usr/bin/pipewire ")
+May 28 02:10:14 debian sddm[877]: Session started
+May 28 02:10:14 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.RealtimeKit1'
+May 28 02:10:15 debian pipewire[1279]: Failed to receive portal pid: org.freedesktop.DBus.Error.NameHasNoOwner: Could not get PID of name 'org.freedesktop.portal.Desktop': no such name
+May 28 02:10:20 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.KSplash' requested by ':1.7' (uid=1000 pid=1281 comm="/usr/bin/startplasma-x11 ")
+May 28 02:10:22 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.KSplash'
+May 28 02:10:27 debian BWOS-SESSION[1503]: BWOS_HANDOFF_TRACE_BEGIN elapsed=20
+May 28 02:10:28 debian BWOS-SESSION[1511]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:10:28 debian BWOS-SESSION[1518]: BWOS_SDDM_SUB_STATE running
+May 28 02:10:28 debian BWOS-SESSION[1522]: BWOS_SDDM_MAINPID 877
+May 28 02:10:28 debian BWOS-SESSION[1531]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:10:29 debian BWOS-SESSION[1562]: BWOS_PROC_KWIN_X11_NOT_RUNNING
+May 28 02:10:29 debian BWOS-SESSION[1572]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:10:29 debian BWOS-SESSION[1575]: BWOS_PROC_PLASMASHELL_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1578]: BWOS_PROC_KSMSERVER_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1581]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:10:30 debian BWOS-SESSION[1587]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1600]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:10:30 debian BWOS-SESSION[1603]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:10:31 debian BWOS-SESSION[1606]: BWOS_PROC_SYSTEMD_USER_STARTED
+May 28 02:10:31 debian BWOS-SESSION[1614]: BWOS_HANDOFF_TRACE_END elapsed=20
+May 28 02:10:40 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='ca.desrt.dconf' requested by ':1.14' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:10:40 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'ca.desrt.dconf'
+May 28 02:10:43 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating via systemd: service name='org.kde.kglobalaccel' unit='plasma-kglobalaccel.service' requested by ':1.13' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:10:44 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.kglobalaccel'
+May 28 02:10:44 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.ActivityManager' requested by ':1.15' (uid=1000 pid=1701 comm="/usr/bin/kwin_x11 ")
+May 28 02:10:45 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.ActivityManager'
+May 28 02:10:46 debian NetworkManager[783]: <info>  [1779934246.9551] agent-manager: agent[2de4a22b4f36ae92,:1.51/org.kde.plasma.networkmanagement/1000]: agent registered
+May 28 02:10:47 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.UPower' unit='upower.service' requested by ':1.51' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:10:49 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.UPower'
+May 28 02:10:53 debian BWOS-SESSION[1931]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=1/5
+May 28 02:10:56 debian BWOS-SESSION[1968]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=2/5
+May 28 02:10:56 debian BWOS-SESSION[1975]: BWOS_HANDOFF_TRACE_BEGIN elapsed=45
+May 28 02:10:56 debian BWOS-SESSION[1982]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:10:57 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.PackageKit' unit='packagekit.service' requested by ':1.68' (uid=1000 pid=1873 comm="/usr/lib/x86_64-linux-gnu/libexec/DiscoverNotifier")
+May 28 02:10:57 debian BWOS-SESSION[1988]: BWOS_SDDM_SUB_STATE running
+May 28 02:10:58 debian BWOS-SESSION[2006]: BWOS_SDDM_MAINPID 877
+May 28 02:11:00 debian BWOS-SESSION[2044]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:11:00 debian BWOS-SESSION[2046]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=3/5
+May 28 02:11:00 debian dbus-daemon[782]: [system] Activating service name='org.kde.powerdevil.discretegpuhelper' requested by ':1.71' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev") (using servicehelper)
+May 28 02:11:01 debian dbus-daemon[782]: [system] Successfully activated service 'org.kde.powerdevil.discretegpuhelper'
+May 28 02:11:01 debian dbus-daemon[782]: [system] Activating service name='org.kde.powerdevil.chargethresholdhelper' requested by ':1.71' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev") (using servicehelper)
+May 28 02:11:02 debian dbus-daemon[782]: [system] Successfully activated service 'org.kde.powerdevil.chargethresholdhelper'
+May 28 02:11:02 debian dbus-daemon[782]: [system] Activating service name='org.kde.powerdevil.backlighthelper' requested by ':1.71' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev") (using servicehelper)
+May 28 02:11:02 debian BWOS-SESSION[2129]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=4/5
+May 28 02:11:02 debian BWOS-SESSION[2132]: BWOS_PROC_KWIN_X11_STARTED
+May 28 02:11:03 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.PackageKit'
+May 28 02:11:03 debian dbus-daemon[782]: [system] Successfully activated service 'org.kde.powerdevil.backlighthelper'
+May 28 02:11:03 debian BWOS-SESSION[2141]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:11:04 debian BWOS-SESSION[2158]: BWOS_PROC_PLASMASHELL_STARTED
+May 28 02:11:04 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.freedesktop.Notifications' requested by ':1.25' (uid=1000 pid=1879 comm="/usr/lib/x86_64-linux-gnu/libexec/kdeconnectd ")
+May 28 02:11:04 debian BWOS-SESSION[2178]: BWOS_PROC_KSMSERVER_STARTED
+May 28 02:11:05 debian BWOS-SESSION[2183]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=5/5
+May 28 02:11:05 debian BWOS-SESSION[2193]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2205]: BWOS_KWIN_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2207]: BWOS_KSMSERVER_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2204]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:11:06 debian BWOS-SESSION[2209]: BWOS_PLASMASHELL_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2213]: BWOS_DESKTOP_SESSION_STARTED
+May 28 02:11:06 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.KScreen' requested by ':1.31' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev")
+May 28 02:11:06 debian BWOS-SESSION[2227]: BWOS_WALLPAPER_APPLIED
+May 28 02:11:06 debian BWOS-SESSION[2230]: BWOS_PRESENTATION_LOCK_ACTIVE
+May 28 02:11:06 debian BWOS-SESSION[2234]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:11:07 debian BWOS-SESSION[2236]: BWOS_KERNEL_CMDLINE BOOT_IMAGE=/live/vmlinuz-5.10.0-43-amd64 boot=live components quiet splash username=phoenix bwos.session=x11 bwos.app_probe=1 plymouth.ignore-serial-consoles console=tty0 console=ttyS0,115200n8 locales=en_US.UTF-8 keyboard-layouts=us findiso=
+May 28 02:11:07 debian systemd[1]: bwos-desktop-observer.service: Succeeded.
+May 28 02:11:07 debian systemd[1]: Finished BWOS Desktop Observer.
+May 28 02:11:07 debian audit[1]: SERVICE_START pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-desktop-observer comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:11:07 debian audit[1]: SERVICE_STOP pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-desktop-observer comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:11:07 debian systemd[1]: bwos-desktop-observer.service: Consumed 7.160s CPU time.
+May 28 02:11:07 debian systemd[1]: Starting BWOS PR40 App Launch Matrix Probe...
+May 28 02:11:07 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.KScreen'
+May 28 02:11:07 debian BWOS-SESSION[2248]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:11:07 debian BWOS-SESSION[2257]: BWOS_PROC_SYSTEMD_USER_STARTED
+May 28 02:11:08 debian BWOS-SESSION[2269]: BWOS_HANDOFF_TRACE_END elapsed=45
+May 28 02:11:13 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating via systemd: service name='org.bluez.obex' unit='obex.service' requested by ':1.13' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:11:13 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.bluez' unit='dbus-org.bluez.service' requested by ':1.51' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:11:13 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.KSplash' requested by ':1.9' (uid=1000 pid=1405 comm="/usr/bin/plasma_session ")
+May 28 02:11:13 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.bluez.obex'
+May 28 02:11:17 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating via systemd: service name='org.gtk.vfs.Daemon' unit='gvfs-daemon.service' requested by ':1.40' (uid=1000 pid=2251 comm="/usr/bin/firefox-esr ")
+May 28 02:11:17 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.gtk.vfs.Daemon'
+May 28 02:11:38 debian dbus-daemon[782]: [system] Failed to activate service 'org.bluez': timed out (service_start_timeout=25000ms)
+May 28 02:11:38 debian BWOS-SESSION[2386]: BWOS_HANDOFF_TRACE_BEGIN elapsed=75
+May 28 02:11:38 debian BWOS-SESSION[2390]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:11:38 debian BWOS-SESSION[2394]: BWOS_SDDM_SUB_STATE running
+May 28 02:11:38 debian BWOS-SESSION[2398]: BWOS_SDDM_MAINPID 877
+May 28 02:11:39 debian BWOS-SESSION[2407]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:11:39 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.freedesktop.Notifications'
+May 28 02:11:40 debian bwos-session-diagnostics-dump[2453]: /usr/local/bin/bwos-session-diagnostics-dump: 51: cannot open /proc/2159/cmdline: No such file
+May 28 02:11:40 debian bwos-session-diagnostics-dump[2455]: /usr/local/bin/bwos-session-diagnostics-dump: 52: cannot open /proc/2159/environ: No such file
+May 28 02:11:40 debian BWOS-SESSION[2471]: BWOS_PROC_KWIN_X11_STARTED
+May 28 02:11:40 debian BWOS-SESSION[2474]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:11:41 debian BWOS-SESSION[2477]: BWOS_PROC_PLASMASHELL_STARTED
+May 28 02:11:41 debian BWOS-SESSION[2481]: BWOS_PROC_KSMSERVER_STARTED
+May 28 02:11:41 debian BWOS-SESSION[2484]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:11:42 debian BWOS-SESSION[2487]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:11:42 debian BWOS-SESSION[2490]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:11:42 debian BWOS-SESSION[2493]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:11:42 debian BWOS-SESSION[2504]: BWOS_PROC_SYSTEMD_USER_STARTED
+BWOS_HANDOFF_TRACE_END elapsed=75
+BWOS_APP_LAUNCH_RESULT app=konsole status=APP_LAUNCH_PASS pid=2381 exit_code=0 desktop_entry=/usr/share/applications/org.kde.konsole.desktop cmd=/usr/bin/konsole
+BWOS_APP_LAUNCH_RESULT app=kcalc status=APP_LAUNCH_PASS pid=2532 exit_code=0 desktop_entry=/usr/share/applications/org.kde.kcalc.desktop cmd=/usr/bin/kcalc
+BWOS_HANDOFF_TRACE_BEGIN elapsed=110
+BWOS_SDDM_ACTIVE_STATE active
+BWOS_SDDM_SUB_STATE running
+BWOS_SDDM_MAINPID 877
+BWOS_LOGINCTL_SESSION 1 1000 phoenix seat0 
+BWOS_LOGINCTL_SHOW User=1000
+BWOS_LOGINCTL_SHOW Name=phoenix
+BWOS_LOGINCTL_SHOW Display=:0
+BWOS_LOGINCTL_SHOW Remote=no
+BWOS_LOGINCTL_SHOW Service=sddm-autologin
+BWOS_LOGINCTL_SHOW Leader=1249
+BWOS_LOGINCTL_SHOW Type=x11
+BWOS_LOGINCTL_SHOW Class=user
+BWOS_LOGINCTL_SHOW State=active
+BWOS_LOGINCTL_SESSION_FOUND id=1
+BWOS_USER_PROCESS pid=1251 /lib/systemd/systemd --user BWOS_USER_ENV pid=1251 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_PROCESS pid=1281 /usr/bin/startplasma-x11 BWOS_USER_ENV pid=1281 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1281 DISPLAY=:0
+BWOS_USER_ENV pid=1281 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1281 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1302 /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only BWOS_USER_ENV pid=1302 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1302 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1357 /usr/bin/ssh-agent /usr/bin/startplasma-x11 BWOS_USER_ENV pid=1357 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1357 DISPLAY=:0
+BWOS_USER_ENV pid=1357 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1357 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1701 /usr/bin/kwin_x11 BWOS_USER_ENV pid=1701 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_ENV pid=1701 DISPLAY=:0
+BWOS_USER_ENV pid=1701 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1701 XDG_SESSION_TYPE=x11
+BWOS_USER_PROCESS pid=1822 /usr/bin/ksmserver BWOS_USER_ENV pid=1822 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_ENV pid=1822 DISPLAY=:0
+BWOS_USER_ENV pid=1822 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1822 XDG_SESSION_TYPE=x11
+BWOS_USER_PROCESS pid=1864 /usr/bin/plasmashell BWOS_USER_ENV pid=1864 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1864 DISPLAY=:0
+BWOS_USER_ENV pid=1864 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1864 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=1933 /usr/bin/dbus-daemon --config-file=/usr/share/defaults/at-spi2/accessibility.conf --nofork --print-address 3 BWOS_USER_ENV pid=1933 XDG_SESSION_TYPE=x11
+BWOS_USER_ENV pid=1933 DISPLAY=:0
+BWOS_USER_ENV pid=1933 XDG_RUNTIME_DIR=/run/user/1000
+BWOS_USER_ENV pid=1933 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+BWOS_USER_PROCESS pid=2352 desktop.so [kdeinit5] desktop local:/run/user/1000/klaunchermkFQIq.1.slave-socket local:/run/user/1000/plasmashellKWzJRJ.1.slave-socket BWOS_USER_PROCESS pid=2557 file.so [kdeinit5] file local:/run/user/1000/klaunchermkFQIq.1.slave-socket local:/run/user/1000/plasmashellXsVcTM.2.slave-socket BWOS_USER_PROCESS pid=2559 file.so [kdeinit5] file local:/run/user/1000/klaunchermkFQIq.1.slave-socket local:/run/user/1000/plasmashellKPrEaH.3.slave-socket BWOS_PROC_KWIN_X11_STARTED
+BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+BWOS_PROC_PLASMASHELL_STARTED
+BWOS_PROC_KSMSERVER_STARTED
+BWOS_PROC_STARTPLASMA_X11_STARTED
+BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+BWOS_PROC_DBUS_DAEMON_STARTED
+BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+BWOS_PROC_SYSTEMD_USER_STARTED
+    782 message+ dbus-daemon     /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+    877 root     sddm            /usr/bin/sddm
+    972 root     Xorg            /usr/lib/xorg/Xorg -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+   1249 root     sddm-helper     /usr/lib/x86_64-linux-gnu/sddm/sddm-helper --socket /tmp/sddm-auth4670a8b8-9d8c-4322-8c61-dcff90c758a2 --id 1 --start /usr/bin/startplasma-x11 --user phoenix --autologin
+   1251 phoenix  systemd         /lib/systemd/systemd --user
+   1281 phoenix  startplasma-x11 /usr/bin/startplasma-x11
+   1302 phoenix  dbus-daemon     /usr/bin/dbus-daemon --session --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1357 phoenix  ssh-agent       /usr/bin/ssh-agent /usr/bin/startplasma-x11
+   1701 phoenix  kwin_x11        /usr/bin/kwin_x11
+   1822 phoenix  ksmserver       /usr/bin/ksmserver
+   1864 phoenix  plasmashell     /usr/bin/plasmashell
+   1890 phoenix  gmenudbusmenupr /usr/bin/gmenudbusmenuproxy
+   1933 phoenix  dbus-daemon     /usr/bin/dbus-daemon --config-file=/usr/share/defaults/at-spi2/accessibility.conf --nofork --print-address 3
+   2352 phoenix  desktop.so      desktop.so [kdeinit5] desktop local:/run/user/1000/klaunchermkFQIq.1.slave-socket local:/run/user/1000/plasmashellKWzJRJ.1.slave-socket
+   2557 phoenix  file.so         file.so [kdeinit5] file local:/run/user/1000/klaunchermkFQIq.1.slave-socket local:/run/user/1000/plasmashellXsVcTM.2.slave-socket
+   2559 phoenix  file.so         file.so [kdeinit5] file local:/run/user/1000/klaunchermkFQIq.1.slave-socket local:/run/user/1000/plasmashellKPrEaH.3.slave-socket
+-- Journal begins at Thu 2026-05-28 02:09:17 UTC, ends at Thu 2026-05-28 02:12:20 UTC. --
+May 28 02:10:02 debian systemd[1]: Started Simple Desktop Display Manager.
+May 28 02:10:04 debian sddm[877]: Initializing...
+May 28 02:10:04 debian sddm[877]: Starting...
+May 28 02:10:04 debian sddm[877]: Logind interface found
+May 28 02:10:04 debian sddm[877]: Adding new display on vt 7 ...
+May 28 02:10:05 debian sddm[877]: Loading theme configuration from ""
+May 28 02:10:05 debian sddm[877]: Display server starting...
+May 28 02:10:05 debian sddm[877]: Adding cookie to "/var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750}"
+May 28 02:10:05 debian sddm[877]: Running: /usr/bin/X -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+May 28 02:10:12 debian sddm[877]: Setting default cursor
+May 28 02:10:12 debian sddm[877]: Running display setup script  "/usr/share/sddm/scripts/Xsetup"
+May 28 02:10:12 debian sddm[877]: Display server started.
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Session "/usr/share/xsessions/plasma.desktop" selected, command: "/usr/bin/startplasma-x11"
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Starting...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Authenticating...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] returning.
+May 28 02:10:12 debian sddm[877]: Authenticated successfully
+May 28 02:10:13 debian sddm-helper[1249]: pam_unix(sddm-autologin:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:14 debian sddm[877]: Session started
+May 28 02:10:14 debian audit[1249]: USER_START pid=1249 uid=0 auid=1000 ses=1 subj=unconfined msg='op=PAM:session_open grantors=pam_selinux,pam_keyinit,pam_limits,pam_loginuid,pam_permit,pam_unix,pam_systemd,pam_selinux,pam_env,pam_env acct="phoenix" exe="/usr/lib/x86_64-linux-gnu/sddm/sddm-helper" hostname=? addr=? terminal=:0 res=success'
+May 28 02:10:14 debian sddm-helper[1249]: Starting: "/etc/sddm/Xsession \"/usr/bin/startplasma-x11\""
+May 28 02:10:14 debian sddm-helper[1281]: Adding cookie to "/home/phoenix/.Xauthority"
+May 28 02:10:14 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.RealtimeKit1' unit='rtkit-daemon.service' requested by ':1.24' (uid=1000 pid=1279 comm="/usr/bin/pipewire ")
+May 28 02:10:14 debian sddm[877]: Session started
+May 28 02:10:14 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.RealtimeKit1'
+May 28 02:10:15 debian pipewire[1279]: Failed to receive portal pid: org.freedesktop.DBus.Error.NameHasNoOwner: Could not get PID of name 'org.freedesktop.portal.Desktop': no such name
+May 28 02:10:20 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.KSplash' requested by ':1.7' (uid=1000 pid=1281 comm="/usr/bin/startplasma-x11 ")
+May 28 02:10:22 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.KSplash'
+May 28 02:10:27 debian BWOS-SESSION[1503]: BWOS_HANDOFF_TRACE_BEGIN elapsed=20
+May 28 02:10:28 debian BWOS-SESSION[1511]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:10:28 debian BWOS-SESSION[1518]: BWOS_SDDM_SUB_STATE running
+May 28 02:10:28 debian BWOS-SESSION[1522]: BWOS_SDDM_MAINPID 877
+May 28 02:10:28 debian BWOS-SESSION[1531]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:10:29 debian BWOS-SESSION[1562]: BWOS_PROC_KWIN_X11_NOT_RUNNING
+May 28 02:10:29 debian BWOS-SESSION[1572]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:10:29 debian BWOS-SESSION[1575]: BWOS_PROC_PLASMASHELL_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1578]: BWOS_PROC_KSMSERVER_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1581]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:10:30 debian BWOS-SESSION[1587]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:10:30 debian BWOS-SESSION[1600]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:10:30 debian BWOS-SESSION[1603]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:10:31 debian BWOS-SESSION[1606]: BWOS_PROC_SYSTEMD_USER_STARTED
+May 28 02:10:31 debian BWOS-SESSION[1614]: BWOS_HANDOFF_TRACE_END elapsed=20
+May 28 02:10:40 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='ca.desrt.dconf' requested by ':1.14' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:10:40 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'ca.desrt.dconf'
+May 28 02:10:43 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating via systemd: service name='org.kde.kglobalaccel' unit='plasma-kglobalaccel.service' requested by ':1.13' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:10:44 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.kglobalaccel'
+May 28 02:10:44 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.ActivityManager' requested by ':1.15' (uid=1000 pid=1701 comm="/usr/bin/kwin_x11 ")
+May 28 02:10:45 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.ActivityManager'
+May 28 02:10:46 debian NetworkManager[783]: <info>  [1779934246.9551] agent-manager: agent[2de4a22b4f36ae92,:1.51/org.kde.plasma.networkmanagement/1000]: agent registered
+May 28 02:10:47 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.UPower' unit='upower.service' requested by ':1.51' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:10:49 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.UPower'
+May 28 02:10:53 debian BWOS-SESSION[1931]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=1/5
+May 28 02:10:56 debian BWOS-SESSION[1968]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=2/5
+May 28 02:10:56 debian BWOS-SESSION[1975]: BWOS_HANDOFF_TRACE_BEGIN elapsed=45
+May 28 02:10:56 debian BWOS-SESSION[1982]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:10:57 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.freedesktop.PackageKit' unit='packagekit.service' requested by ':1.68' (uid=1000 pid=1873 comm="/usr/lib/x86_64-linux-gnu/libexec/DiscoverNotifier")
+May 28 02:10:57 debian BWOS-SESSION[1988]: BWOS_SDDM_SUB_STATE running
+May 28 02:10:58 debian BWOS-SESSION[2006]: BWOS_SDDM_MAINPID 877
+May 28 02:11:00 debian BWOS-SESSION[2044]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:11:00 debian BWOS-SESSION[2046]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=3/5
+May 28 02:11:00 debian dbus-daemon[782]: [system] Activating service name='org.kde.powerdevil.discretegpuhelper' requested by ':1.71' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev") (using servicehelper)
+May 28 02:11:01 debian dbus-daemon[782]: [system] Successfully activated service 'org.kde.powerdevil.discretegpuhelper'
+May 28 02:11:01 debian dbus-daemon[782]: [system] Activating service name='org.kde.powerdevil.chargethresholdhelper' requested by ':1.71' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev") (using servicehelper)
+May 28 02:11:02 debian dbus-daemon[782]: [system] Successfully activated service 'org.kde.powerdevil.chargethresholdhelper'
+May 28 02:11:02 debian dbus-daemon[782]: [system] Activating service name='org.kde.powerdevil.backlighthelper' requested by ':1.71' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev") (using servicehelper)
+May 28 02:11:02 debian BWOS-SESSION[2129]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=4/5
+May 28 02:11:02 debian BWOS-SESSION[2132]: BWOS_PROC_KWIN_X11_STARTED
+May 28 02:11:03 debian dbus-daemon[782]: [system] Successfully activated service 'org.freedesktop.PackageKit'
+May 28 02:11:03 debian dbus-daemon[782]: [system] Successfully activated service 'org.kde.powerdevil.backlighthelper'
+May 28 02:11:03 debian BWOS-SESSION[2141]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:11:04 debian BWOS-SESSION[2158]: BWOS_PROC_PLASMASHELL_STARTED
+May 28 02:11:04 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.freedesktop.Notifications' requested by ':1.25' (uid=1000 pid=1879 comm="/usr/lib/x86_64-linux-gnu/libexec/kdeconnectd ")
+May 28 02:11:04 debian BWOS-SESSION[2178]: BWOS_PROC_KSMSERVER_STARTED
+May 28 02:11:05 debian BWOS-SESSION[2183]: BWOS_OBSERVER_STABILITY_CHECK stable_seconds=5/5
+May 28 02:11:05 debian BWOS-SESSION[2193]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2205]: BWOS_KWIN_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2207]: BWOS_KSMSERVER_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2204]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:11:06 debian BWOS-SESSION[2209]: BWOS_PLASMASHELL_STARTED
+May 28 02:11:06 debian BWOS-SESSION[2213]: BWOS_DESKTOP_SESSION_STARTED
+May 28 02:11:06 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.KScreen' requested by ':1.31' (uid=1000 pid=1928 comm="/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdev")
+May 28 02:11:06 debian BWOS-SESSION[2227]: BWOS_WALLPAPER_APPLIED
+May 28 02:11:06 debian BWOS-SESSION[2230]: BWOS_PRESENTATION_LOCK_ACTIVE
+May 28 02:11:06 debian BWOS-SESSION[2234]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:11:07 debian BWOS-SESSION[2236]: BWOS_KERNEL_CMDLINE BOOT_IMAGE=/live/vmlinuz-5.10.0-43-amd64 boot=live components quiet splash username=phoenix bwos.session=x11 bwos.app_probe=1 plymouth.ignore-serial-consoles console=tty0 console=ttyS0,115200n8 locales=en_US.UTF-8 keyboard-layouts=us findiso=
+May 28 02:11:07 debian systemd[1]: bwos-desktop-observer.service: Succeeded.
+May 28 02:11:07 debian systemd[1]: Finished BWOS Desktop Observer.
+May 28 02:11:07 debian audit[1]: SERVICE_START pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-desktop-observer comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:11:07 debian audit[1]: SERVICE_STOP pid=1 uid=0 auid=4294967295 ses=4294967295 subj=unconfined msg='unit=bwos-desktop-observer comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+May 28 02:11:07 debian systemd[1]: bwos-desktop-observer.service: Consumed 7.160s CPU time.
+May 28 02:11:07 debian systemd[1]: Starting BWOS PR40 App Launch Matrix Probe...
+May 28 02:11:07 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.kde.KScreen'
+May 28 02:11:07 debian BWOS-SESSION[2248]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:11:07 debian BWOS-SESSION[2257]: BWOS_PROC_SYSTEMD_USER_STARTED
+May 28 02:11:08 debian BWOS-SESSION[2269]: BWOS_HANDOFF_TRACE_END elapsed=45
+May 28 02:11:13 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating via systemd: service name='org.bluez.obex' unit='obex.service' requested by ':1.13' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:11:13 debian dbus-daemon[782]: [system] Activating via systemd: service name='org.bluez' unit='dbus-org.bluez.service' requested by ':1.51' (uid=1000 pid=1690 comm="/usr/bin/kded5 ")
+May 28 02:11:13 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating service name='org.kde.KSplash' requested by ':1.9' (uid=1000 pid=1405 comm="/usr/bin/plasma_session ")
+May 28 02:11:13 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.bluez.obex'
+May 28 02:11:17 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activating via systemd: service name='org.gtk.vfs.Daemon' unit='gvfs-daemon.service' requested by ':1.40' (uid=1000 pid=2251 comm="/usr/bin/firefox-esr ")
+May 28 02:11:17 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.gtk.vfs.Daemon'
+May 28 02:11:38 debian dbus-daemon[782]: [system] Failed to activate service 'org.bluez': timed out (service_start_timeout=25000ms)
+May 28 02:11:38 debian BWOS-SESSION[2386]: BWOS_HANDOFF_TRACE_BEGIN elapsed=75
+May 28 02:11:38 debian BWOS-SESSION[2390]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:11:38 debian BWOS-SESSION[2394]: BWOS_SDDM_SUB_STATE running
+May 28 02:11:38 debian BWOS-SESSION[2398]: BWOS_SDDM_MAINPID 877
+May 28 02:11:39 debian BWOS-SESSION[2407]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:11:39 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Successfully activated service 'org.freedesktop.Notifications'
+May 28 02:11:40 debian bwos-session-diagnostics-dump[2453]: /usr/local/bin/bwos-session-diagnostics-dump: 51: cannot open /proc/2159/cmdline: No such file
+May 28 02:11:40 debian bwos-session-diagnostics-dump[2455]: /usr/local/bin/bwos-session-diagnostics-dump: 52: cannot open /proc/2159/environ: No such file
+May 28 02:11:40 debian BWOS-SESSION[2471]: BWOS_PROC_KWIN_X11_STARTED
+May 28 02:11:40 debian BWOS-SESSION[2474]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:11:41 debian BWOS-SESSION[2477]: BWOS_PROC_PLASMASHELL_STARTED
+May 28 02:11:41 debian BWOS-SESSION[2481]: BWOS_PROC_KSMSERVER_STARTED
+May 28 02:11:41 debian BWOS-SESSION[2484]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:11:42 debian BWOS-SESSION[2487]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:11:42 debian BWOS-SESSION[2490]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:11:42 debian BWOS-SESSION[2493]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:11:42 debian BWOS-SESSION[2504]: BWOS_PROC_SYSTEMD_USER_STARTED
+May 28 02:11:42 debian BWOS-SESSION[2513]: BWOS_HANDOFF_TRACE_END elapsed=75
+May 28 02:12:13 debian dbus-daemon[1302]: [session uid=1000 pid=1302] Activated service 'org.kde.KSplash' failed: Process org.kde.KSplash exited with status 1
+May 28 02:12:17 debian BWOS-SESSION[2583]: BWOS_HANDOFF_TRACE_BEGIN elapsed=110
+May 28 02:12:17 debian BWOS-SESSION[2587]: BWOS_SDDM_ACTIVE_STATE active
+May 28 02:12:18 debian BWOS-SESSION[2591]: BWOS_SDDM_SUB_STATE running
+May 28 02:12:18 debian BWOS-SESSION[2595]: BWOS_SDDM_MAINPID 877
+May 28 02:12:18 debian BWOS-SESSION[2604]: BWOS_LOGINCTL_SESSION_FOUND id=1
+May 28 02:12:19 debian BWOS-SESSION[2665]: BWOS_PROC_KWIN_X11_STARTED
+May 28 02:12:19 debian BWOS-SESSION[2669]: BWOS_PROC_KWIN_WAYLAND_NOT_RUNNING
+May 28 02:12:19 debian BWOS-SESSION[2672]: BWOS_PROC_PLASMASHELL_STARTED
+May 28 02:12:19 debian BWOS-SESSION[2675]: BWOS_PROC_KSMSERVER_STARTED
+May 28 02:12:20 debian BWOS-SESSION[2678]: BWOS_PROC_STARTPLASMA_X11_STARTED
+May 28 02:12:20 debian BWOS-SESSION[2681]: BWOS_PROC_STARTPLASMA_WAYLAND_NOT_RUNNING
+May 28 02:12:20 debian BWOS-SESSION[2684]: BWOS_PROC_DBUS_DAEMON_STARTED
+May 28 02:12:20 debian BWOS-SESSION[2687]: BWOS_PROC_DBUS_BROKER_NOT_RUNNING
+May 28 02:12:20 debian BWOS-SESSION[2690]: BWOS_PROC_SYSTEMD_USER_STARTED
+BWOS_HANDOFF_TRACE_END elapsed=110
+BWOS_SESSION_DIAGNOSTICS_BEGIN
+● sddm.service - Simple Desktop Display Manager
+     Loaded: loaded (/lib/systemd/system/sddm.service; enabled; vendor preset: enabled)
+     Active: active (running) since Thu 2026-05-28 02:10:02 UTC; 2min 18s ago
+       Docs: man:sddm(1)
+             man:sddm.conf(5)
+   Main PID: 877 (sddm)
+      Tasks: 12 (limit: 4579)
+     Memory: 100.6M
+        CPU: 11.752s
+     CGroup: /system.slice/sddm.service
+             ├─877 /usr/bin/sddm
+             └─972 /usr/lib/xorg/Xorg -nolisten tcp -auth /var/run/sddm/{954cedde-78d8-44ca-935b-c55d26849750} -background none -noreset -displayfd 17 -seat seat0 vt7
+
+May 28 02:10:12 debian sddm[877]: Display server started.
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Reading from "/usr/share/xsessions/plasma.desktop"
+May 28 02:10:12 debian sddm[877]: Session "/usr/share/xsessions/plasma.desktop" selected, command: "/usr/bin/startplasma-x11"
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Starting...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] Authenticating...
+May 28 02:10:12 debian sddm-helper[1249]: [PAM] returning.
+May 28 02:10:12 debian sddm[877]: Authenticated successfully
+May 28 02:10:13 debian sddm-helper[1249]: pam_unix(sddm-autologin:session): session opened for user phoenix(uid=1000) by (uid=0)
+May 28 02:10:14 debian sddm[877]: Session started
+BWOS_SESSION_LOG_FILE_BEGIN sddm-log /var/log/sddm.log
+BWOS_SESSION_LOG_FILE_END sddm-log
+BWOS_SESSION_LOG_FILE_BEGIN xorg-log /var/log/Xorg.0.log
+[    71.362] (==) modeset(0): Using gamma correction (1.0, 1.0, 1.0)
+[    71.362] (==) modeset(0): DPI set to (96, 96)
+[    71.362] (II) Loading sub module "fb"
+[    71.362] (II) LoadModule: "fb"
+[    71.363] (II) Loading /usr/lib/xorg/modules/libfb.so
+[    71.374] (II) Module fb: vendor="X.Org Foundation"
+[    71.374] 	compiled for 1.20.11, module version = 1.0.0
+[    71.374] 	ABI class: X.Org ANSI C Emulation, version 0.4
+[    71.375] (II) UnloadModule: "fbdev"
+[    71.375] (II) Unloading fbdev
+[    71.376] (II) UnloadSubModule: "fbdevhw"
+[    71.376] (II) Unloading fbdevhw
+[    71.376] (II) UnloadModule: "vesa"
+[    71.376] (II) Unloading vesa
+[    71.409] (==) modeset(0): Backing store enabled
+[    71.410] (==) modeset(0): Silken mouse enabled
+[    71.416] (II) modeset(0): Initializing kms color map for depth 24, 8 bpc.
+[    71.420] (==) modeset(0): DPMS enabled
+[    71.421] (II) Initializing extension Generic Event Extension
+[    71.422] (II) Initializing extension SHAPE
+[    71.424] (II) Initializing extension MIT-SHM
+[    71.425] (II) Initializing extension XInputExtension
+[    71.427] (II) Initializing extension XTEST
+[    71.429] (II) Initializing extension BIG-REQUESTS
+[    71.430] (II) Initializing extension SYNC
+[    71.432] (II) Initializing extension XKEYBOARD
+[    71.434] (II) Initializing extension XC-MISC
+[    71.435] (II) Initializing extension SECURITY
+[    71.437] (II) Initializing extension XFIXES
+[    71.438] (II) Initializing extension RENDER
+[    71.440] (II) Initializing extension RANDR
+[    71.443] (II) Initializing extension COMPOSITE
+[    71.445] (II) Initializing extension DAMAGE
+[    71.447] (II) Initializing extension MIT-SCREEN-SAVER
+[    71.449] (II) Initializing extension DOUBLE-BUFFER
+[    71.450] (II) Initializing extension RECORD
+[    71.452] (II) Initializing extension DPMS
+[    71.454] (II) Initializing extension Present
+[    71.455] (II) Initializing extension DRI3
+[    71.455] (II) Initializing extension X-Resource
+[    71.457] (II) Initializing extension XVideo
+[    71.459] (II) Initializing extension XVideo-MotionCompensation
+[    71.459] (II) Initializing extension SELinux
+[    71.459] (II) SELinux: Disabled on system
+[    71.459] (II) Initializing extension GLX
+[    71.462] (II) AIGLX: Screen 0 is not DRI2 capable
+[    71.512] (II) IGLX: Loaded and initialized swrast
+[    71.512] (II) GLX: Initialized DRISWRAST GL provider for screen 0
+[    71.513] (II) Initializing extension XFree86-VidModeExtension
+[    71.514] (II) Initializing extension XFree86-DGA
+[    71.516] (II) Initializing extension XFree86-DRI
+[    71.516] (II) Initializing extension DRI2
+[    71.522] (II) modeset(0): Damage tracking initialized
+[    71.522] (II) modeset(0): Setting screen physical size to 338 x 211
+[    72.055] (II) config/udev: Adding input device Power Button (/dev/input/event1)
+[    72.056] (**) Power Button: Applying InputClass "libinput keyboard catchall"
+[    72.056] (II) LoadModule: "libinput"
+[    72.059] (II) Loading /usr/lib/xorg/modules/input/libinput_drv.so
+[    72.134] (II) Module libinput: vendor="X.Org Foundation"
+[    72.134] 	compiled for 1.20.8, module version = 0.30.0
+[    72.134] 	Module class: X.Org XInput Driver
+[    72.134] 	ABI class: X.Org XInput driver, version 24.1
+[    72.134] (II) Using input driver 'libinput' for 'Power Button'
+[    72.135] (**) Power Button: always reports core events
+[    72.135] (**) Option "Device" "/dev/input/event1"
+[    72.136] (**) Option "_source" "server/udev"
+[    72.185] (II) event1  - Power Button: is tagged by udev as: Keyboard
+[    72.186] (II) event1  - Power Button: device is a keyboard
+[    72.188] (II) event1  - Power Button: device removed
+[    72.202] (**) Option "config_info" "udev:/sys/devices/LNXSYSTM:00/LNXPWRBN:00/input/input2/event1"
+[    72.203] (II) XINPUT: Adding extended input device "Power Button" (type: KEYBOARD, id 6)
+[    72.203] (**) Option "xkb_model" "pc105"
+[    72.203] (**) Option "xkb_layout" "us"
+[    72.214] (II) event1  - Power Button: is tagged by udev as: Keyboard
+[    72.214] (II) event1  - Power Button: device is a keyboard
+[    72.222] (II) config/udev: Adding input device AT Translated Set 2 keyboard (/dev/input/event0)
+[    72.222] (**) AT Translated Set 2 keyboard: Applying InputClass "libinput keyboard catchall"
+[    72.222] (II) Using input driver 'libinput' for 'AT Translated Set 2 keyboard'
+[    72.222] (**) AT Translated Set 2 keyboard: always reports core events
+[    72.222] (**) Option "Device" "/dev/input/event0"
+[    72.223] (**) Option "_source" "server/udev"
+[    72.231] (II) event0  - AT Translated Set 2 keyboard: is tagged by udev as: Keyboard
+[    72.232] (II) event0  - AT Translated Set 2 keyboard: device is a keyboard
+[    72.235] (II) event0  - AT Translated Set 2 keyboard: device removed
+[    72.249] (**) Option "config_info" "udev:/sys/devices/platform/i8042/serio0/input/input0/event0"
+[    72.250] (II) XINPUT: Adding extended input device "AT Translated Set 2 keyboard" (type: KEYBOARD, id 7)
+[    72.250] (**) Option "xkb_model" "pc105"
+[    72.250] (**) Option "xkb_layout" "us"
+[    72.260] (II) event0  - AT Translated Set 2 keyboard: is tagged by udev as: Keyboard
+[    72.261] (II) event0  - AT Translated Set 2 keyboard: device is a keyboard
+[    72.268] (II) config/udev: Adding input device ImExPS/2 Generic Explorer Mouse (/dev/input/event2)
+[    72.268] (**) ImExPS/2 Generic Explorer Mouse: Applying InputClass "libinput pointer catchall"
+[    72.268] (II) Using input driver 'libinput' for 'ImExPS/2 Generic Explorer Mouse'
+[    72.268] (**) ImExPS/2 Generic Explorer Mouse: always reports core events
+[    72.268] (**) Option "Device" "/dev/input/event2"
+[    72.268] (**) Option "_source" "server/udev"
+[    72.277] (II) event2  - ImExPS/2 Generic Explorer Mouse: is tagged by udev as: Mouse
+[    72.279] (II) event2  - ImExPS/2 Generic Explorer Mouse: device is a pointer
+[    72.281] (II) event2  - ImExPS/2 Generic Explorer Mouse: device removed
+[    72.322] (**) Option "config_info" "udev:/sys/devices/platform/i8042/serio1/input/input3/event2"
+[    72.323] (II) XINPUT: Adding extended input device "ImExPS/2 Generic Explorer Mouse" (type: MOUSE, id 8)
+[    72.329] (**) Option "AccelerationScheme" "none"
+[    72.330] (**) ImExPS/2 Generic Explorer Mouse: (accel) selected scheme none/0
+[    72.330] (**) ImExPS/2 Generic Explorer Mouse: (accel) acceleration factor: 2.000
+[    72.330] (**) ImExPS/2 Generic Explorer Mouse: (accel) acceleration threshold: 4
+[    72.339] (II) event2  - ImExPS/2 Generic Explorer Mouse: is tagged by udev as: Mouse
+[    72.340] (II) event2  - ImExPS/2 Generic Explorer Mouse: device is a pointer
+[    72.346] (II) config/udev: Adding input device ImExPS/2 Generic Explorer Mouse (/dev/input/mouse0)
+[    72.347] (II) No input driver specified, ignoring this device.
+[    72.347] (II) This device may have been added with another device file.
+[    72.351] (II) config/udev: Adding input device PC Speaker (/dev/input/event3)
+[    72.351] (II) No input driver specified, ignoring this device.
+[    72.351] (II) This device may have been added with another device file.
+[    72.565] (II) modeset(0): Disabling kernel dirty updates, not required.
+[   105.078] (II) modeset(0): EDID vendor "RHT", prod id 4660
+[   105.081] (II) modeset(0): Using EDID range info for horizontal sync
+[   105.081] (II) modeset(0): Using EDID range info for vertical refresh
+[   105.082] (II) modeset(0): Printing DDC gathered Modelines:
+[   105.082] (II) modeset(0): Modeline "1280x800"x0.0  107.30  1280 1600 1638 1728  800 804 808 828 -hsync -vsync (62.1 kHz eP)
+[   105.082] (II) modeset(0): Modeline "1280x768"x0.0   79.50  1280 1344 1472 1664  768 771 778 798 -hsync +vsync (47.8 kHz e)
+[   105.082] (II) modeset(0): Modeline "1360x768"x0.0   85.50  1360 1424 1536 1792  768 771 777 795 +hsync +vsync (47.7 kHz e)
+[   105.082] (II) modeset(0): Modeline "1400x1050"x0.0  121.75  1400 1488 1632 1864  1050 1053 1057 1089 -hsync +vsync (65.3 kHz e)
+[   105.082] (II) modeset(0): Modeline "1792x1344"x0.0  204.75  1792 1920 2120 2448  1344 1345 1348 1394 -hsync +vsync (83.6 kHz e)
+[   105.082] (II) modeset(0): Modeline "1856x1392"x0.0  218.25  1856 1952 2176 2528  1392 1393 1396 1439 -hsync +vsync (86.3 kHz e)
+[   105.082] (II) modeset(0): Modeline "1920x1440"x0.0  234.00  1920 2048 2256 2600  1440 1441 1444 1500 -hsync +vsync (90.0 kHz e)
+[   105.082] (II) modeset(0): Modeline "1920x1080"x0.0  148.50  1920 2448 2492 2640  1080 1084 1089 1125 +hsync +vsync (56.2 kHz e)
+[   105.083] (II) modeset(0): Modeline "800x600"x0.0   40.00  800 840 968 1056  600 601 605 628 +hsync +vsync (37.9 kHz e)
+[   105.083] (II) modeset(0): Modeline "640x480"x0.0   25.18  640 656 752 800  480 490 492 525 -hsync -vsync (31.5 kHz e)
+[   105.083] (II) modeset(0): Modeline "1024x768"x0.0   65.00  1024 1048 1184 1344  768 771 777 806 -hsync -vsync (48.4 kHz e)
+[   105.083] (II) modeset(0): Modeline "2048x1152"x60.0  197.97  2048 2184 2408 2768  1152 1153 1156 1192 -hsync +vsync (71.5 kHz e)
+[   105.083] (II) modeset(0): Modeline "1920x1080"x60.0  172.80  1920 2040 2248 2576  1080 1081 1084 1118 -hsync +vsync (67.1 kHz e)
+[   105.083] (II) modeset(0): Modeline "1920x1200"x0.0  193.25  1920 2056 2256 2592  1200 1203 1209 1245 -hsync +vsync (74.6 kHz e)
+[   105.083] (II) modeset(0): Modeline "1600x1200"x0.0  162.00  1600 1664 1856 2160  1200 1201 1204 1250 +hsync +vsync (75.0 kHz e)
+[   105.083] (II) modeset(0): Modeline "1680x1050"x0.0  146.25  1680 1784 1960 2240  1050 1053 1059 1089 -hsync +vsync (65.3 kHz e)
+[   105.083] (II) modeset(0): Modeline "1440x900"x0.0  106.50  1440 1520 1672 1904  900 903 909 934 -hsync +vsync (55.9 kHz e)
+[   105.083] (II) modeset(0): Modeline "1280x1024"x0.0  108.00  1280 1328 1440 1688  1024 1025 1028 1066 +hsync +vsync (64.0 kHz e)
+[   105.083] (II) modeset(0): Modeline "1280x960"x0.0  108.00  1280 1376 1488 1800  960 961 964 1000 +hsync +vsync (60.0 kHz e)
+[   127.115] (II) modeset(0): EDID vendor "RHT", prod id 4660
+[   127.116] (II) modeset(0): Using hsync ranges from config file
+[   127.116] (II) modeset(0): Using vrefresh ranges from config file
+[   127.116] (II) modeset(0): Printing DDC gathered Modelines:
+[   127.116] (II) modeset(0): Modeline "1280x800"x0.0  107.30  1280 1600 1638 1728  800 804 808 828 -hsync -vsync (62.1 kHz eP)
+[   127.116] (II) modeset(0): Modeline "1280x768"x0.0   79.50  1280 1344 1472 1664  768 771 778 798 -hsync +vsync (47.8 kHz e)
+[   127.116] (II) modeset(0): Modeline "1360x768"x0.0   85.50  1360 1424 1536 1792  768 771 777 795 +hsync +vsync (47.7 kHz e)
+[   127.116] (II) modeset(0): Modeline "1400x1050"x0.0  121.75  1400 1488 1632 1864  1050 1053 1057 1089 -hsync +vsync (65.3 kHz e)
+[   127.117] (II) modeset(0): Modeline "1792x1344"x0.0  204.75  1792 1920 2120 2448  1344 1345 1348 1394 -hsync +vsync (83.6 kHz e)
+[   127.117] (II) modeset(0): Modeline "1856x1392"x0.0  218.25  1856 1952 2176 2528  1392 1393 1396 1439 -hsync +vsync (86.3 kHz e)
+[   127.117] (II) modeset(0): Modeline "1920x1440"x0.0  234.00  1920 2048 2256 2600  1440 1441 1444 1500 -hsync +vsync (90.0 kHz e)
+[   127.117] (II) modeset(0): Modeline "1920x1080"x0.0  148.50  1920 2448 2492 2640  1080 1084 1089 1125 +hsync +vsync (56.2 kHz e)
+[   127.117] (II) modeset(0): Modeline "800x600"x0.0   40.00  800 840 968 1056  600 601 605 628 +hsync +vsync (37.9 kHz e)
+[   127.117] (II) modeset(0): Modeline "640x480"x0.0   25.18  640 656 752 800  480 490 492 525 -hsync -vsync (31.5 kHz e)
+[   127.117] (II) modeset(0): Modeline "1024x768"x0.0   65.00  1024 1048 1184 1344  768 771 777 806 -hsync -vsync (48.4 kHz e)
+[   127.117] (II) modeset(0): Modeline "2048x1152"x60.0  197.97  2048 2184 2408 2768  1152 1153 1156 1192 -hsync +vsync (71.5 kHz e)
+[   127.117] (II) modeset(0): Modeline "1920x1080"x60.0  172.80  1920 2040 2248 2576  1080 1081 1084 1118 -hsync +vsync (67.1 kHz e)
+[   127.117] (II) modeset(0): Modeline "1920x1200"x0.0  193.25  1920 2056 2256 2592  1200 1203 1209 1245 -hsync +vsync (74.6 kHz e)
+[   127.117] (II) modeset(0): Modeline "1600x1200"x0.0  162.00  1600 1664 1856 2160  1200 1201 1204 1250 +hsync +vsync (75.0 kHz e)
+[   127.117] (II) modeset(0): Modeline "1680x1050"x0.0  146.25  1680 1784 1960 2240  1050 1053 1059 1089 -hsync +vsync (65.3 kHz e)
+[   127.117] (II) modeset(0): Modeline "1440x900"x0.0  106.50  1440 1520 1672 1904  900 903 909 934 -hsync +vsync (55.9 kHz e)
+[   127.118] (II) modeset(0): Modeline "1280x1024"x0.0  108.00  1280 1328 1440 1688  1024 1025 1028 1066 +hsync +vsync (64.0 kHz e)
+[   127.118] (II) modeset(0): Modeline "1280x960"x0.0  108.00  1280 1376 1488 1800  960 961 964 1000 +hsync +vsync (60.0 kHz e)
+BWOS_SESSION_LOG_FILE_END xorg-log
+BWOS_SESSION_LOG_FILE_BEGIN xsession-errors /home/phoenix/.xsession-errors
+org.kde.plasma.session: Starting autostart service  "/etc/xdg/autostart/at-spi-dbus-bus.desktop" ("/usr/libexec/at-spi-bus-launcher", "--launch-immediately")
+org.kde.plasma.session: Starting autostart service  "/etc/xdg/autostart/geoclue-demo-agent.desktop" ("/usr/libexec/geoclue-2.0/demos/agent")
+org.kde.plasma.session: Starting autostart service  "/etc/xdg/autostart/powerdevil.desktop" ("/usr/lib/x86_64-linux-gnu/libexec/org_kde_powerdevil")
+org.kde.plasma.session: Starting autostart service  "/etc/xdg/autostart/kup-daemon.desktop" ("/usr/bin/kup-daemon")
+xsettingsd: Reloading configuration
+xsettingsd: Loaded 11 settings from /home/phoenix/.config/xsettingsd/xsettingsd.conf
+X server XKB extension major= 1  minor= 0
+New PolkitAgentListener  0x55c361d00400
+Adding new listener  PolkitQt1::Agent::Listener(0x55c361d1a6e0) for  0x55c361d00400
+Listener online
+Authentication agent result: true
+kup.daemon: "Kup is not enabled, enable it from the system settings module. You can do that by running kcmshell5 kup"
+Baloo File Indexing has been disabled
+org.kde.powerdevil: No outputs have backlight property
+org.kde.powerdevil: Xrandr not supported, trying ddc, helper
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 810, resource id: 10485765, major code: 18 (ChangeProperty), minor code: 0
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 863, resource id: 4194337, major code: 18 (ChangeProperty), minor code: 0
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 867, resource id: 46137348, major code: 18 (ChangeProperty), minor code: 0
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 879, resource id: 46137349, major code: 18 (ChangeProperty), minor code: 0
+org.kde.powerdevil: org.kde.powerdevil.chargethresholdhelper.getthreshold failed "Charge thresholds not supported"
+org.kde.powerdevil: org.kde.powerdevil.backlighthelper.brightness failed
+org.kde.powerdevil: Handle button events action could not check for screen configuration
+org.kde.powerdevil: The profile  "AC" tried to activate "DimDisplay" a non-existent action. This is usually due to an installation problem, a configuration problem, or because the action is not supported
+org.kde.powerdevil: org.kde.powerdevil.chargethresholdhelper.getthreshold failed "Charge thresholds not supported"
+QDBusConnection: name 'org.kde.kglobalaccel' had owner '' but we thought it was ':1.17'
+Delayed initialization.
+Reloading the khotkeys configuration
+Version 2 File!
+Loaded defaults from "/usr/share/khotkeys/defaults.khotkeys"
+true
+Imported file "/usr/share/khotkeys/defaults.khotkeys"
+Version 2 File!
+Imported file "/usr/share/khotkeys/kde32b1.khotkeys"
+Version 2 File!
+Imported file "/usr/share/khotkeys/konqueror_gestures_kde321.khotkeys"
+Version 2 File!
+Imported file "/usr/share/khotkeys/konsole.khotkeys"
+xsettingsd: Reloading configuration
+xsettingsd: Loaded 11 settings from /home/phoenix/.config/xsettingsd/xsettingsd.conf
+xsettingsd: Reloading configuration
+xsettingsd: Loaded 11 settings from /home/phoenix/.config/xsettingsd/xsettingsd.conf
+xsettingsd: Reloading configuration
+xsettingsd: Loaded 11 settings from /home/phoenix/.config/xsettingsd/xsettingsd.conf
+kf.plasma.quick: Applet preload policy set to 1
+xsettingsd: Reloading configuration
+xsettingsd: Loaded 11 settings from /home/phoenix/.config/xsettingsd/xsettingsd.conf
+xsettingsd: Reloading configuration
+xsettingsd: Loaded 11 settings from /home/phoenix/.config/xsettingsd/xsettingsd.conf
+xsettingsd: Reloading configuration
+xsettingsd: Loaded 11 settings from /home/phoenix/.config/xsettingsd/xsettingsd.conf
+bluedevil: Bluetooth operational changed false
+bluedevil: ObexManager operational changed false
+QDBusAbstractAdaptor: Cannot relay signal KDEDModule::moduleDeleted(KDEDModule*): Pointers are not supported: KDEDModule*
+Registering ":1.30/StatusNotifierItem" to system tray
+Registering ":1.39/StatusNotifierItem" to system tray
+bluedevil: ObexManager operational changed true
+bluedevil: ObexAgent registered
+Cyclic dependency detected between "file:///usr/lib/x86_64-linux-gnu/qt5/qml/org/kde/kirigami.2/styles/org.kde.desktop.plasma/Units.qml" and "file:///usr/lib/x86_64-linux-gnu/qt5/qml/org/kde/kirigami.2/styles/org.kde.desktop.plasma/Units.qml"
+qt.svg: <input>:406:376: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:407:130: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:408:130: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:408:393: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:409:130: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:410:129: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:411:129: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:412:129: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:413:129: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:413:379: Could not add child element to parent element because the types are incorrect.
+qt.svg: <input>:413:631: Could not add child element to parent element because the types are incorrect.
+trying to show an empty dialog
+file:///usr/share/plasma/shells/org.kde.plasma.desktop/contents/views/Desktop.qml:146:19: QML Loader: Binding loop detected for property "height"
+file:///usr/share/plasma/shells/org.kde.plasma.desktop/contents/views/Desktop.qml:146:19: QML Loader: Binding loop detected for property "height"
+evaluating startup script: "/usr/share/plasma/shells/org.kde.plasma.desktop/contents/layout.js"
+Activity added twice "d8341ca9-4009-4d22-9828-51943bdb2ebc"
+kf.plasma.core: requesting config for "Desktop" without a containment!
+QObject::disconnect: Unexpected nullptr parameter
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/homeworld-theme/wallpaper" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/futureprototype-theme/wallpaper" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/futureprototype-theme/wallpaper-withlogo" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/joy-theme/wallpaper" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/joy-inksplat-theme/wallpaper" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/joy-theme/lockscreen" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/lines-theme/wallpaper" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/lines-theme/lockscreen" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/moonlight-theme/wallpaper" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/moonlight-theme/lockscreen" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/wallpapers/Next" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/softwaves-theme/wallpaper" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/softwaves-theme/lockscreen" is a directory. Use addDir!
+kf.coreaddons: KDirWatch: "/usr/share/desktop-base/spacefun-theme/wallpaper" is a directory. Use addDir!
+kdeinit5: Got EXEC_NEW '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/desktop.so' from launcher.
+kdeinit5: preparing to launch '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/desktop.so'
+Connecting to deprecated signal QDBusConnectionInterface::serviceOwnerChanged(QString,QString,QString)
+kdeconnect.core: Could not query capabilities from notifications server
+Both point size and pixel size set. Using pixel size.
+Both point size and pixel size set. Using pixel size.
+Both point size and pixel size set. Using pixel size.
+file:///usr/share/plasma/plasmoids/org.kde.plasma.digitalclock/contents/ui/DigitalClock.qml:524:9: QML Label: Binding loop detected for property "height"
+file:///usr/share/plasma/plasmoids/org.kde.plasma.digitalclock/contents/ui/DigitalClock.qml:483:13: QML Label: Binding loop detected for property "height"
+trying to show an empty dialog
+file:///usr/share/plasma/plasmoids/org.kde.panel/contents/ui/main.qml:30:1: QML DropArea (parent or ancestor of QQuickLayoutAttached): Binding loop detected for property "minimumWidth"
+file:///usr/share/plasma/plasmoids/org.kde.plasma.digitalclock/contents/ui/DigitalClock.qml:483:13: QML Label: Binding loop detected for property "height"
+file:///usr/share/plasma/plasmoids/org.kde.plasma.digitalclock/contents/ui/DigitalClock.qml:524:9: QML Label: Binding loop detected for property "height"
+file:///usr/share/plasma/plasmoids/org.kde.plasma.digitalclock/contents/ui/DigitalClock.qml:544:5: QML Label: Binding loop detected for property "height"
+org.kde.klipper: Failed to load history resource. Clipboard history cannot be read. :  History file does not exist
+kdeinit5: Got EXEC_NEW '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/tags.so' from launcher.
+kdeinit5: preparing to launch '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/tags.so'
+kdeinit5: Got EXEC_NEW '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/trash.so' from launcher.
+kdeinit5: preparing to launch '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/trash.so'
+kdeinit5: Got EXEC_NEW '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/file.so' from launcher.
+kdeinit5: preparing to launch '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/file.so'
+kf.bluezqt: PendingCall Error: "Did not receive a reply. Possible causes include: the remote application did not send a reply, the message bus security policy blocked the reply, the reply timeout expired, or the network connection was broken."
+Cyclic dependency detected between "file:///usr/share/plasma/plasmoids/org.kde.plasma.notifications/contents/ui/global/Globals.qml" and "file:///usr/share/plasma/plasmoids/org.kde.plasma.notifications/contents/ui/NotificationHeader.qml"
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 1660, resource id: 52428806, major code: 20 (GetProperty), minor code: 0
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 1661, resource id: 52428806, major code: 20 (GetProperty), minor code: 0
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 1662, resource id: 52428806, major code: 15 (QueryTree), minor code: 0
+Registering "org.kde.StatusNotifierHost-1864" as system tray
+file:///usr/lib/x86_64-linux-gnu/qt5/qml/org/kde/plasma/extras/PlasmoidHeading.qml:56:5: Unable to assign [undefined] to int
+trying to show an empty dialog
+file:///usr/share/plasma/plasmoids/org.kde.plasma.notifications/contents/ui/NotificationPopup.qml:116:15: QML QQuickItem: Binding loop detected for property "height"
+file:///usr/share/plasma/plasmoids/org.kde.plasma.notifications/contents/ui/NotificationPopup.qml:116:15: QML QQuickItem: Binding loop detected for property "height"
+Plasma Shell startup completed
+kdeinit5: Got EXEC_NEW '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/file.so' from launcher.
+kdeinit5: preparing to launch '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/file.so'
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 2784, resource id: 52428807, major code: 15 (QueryTree), minor code: 0
+trying to show an empty dialog
+file:///usr/share/plasma/shells/org.kde.plasma.desktop/contents/views/Desktop.qml:146:19: QML Loader: Binding loop detected for property "height"
+file:///usr/share/plasma/shells/org.kde.plasma.desktop/contents/views/Desktop.qml:146:19: QML Loader: Binding loop detected for property "height"
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 2945, resource id: 44040274, major code: 15 (QueryTree), minor code: 0
+KAStatsFavoritesModel::setFavorites is ignored
+Entry is not valid "kontact.desktop" QSharedPointer(0x55c1f82f1c10)
+Entry is not valid "ktp-contactlist.desktop" QSharedPointer(0x55c1f8305520)
+file:///usr/share/plasma/plasmoids/org.kde.plasma.kickoff/contents/ui/FullRepresentation.qml:356: ReferenceError: headerSeparator is not defined
+trying to show an empty dialog
+file:///usr/share/plasma/plasmoids/org.kde.plasma.battery/contents/ui/CompactRepresentation.qml:53:17: Unable to assign [undefined] to int
+file:///usr/lib/x86_64-linux-gnu/qt5/qml/org/kde/plasma/extras/PlasmoidHeading.qml:56:5: Unable to assign [undefined] to int
+file:///usr/lib/x86_64-linux-gnu/qt5/qml/org/kde/plasma/components.3/ComboBox.qml:74:9: Unable to assign [undefined] to QQmlComponent*
+file:///usr/lib/x86_64-linux-gnu/qt5/qml/org/kde/plasma/components/ModelContextMenu.qml:38:1: QML ModelContextMenu: Accessible must be attached to an Item
+Both point size and pixel size set. Using pixel size.
+Both point size and pixel size set. Using pixel size.
+Both point size and pixel size set. Using pixel size.
+Both point size and pixel size set. Using pixel size.
+Both point size and pixel size set. Using pixel size.
+Both point size and pixel size set. Using pixel size.
+Both point size and pixel size set. Using pixel size.
+trying to show an empty dialog
+Entry is not valid "kontact.desktop" QSharedPointer(0x55c1f90be920)
+Entry is not valid "ktp-contactlist.desktop" QSharedPointer(0x55c1f7987080)
+Entry is not valid "kontact.desktop" QSharedPointer(0x55c1f82fffa0)
+Entry is not valid "ktp-contactlist.desktop" QSharedPointer(0x55c1f7985de0)
+kdeinit5: Got EXEC_NEW '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/file.so' from launcher.
+kdeinit5: preparing to launch '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/file.so'
+kdeinit5: Got EXEC_NEW '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/file.so' from launcher.
+kdeinit5: preparing to launch '/usr/lib/x86_64-linux-gnu/qt5/plugins/kf5/kio/file.so'
+file:///usr/lib/x86_64-linux-gnu/qt5/qml/org/kde/plasma/extras/ExpandableListItem.qml:314: TypeError: Cannot read property 'width' of null
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 3831, resource id: 52428806, major code: 15 (QueryTree), minor code: 0
+qt.qpa.xcb: QXcbConnection: XCB error: 3 (BadWindow), sequence: 4015, resource id: 44040292, major code: 15 (QueryTree), minor code: 0
+org.kde.plasma.pulseaudio: No object for name "auto_null.monitor"
+kdeinit5: PID 2378 terminated.
+kdeinit5: PID 2377 terminated.
+BWOS_SESSION_LOG_FILE_END xsession-errors
+BWOS_SESSION_LOG_FILE_BEGIN sddm-user /home/phoenix/.local/share/sddm/xorg-session.log
+BWOS_SESSION_LOG_FILE_END sddm-user
+BWOS_SESSION_DIAGNOSTICS_END
+BWOS_APP_LAUNCH_RESULT app=kwrite status=APP_LAUNCH_PASS pid=2562 exit_code=0 desktop_entry=/usr/share/applications/org.kde.kwrite.desktop cmd=/usr/bin/kwrite
+BWOS_APP_LAUNCH_RESULT app=gwenview status=APP_LAUNCH_PASS pid=2729 exit_code=0 desktop_entry=/usr/share/applications/org.kde.gwenview.desktop cmd=/usr/bin/gwenview
+BWOS_APP_LAUNCH_RESULT app=systemsettings status=APP_LAUNCH_PASS pid=2760 exit_code=0 desktop_entry=/usr/share/applications/systemsettings.desktop cmd=/usr/bin/systemsettings5
+BWOS_APP_LAUNCH_RESULT app=discover status=APP_LAUNCH_PASS pid=2789 exit_code=0 desktop_entry=/usr/share/applications/org.kde.discover.desktop cmd=/usr/bin/plasma-discover
+BWOS_APP_LAUNCH_MATRIX_COMPLETE timestamp=2026-05-28T02:13:10Z

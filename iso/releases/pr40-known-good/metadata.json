@@ -1,0 +1,45 @@
+{
+  "fossil_layer_id": "pr40-known-good",
+  "archived_at": "2026-05-28T03:29:00Z",
+  "git_commit": "3020e60b5c546ecc874414141c78291833d5dd14",
+  "commit_subject": "feat: add PR40 app launch matrix hook and probe script",
+  "artifact": {
+    "filename": "bwos-home.iso",
+    "path": "iso/releases/pr40-known-good/bwos-home.iso",
+    "size_bytes": 2276368384,
+    "sha256": "463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686",
+    "status": [
+      "built",
+      "checksum_verified",
+      "vm_boot_pass",
+      "usb_boot_untested",
+      "release_blocked"
+    ]
+  },
+  "validation_metrics": {
+    "vm_boot": {
+      "classification": "BOOT_PASS_DESKTOP",
+      "session_probe_classification": "APP_PROBE_COMPLETE_8of8_PASS",
+      "clean_shutdown_verified": true,
+      "desktop_marker_reached": true,
+      "shutdown_marker_reached": true
+    },
+    "app_launch_matrix": {
+      "overall_status": "APP_PROBE_COMPLETE_8of8_PASS",
+      "apps": {
+        "firefox-esr": { "status": "APP_LAUNCH_PASS", "exit_code": 0 },
+        "dolphin": { "status": "APP_LAUNCH_PASS", "exit_code": 0 },
+        "konsole": { "status": "APP_LAUNCH_PASS", "exit_code": 0 },
+        "kcalc": { "status": "APP_LAUNCH_PASS", "exit_code": 0 },
+        "kwrite": { "status": "APP_LAUNCH_PASS", "exit_code": 0 },
+        "gwenview": { "status": "APP_LAUNCH_PASS", "exit_code": 0 },
+        "systemsettings": { "status": "APP_LAUNCH_PASS", "exit_code": 0 },
+        "discover": { "status": "APP_LAUNCH_PASS", "exit_code": 0 }
+      }
+    }
+  },
+  "evidence": {
+    "telemetry_log_path": "iso/releases/pr40-known-good/evidence/serial.log",
+    "guest_probe_log_path": "iso/releases/pr40-known-good/evidence/app-matrix.log"
+  }
+}
