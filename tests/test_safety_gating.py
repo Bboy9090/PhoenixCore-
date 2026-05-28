@@ -28,7 +28,7 @@ class TestSafetyGating(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
-        if self.report_path.exists():
+        if self.report_path.exists() and self._testMethodName != "test_export_safety_report":
             try:
                 self.report_path.unlink()
             except OSError:
