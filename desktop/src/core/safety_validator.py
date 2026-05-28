@@ -1243,3 +1243,389 @@ class SafetyValidator:
             "consent_records": len(self._consent_records),
             "audit_log_path": str(self._audit_log_path)
         }
+
+
+# ==============================================================================
+# PR41B CORE SAFETY CLASSIFIER MODULE IMPLEMENTATION
+# ==============================================================================
+
+class SafetySeverity(Enum):
+    """Enforceable safety severity levels for block device validation"""
+    SAFETY_INFO = "SAFETY_INFO"
+    SAFETY_WARNING = "SAFETY_WARNING"
+    SAFETY_BLOCK = "SAFETY_BLOCK"
+    SAFETY_CRITICAL_BLOCK = "SAFETY_CRITICAL_BLOCK"
+
+
+@dataclass
+class ConfidenceFactor:
+    """A granular positive or negative attribution score factor"""
+    name: str
+    score_delta: int
+    description: str
+
+
+@dataclass
+class DeviceProbe:
+    """Normalized hardware attribute probe for safety validation"""
+    device_path: str
+    is_host_root_parent: bool = False
+    is_internal_sata_nvme: bool = False
+    is_apfs_system_container: bool = False
+    active_mount_points: List[str] = field(default_factory=list)
+    is_loopback_virtual: bool = False
+    is_live_session_self: bool = False
+    is_removable: bool = False
+    bus_type: str = ""
+    capacity_bytes: int = 0
+    has_serial: bool = True
+    has_model: bool = True
+    is_ambiguous_duplicate: bool = False
+
+
+@dataclass
+class SafetyVerdict:
+    """The final safety verdict and forensic audit log metadata"""
+    device_path: str
+    severity: SafetySeverity
+    confidence_score: int
+    factors: List[ConfidenceFactor] = field(default_factory=list)
+    hardlock_reason: Optional[str] = None
+    operator_message: str = ""
+    timestamp: str = field(default_factory=lambda: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+
+    def to_audit_dict(self) -> Dict[str, Any]:
+        """Convert the verdict outcome to a normalized forensic JSON structure"""
+        is_safe = (self.confidence_score >= 90 and
+                   self.severity not in (SafetySeverity.SAFETY_CRITICAL_BLOCK, SafetySeverity.SAFETY_BLOCK))
+        return {
+            "timestamp": self.timestamp,
+            "device_path": self.device_path,
+            "verdict": "PASS" if is_safe else "BLOCKED",
+            "severity": self.severity.value,
+            "confidence_score": self.confidence_score,
+            "factors": [
+                {"name": f.name, "delta": f.score_delta, "desc": f.description}
+                for f in self.factors
+            ],
+            "hardlock_reason": self.hardlock_reason or "",
+            "operator_message": self.operator_message
+        }
+
+
+def classify_device(device: DeviceProbe) -> SafetyVerdict:
+    """Stateless, deterministic device classification pipeline based on safety matrices"""
+    factors = []
+    confidence = 0
+    hardlock_reason = None
+    severity = SafetySeverity.SAFETY_INFO
+    operator_message = ""
+
+    # Check for developer environment safety override token
+    dev_override = os.environ.get("PHOENIX_SAFETY_DEVELOPER_OVERRIDE", "").strip() == "1"
+
+    # Pre-flight Hardlock Precedence Assertions (Unbypassable)
+
+    # 1. Host Root OS parent disk lockout
+    if device.is_host_root_parent:
+        severity = SafetySeverity.SAFETY_CRITICAL_BLOCK
+        hardlock_reason = "Target is the parent disk of the active host OS root mount point"
+        operator_message = "CRITICAL_ERROR: Device is the active host OS disk and cannot be targeted."
+        return SafetyVerdict(
+            device_path=device.device_path,
+            severity=severity,
+            confidence_score=-1000,
+            factors=factors,
+            hardlock_reason=hardlock_reason,
+            operator_message=operator_message
+        )
+
+    # 2. Internal SATA/NVMe parent lockout
+    if device.is_internal_sata_nvme:
+        severity = SafetySeverity.SAFETY_CRITICAL_BLOCK
+        hardlock_reason = "Target is an internal system storage unit (SATA/NVMe)"
+        operator_message = "CRITICAL_ERROR: Internal NVMe/SATA disk is protected."
+        return SafetyVerdict(
+            device_path=device.device_path,
+            severity=severity,
+            confidence_score=-200,
+            factors=factors,
+            hardlock_reason=hardlock_reason,
+            operator_message=operator_message
+        )
+
+    # 3. macOS APFS synthesized container backing lockout
+    if device.is_apfs_system_container:
+        severity = SafetySeverity.SAFETY_CRITICAL_BLOCK
+        hardlock_reason = "Target belongs to macOS synthesized system container storage"
+        operator_message = "CRITICAL_ERROR: Base disk belongs to the internal APFS Container Scheme and is locked."
+        return SafetyVerdict(
+            device_path=device.device_path,
+            severity=severity,
+            confidence_score=-100,
+            factors=factors,
+            hardlock_reason=hardlock_reason,
+            operator_message=operator_message
+        )
+
+    # 4. Live-session self-target prevention
+    if device.is_live_session_self:
+        severity = SafetySeverity.SAFETY_CRITICAL_BLOCK
+        hardlock_reason = "Target is the active boot medium hosting the running Live OS session"
+        operator_message = "CRITICAL_ERROR: Cannot overwrite active live-boot media."
+        return SafetyVerdict(
+            device_path=device.device_path,
+            severity=severity,
+            confidence_score=-1000,
+            factors=factors,
+            hardlock_reason=hardlock_reason,
+            operator_message=operator_message
+        )
+
+    # 5. Virtual Loopback / diskimage lockouts (Bypassable for virtual loops ONLY if override token active)
+    if device.is_loopback_virtual:
+        if dev_override:
+            factors.append(ConfidenceFactor(
+                "DEV_OVERRIDE_LOOPBACK", 100,
+                "Developer override active: Loopback allowed for virtual sandbox testing"
+            ))
+            confidence = 100
+            severity = SafetySeverity.SAFETY_WARNING
+            operator_message = "WARNING: Virtual loopback device targeted. Bypassing safety lockout due to developer override."
+        else:
+            severity = SafetySeverity.SAFETY_BLOCK
+            hardlock_reason = "Target is a virtual loopback or synthesized disk image"
+            operator_message = "BLOCK_ERROR: Loopback or virtual storage device cannot be targeted."
+            return SafetyVerdict(
+                device_path=device.device_path,
+                severity=severity,
+                confidence_score=-50,
+                factors=factors,
+                hardlock_reason=hardlock_reason,
+                operator_message=operator_message
+            )
+
+    # 6. Mounted filesystem lockout
+    if device.active_mount_points:
+        severity = SafetySeverity.SAFETY_BLOCK
+        hardlock_reason = f"Active mount points found: {device.active_mount_points}"
+        operator_message = f"BLOCK_ERROR: Target has active mounts: {device.active_mount_points}. Unmount partitions first."
+        return SafetyVerdict(
+            device_path=device.device_path,
+            severity=severity,
+            confidence_score=-100,
+            factors=factors,
+            hardlock_reason=hardlock_reason,
+            operator_message=operator_message
+        )
+
+    # Confidence Scoring Calculations
+    if not device.is_loopback_virtual or not dev_override:
+        # Check Removable Bit
+        if device.is_removable:
+            factors.append(ConfidenceFactor(
+                "REMOVABLE_MEDIA", 30,
+                "Device storage descriptor removable bit set"
+            ))
+            confidence += 30
+        else:
+            factors.append(ConfidenceFactor(
+                "NON_REMOVABLE_PENALTY", -100,
+                "Device storage descriptor removable bit is absent"
+            ))
+            confidence -= 100
+
+        # Check Bus Interconnect Type
+        bus = device.bus_type.lower()
+        if bus == "usb":
+            factors.append(ConfidenceFactor(
+                "USB_TRANSPORT", 40,
+                "Device connected via physical USB interconnect"
+            ))
+            confidence += 40
+        elif bus in ("sd", "mmc"):
+            factors.append(ConfidenceFactor(
+                "MMC_TRANSPORT", 40,
+                "Device connected via SD/MMC storage card reader"
+            ))
+            confidence += 40
+        elif bus in ("sata", "scsi", "sas"):
+            factors.append(ConfidenceFactor(
+                "SATA_SAS_PENALTY", -50,
+                "Internal controller protocol (SATA/SCSI/SAS) detected"
+            ))
+            confidence -= 50
+        elif bus == "nvme":
+            factors.append(ConfidenceFactor(
+                "NVME_PENALTY", -200,
+                "Internal bus interconnect (PCI-Express/NVMe) detected"
+            ))
+            confidence -= 200
+
+        # Check standard Capacity window
+        capacity_gb = device.capacity_bytes / (1024 ** 3)
+        if 8.0 <= capacity_gb <= 256.0:
+            factors.append(ConfidenceFactor(
+                "CAPACITY_IN_BOUNDS", 20,
+                f"Capacity ({capacity_gb:.2f} GB) is within normal flash drive bounds"
+            ))
+            confidence += 20
+        elif capacity_gb > 256.0:
+            factors.append(ConfidenceFactor(
+                "CAPACITY_LARGE_SUSPICIOUS", -20,
+                f"Capacity ({capacity_gb:.2f} GB) is abnormally large for USB flash media"
+            ))
+            confidence -= 20
+        else:
+            factors.append(ConfidenceFactor(
+                "CAPACITY_SMALL", -10,
+                f"Capacity ({capacity_gb:.2f} GB) is below standard OS recipe minimums"
+            ))
+            confidence -= 10
+
+        # Check descriptors
+        if not device.has_serial:
+            factors.append(ConfidenceFactor(
+                "MISSING_SERIAL", -30,
+                "Device lacks hardware serial number descriptor"
+            ))
+            confidence -= 30
+        if not device.has_model:
+            factors.append(ConfidenceFactor(
+                "MISSING_MODEL", -20,
+                "Device lacks hardware vendor/model descriptor"
+            ))
+            confidence -= 20
+
+        # Check duplicate target ambiguity
+        if device.is_ambiguous_duplicate:
+            factors.append(ConfidenceFactor(
+                "AMBIGUOUS_DUPLICATE", -40,
+                "Ambiguity detected: multiple identical devices present on USB bus"
+            ))
+            confidence -= 40
+
+    # 7. Confidence threshold check (pass: >= 90)
+    if not device.is_loopback_virtual or not dev_override:
+        if confidence < 90:
+            severity = SafetySeverity.SAFETY_BLOCK
+            hardlock_reason = f"Confidence score ({confidence}) is below the required passing threshold (90)"
+            operator_message = f"BLOCK_ERROR: Target does not meet safety confidence threshold (Score: {confidence}/90). Refusing to proceed."
+        else:
+            severity = SafetySeverity.SAFETY_INFO
+            operator_message = f"PASS: Target successfully classified as valid USB removable storage (Score: {confidence}/90)."
+
+    return SafetyVerdict(
+        device_path=device.device_path,
+        severity=severity,
+        confidence_score=confidence,
+        factors=factors,
+        hardlock_reason=hardlock_reason,
+        operator_message=operator_message
+    )
+
+
+def run_dry_run_tests():
+    """Execute validation suite for all dry-run safety scenarios"""
+    print("================================================================================")
+    print("PR41B SAFETY CLASSIFIER - DRY-RUN TEST MATRIX")
+    print("================================================================================")
+
+    test_probes = [
+        ("Fake USB Removable Pass", DeviceProbe(
+            device_path="/dev/sdb",
+            is_removable=True,
+            bus_type="usb",
+            capacity_bytes=32 * 1024**3,
+            has_serial=True,
+            has_model=True
+        )),
+        ("Host Root Disk Critical Block", DeviceProbe(
+            device_path="/dev/sda",
+            is_host_root_parent=True,
+            is_removable=False,
+            bus_type="sata",
+            capacity_bytes=500 * 1024**3
+        )),
+        ("Internal NVMe Critical Block", DeviceProbe(
+            device_path="/dev/nvme0n1",
+            is_internal_sata_nvme=True,
+            is_removable=False,
+            bus_type="nvme",
+            capacity_bytes=1000 * 1024**3
+        )),
+        ("Mounted USB Block", DeviceProbe(
+            device_path="/dev/sdc",
+            active_mount_points=["/media/phoenix/DATA"],
+            is_removable=True,
+            bus_type="usb",
+            capacity_bytes=16 * 1024**3
+        )),
+        ("APFS System Container Critical Block", DeviceProbe(
+            device_path="/dev/disk1s1",
+            is_apfs_system_container=True,
+            is_removable=False,
+            bus_type="pci",
+            capacity_bytes=250 * 1024**3
+        )),
+        ("Loopback Block (Default)", DeviceProbe(
+            device_path="/dev/loop0",
+            is_loopback_virtual=True,
+            is_removable=False,
+            bus_type="virtual",
+            capacity_bytes=2 * 1024**3
+        )),
+        ("Duplicate USB Ambiguity Block", DeviceProbe(
+            device_path="/dev/sdd",
+            is_removable=True,
+            bus_type="usb",
+            capacity_bytes=64 * 1024**3,
+            is_ambiguous_duplicate=True
+        ))
+    ]
+
+    for name, probe in test_probes:
+        verdict = classify_device(probe)
+        audit_dict = verdict.to_audit_dict()
+        print(f"\nTest: {name}")
+        print(json.dumps(audit_dict, indent=2))
+
+    # Test loopback with developer override
+    print("\nTest: Loopback with Developer Override (PHOENIX_SAFETY_DEVELOPER_OVERRIDE=1)")
+    os.environ["PHOENIX_SAFETY_DEVELOPER_OVERRIDE"] = "1"
+    try:
+        loop_probe = DeviceProbe(
+            device_path="/dev/loop0",
+            is_loopback_virtual=True,
+            is_removable=False,
+            bus_type="virtual",
+            capacity_bytes=2 * 1024**3
+        )
+        verdict = classify_device(loop_probe)
+        audit_dict = verdict.to_audit_dict()
+        print(json.dumps(audit_dict, indent=2))
+    finally:
+        if "PHOENIX_SAFETY_DEVELOPER_OVERRIDE" in os.environ:
+            del os.environ["PHOENIX_SAFETY_DEVELOPER_OVERRIDE"]
+
+    # Test host root disk with developer override
+    print("\nTest: Host Root Disk with Developer Override (Should remain hardlocked!)")
+    os.environ["PHOENIX_SAFETY_DEVELOPER_OVERRIDE"] = "1"
+    try:
+        root_probe = DeviceProbe(
+            device_path="/dev/sda",
+            is_host_root_parent=True,
+            is_removable=False,
+            bus_type="sata",
+            capacity_bytes=500 * 1024**3
+        )
+        verdict = classify_device(root_probe)
+        audit_dict = verdict.to_audit_dict()
+        print(json.dumps(audit_dict, indent=2))
+    finally:
+        if "PHOENIX_SAFETY_DEVELOPER_OVERRIDE" in os.environ:
+            del os.environ["PHOENIX_SAFETY_DEVELOPER_OVERRIDE"]
+
+
+if __name__ == "__main__":
+    run_dry_run_tests()
