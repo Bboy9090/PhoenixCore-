@@ -19,7 +19,12 @@ LOG_DIR="/tmp/bwos-app-launch-matrix"
 mkdir -p "$LOG_DIR"
 
 serial_emit() {
-    echo "$1" | tee -a "$LOG_DIR/probe.log" > "$SERIAL" 2>/dev/null || true
+    # Print directly to stdout (which is redirected to /dev/ttyS0 by systemd)
+    echo "$1"
+    # Also log to systemd journal using logger so standard logs have it
+    logger -t bwos-app-matrix "$1" || true
+    # Also keep a local guest-side log for direct verification
+    echo "$1" >> "$LOG_DIR/probe.log" 2>/dev/null || true
 }
 
 # Only run when probe mode is requested
@@ -29,6 +34,20 @@ if ! grep -q 'bwos\.app_probe=1' /proc/cmdline 2>/dev/null; then
 fi
 
 serial_emit "BWOS_APP_LAUNCH_MATRIX_STARTED timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+serial_emit "BWOS_DIAG_WHOAMI $(whoami)"
+serial_emit "BWOS_DIAG_ID $(id)"
+serial_emit "BWOS_DIAG_ENV DISPLAY=${DISPLAY:-} XAUTHORITY=${XAUTHORITY:-} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-} DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-}"
+if [ -f /home/phoenix/.Xauthority ]; then
+    serial_emit "BWOS_DIAG_XAUTHORITY_EXISTS true"
+else
+    serial_emit "BWOS_DIAG_XAUTHORITY_EXISTS false"
+fi
+if [ -S /run/user/1000/bus ]; then
+    serial_emit "BWOS_DIAG_BUS_EXISTS true"
+else
+    serial_emit "BWOS_DIAG_BUS_EXISTS false"
+fi
 
 # Target app definitions: id|command|desktop_entry_check
 declare -a APPS=(
@@ -78,7 +97,7 @@ probe_app() {
     export DISPLAY="${DISPLAY:-:0}"
     export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/1000/bus}"
 
-    "$cmd_path" --no-sandbox 2>"$log_err" >"$log_out" &
+    "$cmd_path" 2>"$log_err" >"$log_out" &
     pid=$!
 
     # Wait up to TIMEOUT_SECONDS for stability
@@ -99,6 +118,9 @@ probe_app() {
             status="APP_LAUNCH_PASS"
         else
             status="APP_LAUNCH_CRASH"
+            if [ -f "$log_err" ]; then
+                serial_emit "BWOS_APP_LAUNCH_ERROR app=$app_id error=$(cat "$log_err" | tr '\n' ' ' | cut -c1-200)"
+            fi
         fi
     else
         # Still running after timeout — that's a pass for daemon-style apps
@@ -139,9 +161,15 @@ ConditionKernelCommandLine=bwos.app_probe=1
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-User=root
+User=phoenix
+SupplementaryGroups=dialout
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/phoenix/.Xauthority
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 ExecStart=/usr/local/bin/bwos-app-launch-probe
-StandardOutput=journal
+StandardOutput=tty
+TTYPath=/dev/ttyS0
 StandardError=journal
 TimeoutStartSec=300
 

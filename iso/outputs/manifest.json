@@ -104,9 +104,10 @@
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["os/phoenix-os/build/bwos-arcwyre.iso"]
-    }
-,
+      "duplicate_paths": [
+        "os/phoenix-os/build/bwos-arcwyre.iso"
+      ]
+    },
     {
       "edition_id": "blue-phoenix",
       "display_name": "Blue Phoenix: Aurelia Edition",
@@ -175,9 +176,10 @@
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["os/phoenix-os/build/bwos-aurelia.iso"]
-    }
-,
+      "duplicate_paths": [
+        "os/phoenix-os/build/bwos-aurelia.iso"
+      ]
+    },
     {
       "edition_id": "home-legacy-i386",
       "display_name": "Home Aurelia OS (Legacy i386)",
@@ -246,9 +248,10 @@
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["os/phoenix-os/build/bwos-home-legacy-i386.img"]
-    }
-,
+      "duplicate_paths": [
+        "os/phoenix-os/build/bwos-home-legacy-i386.img"
+      ]
+    },
     {
       "edition_id": "home",
       "display_name": "Home Aurelia OS",
@@ -257,11 +260,11 @@
       "artifact_role": "registry_output",
       "artifact_format": "iso",
       "architecture": "amd64",
-      "size_bytes": 2276366336,
-      "sha256": "ceb5cb1657f7b3da68eb5e9b1ef987618cc67ae167afe2f1ade03929987059db",
-      "build_timestamp": "2026-05-26T13:32:46-0400",
+      "size_bytes": 2276368384,
+      "sha256": "463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686",
+      "build_timestamp": "2026-05-27T22:21:50-0400",
       "build_timestamp_source": "filesystem_mtime",
-      "source_commit": "760d8dd3faba9a99bde80cf5d9de8cd6229bce39",
+      "source_commit": "3020e60b5c546ecc874414141c78291833d5dd14",
       "source_commit_source": "git_head_at_scan_not_embedded",
       "edition_manifest_path": "editions/home/edition.yaml",
       "edition_manifest_sha256": "197f0fe784dd20cb19506bf5486bb47d9179bddccc262596c44252fae92963a7",
@@ -285,7 +288,7 @@
         "classification": "BOOT_PASS_DESKTOP",
         "artifact_path": "os/phoenix-os/build/bwos-home.iso",
         "artifact_format": "iso",
-        "artifact_size_bytes": 2276366336,
+        "artifact_size_bytes": 2276368384,
         "build_summary_path": "os/phoenix-os/build/build-summary.json",
         "build_status": "present",
         "telemetry_status": "recorded",
@@ -303,23 +306,24 @@
         "desktop_marker_reached": true,
         "shutdown_marker_reached": true,
         "session_determinism_class": "NOT_RUN",
-        "session_probe_classification": "WAYLAND_FAIL_X11_PASS",
-        "session_attempt_count": 0,
-        "session_desktop_marker_count": 0,
-        "session_shutdown_marker_count": 0,
+        "session_probe_classification": "APP_PROBE_COMPLETE_8of8_PASS",
+        "session_attempt_count": 1,
+        "session_desktop_marker_count": 1,
+        "session_shutdown_marker_count": 1,
         "session_repeatability_risk": false,
         "clean_shutdown_verified": true,
         "failure_point": "None",
-        "boot_log_path": "iso/outputs/vm-boot-evidence/home/20260526T151648Z/console.log",
-        "serial_log_path": "iso/outputs/vm-boot-evidence/home/20260526T151648Z/serial.log"
+        "boot_log_path": "iso/outputs/app-launch-evidence/home/20260528T020848Z/console.log",
+        "serial_log_path": "iso/outputs/app-launch-evidence/home/20260528T020848Z/serial.log"
       },
-      "app_validation_status": "not_run",
+      "app_validation_status": "APP_PROBE_COMPLETE_8of8_PASS",
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["os/phoenix-os/build/bwos-home.iso"]
-    }
-,
+      "duplicate_paths": [
+        "os/phoenix-os/build/bwos-home.iso"
+      ]
+    },
     {
       "edition_id": "thunder-god",
       "display_name": "Arcwyre: Thundergod Edition",
@@ -388,9 +392,10 @@
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["os/phoenix-os/build/bwos-thunder-god.iso"]
-    }
-,
+      "duplicate_paths": [
+        "os/phoenix-os/build/bwos-thunder-god.iso"
+      ]
+    },
     {
       "edition_id": "arcwyre",
       "display_name": "Bobby’s Worldwide OS: ARCWYRE Edition",
@@ -459,9 +464,10 @@
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["iso/outputs/bwos-arcwyre.iso"]
-    }
-,
+      "duplicate_paths": [
+        "iso/outputs/bwos-arcwyre.iso"
+      ]
+    },
     {
       "edition_id": "blue-phoenix",
       "display_name": "Blue Phoenix: Aurelia Edition",
@@ -530,9 +536,10 @@
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["iso/outputs/bwos-aurelia.iso"]
-    }
-,
+      "duplicate_paths": [
+        "iso/outputs/bwos-aurelia.iso"
+      ]
+    },
     {
       "edition_id": "home-legacy-i386",
       "display_name": "Home Aurelia OS (Legacy i386)",
@@ -601,9 +608,10 @@
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["iso/outputs/bwos-home-legacy-i386.img"]
-    }
-,
+      "duplicate_paths": [
+        "iso/outputs/bwos-home-legacy-i386.img"
+      ]
+    },
     {
       "edition_id": "home",
       "display_name": "Home Aurelia OS",
@@ -612,11 +620,11 @@
       "artifact_role": "build_output",
       "artifact_format": "iso",
       "architecture": "amd64",
-      "size_bytes": 2276366336,
-      "sha256": "ceb5cb1657f7b3da68eb5e9b1ef987618cc67ae167afe2f1ade03929987059db",
-      "build_timestamp": "2026-05-26T09:13:52-0400",
+      "size_bytes": 2276368384,
+      "sha256": "463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686",
+      "build_timestamp": "2026-05-27T22:05:35-0400",
       "build_timestamp_source": "filesystem_mtime",
-      "source_commit": "760d8dd3faba9a99bde80cf5d9de8cd6229bce39",
+      "source_commit": "3020e60b5c546ecc874414141c78291833d5dd14",
       "source_commit_source": "git_head_at_scan_not_embedded",
       "edition_manifest_path": "editions/home/edition.yaml",
       "edition_manifest_sha256": "197f0fe784dd20cb19506bf5486bb47d9179bddccc262596c44252fae92963a7",
@@ -640,7 +648,7 @@
         "classification": "BOOT_PASS_DESKTOP",
         "artifact_path": "os/phoenix-os/build/bwos-home.iso",
         "artifact_format": "iso",
-        "artifact_size_bytes": 2276366336,
+        "artifact_size_bytes": 2276368384,
         "build_summary_path": "os/phoenix-os/build/build-summary.json",
         "build_status": "present",
         "telemetry_status": "recorded",
@@ -658,23 +666,24 @@
         "desktop_marker_reached": true,
         "shutdown_marker_reached": true,
         "session_determinism_class": "NOT_RUN",
-        "session_probe_classification": "WAYLAND_FAIL_X11_PASS",
-        "session_attempt_count": 0,
-        "session_desktop_marker_count": 0,
-        "session_shutdown_marker_count": 0,
+        "session_probe_classification": "APP_PROBE_COMPLETE_8of8_PASS",
+        "session_attempt_count": 1,
+        "session_desktop_marker_count": 1,
+        "session_shutdown_marker_count": 1,
         "session_repeatability_risk": false,
         "clean_shutdown_verified": true,
         "failure_point": "None",
-        "boot_log_path": "iso/outputs/vm-boot-evidence/home/20260526T151648Z/console.log",
-        "serial_log_path": "iso/outputs/vm-boot-evidence/home/20260526T151648Z/serial.log"
+        "boot_log_path": "iso/outputs/app-launch-evidence/home/20260528T020848Z/console.log",
+        "serial_log_path": "iso/outputs/app-launch-evidence/home/20260528T020848Z/serial.log"
       },
-      "app_validation_status": "not_run",
+      "app_validation_status": "APP_PROBE_COMPLETE_8of8_PASS",
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["iso/outputs/bwos-home.iso"]
-    }
-,
+      "duplicate_paths": [
+        "iso/outputs/bwos-home.iso"
+      ]
+    },
     {
       "edition_id": "thunder-god",
       "display_name": "Arcwyre: Thundergod Edition",
@@ -743,7 +752,9 @@
       "safety_validation_status": "not_run",
       "release_readiness": "release_blocked",
       "duplicate_count": 2,
-      "duplicate_paths": ["iso/outputs/bwos-thunder-god.iso"]
+      "duplicate_paths": [
+        "iso/outputs/bwos-thunder-god.iso"
+      ]
     }
   ]
 }

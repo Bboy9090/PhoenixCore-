@@ -76,11 +76,11 @@ def list_devices(ctx):
         click.echo("\r   ", nl=False)
     click.echo("\r")
     
-    devices = disk_manager.get_removable_drives()
+    devices = disk_manager.get_all_storage_drives(include_system_drives=False)
     
     if not devices:
-        click.echo(f"{Fore.YELLOW}⚠️  No USB devices found.{Style.RESET_ALL}")
-        click.echo(f"{Fore.CYAN}💡 Make sure USB devices are connected and properly mounted.{Style.RESET_ALL}")
+        click.echo(f"{Fore.YELLOW}⚠️  No external storage devices found.{Style.RESET_ALL}")
+        click.echo(f"{Fore.CYAN}💡 Make sure external drives/SSDs are connected and properly recognized.{Style.RESET_ALL}")
         return
     
     click.echo(f"{Fore.GREEN}✅ Found {len(devices)} USB device(s):{Style.RESET_ALL}")

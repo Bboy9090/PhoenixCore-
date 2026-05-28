@@ -168,7 +168,6 @@ qemu_cmd = [
     "-boot", "d",
     "-display", "none",
     "-serial", f"unix:{serial_sock},server,nowait",
-    "-monitor", f"unix:{monitor_sock},server,nowait",
     "-no-reboot",
     "-smbios", "type=1,product=BWOS-VM-PR40",
 ]
@@ -184,19 +183,20 @@ print(f"[PR40] Timeout: {TIMEOUT_SECONDS}s", file=sys.stderr)
 # by checking if BWOS_APP_LAUNCH_MATRIX_STARTED appears in serial log.
 # If absent, we report tooling_blocked=False but matrix_complete=False with reason.
 
+# Launch QEMU
 proc = subprocess.Popen(qemu_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-# Read serial socket output
 import socket
 import threading
 
+# Read serial socket output
 serial_data = []
 matrix_started = False
 matrix_complete = False
 desktop_reached = False
 
 def read_serial():
-    nonlocal matrix_started, matrix_complete, desktop_reached
+    global matrix_started, matrix_complete, desktop_reached
     time.sleep(3)
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
