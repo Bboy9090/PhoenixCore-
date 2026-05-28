@@ -11,6 +11,7 @@ This document serves as the formal execution record and evidence checklist for v
 - **Target Architecture:** `arm64` (Apple Silicon M1/M2/M3)
 - **Target Flagship Edition:** `thunder-god-arm64`
 - **Target Image File:** `bwos-thunder-god-arm64.iso`
+- **Required Image Checksum:** `b3a2305cbfedfebc8fc4821e1d5804216aca25f66d907b45943038426b270ef0`
 - **Boot Validation Type:** `Read-Only Boot (No Installer / No disk writes)`
 
 ---
