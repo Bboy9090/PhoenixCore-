@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-05-28T03:06:00Z",
-  "overall_status": "release_blocked",
-  "blocker_reason": "Physical USB boot validation pending",
+  "generated_at": "2026-05-28T15:54:20Z",
+  "overall_status": "RC_PRE_PHYSICAL_VALIDATION",
+  "blocker_reason": "Physical USB boot validation pending on real hardware",
   "slots": {
     "x86_64_uefi_pc": {
       "slot_id": "HW-01",
       "display_name": "Standard UEFI PC",
-      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "status": "PHYSICAL_BOOT_UNTESTED",
       "release_gate_blocking": true,
       "evidence": {
         "device_model": "",
@@ -24,7 +24,7 @@
     "x86_64_legacy_bios_pc": {
       "slot_id": "HW-02",
       "display_name": "Legacy BIOS / CSM Laptop",
-      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "status": "PHYSICAL_BOOT_UNTESTED",
       "release_gate_blocking": true,
       "evidence": {
         "device_model": "",
@@ -41,7 +41,7 @@
     "intel_mac_option_boot": {
       "slot_id": "HW-03",
       "display_name": "Intel Mac Option Key Boot",
-      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "status": "PHYSICAL_BOOT_UNTESTED",
       "release_gate_blocking": true,
       "evidence": {
         "device_model": "",
@@ -58,7 +58,7 @@
     "t2_mac_external_boot": {
       "slot_id": "HW-04",
       "display_name": "T2-Secured Intel Mac",
-      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "status": "PHYSICAL_BOOT_UNTESTED",
       "release_gate_blocking": true,
       "evidence": {
         "device_model": "",
@@ -75,7 +75,7 @@
     "apple_silicon_external_boot_observation": {
       "slot_id": "HW-05",
       "display_name": "Apple Silicon External Boot Observation",
-      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "status": "PHYSICAL_BOOT_UNTESTED",
       "release_gate_blocking": true,
       "evidence": {
         "device_model": "",
@@ -92,7 +92,7 @@
     "ryzen_nvme_desktop": {
       "slot_id": "HW-06",
       "display_name": "AMD Ryzen NVMe Desktop",
-      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "status": "PHYSICAL_BOOT_UNTESTED",
       "release_gate_blocking": true,
       "evidence": {
         "device_model": "",

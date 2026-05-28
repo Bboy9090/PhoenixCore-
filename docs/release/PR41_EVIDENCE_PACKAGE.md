@@ -2,22 +2,27 @@
 
 This document compiles the formal release engineering metrics, logs, and verification states for the **PR41 (A-E)** validation gates.
 
+> [!WARNING]
+> **CRITICAL GATING NOTE:** Automated tests validate the software framework and integration hooks, not physical device success on real silicon. Physical validation on real hardware targets remains a strict prerequisite for release sign-off.
+
 ---
 
 ## 📊 Consolidated Evidence Summary
 
-All safety, dry-run, hardware emulation, and physical boot metrics have successfully passed the gating criteria:
+Automated validation checks are complete, but physical hardware verification is pending.
 
 ```
 ======================================================================
       PHOENIX OS RELEASE ENGINEERING - PR41 EVIDENCE PACKAGE
 ======================================================================
 Target Branch: fix/edition-branding-fallbacks-20260518
+Overall Status: RC_PRE_PHYSICAL_VALIDATION
 ----------------------------------------------------------------------
-Running PR41A: Physical USB Boot tests... ✅ PASS
-Running PR41B: Safety Gating tests...      ✅ PASS
-Running PR41C: Transactional Dry-Run...   ✅ PASS
-Running PR41D: Apple EFI & T2 Boot...      ✅ PASS
+PR41A: Physical USB Boot...          ⚠️ PARTIAL / PENDING_REAL_HARDWARE
+PR41B: Safety Gating...              ✅ PASS
+PR41C: Transactional Dry-Run...     ✅ PASS
+PR41D: Apple EFI & T2 Boot...        ⚠️ PARTIAL / PENDING_REAL_APPLE_HARDWARE
+PR41E: Final Evidence Gate...        🚫 BLOCKED_PENDING_PHYSICAL_EVIDENCE
 ----------------------------------------------------------------------
 AUDIT LOGS & REPORTS STATUS:
 ✅ safety_report.json generated successfully
@@ -25,7 +30,7 @@ AUDIT LOGS & REPORTS STATUS:
     "policy": "SAFETY_GATES_v1",
     "status": "PASS"
 ----------------------------------------------------------------------
-RECOMMENDATION: GO (All PR41 gates verified and passed)
+RECOMMENDATION: NO-GO / PENDING_PHYSICAL_VALIDATION
 ======================================================================
 ```
 
@@ -64,6 +69,6 @@ Verified T2 Secure Boot models and OpenCore integrations:
 ---
 
 ## 📈 Release Candidate Recommendation
-Based on the absolute success of the PR41 A-E automated gating suites and environmental checks, the release engineering team confirms a **GO** state.
+Based on the pending status of real hardware slots, the release engineering team declares a **NO-GO** state for release-candidate deployment. We are currently in **RC_PRE_PHYSICAL_VALIDATION** status awaiting execution of the hardware lab boot matrix.
 
-*Report compiled by automated release verification script on 2026-05-28.*
+*Report compiled and corrected on 2026-05-28.*

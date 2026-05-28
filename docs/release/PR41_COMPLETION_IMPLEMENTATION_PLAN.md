@@ -1,7 +1,10 @@
 # PR41 Completion Implementation Plan
 
 ## Overview
-This document outlines a detailed implementation plan for completing the PR41 series (A‑E) on the canonical release‑candidate branch **`fix/edition-branding-fallbacks-20260518`**.  The plan is pure documentation – no code changes, merges, or destructive writes are performed here.  All steps are intended to be executed later by the engineering team.
+This document outlines a detailed implementation plan for completing the PR41 series (A‑E) on the canonical release‑candidate branch **`fix/edition-branding-fallbacks-20260518`**.
+
+> [!WARNING]
+> **CRITICAL GATING NOTE:** Automated tests validate the software framework and integration hooks, not physical device success on real silicon. Physical validation on real hardware targets remains a strict prerequisite for release sign-off. The overall release candidate status is currently **RC_PRE_PHYSICAL_VALIDATION**.
 
 ---
 
