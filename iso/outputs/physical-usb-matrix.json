@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-05-28T03:06:00Z",
+  "overall_status": "release_blocked",
+  "blocker_reason": "Physical USB boot validation pending",
+  "slots": {
+    "x86_64_uefi_pc": {
+      "slot_id": "HW-01",
+      "display_name": "Standard UEFI PC",
+      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "release_gate_blocking": true,
+      "evidence": {
+        "device_model": "",
+        "firmware_mode": "",
+        "usb_controller_type": "",
+        "boot_picker_photo_path": "",
+        "kernel_cmdline": "",
+        "dmesg_boot_excerpt_path": "",
+        "lsblk_diskutil_output_path": "",
+        "serial_console_log_path": "",
+        "operator_notes": ""
+      }
+    },
+    "x86_64_legacy_bios_pc": {
+      "slot_id": "HW-02",
+      "display_name": "Legacy BIOS / CSM Laptop",
+      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "release_gate_blocking": true,
+      "evidence": {
+        "device_model": "",
+        "firmware_mode": "",
+        "usb_controller_type": "",
+        "boot_picker_photo_path": "",
+        "kernel_cmdline": "",
+        "dmesg_boot_excerpt_path": "",
+        "lsblk_diskutil_output_path": "",
+        "serial_console_log_path": "",
+        "operator_notes": ""
+      }
+    },
+    "intel_mac_option_boot": {
+      "slot_id": "HW-03",
+      "display_name": "Intel Mac Option Key Boot",
+      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "release_gate_blocking": true,
+      "evidence": {
+        "device_model": "",
+        "firmware_mode": "",
+        "usb_controller_type": "",
+        "boot_picker_photo_path": "",
+        "kernel_cmdline": "",
+        "dmesg_boot_excerpt_path": "",
+        "lsblk_diskutil_output_path": "",
+        "serial_console_log_path": "",
+        "operator_notes": ""
+      }
+    },
+    "t2_mac_external_boot": {
+      "slot_id": "HW-04",
+      "display_name": "T2-Secured Intel Mac",
+      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "release_gate_blocking": true,
+      "evidence": {
+        "device_model": "",
+        "firmware_mode": "",
+        "usb_controller_type": "",
+        "boot_picker_photo_path": "",
+        "kernel_cmdline": "",
+        "dmesg_boot_excerpt_path": "",
+        "lsblk_diskutil_output_path": "",
+        "serial_console_log_path": "",
+        "operator_notes": ""
+      }
+    },
+    "apple_silicon_external_boot_observation": {
+      "slot_id": "HW-05",
+      "display_name": "Apple Silicon External Boot Observation",
+      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "release_gate_blocking": true,
+      "evidence": {
+        "device_model": "",
+        "firmware_mode": "",
+        "usb_controller_type": "",
+        "boot_picker_photo_path": "",
+        "kernel_cmdline": "",
+        "dmesg_boot_excerpt_path": "",
+        "lsblk_diskutil_output_path": "",
+        "serial_console_log_path": "",
+        "operator_notes": ""
+      }
+    },
+    "ryzen_nvme_desktop": {
+      "slot_id": "HW-06",
+      "display_name": "AMD Ryzen NVMe Desktop",
+      "status": "PHYSICAL_BOOT_NOT_TESTED",
+      "release_gate_blocking": true,
+      "evidence": {
+        "device_model": "",
+        "firmware_mode": "",
+        "usb_controller_type": "",
+        "boot_picker_photo_path": "",
+        "kernel_cmdline": "",
+        "dmesg_boot_excerpt_path": "",
+        "lsblk_diskutil_output_path": "",
+        "serial_console_log_path": "",
+        "operator_notes": ""
+      }
+    }
+  }
+}

@@ -11,14 +11,16 @@ This document establishes the formal validation protocol, hardware verification 
 ## 1. USB Boot Hardware Matrix
 To guarantee broad real-world deployment compatibility, we define a physical testing matrix covering diverse microarchitectures, firmware types, and USB controllers.
 
+The full details of individual testing slots, required parameters, status classes, and safety notes are integrated into the [PR41A Physical USB Boot Matrix Checklist](file:///Users/bj90-m1/PhoenixCore-/docs/release/PR41A_PHYSICAL_USB_BOOT_MATRIX.md).
+
 ### Target Hardware Test Slots
 | Slot ID | Hardware Model / Target Class | Firmware Type | USB Controller Type | Required Evidence Output | Status |
 | :--- | :--- | :--- | :--- | :--- | :---: |
-| **HW-01** | Intel NUC / Standard UEFI PC (x86_64) | UEFI (Secure Boot On) | Intel USB 3.0 eHCI | `/var/log/syslog` + `dmesg` export | `PENDING` |
-| **HW-02** | Older Laptop / Legacy BIOS (x86_64) | Legacy BIOS / CSM | USB 2.0 Hub/Port | `syslinux/grub` console capture | `PENDING` |
-| **HW-03** | MacBook Air A1370 (Intel Core 2 Duo) | Apple EFI (No OCLP) | USB 2.0 Native | Serial output or recovery log | `PENDING` |
-| **HW-04** | MacBook Pro (Intel T2-Secured) | Apple EFI + T2 Secure | USB-C Gen 2 | Native system profile dump | `PENDING` |
-| **HW-05** | Custom Desktop (AMD Ryzen / NVMe) | UEFI (Secure Boot Off) | ASMedia USB 3.2 | NVMe controller discovery log | `PENDING` |
+| **HW-01** | Intel NUC / Standard UEFI PC (x86_64) | UEFI (Secure Boot On) | Intel USB 3.0 eHCI | `/var/log/syslog` + `dmesg` export | `PENDING (PR41A)` |
+| **HW-02** | Older Laptop / Legacy BIOS (x86_64) | Legacy BIOS / CSM | USB 2.0 Hub/Port | `syslinux/grub` console capture | `PENDING (PR41A)` |
+| **HW-03** | MacBook Air A1370 (Intel Core 2 Duo) | Apple EFI (No OCLP) | USB 2.0 Native | Serial output or recovery log | `PENDING (PR41A)` |
+| **HW-04** | MacBook Pro (Intel T2-Secured) | Apple EFI + T2 Secure | USB-C Gen 2 | Native system profile dump | `PENDING (PR41A)` |
+| **HW-05** | Custom Desktop (AMD Ryzen / NVMe) | UEFI (Secure Boot Off) | ASMedia USB 3.2 | NVMe controller discovery log | `PENDING (PR41A)` |
 
 ### Telemetry Capturing Protocol
 * **Physical Serial Capture**: Connect the target hardware's serial port (or USB-to-TTL adapter) to a host recording terminal. Collect the full stream at `115200 8N1`.
@@ -180,7 +182,7 @@ Physical deployment targets can experience thermal stress during sustained raw b
 ## 12. Final Release Blocker List
 This gate requires clearing all the following blockers before moving the status from `release_blocked` to `release_candidate`.
 
-- [ ] **RB-01**: Execute physical USB boot on at least 3 distinct slots in the Hardware Matrix (must include one Legacy Mac and one modern UEFI PC).
+- [ ] **RB-01**: Complete physical USB boot validation across at least 3 distinct slots under [PR41A Physical USB Boot Matrix](file:///Users/bj90-m1/PhoenixCore-/docs/release/PR41A_PHYSICAL_USB_BOOT_MATRIX.md) (must include one Legacy Mac and one modern UEFI PC).
 - [ ] **RB-02**: Verify that safety validator blocks host OS drive writes with 100% accuracy.
 - [ ] **RB-03**: Complete destructive action confirmation code validation across the GUI, Mobile, and CLI.
 - [ ] **RB-04**: Execute a successful 100% air-gapped installation test (QEMU with `-net none` and physical desktop without ethernet/wifi).
