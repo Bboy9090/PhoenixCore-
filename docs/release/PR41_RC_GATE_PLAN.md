@@ -35,6 +35,8 @@ The full details of individual testing slots, required parameters, status classe
 ## 2. Safety Validator Enforcement
 The `desktop/src/core/safety_validator.py` and equivalent host modules must strictly prevent target corruption. We assert safety checks at multiple levels.
 
+The exhaustive scenario definitions, block mappings, expected behaviors, and command diagnostic examples are registered in the [PR41B Safety Validator Test Matrix](file:///Users/bj90-m1/PhoenixCore-/docs/release/PR41B_SAFETY_VALIDATOR_TEST_MATRIX.md).
+
 ### Host-Side Safety Assertions
 1. **System Disk Protection**: The validator must automatically discover the active host OS root mount point (`/` on macOS/Linux) and explicitly lock its physical parent disk from being selected as a USB target.
 2. **Read-Only / Active Mount Interlock**: Any disk containing active mounted partitions must be protected. The validator must execute:
@@ -183,7 +185,7 @@ Physical deployment targets can experience thermal stress during sustained raw b
 This gate requires clearing all the following blockers before moving the status from `release_blocked` to `release_candidate`.
 
 - [ ] **RB-01**: Complete physical USB boot validation across at least 3 distinct slots under [PR41A Physical USB Boot Matrix](file:///Users/bj90-m1/PhoenixCore-/docs/release/PR41A_PHYSICAL_USB_BOOT_MATRIX.md) (must include one Legacy Mac and one modern UEFI PC).
-- [ ] **RB-02**: Verify that safety validator blocks host OS drive writes with 100% accuracy.
+- [ ] **RB-02**: Verify that safety validator blocks host OS drive writes with 100% accuracy under all [PR41B Safety Validator Test Matrix](file:///Users/bj90-m1/PhoenixCore-/docs/release/PR41B_SAFETY_VALIDATOR_TEST_MATRIX.md) scenarios.
 - [ ] **RB-03**: Complete destructive action confirmation code validation across the GUI, Mobile, and CLI.
 - [ ] **RB-04**: Execute a successful 100% air-gapped installation test (QEMU with `-net none` and physical desktop without ethernet/wifi).
 - [ ] **RB-05**: Run full regression testing of PyQt6 desktop GUI on macOS/Linux hosts to ensure correct device classification.
