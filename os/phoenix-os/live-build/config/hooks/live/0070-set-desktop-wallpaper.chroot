@@ -8,13 +8,23 @@ if [ -f "$TARGET_BG" ]; then
     # Override standard desktop-base symlinks
     ln -sf "$TARGET_BG" /usr/share/images/desktop-base/desktop-background
     
-    # Update standard DebianTheme wallpapers
-    mkdir -p /usr/share/wallpapers/DebianTheme/contents/images
-    ln -sf "$TARGET_BG" /usr/share/wallpapers/DebianTheme/contents/images/1920x1080.svg
-    ln -sf "$TARGET_BG" /usr/share/wallpapers/DebianTheme/contents/images/1920x1080.png
+    # Override standard DebianTheme wallpapers
+    DEBIAN_DIR="/usr/share/wallpapers/DebianTheme/contents/images"
+    mkdir -p "$DEBIAN_DIR"
+    find "$DEBIAN_DIR" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.svg" \) | while read -r img_file; do
+        ln -sf "$TARGET_BG" "$img_file"
+    done
+    # Add standard fallback targets explicitly
+    ln -sf "$TARGET_BG" "$DEBIAN_DIR/1920x1080.svg"
+    ln -sf "$TARGET_BG" "$DEBIAN_DIR/1920x1080.png"
     
-    # Override standard KDE Plasma Breeze ("Next") theme wallpapers (crucial to prevent Breeze fallback)
-    mkdir -p /usr/share/wallpapers/Next/contents/images
-    ln -sf "$TARGET_BG" /usr/share/wallpapers/Next/contents/images/5120x2880.png
-    ln -sf "$TARGET_BG" /usr/share/wallpapers/Next/contents/images/1920x1080.png
+    # Override standard KDE Plasma Breeze ("Next") theme wallpapers (crucial to prevent Breeze fallback on different resolutions)
+    NEXT_DIR="/usr/share/wallpapers/Next/contents/images"
+    mkdir -p "$NEXT_DIR"
+    find "$NEXT_DIR" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.svg" \) | while read -r img_file; do
+        ln -sf "$TARGET_BG" "$img_file"
+    done
+    # Add standard fallback targets explicitly
+    ln -sf "$TARGET_BG" "$NEXT_DIR/5120x2880.png"
+    ln -sf "$TARGET_BG" "$NEXT_DIR/1920x1080.png"
 fi

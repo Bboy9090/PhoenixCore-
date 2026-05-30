@@ -1,0 +1,78 @@
+# Phoenix OS / Aurelia Recovery Suite - Graphical GRUB Theme
+# Designed to be fully unrecognizable as standard GRUB.
+# Premium custom visual colorway dynamically patched at staging-time.
+
+# ---- Global Settings ----
+desktop-image:    "background.png"
+desktop-color:    "__COLOR_BACKGROUND__"
+
+title-color:      "__COLOR_PRIMARY__"
+title-text:       "__EDITION_NAME__"
+title-font:       "DejaVu Sans Bold 18"
+
+message-color:    "__COLOR_TEXT__"
+message-font:     "DejaVu Sans Regular 12"
+
+# ---- Boot Menu Layout ----
++ boot_menu {
+  left            = 20%
+  top             = 25%
+  width           = 60%
+  height          = 50%
+  
+  # Styling for menu items
+  item_color      = "#8A929E"
+  item_font       = "DejaVu Sans Regular 13"
+  
+  # Selection highlights
+  selected_item_color = "__COLOR_PRIMARY__"
+  selected_item_font  = "DejaVu Sans Bold 14"
+  
+  # Layout metrics
+  item_height     = 32
+  item_padding    = 10
+  item_spacing    = 6
+  
+  # Scrollbar styling
+  scrollbar       = true
+  scrollbar_width = 6
+  scrollbar_color = "__COLOR_SURFACE__"
+  scrollbar_thumb_color = "__COLOR_PRIMARY__"
+}
+
+# ---- Dynamic Progress Timeout Bar ----
++ progress_bar {
+  id         = "__timeout__"
+  left       = 20%
+  top        = 78%
+  width      = 60%
+  height     = 4
+  fg_color   = "__COLOR_PRIMARY__"
+  bg_color   = "__COLOR_SURFACE__"
+  border_color = "__COLOR_SURFACE__"
+}
+
+# ---- Countdown Label ----
++ label {
+  id         = "__timeout__"
+  left       = 20%
+  top        = 81%
+  width      = 60%
+  height     = 20
+  color      = "#8A929E"
+  font       = "DejaVu Sans Regular 11"
+  align      = "center"
+  text       = "Initializing recovery kernel in %d seconds..."
+}
+
+# ---- Footer Branding ----
++ label {
+  left       = 20%
+  top        = 90%
+  width      = 60%
+  height     = 20
+  color      = "__COLOR_PRIMARY__"
+  font       = "DejaVu Sans Regular 10"
+  align      = "center"
+  text       = "__EDITION_TAGLINE__"
+}

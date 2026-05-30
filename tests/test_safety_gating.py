@@ -25,8 +25,12 @@ class TestSafetyGating(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.validator = SafetyValidator(SafetyLevel.STANDARD)
         self.report_path = Path("safety_report.json")
+        # Globally mock _get_device_mount_points to avoid environment contamination from host mounts
+        self.patcher_mounts = patch('src.core.safety_validator.SafetyValidator._get_device_mount_points', return_value=[])
+        self.mock_get_device_mount_points = self.patcher_mounts.start()
 
     def tearDown(self):
+        self.patcher_mounts.stop()
         shutil.rmtree(self.temp_dir)
         if self.report_path.exists() and self._testMethodName != "test_export_safety_report":
             try:

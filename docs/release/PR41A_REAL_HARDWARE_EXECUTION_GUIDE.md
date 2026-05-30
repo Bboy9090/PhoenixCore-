@@ -1,83 +1,137 @@
-# PR41A Real Hardware Boot Execution Guide
+# PR41A Real Hardware Validation Execution Guide
 
-This guide establishes the mandatory physical validation protocol for verifying the **PhoenixOS** recovery USB image on real hardware slots.
+## Objective
 
-> [!CAUTION]
-> **⚠️ CRITICAL SAFETY REMINDER:**
-> **READ-ONLY BOOT VALIDATION ONLY.** Do not run the installer. Do not partition the target host's internal disks. Do not format or perform any write operations on local storage devices.
+Collect real physical boot evidence for Phoenix OS using the current Home ISO.
 
----
+This is read-only validation. It is not an install test.
 
-## 1. Required Artifact Hash Under Test
-- **Recovery Image Target:** `bwos-home.iso`
-- **SHA-256 Checksum:** `8a32b90f4d30902bbd0fe7a98eb3dcd48e24c29df6b98e29a98ef29e92bc4439` (or verify via `bwos-home.iso.sha256`)
+## Artifact Under Test
 
----
+- ISO path: `iso/outputs/bwos-home.iso`
+- SHA256: `463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686`
+- Size bytes: `2276368384`
 
-## 2. USB Creation Method
-Use a disposable, non-production USB stick (minimum size 8GB). Flash the verified recovery ISO using standard command-line tools:
+Verify before writing any removable USB:
 
-### On macOS:
 ```sh
-# Identify USB drive path (e.g., /dev/disk4)
+shasum -a 256 iso/outputs/bwos-home.iso
+```
+
+## Safety Rules
+
+- Do not run the installer.
+- Do not format internal drives.
+- Do not partition internal drives.
+- Do not run disk repair tools.
+- Do not write to host disks.
+- Do not classify PASS without desktop evidence.
+- Stop after completing the first hardware slot unless explicitly instructed to continue.
+
+## Target Order
+
+1. `HW-01` Standard UEFI PC
+2. `HW-06` Ryzen Desktop
+3. `HW-03` Intel Mac
+4. `HW-04` T2 Mac
+5. `HW-05` Apple Silicon Observation
+
+`HW-02` legacy BIOS remains a deferred slot and is not part of the current PR41A target order.
+
+## Step 1 - Record Target Machine
+
+For the active slot, record:
+
+- Manufacturer
+- Model
+- CPU
+- RAM
+- Firmware type: UEFI, BIOS, Apple EFI, or Apple Silicon Boot Policy
+- Secure Boot status
+
+Do not use example hardware profiles as evidence.
+
+## Step 2 - Create Phoenix USB
+
+Only image a clearly identified external removable USB device.
+
+Required record:
+
+- USB make/model
+- USB capacity
+- USB device path
+- ISO SHA256
+
+macOS read-only discovery:
+
+```sh
 diskutil list
-
-# Unmount the USB drive
-diskutil unmountDisk /dev/disk4
-
-# Write recovery image raw to block device (ensure correct path to avoid system destruction!)
-sudo dd if=iso/outputs/bwos-home.iso of=/dev/rdisk4 bs=1m status=progress
+system_profiler SPUSBDataType
 ```
 
-### On Linux:
+macOS destructive write, only after the operator confirms the external USB disk identifier:
+
 ```sh
-# Identify USB drive path (e.g., /dev/sdx)
-lsblk
-
-# Write recovery image
-sudo dd if=iso/outputs/bwos-home.iso of=/dev/sdx bs=4M status=progress oflag=sync
+diskutil unmountDisk /dev/diskN
+sudo dd if=iso/outputs/bwos-home.iso of=/dev/rdiskN bs=1m status=progress
+sync
 ```
 
----
+Linux read-only discovery:
 
-## 3. Hardware Slot Checklist
-Test across the following reference hardware slots defined in the physical matrix:
-1. **[HW-01] Standard UEFI PC:** Generic modern x86_64 desktop or laptop with secure boot disabled.
-2. **[HW-02] Legacy BIOS / CSM Laptop:** Older x86_64 system utilizing legacy BIOS or CSM boot mode.
-3. **[HW-03] Intel Mac Option Boot:** Older Intel-based MacBook or iMac booted via Option key menu.
-4. **[HW-04] T2-Secured Intel Mac:** T2 security chip Intel Mac requiring Secure Boot options modification.
-5. **[HW-05] Apple Silicon External Boot:** Apple Silicon (M1/M2/M3) Mac using recovery utility external boot policy.
-6. **[HW-06] AMD Ryzen NVMe Desktop:** Ryzen processor motherboard with active NVMe storage controller.
+```sh
+lsblk -o NAME,MODEL,SIZE,TRAN,TYPE,MOUNTPOINTS
+```
 
----
+Linux destructive write, only after the operator confirms the external USB device:
 
-## 4. Evidence Required Per Slot
-For each physical hardware slot tested, the operator must gather and archive the following evidence:
-- **Device Photo:** Close-up of the host system's hardware model labels and attached USB.
-- **Boot Picker Photo:** High-resolution photo showing the recovery bootloader option in the system's boot selection menu.
-- **BIOS/EFI Setting Photo:** Photo of the system's firmware settings page (Secure Boot, CSM, USB Boot priority) if any customized settings were required.
-- **Boot Result:** Final visual boot outcome (fully loaded desktop session, SDDM menu, or command prompt).
-- **Kernel cmdline:** Text output of `cat /proc/cmdline` if booted.
-- **dmesg Excerpt:** Text log file containing the boot sequence dmesg output (`dmesg | head -n 300`).
-- **lsblk / diskutil Output:** Text file displaying the system partition table.
-- **Failure Photo:** High-resolution screen capture of the failure point (kernel panic stack trace, blank screen, bootloader failure) if boot fails.
+```sh
+sudo dd if=iso/outputs/bwos-home.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sync
+```
 
----
+## Step 3 - Attempt Boot
 
-## 5. Status Classes
-When reporting findings in `iso/outputs/physical-usb-matrix.json`, use only the following status identifiers:
+Capture:
 
-- `PHYSICAL_BOOT_PASS`: Recovery system boots fully to the target graphical desktop environment.
-- `PHYSICAL_BOOT_PARTIAL`: Boots successfully to console shell, but fails to load the windowing environment.
-- `PHYSICAL_BOOT_FAIL_NO_PICKER`: The target system firmware refuses to list the USB boot options entirely.
-- `PHYSICAL_BOOT_FAIL_BOOTLOADER`: The boot option appears, but selecting it results in bootloader loop or crash.
-- `PHYSICAL_BOOT_FAIL_KERNEL`: The bootloader starts the kernel, but triggers a kernel panic or filesystem mount crash.
-- `PHYSICAL_BOOT_FAIL_DESKTOP`: Kernel boots fully, but fails to load SDDM/Plasma or displays a black screen.
-- `PHYSICAL_BOOT_UNTESTED`: The physical slot has not yet been validated with the active build.
+- `photo_01_boot_menu`
+- `photo_02_grub`
+- `photo_03_desktop`
 
----
+If failed, capture:
 
-## 6. Gating Policy & Blockers
-If any slot reports a status other than `PHYSICAL_BOOT_PASS`, the release candidate remains blocked under **RC_PRE_PHYSICAL_VALIDATION** status and sign-off is refused.
+- `photo_fail_01`
+- `failure_notes.txt`
 
-*Guide established on 2026-05-28.*
+## Step 4 - If Desktop Loads
+
+Collect these from the live session:
+
+```sh
+uname -a
+cat /proc/cmdline
+lsblk
+journalctl -b | tail -200
+```
+
+Launch and record:
+
+- Firefox
+- Dolphin
+- Konsole
+
+## Step 5 - Classification
+
+Allowed classifications:
+
+- `PHYSICAL_BOOT_PASS`: Desktop reached with evidence.
+- `PHYSICAL_BOOT_PARTIAL`: Boot progressed but did not fully satisfy desktop evidence.
+- `PHYSICAL_BOOT_FAIL_NO_PICKER`: Firmware did not list the USB.
+- `PHYSICAL_BOOT_FAIL_BOOTLOADER`: USB selected but GRUB/bootloader failed.
+- `PHYSICAL_BOOT_FAIL_KERNEL`: Kernel failed after bootloader handoff.
+- `PHYSICAL_BOOT_FAIL_DESKTOP`: Kernel/init reached but desktop failed.
+- `PHYSICAL_BOOT_UNTESTED`: No physical attempt executed yet.
+
+## Current HW-01 State
+
+`HW-01` remains `PHYSICAL_BOOT_UNTESTED`. No USB image write or physical boot attempt was executed in this update.

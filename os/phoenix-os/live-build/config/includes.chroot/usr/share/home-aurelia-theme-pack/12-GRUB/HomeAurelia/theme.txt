@@ -1,0 +1,67 @@
+# theme.txt - Home Aurelia GRUB Boot Loader Theme
+title-text: ""
+title-font: "Cinzel Bold 16"
+title-color: "#D4AF37"
+desktop-image: "background.png"
+desktop-color: "#081426"
+
+# Global Font Declarations
++ boot_menu {
+  left = 32%
+  top = 35%
+  width = 36%
+  height = 50%
+  item_font = "Inter Medium 12"
+  item_color = "#F7F7FF"
+  selected_item_font = "Inter Medium 12"
+  selected_item_color = "#FFFFFF"
+  selected_item_pixmap_style = "selection-box.png"
+  icon_width = 24
+  icon_height = 24
+  item_height = 36
+  item_padding = 4
+  item_spacing = 8
+}
+
+# 1. Centered Sovereign Phoenix Crest
++ image {
+  left = 44%
+  top = 10%
+  width = 12%
+  height = 16%
+  file = "logo.png"
+}
+
+# Title Tagline Header
++ label {
+  left = 0
+  top = 28%
+  width = 100%
+  align = "center"
+  text = "FOUR LEGACIES. ONE THRONE."
+  font = "Cinzel Bold 11"
+  color = "#D4AF37"
+}
+
+# 2. Countdown Timer Progress Bar (Sleek Electric Blue)
++ progress_bar {
+  id = "__timeout__"
+  left = 35%
+  top = 88%
+  width = 30%
+  height = 10
+  text_color = "#FEF3C7"
+  font = "Inter Medium 9"
+  bar_style = "progress-bar.png"
+}
+
+# 3. Fallback Terminal Window Styling
++ canvas {
+  left = 20%
+  top = 30%
+  width = 60%
+  height = 55%
+  border_color = "#D4AF37"
+  border_width = 1
+  background_color = "#05070D"
+}

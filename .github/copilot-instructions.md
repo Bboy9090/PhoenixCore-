@@ -6,19 +6,19 @@
 - **Rust:** Install Rust (e.g. rustup); no separate bootstrap step for Phoenix Core crates.
 
 ## Build
-- **Rust (Phoenix Core CLI):** `cargo build --workspace`【F:.github/workflows/ci-windows.yml】
-- **Rust release binary:** `cargo build --workspace --release` (output: `target/release/phoenix-cli` or `phoenix-cli.exe` on Windows)
+- **Rust (Phoenix Core compilable crates):** `cargo build -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-host-linux -p phoenix-host-macos -p phoenix-bootloader-core -p phoenix-wim`
 - **Python (recommended):** `python src/installers/build_installer.py`【F:README.md†L170-L174】
 - **Python:** `pyinstaller --onefile --name=PhoenixKey main.py`【F:README.md†L170-L177】
 - **Python (BootForge):** `python -m PyInstaller --onefile --windowed --name BootForge --add-data src:src --hidden-import PyQt6.QtCore --hidden-import PyQt6.QtWidgets --hidden-import PyQt6.QtGui --hidden-import requests --hidden-import psutil --hidden-import cryptography --hidden-import yaml --hidden-import click --hidden-import colorama main.py` (use `;` instead of `:` in `--add-data` on Windows)【F:build_system/simple_build.py†L19-L36】
 
 ## Test
-- **Rust:** `cargo test --workspace`【F:.github/workflows/ci-windows.yml】
-- **Python:** `python -m pytest tests/`【F:README.md†L179-L183】
-- **Python (with coverage):** `python -m pytest tests/ --cov=src`【F:README.md†L183-L186】
+- **Rust (Phoenix Core compilable crates):** `cargo test -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-host-linux -p phoenix-host-macos -p phoenix-bootloader-core -p phoenix-wim`
+- **Python:** `python3 -m pytest tests/`【F:README.md†L179-L183】
 
-## Lint
-- No lint commands are documented in the reviewed files.
+## Lint & Formatting
+- **Rust Clippy:** `cargo clippy -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-host-linux -p phoenix-host-macos -p phoenix-bootloader-core -p phoenix-wim`
+- **Rust Format Check:** `cargo fmt --check`
 
 ## Package
 - `python build_system/build_all.py` (ensures PyInstaller is installed, builds the platform executable, and generates the USB toolkit)【F:build_system/build_all.py†L11-L47】
+

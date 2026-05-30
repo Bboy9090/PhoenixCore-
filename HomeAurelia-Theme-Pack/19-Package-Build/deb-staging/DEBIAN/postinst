@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+if [ "$1" = "configure" ]; then
+    echo "=========================================================="
+    echo "🎉 Home Aurelia Theme Pack installed successfully!"
+    echo "💡 To hot-apply this theme to your active KDE/Plasma session,"
+    echo "   run: /usr/share/home-aurelia-theme-pack/apply-theme.sh"
+    echo "=========================================================="
+fi
+exit 0

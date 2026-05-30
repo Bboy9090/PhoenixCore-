@@ -1,64 +1,129 @@
-# PR41A HW-01 x86_64_uefi_pc Physical Boot Execution Record
+# PR41A HW-01 Execution Record - Standard UEFI PC
 
-This document serves as the formal execution record and evidence checklist for verifying **PhoenixOS** on the **HW-01 (Standard UEFI PC)** physical hardware slot.
+## Status
 
----
+- Slot ID: `HW-01`
+- Target: `Standard UEFI PC`
+- Artifact: `iso/outputs/bwos-home.iso`
+- Artifact SHA256: `463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686`
+- Artifact size bytes: `2276368384`
+- Execution status: `NOT_EXECUTED`
+- Classification: `PHYSICAL_BOOT_UNTESTED`
+- Release status: `BLOCKED`
+- Last updated: `2026-05-30T18:31:34Z`
 
-## 🔬 Test Specifications & Config
+No physical boot PASS, PARTIAL, or FAIL status is recorded for HW-01 in this update. Real hardware evidence is still required.
 
-- **Milestone:** `PR41A`
-- **Slot ID:** `HW-01`
-- **Target Architecture:** `x86_64_uefi_pc`
-- **Required Image Checksum:** `f113419abc4ad8c343cedb00a667e64fd13076f3c2ed87e658b63dea8059806d`
-- **Boot Validation Type:** `Read-Only Boot (No Installer / No disk writes)`
+## Safety Rules
 
----
+- No installer execution.
+- No formatting internal drives.
+- No partitioning internal drives.
+- No repair tools.
+- No destructive USB writes without explicit operator-selected external USB device.
+- No PASS classification without desktop evidence.
 
-## 📋 Operator Verification Checklist
+## Step 1 - Target Machine Inventory
 
-| Check / Step | Status | Notes |
-| :--- | :---: | :--- |
-| Confirm ISO SHA-256 matches exact target checksum | [ ] | |
-| Identify USB device block address safely (`diskutil list` / `lsblk`) | [ ] | |
-| Write image to USB stick via raw block address (`dd`) | [ ] | |
-| Place USB in target x86_64 host system slot | [ ] | |
-| Enter BIOS / UEFI Settings (ensure Secure Boot is Disabled) | [ ] | |
-| Capture BIOS Settings screen | [ ] | |
-| Boot system to Boot Picker Menu | [ ] | |
-| Capture Boot Picker Menu showing "PhoenixOS Boot" option | [ ] | |
-| Boot system and capture initial PhoenixOS Loading Screen | [ ] | |
-| Reached SDDM Graphical Desktop environment | [ ] | |
-| Extract boot parameters and terminal command outputs | [ ] | |
+Required evidence before test execution:
 
----
+| Field | Value | Evidence |
+| --- | --- | --- |
+| Manufacturer | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
+| Model | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
+| CPU | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
+| RAM | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
+| Firmware type | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
+| Secure Boot status | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
 
-## 📁 Evidence Package Placeholders
+## Step 2 - Phoenix USB Creation
 
-*Complete this section during live execution. Archive all media files under `iso/outputs/physical-evidence/pr41a/hw-01-x86_64_uefi_pc/`.*
+Source image:
 
-- **Host Device Model:** `[Enter Model, e.g., Dell OptiPlex 7070]`
-- **CPU Family / Count:** `[Enter CPU info]`
-- **Total Installed RAM:** `[Enter RAM info, e.g., 16 GB]`
-- **Firmware Boot Mode:** `UEFI`
-- **Secure Boot State:** `Disabled`
-- **USB Physical Device Used:** `[Enter USB brand/model, e.g., SanDisk Ultra 32GB]`
-- **USB VID / PID:** `[Enter USB Hex IDs if available]`
-- **Boot Picker Photo Path:** `iso/outputs/physical-evidence/pr41a/hw-01-x86_64_uefi_pc/boot_picker.jpg`
-- **Phoenix Boot Screen Photo Path:** `iso/outputs/physical-evidence/pr41a/hw-01-x86_64_uefi_pc/boot_screen.jpg`
-- **BIOS Settings Photo Path:** `iso/outputs/physical-evidence/pr41a/hw-01-x86_64_uefi_pc/bios_settings.jpg`
-- **Desktop Reached (Yes/No):** `No (Untested)`
-- **Kernel Command Line:**
-  ```text
-  [Paste output of cat /proc/cmdline here once booted]
-  ```
-- **dmesg Excerpt Path:** `iso/outputs/physical-evidence/pr41a/hw-01-x86_64_uefi_pc/dmesg_excerpt.txt`
-- **lsblk Console Output Path:** `iso/outputs/physical-evidence/pr41a/hw-01-x86_64_uefi_pc/lsblk_output.txt`
-- **Failure Analysis Photo Path:** `iso/outputs/physical-evidence/pr41a/hw-01-x86_64_uefi_pc/failure_screen.jpg`
+```text
+iso/outputs/bwos-home.iso
+```
 
----
+Verified source hash:
 
-## 📈 Final Evaluation
+```text
+463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686  iso/outputs/bwos-home.iso
+```
 
-- **Status Classification:** `PHYSICAL_BOOT_UNTESTED`
+USB media status:
 
-*Record initialized by Release Engineering on 2026-05-28.*
+| Field | Value |
+| --- | --- |
+| USB make/model | `NOT_SELECTED` |
+| USB capacity | `NOT_SELECTED` |
+| USB device node | `NOT_SELECTED` |
+| USB write performed | `NO` |
+| Reason | No explicit external USB device was available/selected for destructive imaging. |
+
+Read-only host inventory on this Mac showed internal APFS disks and disk images only; no external USB mass-storage device was selected for imaging.
+
+## Step 3 - Boot Attempt
+
+No physical HW-01 boot attempt was executed in this session.
+
+Required evidence paths once executed:
+
+| Evidence | Required path |
+| --- | --- |
+| Boot menu photo | `iso/outputs/physical-evidence/pr41a/hw-01-standard-uefi-pc/photo_01_boot_menu.*` |
+| GRUB photo | `iso/outputs/physical-evidence/pr41a/hw-01-standard-uefi-pc/photo_02_grub.*` |
+| Desktop photo | `iso/outputs/physical-evidence/pr41a/hw-01-standard-uefi-pc/photo_03_desktop.*` |
+| Failure photo | `iso/outputs/physical-evidence/pr41a/hw-01-standard-uefi-pc/photo_fail_01.*` |
+| Failure notes | `iso/outputs/physical-evidence/pr41a/hw-01-standard-uefi-pc/failure_notes.txt` |
+
+## Step 4 - Guest Evidence If Desktop Loads
+
+These commands must be collected from the live session only after the desktop is reached:
+
+```sh
+uname -a
+cat /proc/cmdline
+lsblk
+journalctl -b | tail -200
+```
+
+Application smoke tests required:
+
+| App | Result | Evidence |
+| --- | --- | --- |
+| Firefox | `NOT_TESTED` | no physical boot |
+| Dolphin | `NOT_TESTED` | no physical boot |
+| Konsole | `NOT_TESTED` | no physical boot |
+
+## Step 5 - Classification
+
+Current classification:
+
+```text
+PHYSICAL_BOOT_UNTESTED
+```
+
+Reason:
+
+```text
+No external USB device was selected and no HW-01 physical boot evidence was collected.
+```
+
+Allowed future classifications:
+
+- `PHYSICAL_BOOT_PASS`
+- `PHYSICAL_BOOT_PARTIAL`
+- `PHYSICAL_BOOT_FAIL_NO_PICKER`
+- `PHYSICAL_BOOT_FAIL_BOOTLOADER`
+- `PHYSICAL_BOOT_FAIL_KERNEL`
+- `PHYSICAL_BOOT_FAIL_DESKTOP`
+
+## Blockers
+
+- External USB target must be selected by the operator before imaging.
+- HW-01 hardware inventory must be recorded from the actual machine.
+- Boot menu, GRUB, and desktop/failure photos are required before status can change.
+
+## Recommended Next Hardware Target
+
+Do not advance to HW-06 until HW-01 has one completed attempt package or the operator explicitly marks HW-01 unavailable. If HW-01 is unavailable, proceed to `HW-06 Ryzen Desktop` using the same evidence rules.

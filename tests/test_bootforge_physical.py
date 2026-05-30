@@ -100,7 +100,8 @@ class TestBootForgePhysical(unittest.TestCase):
     @patch('src.core.safety_validator.SafetyValidator._is_system_disk')
     @patch('src.core.safety_validator.SafetyValidator._is_boot_disk')
     @patch('src.core.safety_validator.SafetyValidator._get_device_size_gb')
-    def test_physical_target_removable_safety_gate(self, mock_size, mock_boot, mock_sys, mock_removable, mock_exists):
+    @patch('src.core.safety_validator.SafetyValidator._get_device_mount_points')
+    def test_physical_target_removable_safety_gate(self, mock_mounts, mock_size, mock_boot, mock_sys, mock_removable, mock_exists):
         """Verify that physical target device matches safety validator requirements for standard write operations"""
         # Mock a physical 32GB removable USB stick
         mock_exists.return_value = True
@@ -108,6 +109,7 @@ class TestBootForgePhysical(unittest.TestCase):
         mock_sys.return_value = False
         mock_boot.return_value = False
         mock_size.return_value = 32.0
+        mock_mounts.return_value = []
 
         validator = SafetyValidator(SafetyLevel.STANDARD)
         risk = validator.validate_device_safety("/dev/disk4")

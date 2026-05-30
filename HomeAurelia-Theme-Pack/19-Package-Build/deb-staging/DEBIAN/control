@@ -1,0 +1,15 @@
+Package: home-aurelia-theme-pack
+Version: 1.0.0
+Section: misc
+Priority: optional
+Architecture: all
+Essential: no
+Installed-Size: 49880
+Maintainer: Google DeepMind team <antigravity-dev@google.com>
+Depends: bash, sddm, plymouth, grub-common, kvantum
+Description: Home Aurelia Linux Theme Pack
+ A comprehensive operating system identity package for KDE/Plasma.
+ Includes custom wallpaper suites, Plymouth animation sequences,
+ SDDM logins, Kvantum control structures, Aurorae border textures,
+ color scheme registries, cursor pointers, Obsidian terminal profiles,
+ and a local browser start page representing the four legacies.

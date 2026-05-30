@@ -1,0 +1,19 @@
+[Icon Theme]
+Name=Home Aurelia Icons
+Comment=Home Aurelia premium icon set. Inherits Breeze and hicolor for comprehensive daily-use coverage.
+Inherits=breeze-dark,breeze,hicolor
+Directories=scalable/places,scalable/apps
+
+[scalable/places]
+Size=512
+Context=Places
+Type=Scalable
+MinSize=16
+MaxSize=512
+
+[scalable/apps]
+Size=512
+Context=Applications
+Type=Scalable
+MinSize=16
+MaxSize=512

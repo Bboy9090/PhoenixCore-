@@ -1,0 +1,44 @@
+profiles:
+  apple-silicon:
+    name: "Apple Silicon MacBook"
+    arch: "arm64"
+    bootloader: "grub-efi-arm64"
+    kernel_args: "quiet splash console=tty0"
+    firmware:
+      - "firmware-linux-free"
+    graphics_modeset: "simplefb"
+  legacy-mac:
+    name: "Legacy Intel MacBook"
+    arch: "amd64"
+    bootloader: "grub-efi-ia32"
+    kernel_args: "quiet splash nomodeset"
+    firmware:
+      - "b43-fwcutter"
+      - "broadcom-wl"
+    graphics_modeset: "nomodeset"
+  bootcamp-mac:
+    name: "BootCamp Intel MacBook"
+    arch: "amd64"
+    bootloader: "grub-efi-x64"
+    kernel_args: "quiet splash i915.modeset=1"
+    firmware:
+      - "ntfs-3g"
+      - "os-prober"
+    graphics_modeset: "modeset"
+  standard-pc:
+    name: "Standard 64-bit PC Laptop"
+    arch: "amd64"
+    bootloader: "shim-signed"
+    kernel_args: "quiet splash"
+    firmware:
+      - "firmware-realtek"
+      - "firmware-iwlwifi"
+    graphics_modeset: "kms"
+  chromebook:
+    name: "Coreboot Chromebook"
+    arch: "amd64"
+    bootloader: "grub-efi-x64"
+    kernel_args: "quiet splash console=tty0"
+    firmware:
+      - "chromeos-firmware"
+    graphics_modeset: "modeset"

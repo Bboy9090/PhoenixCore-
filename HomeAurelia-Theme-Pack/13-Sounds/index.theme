@@ -1,0 +1,8 @@
+[Sound Theme]
+Name=Home Aurelia Sounds
+Comment=Home Aurelia premium sound scheme. Ambient crystal chimes, low sub-bass hums, soft wing shimmers, and warning thunder snaps.
+Inherits=freedesktop
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

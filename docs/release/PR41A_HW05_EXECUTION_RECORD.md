@@ -1,67 +1,56 @@
-# PR41A HW-05 Apple Silicon External Boot Execution Record
+# PR41A HW-05 Execution Record - Apple Silicon Observation
 
-This document serves as the formal execution record and evidence checklist for verifying **PhoenixOS** on the **HW-05 (Apple Silicon External Boot Observation)** physical hardware slot.
+## Status
 
----
+- Slot ID: `HW-05`
+- Target: `Apple Silicon Observation`
+- Artifact: `iso/outputs/bwos-home.iso`
+- Artifact SHA256: `463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686`
+- Artifact size bytes: `2276368384`
+- Execution status: `NOT_EXECUTED`
+- Classification: `PHYSICAL_BOOT_UNTESTED`
+- Release status: `BLOCKED`
+- Last updated: `2026-05-30T18:31:34Z`
 
-## 🔬 Test Specifications & Config
+HW-05 is an observation slot for Apple Silicon behavior. It is not a PASS target for the current x86_64 Home ISO unless a supported Apple Silicon boot path is explicitly proven with evidence.
 
-- **Milestone:** `PR41A`
-- **Slot ID:** `HW-05`
-- **Target Architecture:** `arm64` (Apple Silicon M1/M2/M3)
-- **Target Flagship Edition:** `thunder-god-arm64`
-- **Target Image File:** `bwos-thunder-god-arm64.iso`
-- **Required Image Checksum:** `b3a2305cbfedfebc8fc4821e1d5804216aca25f66d907b45943038426b270ef0`
-- **Boot Validation Type:** `Read-Only Boot (No Installer / No disk writes)`
+## Safety Rules
 
----
+- No installer execution.
+- No formatting internal drives.
+- No boot policy changes unless the operator explicitly chooses to test this slot.
+- No destructive USB writes without an operator-selected external USB device.
+- No PASS classification without observed desktop evidence on the exact artifact hash.
 
-## 📋 Operator Verification Checklist
+## Required Machine Inventory
 
-| Check / Step | Status | Notes |
-| :--- | :---: | :--- |
-| Ensure native ARM64 OCI container is configured and ready | [ ] | |
-| Identify M1 host hardware parameters | [ ] | |
-| Place target Apple Silicon Mac in recovery / permissive boot mode | [ ] | |
-| Set Boot Security Policy to "Permissive Security" or "Reduced Security" | [ ] | |
-| Identify USB device block address safely (`diskutil list`) | [ ] | |
-| Write ARM64 image to USB stick via raw block address (`dd`) | [ ] | |
-| Place USB in target M1 Silicon host port | [ ] | |
-| Boot system to Boot Picker Menu via long-pressing Power Button | [ ] | |
-| Capture Boot Picker Menu showing "PhoenixOS Boot" / "EFI Boot" option | [ ] | |
-| Boot system and capture initial PhoenixOS Loading Screen | [ ] | |
-| Reached SDDM Graphical Desktop environment | [ ] | |
-| Extract boot parameters and terminal command outputs | [ ] | |
+| Field | Value | Evidence |
+| --- | --- | --- |
+| Manufacturer | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
+| Model | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
+| CPU | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
+| RAM | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
+| Firmware type | `Apple Silicon Boot Policy` | not collected |
+| Secure Boot status | `PENDING_REAL_HARDWARE_ENTRY` | not collected |
 
----
+## Required Evidence If Executed
 
-## 📁 Evidence Package Placeholders
+| Evidence | Required path |
+| --- | --- |
+| Boot options photo | `iso/outputs/physical-evidence/pr41a/hw-05-apple-silicon/photo_01_boot_menu.*` |
+| GRUB/bootloader photo | `iso/outputs/physical-evidence/pr41a/hw-05-apple-silicon/photo_02_grub.*` |
+| Desktop photo | `iso/outputs/physical-evidence/pr41a/hw-05-apple-silicon/photo_03_desktop.*` |
+| Failure photo | `iso/outputs/physical-evidence/pr41a/hw-05-apple-silicon/photo_fail_01.*` |
+| Failure notes | `iso/outputs/physical-evidence/pr41a/hw-05-apple-silicon/failure_notes.txt` |
 
-*Complete this section during live execution. Archive all media files under `iso/outputs/physical-evidence/pr41a/hw-05-apple_silicon/`.*
+## Current Classification
 
-- **Host Device Model:** `[Enter Model, e.g., MacBook Air M1 2020]`
-- **CPU Family / Count:** `Apple M1 (8 Cores)`
-- **Total Installed RAM:** `[Enter RAM info, e.g., 8 GB / 16 GB]`
-- **Firmware Boot Mode:** `iBoot / Apple Silicon Boot Rom`
-- **Secure Boot State:** `Permissive / Reduced Security`
-- **USB Physical Device Used:** `[Enter USB brand/model, e.g., SanDisk Ultra 32GB]`
-- **USB VID / PID:** `[Enter USB Hex IDs if available]`
-- **Boot Picker Photo Path:** `iso/outputs/physical-evidence/pr41a/hw-05-apple_silicon/boot_picker.jpg`
-- **Phoenix Boot Screen Photo Path:** `iso/outputs/physical-evidence/pr41a/hw-05-apple_silicon/boot_screen.jpg`
-- **BIOS Settings Photo Path:** `iso/outputs/physical-evidence/pr41a/hw-05-apple_silicon/boot_policy_settings.jpg`
-- **Desktop Reached (Yes/No):** `No (Untested)`
-- **Kernel Command Line:**
-  ```text
-  [Paste output of cat /proc/cmdline here once booted]
-  ```
-- **dmesg Excerpt Path:** `iso/outputs/physical-evidence/pr41a/hw-05-apple_silicon/dmesg_excerpt.txt`
-- **lsblk Console Output Path:** `iso/outputs/physical-evidence/pr41a/hw-05-apple_silicon/diskutil_output.txt`
-- **Failure Analysis Photo Path:** `iso/outputs/physical-evidence/pr41a/hw-05-apple_silicon/failure_screen.jpg`
+```text
+PHYSICAL_BOOT_UNTESTED
+```
 
----
+Reason:
 
-## 📈 Final Evaluation
-
-- **Status Classification:** `PHYSICAL_BOOT_UNTESTED`
-
-*Record initialized by Release Engineering on 2026-05-28.*
+```text
+HW-05 has not been physically tested for the current PR41A artifact.
+```

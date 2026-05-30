@@ -1,0 +1,7 @@
+[Sound Theme]
+Name=Phoenix Premium
+Comment=Ultra-premium minimalist ambient sound theme for Blue Phoenix OS
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

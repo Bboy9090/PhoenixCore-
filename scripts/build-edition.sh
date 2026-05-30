@@ -171,6 +171,14 @@ function manifest_value() {
     sed -n "s/^[[:space:]]*${key}:[[:space:]]*//p" "$file" | sed 's/^"//;s/"$//' | head -n 1
 }
 
+function profile_value() {
+    local profile="$1"
+    local key="$2"
+    local file="$3"
+    sed -n "/^[[:space:]]*${profile}:/,/^[[:space:]]*[a-zA-Z0-9_-]\{1,\}:/ { /^[[:space:]]*${key}:/p; }" "$file" | sed "s/^[[:space:]]*${key}:[[:space:]]*//;s/^\"//;s/\"$//" | head -n 1
+}
+
+
 function manifest_color() {
     local key="$1"
     local file="$2"
@@ -288,6 +296,7 @@ function default_linux_flavour_for_arch() {
 }
 
 # Parse arguments
+BUILD_PROFILE=""
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --stage-only) STAGE_ONLY=true ;;
@@ -296,6 +305,7 @@ while [[ "$#" -gt 0 ]]; do
         --builder-arch=*) BUILDER_ARCH="${1#*=}" ;;
         --builder-clean=*) BUILDER_CLEAN_MODE="${1#*=}" ;;
         --builder-no-cache) BUILDER_NO_CACHE=true ;;
+        --profile=*) BUILD_PROFILE="${1#*=}" ;;
         -*) echo "Unknown option: $1"; exit 1 ;;
         *) EDITION_ID="$1" ;;
     esac
@@ -340,6 +350,31 @@ secondary_color=$(normalize_color "$(manifest_color secondary "$manifest")" "#64
 background_color=$(normalize_color "$(manifest_color background "$manifest")" "#070B16")
 surface_color=$(normalize_color "$(manifest_color surface "$manifest")" "#111827")
 text_color=$(normalize_color "$(manifest_color text "$manifest")" "#E5E7EB")
+
+# Apply profile overrides if --profile is specified
+if [ -n "$BUILD_PROFILE" ]; then
+    profiles_yaml="$REPO_ROOT/editions/profiles.yaml"
+    if [ -f "$profiles_yaml" ]; then
+        profile_name=$(profile_value "$BUILD_PROFILE" "name" "$profiles_yaml")
+        if [ -n "$profile_name" ]; then
+            echo "🚀 Applying target profile overrides: $profile_name ($BUILD_PROFILE)"
+            profile_arch=$(profile_value "$BUILD_PROFILE" "arch" "$profiles_yaml")
+            profile_bootloader=$(profile_value "$BUILD_PROFILE" "bootloader" "$profiles_yaml")
+            
+            if [ -n "$profile_arch" ]; then
+                manifest_arch="$profile_arch"
+            fi
+            if [ -n "$profile_bootloader" ]; then
+                manifest_bootloader="$profile_bootloader"
+            fi
+        else
+            echo "❌ Error: Target profile '$BUILD_PROFILE' not found in $profiles_yaml"
+            exit 1
+        fi
+    else
+        echo "⚠️ Warning: profiles.yaml not found at $profiles_yaml"
+    fi
+fi
 
 resolved_arch="$manifest_arch"
 if [ -z "$resolved_arch" ]; then
@@ -467,17 +502,20 @@ else
     echo "⚠️  WARNING: No wallpaper entry found in manifest."
 fi
 
-# Stage branding templates used by Plymouth and SDDM.
+# Stage branding templates used by Plymouth, SDDM, and GRUB.
 plymouth_theme_root="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plymouth/themes"
 sddm_theme_root="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/sddm/themes"
+grub_theme_root="$STAGING_LB_CONFIG_DIR/includes.binary/boot/grub/themes"
 plymouth_theme_dir="$plymouth_theme_root/phoenix"
 sddm_theme_dir="$sddm_theme_root/phoenix"
+grub_theme_dir="$grub_theme_root/phoenix"
 
-mkdir -p "$plymouth_theme_root" "$sddm_theme_root"
-rm -rf "$plymouth_theme_dir" "$sddm_theme_dir"
+mkdir -p "$plymouth_theme_root" "$sddm_theme_root" "$grub_theme_root"
+rm -rf "$plymouth_theme_dir" "$sddm_theme_dir" "$grub_theme_dir"
 
 cp -R "$REPO_ROOT/os/phoenix-os/branding/plymouth/phoenix" "$plymouth_theme_root/"
 cp -R "$REPO_ROOT/os/phoenix-os/branding/sddm/phoenix" "$sddm_theme_root/"
+cp -R "$REPO_ROOT/os/phoenix-os/branding/grub/phoenix" "$grub_theme_root/"
 
 # Stage custom logo if defined (overrides Plymouth boot splash and SDDM login screen assets)
 if [ -n "$logo_name" ]; then
@@ -585,6 +623,36 @@ for key, value in replacements.items():
     text = text.replace(key, value)
 open(path, "w", encoding="utf-8").write(text)
 PY
+
+# Stage per-edition GRUB wallpaper background.
+if [ -n "$splash_source_path" ]; then
+    cp "$splash_source_path" "$grub_theme_dir/background.png"
+elif [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
+    cp "$EDITION_DIR/$wallpaper_name" "$grub_theme_dir/background.png"
+fi
+
+# Dynamically patch GRUB theme.txt with edition-specific styles and colorways
+python3 - "$grub_theme_dir/theme.txt" "$display_name" "$tagline" "$primary_color" "$secondary_color" "$background_color" "$surface_color" "$text_color" <<'PY'
+import sys
+
+path = sys.argv[1]
+edition_name, edition_tagline = sys.argv[2], sys.argv[3]
+primary, secondary, background, surface, text_color = sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8]
+text = open(path, "r", encoding="utf-8").read()
+replacements = {
+    "__EDITION_NAME__": edition_name,
+    "__EDITION_TAGLINE__": edition_tagline,
+    "__COLOR_PRIMARY__": primary,
+    "__COLOR_SECONDARY__": secondary,
+    "__COLOR_BACKGROUND__": background,
+    "__COLOR_SURFACE__": surface,
+    "__COLOR_TEXT__": text_color,
+}
+for key, value in replacements.items():
+    text = text.replace(key, value)
+open(path, "w", encoding="utf-8").write(text)
+PY
+
 
 
 cat <<EOF > "$STAGING_CHROOT/metadata.json"

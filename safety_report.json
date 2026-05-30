@@ -1,0 +1,9 @@
+{
+    "milestone": "PR41B",
+    "policy": "SAFETY_GATES_v1",
+    "results": {
+        "internal_drive_blocked": true,
+        "usb_drive_allowed": true
+    },
+    "status": "PASS"
+}

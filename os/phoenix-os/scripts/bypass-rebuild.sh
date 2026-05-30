@@ -191,9 +191,15 @@ if [[ -n "$WALLPAPER_FILE" && -f "$EDITION_DIR/$WALLPAPER_FILE" ]]; then
   ln -sf "desktop-background.png" "$EXTRACT_DIR/usr/share/images/desktop-base/desktop-background"
   
   # Also copy directly to Breeze wallpaper directory to bypass fallback!
-  mkdir -p "$EXTRACT_DIR/usr/share/wallpapers/Next/contents/images"
-  cp "$EDITION_DIR/$WALLPAPER_FILE" "$EXTRACT_DIR/usr/share/wallpapers/Next/contents/images/5120x2880.png"
-  cp "$EDITION_DIR/$WALLPAPER_FILE" "$EXTRACT_DIR/usr/share/wallpapers/Next/contents/images/1920x1080.png"
+  NEXT_DIR="$EXTRACT_DIR/usr/share/wallpapers/Next/contents/images"
+  mkdir -p "$NEXT_DIR"
+  TARGET_BG="/usr/share/images/desktop-base/desktop-background.png"
+  find "$NEXT_DIR" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.svg" \) | while read -r img_file; do
+      ln -sf "$TARGET_BG" "$img_file"
+  done
+  # Add standard fallback targets explicitly
+  ln -sf "$TARGET_BG" "$NEXT_DIR/5120x2880.png"
+  ln -sf "$TARGET_BG" "$NEXT_DIR/1920x1080.png"
   echo "[OK] Injected custom edition wallpaper."
 elif [[ -n "$WALLPAPER_FILE" ]]; then
   echo -e "${YELLOW}[WARN] Wallpaper path not found for edition '$EDITION': $WALLPAPER_FILE${NC}"
