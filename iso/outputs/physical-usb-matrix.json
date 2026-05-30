@@ -43,9 +43,9 @@
         "ram": "",
         "firmware_type": "",
         "secure_boot_status": "",
-        "usb_make_model": "",
-        "usb_capacity": "",
-        "usb_device_node": "",
+        "usb_make_model": "Seagate BACKUP+ Mac Ventoy drive",
+        "usb_capacity": "750.2 GB",
+        "usb_device_node": "/dev/disk6",
         "usb_write_performed": false,
         "photo_01_boot_menu": "",
         "photo_02_grub": "",
@@ -59,7 +59,9 @@
         "firefox_result": "NOT_TESTED",
         "dolphin_result": "NOT_TESTED",
         "konsole_result": "NOT_TESTED",
-        "operator_notes": ""
+        "operator_notes": "",
+        "usb_staging_method": "Ventoy file copy; no raw imaging",
+        "ventoy_staged_directory": "/Volumes/Ventoy/BWOS-PR41A"
       },
       "execution": {
         "last_update": "2026-05-30T18:31:34Z",
@@ -89,9 +91,9 @@
         "ram": "",
         "firmware_type": "",
         "secure_boot_status": "",
-        "usb_make_model": "",
-        "usb_capacity": "",
-        "usb_device_node": "",
+        "usb_make_model": "Seagate BACKUP+ Mac Ventoy drive",
+        "usb_capacity": "750.2 GB",
+        "usb_device_node": "/dev/disk6",
         "usb_write_performed": false,
         "photo_01_boot_menu": "",
         "photo_02_grub": "",
@@ -105,7 +107,9 @@
         "firefox_result": "NOT_TESTED",
         "dolphin_result": "NOT_TESTED",
         "konsole_result": "NOT_TESTED",
-        "operator_notes": ""
+        "operator_notes": "",
+        "usb_staging_method": "Ventoy file copy; no raw imaging",
+        "ventoy_staged_directory": "/Volumes/Ventoy/BWOS-PR41A"
       }
     },
     "intel_mac_option_boot": {
@@ -128,9 +132,9 @@
         "ram": "",
         "firmware_type": "",
         "secure_boot_status": "",
-        "usb_make_model": "",
-        "usb_capacity": "",
-        "usb_device_node": "",
+        "usb_make_model": "Seagate BACKUP+ Mac Ventoy drive",
+        "usb_capacity": "750.2 GB",
+        "usb_device_node": "/dev/disk6",
         "usb_write_performed": false,
         "photo_01_boot_menu": "",
         "photo_02_grub": "",
@@ -144,7 +148,9 @@
         "firefox_result": "NOT_TESTED",
         "dolphin_result": "NOT_TESTED",
         "konsole_result": "NOT_TESTED",
-        "operator_notes": ""
+        "operator_notes": "",
+        "usb_staging_method": "Ventoy file copy; no raw imaging",
+        "ventoy_staged_directory": "/Volumes/Ventoy/BWOS-PR41A"
       }
     },
     "t2_mac_external_boot": {
@@ -167,9 +173,9 @@
         "ram": "",
         "firmware_type": "",
         "secure_boot_status": "",
-        "usb_make_model": "",
-        "usb_capacity": "",
-        "usb_device_node": "",
+        "usb_make_model": "Seagate BACKUP+ Mac Ventoy drive",
+        "usb_capacity": "750.2 GB",
+        "usb_device_node": "/dev/disk6",
         "usb_write_performed": false,
         "photo_01_boot_menu": "",
         "photo_02_grub": "",
@@ -183,7 +189,9 @@
         "firefox_result": "NOT_TESTED",
         "dolphin_result": "NOT_TESTED",
         "konsole_result": "NOT_TESTED",
-        "operator_notes": ""
+        "operator_notes": "",
+        "usb_staging_method": "Ventoy file copy; no raw imaging",
+        "ventoy_staged_directory": "/Volumes/Ventoy/BWOS-PR41A"
       }
     },
     "apple_silicon_external_boot_observation": {
@@ -206,9 +214,9 @@
         "ram": "",
         "firmware_type": "",
         "secure_boot_status": "",
-        "usb_make_model": "",
-        "usb_capacity": "",
-        "usb_device_node": "",
+        "usb_make_model": "Seagate BACKUP+ Mac Ventoy drive",
+        "usb_capacity": "750.2 GB",
+        "usb_device_node": "/dev/disk6",
         "usb_write_performed": false,
         "photo_01_boot_menu": "",
         "photo_02_grub": "",
@@ -222,7 +230,9 @@
         "firefox_result": "NOT_TESTED",
         "dolphin_result": "NOT_TESTED",
         "konsole_result": "NOT_TESTED",
-        "operator_notes": ""
+        "operator_notes": "",
+        "usb_staging_method": "Ventoy file copy; no raw imaging",
+        "ventoy_staged_directory": "/Volumes/Ventoy/BWOS-PR41A"
       }
     },
     "x86_64_legacy_bios_pc": {
@@ -245,9 +255,9 @@
         "ram": "",
         "firmware_type": "",
         "secure_boot_status": "",
-        "usb_make_model": "",
-        "usb_capacity": "",
-        "usb_device_node": "",
+        "usb_make_model": "Seagate BACKUP+ Mac Ventoy drive",
+        "usb_capacity": "750.2 GB",
+        "usb_device_node": "/dev/disk6",
         "usb_write_performed": false,
         "photo_01_boot_menu": "",
         "photo_02_grub": "",
@@ -261,8 +271,49 @@
         "firefox_result": "NOT_TESTED",
         "dolphin_result": "NOT_TESTED",
         "konsole_result": "NOT_TESTED",
-        "operator_notes": ""
+        "operator_notes": "",
+        "usb_staging_method": "Ventoy file copy; no raw imaging",
+        "ventoy_staged_directory": "/Volumes/Ventoy/BWOS-PR41A"
       }
     }
+  },
+  "usb_staging": {
+    "status": "STAGED_ON_VENTOY",
+    "staged_at": "2026-05-30T18:31:34Z",
+    "device_identifier": "disk6",
+    "device_node": "/dev/disk6",
+    "device_name": "BACKUP+ Mac",
+    "volume": "/Volumes/Ventoy",
+    "volume_name": "Ventoy",
+    "filesystem": "ExFAT",
+    "method": "file_copy_to_existing_ventoy_partition",
+    "raw_disk_imaging_performed": false,
+    "staged_directory": "/Volumes/Ventoy/BWOS-PR41A",
+    "artifacts": [
+      {
+        "filename": "bwos-home.iso",
+        "source_path": "iso/outputs/bwos-home.iso",
+        "ventoy_path": "/Volumes/Ventoy/BWOS-PR41A/bwos-home.iso",
+        "sha256": "463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686"
+      },
+      {
+        "filename": "bwos-arcwyre.iso",
+        "source_path": "iso/outputs/bwos-arcwyre.iso",
+        "ventoy_path": "/Volumes/Ventoy/BWOS-PR41A/bwos-arcwyre.iso",
+        "sha256": "66f5d3405d2549d4dfa9a6dda3cca778c89d8b6d7e148a8821d1aee83a1f3c9a"
+      },
+      {
+        "filename": "bwos-thunder-god.iso",
+        "source_path": "iso/outputs/bwos-thunder-god.iso",
+        "ventoy_path": "/Volumes/Ventoy/BWOS-PR41A/bwos-thunder-god.iso",
+        "sha256": "d956f7b0b32348eda3ea1bc007df20753b80c11a19c1fd190f255768afba01a6"
+      },
+      {
+        "filename": "bwos-blue-phoenix.iso",
+        "source_path": "iso/outputs/bwos-blue-phoenix.iso",
+        "ventoy_path": "/Volumes/Ventoy/BWOS-PR41A/bwos-blue-phoenix.iso",
+        "sha256": "b526ce753e01f57532db04ef282c3afe6bebc982ebd899dc622fc8be26af8759"
+      }
+    ]
   }
 }

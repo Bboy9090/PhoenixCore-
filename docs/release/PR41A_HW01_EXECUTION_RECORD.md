@@ -127,3 +127,39 @@ Allowed future classifications:
 ## Recommended Next Hardware Target
 
 Do not advance to HW-06 until HW-01 has one completed attempt package or the operator explicitly marks HW-01 unavailable. If HW-01 is unavailable, proceed to `HW-06 Ryzen Desktop` using the same evidence rules.
+
+## USB Staging Update - 2026-05-30
+
+The Seagate Ventoy drive was detected as:
+
+```text
+/dev/disk6 external physical
+Device / Media Name: BACKUP+ Mac
+Partition: /dev/disk6s1
+Volume: /Volumes/Ventoy
+Filesystem: ExFAT
+Capacity: 750.2 GB
+```
+
+Raw disk imaging was not used because this is an existing Ventoy drive. The ISO files were copied into:
+
+```text
+/Volumes/Ventoy/BWOS-PR41A
+```
+
+Staged and hash-verified files:
+
+| File | SHA256 |
+| --- | --- |
+| `bwos-home.iso` | `463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686` |
+| `bwos-arcwyre.iso` | `66f5d3405d2549d4dfa9a6dda3cca778c89d8b6d7e148a8821d1aee83a1f3c9a` |
+| `bwos-thunder-god.iso` | `d956f7b0b32348eda3ea1bc007df20753b80c11a19c1fd190f255768afba01a6` |
+| `bwos-blue-phoenix.iso` | `b526ce753e01f57532db04ef282c3afe6bebc982ebd899dc622fc8be26af8759` |
+
+Physical boot classification remains:
+
+```text
+PHYSICAL_BOOT_UNTESTED
+```
+
+Reason: USB staging is complete, but no target machine has been booted and no boot-menu/GRUB/desktop evidence has been collected yet.
