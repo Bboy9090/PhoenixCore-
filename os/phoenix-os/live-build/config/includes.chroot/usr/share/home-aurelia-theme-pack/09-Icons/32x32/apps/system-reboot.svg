@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" version="1.1">
+  <defs>
+    
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFC857" />
+      <stop offset="50%" stop-color="#D4AF37" />
+      <stop offset="100%" stop-color="#8A6600" />
+    </linearGradient>
+    <linearGradient id="goldTrim" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D4AF37" />
+      <stop offset="50%" stop-color="#FFC857" />
+      <stop offset="100%" stop-color="#D4AF37" />
+    </linearGradient>
+    
+    
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E6BFF" />
+      <stop offset="100%" stop-color="#00C3FF" />
+    </linearGradient>
+    <linearGradient id="folderGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0F1E3A" />
+      <stop offset="100%" stop-color="#081426" />
+    </linearGradient>
+    <linearGradient id="frontFlapGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1A2E5C" />
+      <stop offset="40%" stop-color="#0F1E3A" />
+      <stop offset="100%" stop-color="#070D1A" />
+    </linearGradient>
+    <radialGradient id="electricGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00C3FF" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#1E6BFF" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="baseGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00C3FF" stop-opacity="0" />
+      <stop offset="25%" stop-color="#00C3FF" stop-opacity="1" />
+      <stop offset="75%" stop-color="#00C3FF" stop-opacity="1" />
+      <stop offset="100%" stop-color="#00C3FF" stop-opacity="0" />
+    </linearGradient>
+    
+  </defs>
+  <!-- Background Glow -->
+  <circle cx="256" cy="256" r="230" fill="url(#electricGlow)" />
+  <!-- Outer double ring -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="url(#goldGrad)" stroke-width="6" />
+  <circle cx="256" cy="256" r="188" fill="none" stroke="url(#goldGrad)" stroke-width="2" stroke-opacity="0.6" />
+  <!-- Shield base -->
+  <path d="M 256,90 C 315,90 350,115 350,185 C 350,265 256,370 256,390 C 256,370 162,265 162,185 C 162,115 197,90 256,90 Z" 
+        fill="#05070D" stroke="url(#goldGrad)" stroke-width="4.5" />
+  <!-- Inner Blue core -->
+  <path d="M 256,105 C 300,105 330,125 330,180 C 330,245 256,340 256,355 C 256,340 182,245 182,180 C 182,125 212,105 256,105 Z" 
+        fill="url(#blueGrad)" fill-opacity="0.15" stroke="#00C3FF" stroke-width="1.5" stroke-dasharray="4,2" />
+  <!-- Content overlay -->
+  
+    <g transform="translate(0, 0)">
+      <!-- Power symbol -->
+      <path d="M 216,186 C 182,216 182,270 216,300 C 250,330 304,330 338,300 C 372,270 372,216 338,186" fill="none" stroke="url(#blueGrad)" stroke-width="9" stroke-linecap="round" />
+      <line x1="277" y1="130" x2="277" y2="230" stroke="url(#goldGrad)" stroke-width="9.5" stroke-linecap="round" />
+    </g>
+    
+</svg>

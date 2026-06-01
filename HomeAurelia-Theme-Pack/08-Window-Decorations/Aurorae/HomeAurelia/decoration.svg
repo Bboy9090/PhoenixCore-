@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="300" height="200" viewBox="0 0 300 200">
+  <defs>
+    <!-- Active Glow Gradient (Electric Blue to Deep Navy) -->
+    <linearGradient id="activeTitleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0F1E3A" />
+      <stop offset="100%" stop-color="#081426" />
+    </linearGradient>
+    
+    <!-- Inactive Gradient (Slate Gray to Obsidian Black) -->
+    <linearGradient id="inactiveTitleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#151B26" />
+      <stop offset="100%" stop-color="#05070D" />
+    </linearGradient>
+
+    <!-- Gold Trim Gradient -->
+    <linearGradient id="goldTrimGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D4AF37" />
+      <stop offset="50%" stop-color="#FFC857" />
+      <stop offset="100%" stop-color="#D4AF37" />
+    </linearGradient>
+  </defs>
+
+  <!-- ================= ACTIVE DECORATIONS ================= -->
+  
+  <!-- [titlebar-active] -->
+  <g id="titlebar-active">
+    <!-- Semi-transparent deep navy base -->
+    <rect x="0" y="0" width="100" height="32" fill="url(#activeTitleGrad)" fill-opacity="0.9" />
+    <!-- Top Royal Gold thin border (1px) -->
+    <rect x="0" y="0" width="100" height="1" fill="url(#goldTrimGrad)" />
+    <!-- Active Electric Blue glowing highlight indicator (bottom of titlebar) -->
+    <rect x="0" y="31" width="100" height="1" fill="#00C3FF" />
+  </g>
+
+  <!-- [border-left-active] -->
+  <g id="border-left-active">
+    <rect x="0" y="40" width="4" height="40" fill="#081426" fill-opacity="0.9" />
+    <!-- Active electric blue glow edge -->
+    <rect x="0" y="40" width="1" height="40" fill="#00C3FF" />
+  </g>
+
+  <!-- [border-right-active] -->
+  <g id="border-right-active">
+    <rect x="10" y="40" width="4" height="40" fill="#081426" fill-opacity="0.9" />
+    <!-- Active electric blue glow edge -->
+    <rect x="13" y="40" width="1" height="40" fill="#00C3FF" />
+  </g>
+
+  <!-- [border-bottom-active] -->
+  <g id="border-bottom-active">
+    <rect x="20" y="40" width="40" height="4" fill="#081426" fill-opacity="0.9" />
+    <!-- Active electric blue bottom glow -->
+    <rect x="20" y="43" width="40" height="1" fill="#00C3FF" />
+    <!-- Subtle gold corner accents -->
+    <rect x="20" y="42" width="2" height="1" fill="#D4AF37" />
+    <rect x="58" y="42" width="2" height="1" fill="#D4AF37" />
+  </g>
+
+  <!-- ================= INACTIVE DECORATIONS ================= -->
+  
+  <!-- [titlebar-inactive] -->
+  <g id="titlebar-inactive">
+    <rect x="0" y="100" width="100" height="32" fill="url(#inactiveTitleGrad)" fill-opacity="0.9" />
+    <!-- Inactive soft silver/gray top border -->
+    <rect x="0" y="100" width="100" height="1" fill="#C0C6D6" fill-opacity="0.5" />
+    <!-- Dark subtle line separating titlebar from window content -->
+    <rect x="0" y="131" width="100" height="1" fill="#151B26" />
+  </g>
+
+  <!-- [border-left-inactive] -->
+  <g id="border-left-inactive">
+    <rect x="0" y="140" width="4" height="40" fill="#05070D" fill-opacity="0.9" />
+    <rect x="0" y="140" width="1" height="40" fill="#2E3440" />
+  </g>
+
+  <!-- [border-right-inactive] -->
+  <g id="border-right-inactive">
+    <rect x="10" y="140" width="4" height="40" fill="#05070D" fill-opacity="0.9" />
+    <rect x="13" y="140" width="1" height="40" fill="#2E3440" />
+  </g>
+
+  <!-- [border-bottom-inactive] -->
+  <g id="border-bottom-inactive">
+    <rect x="20" y="140" width="40" height="4" fill="#05070D" fill-opacity="0.9" />
+    <rect x="20" y="143" width="40" height="1" fill="#2E3440" />
+  </g>
+
+  <!-- ================= CONTROLS BUTTONS ================= -->
+
+  <!-- CLOSE BUTTONS -->
+  <g id="close-active">
+    <circle cx="150" cy="20" r="7" fill="none" stroke="#D4AF37" stroke-width="1.5" />
+    <path d="M 147,17 L 153,23 M 153,17 L 147,23" stroke="#D4AF37" stroke-width="1.5" stroke-linecap="round" />
+  </g>
+  <g id="close-hover">
+    <circle cx="150" cy="50" r="7" fill="#E53935" fill-opacity="0.2" stroke="#FF1744" stroke-width="1.8" />
+    <path d="M 147,47 L 153,53 M 153,47 L 147,53" stroke="#PureWhite" stroke-width="1.8" stroke-linecap="round" />
+  </g>
+  <g id="close-pressed">
+    <circle cx="150" cy="80" r="7" fill="#820E2E" fill-opacity="0.5" stroke="#FF1744" stroke-width="1.8" />
+    <path d="M 147,77 L 153,83 M 153,77 L 147,83" stroke="#F7F7FF" stroke-width="1.8" stroke-linecap="round" />
+  </g>
+  <g id="close-inactive">
+    <circle cx="150" cy="110" r="7" fill="none" stroke="#C0C6D6" stroke-width="1.2" stroke-opacity="0.6" />
+    <path d="M 147,107 L 153,113 M 153,107 L 147,113" stroke="#C0C6D6" stroke-width="1.2" stroke-linecap="round" stroke-opacity="0.6" />
+  </g>
+
+  <!-- MAXIMIZE BUTTONS -->
+  <g id="maximize-active">
+    <circle cx="180" cy="20" r="7" fill="none" stroke="#D4AF37" stroke-width="1.5" />
+    <rect x="176" y="16" width="8" height="8" fill="none" stroke="#D4AF37" stroke-width="1.5" />
+  </g>
+  <g id="maximize-hover">
+    <circle cx="180" cy="50" r="7" fill="#00C3FF" fill-opacity="0.2" stroke="#00C3FF" stroke-width="1.8" />
+    <rect x="176" y="46" width="8" height="8" fill="none" stroke="#F7F7FF" stroke-width="1.8" />
+  </g>
+  <g id="maximize-pressed">
+    <circle cx="180" cy="80" r="7" fill="#1E6BFF" fill-opacity="0.4" stroke="#00C3FF" stroke-width="1.8" />
+    <rect x="176" y="76" width="8" height="8" fill="none" stroke="#F7F7FF" stroke-width="1.8" />
+  </g>
+  <g id="maximize-inactive">
+    <circle cx="180" cy="110" r="7" fill="none" stroke="#C0C6D6" stroke-width="1.2" stroke-opacity="0.6" />
+    <rect x="177" y="107" width="6" height="6" fill="none" stroke="#C0C6D6" stroke-width="1.2" stroke-opacity="0.6" />
+  </g>
+
+  <!-- MINIMIZE BUTTONS -->
+  <g id="minimize-active">
+    <circle cx="210" cy="20" r="7" fill="none" stroke="#D4AF37" stroke-width="1.5" />
+    <line x1="206" y1="20" x2="214" y2="20" stroke="#D4AF37" stroke-width="1.5" stroke-linecap="round" />
+  </g>
+  <g id="minimize-hover">
+    <circle cx="210" cy="50" r="7" fill="#00C3FF" fill-opacity="0.2" stroke="#00C3FF" stroke-width="1.8" />
+    <line x1="206" y1="50" x2="214" y2="50" stroke="#F7F7FF" stroke-width="1.8" stroke-linecap="round" />
+  </g>
+  <g id="minimize-pressed">
+    <circle cx="210" cy="80" r="7" fill="#1E6BFF" fill-opacity="0.4" stroke="#00C3FF" stroke-width="1.8" />
+    <line x1="206" y1="80" x2="214" y2="80" stroke="#F7F7FF" stroke-width="1.8" stroke-linecap="round" />
+  </g>
+  <g id="minimize-inactive">
+    <circle cx="210" cy="110" r="7" fill="none" stroke="#C0C6D6" stroke-width="1.2" stroke-opacity="0.6" />
+    <line x1="207" y1="110" x2="213" y2="110" stroke="#C0C6D6" stroke-width="1.2" stroke-opacity="0.6" />
+  </g>
+</svg>
