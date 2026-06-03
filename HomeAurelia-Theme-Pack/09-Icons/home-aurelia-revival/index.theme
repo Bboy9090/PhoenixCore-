@@ -1,0 +1,9 @@
+[Icon Theme]
+Name=home-aurelia-revival
+Comment=Icons for Phoenix OS Blue Phoenix: Revival Edition
+Inherits=home-aurelia,breeze
+Directories=places
+[places]
+Size=512
+Context=Places
+Type=Scalable

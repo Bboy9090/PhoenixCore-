@@ -1,0 +1,3 @@
+HomeAurelia Arcwyre icon set
+Identity: Arcwyre hand-cropped pixel recolorway
+SVG audit rule: no <image> tags, no data:image base64 wrappers.

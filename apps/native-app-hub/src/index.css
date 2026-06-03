@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* DEFAULT: NATIVE (Ancestral Blue/Red) */
+    --color-bg: 7 11 22;
+    --color-surface: 17 24 39;
+    --color-primary: 56 189 248;
+    --color-primary-hover: 2 132 199;
+    --color-accent: 239 68 68;
+    --color-accent-hover: 220 38 38;
+  }
+
+  body[data-theme="aurelia"] {
+    --color-bg: 10 5 20;
+    --color-surface: 20 10 40;
+    --color-primary: 167 139 250; /* Violet */
+    --color-primary-hover: 139 92 246;
+    --color-accent: 251 191 36; /* Gold */
+    --color-accent-hover: 245 158 11;
+  }
+
+  body[data-theme="arcwyre"] {
+    --color-bg: 15 5 5;
+    --color-surface: 30 10 10;
+    --color-primary: 220 38 38; /* Crimson */
+    --color-primary-hover: 185 28 28;
+    --color-accent: 34 197 94; /* Cyber Green */
+    --color-accent-hover: 22 163 74;
+  }
+
+  body[data-theme="thundergod"] {
+    --color-bg: 245 245 250;
+    --color-surface: 255 255 255;
+    --color-primary: 234 179 8; /* Electric Gold */
+    --color-primary-hover: 202 138 4;
+    --color-accent: 14 165 233; /* Lightning Blue */
+    --color-accent-hover: 2 132 199;
+  }
+
+  body {
+    @apply bg-background text-gray-100 antialiased overflow-hidden transition-colors duration-700 ease-in-out;
+  }
+  
+  body[data-theme="thundergod"] {
+    @apply text-gray-900;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-surface/30 backdrop-blur-2xl border border-white/20 shadow-2xl;
+  }
+  
+  body[data-theme="thundergod"] .glass-panel {
+    @apply bg-white/40 border-black/10 shadow-xl;
+  }
+
+  .glass-button {
+    @apply bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 
+           transition-all duration-300 ease-out;
+  }
+  
+  body[data-theme="thundergod"] .glass-button {
+    @apply bg-black/5 hover:bg-black/10 border-black/10;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  }
+}
+

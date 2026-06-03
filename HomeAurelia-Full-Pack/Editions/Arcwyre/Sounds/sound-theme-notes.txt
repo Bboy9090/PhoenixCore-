@@ -1,0 +1,1 @@
+Home Aurelia Arcwyre sound theme includes real generated WAV event sounds for login, logout, completion, and warning.

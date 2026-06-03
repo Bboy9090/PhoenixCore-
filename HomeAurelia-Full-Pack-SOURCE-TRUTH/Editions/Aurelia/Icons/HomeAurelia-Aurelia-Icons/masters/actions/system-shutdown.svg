@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs><radialGradient id="bg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#7AC8FF" stop-opacity=".35"/><stop offset="1" stop-color="#081326"/></radialGradient><filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect width="512" height="512" rx="64" fill="url(#bg)"/>
+<g filter="url(#glow)"><path d="M256 36 L404 102 L384 332 C350 398 302 438 256 464 C210 438 162 398 128 332 L108 102 Z" fill="#1A6FFF" stroke="#D4AF37" stroke-width="14"/><path d="M256 78 L350 126 L334 300 C316 350 286 384 256 410 C226 384 196 350 178 300 L162 126 Z" fill="#0F1E3A" opacity=".80" stroke="#7AC8FF" stroke-width="7"/><path d="M118 140 C178 76 218 110 256 168 C294 110 334 76 394 140" stroke="#7AC8FF" stroke-width="10" fill="none"/><path d="M256 152 V258 M196 204 C160 262 198 342 256 342 C314 342 352 262 316 204" stroke="#7AC8FF" stroke-width="24" fill="none" stroke-linecap="round"/></g>
+</svg>

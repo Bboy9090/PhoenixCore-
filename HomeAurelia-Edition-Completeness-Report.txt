@@ -1,0 +1,14 @@
+Home Aurelia Four Edition Production Build Report
+Backup: /Users/bj90-m1/PhoenixCore-/backups/home-aurelia-prebuild-20260531-101058
+Aurelia/Thundergod correction applied: Aurelia blue-dominant; Thundergod white-dominant divine with red scarf/gem.
+SVG masters are vector primitives; no embedded PNG/image tags.
+Generated contact sheets come from actual PNG outputs.
+ZIP outputs:
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Aurelia-Edition.zip
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Aurelia-Icons.zip
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Arcwyre-Edition.zip
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Arcwyre-Icons.zip
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Thundergod-Edition.zip
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Thundergod-Icons.zip
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Native-Edition.zip
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Native-Icons.zip

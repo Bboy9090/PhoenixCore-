@@ -1,0 +1,19 @@
+===================================================
+👑 HOME AURELIA — AURELIA EDITION PREVIEW SHEET
+===================================================
+Legacy Role: Royal skyborn protector, elegant guardian
+Mood: Celestial serenity, noble workstation, clean structure
+
+Color Palette (HSL & Hex):
+* Primary Base: Deep Navy (#081426)
+* View Layer: Storm Blue (#0F1E3A)
+* Active Element: Aurelia Blue (#1E6BFF)
+* Spark/Glow: Electric Blue (#00C3FF)
+* Sacred Accent: Royal Gold (#D4AF37)
+* Light Focus: Pure White (#F7F7FF)
+
+Visual Elements Included:
+* Wallpaper: Golden trim blue phoenix soaring through mountain kingdom clouds
+* Splash Screen: Centered Aurelia shield on dark starry background
+* Window Border: 1px Royal Gold border with thin Electric Blue glowing active line
+===================================================

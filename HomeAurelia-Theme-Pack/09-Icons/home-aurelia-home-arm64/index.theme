@@ -1,0 +1,9 @@
+[Icon Theme]
+Name=home-aurelia-home-arm64
+Comment=Icons for Phoenix OS Home Aurelia OS (ARM64)
+Inherits=home-aurelia,breeze
+Directories=places
+[places]
+Size=512
+Context=Places
+Type=Scalable

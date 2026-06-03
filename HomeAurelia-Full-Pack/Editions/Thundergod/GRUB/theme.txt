@@ -1,0 +1,2 @@
+title-text: "Home Aurelia Thundergod"
+desktop-image: "background.png"

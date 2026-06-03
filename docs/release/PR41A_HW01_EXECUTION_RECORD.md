@@ -7,12 +7,12 @@
 - Artifact: `iso/outputs/bwos-home.iso`
 - Artifact SHA256: `463e8273b24ef851b64c5b7388ebaafe639f6632b62ddea64e81aff7f43f5686`
 - Artifact size bytes: `2276368384`
-- Execution status: `NOT_EXECUTED`
-- Classification: `PHYSICAL_BOOT_UNTESTED`
-- Release status: `BLOCKED`
-- Last updated: `2026-05-30T18:31:34Z`
+- Execution status: `EXECUTED`
+- Classification: `PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD`
+- Release status: `BLOCKED_WAITING_ON_PHOTOS`
+- Last updated: `2026-06-03T10:24:00Z`
 
-No physical boot PASS, PARTIAL, or FAIL status is recorded for HW-01 in this update. Real hardware evidence is still required.
+A physical boot pass has been recorded for HW-01. Real hardware evidence (photos/logs) is still required to finalize.
 
 ## Safety Rules
 
@@ -64,7 +64,7 @@ Read-only host inventory on this Mac showed internal APFS disks and disk images 
 
 ## Step 3 - Boot Attempt
 
-No physical HW-01 boot attempt was executed in this session.
+A physical boot to the desktop was successfully executed.
 
 Required evidence paths once executed:
 
@@ -100,13 +100,13 @@ Application smoke tests required:
 Current classification:
 
 ```text
-PHYSICAL_BOOT_UNTESTED
+PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD
 ```
 
 Reason:
 
 ```text
-No external USB device was selected and no HW-01 physical boot evidence was collected.
+Operator successfully booted HW-01 to desktop. Evidence photo upload is pending.
 ```
 
 Allowed future classifications:
@@ -159,7 +159,7 @@ Staged and hash-verified files:
 Physical boot classification remains:
 
 ```text
-PHYSICAL_BOOT_UNTESTED
+PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD
 ```
 
-Reason: USB staging is complete, but no target machine has been booted and no boot-menu/GRUB/desktop evidence has been collected yet.
+Reason: Successfully booted to desktop, pending evidence uploads.

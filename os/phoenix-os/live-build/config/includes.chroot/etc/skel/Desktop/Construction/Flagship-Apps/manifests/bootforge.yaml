@@ -1,0 +1,8 @@
+public_name: "BootForge"
+internal_id: "org.aurelia.citadel.bootforge"
+category: "System;Setup"
+tier: 1
+release_status: "SHIP"
+requires_governance: true
+offline_capable: true
+launch_critical: true

@@ -1,0 +1,9 @@
+[Icon Theme]
+Name=home-aurelia-blue-phoenix
+Comment=Icons for Phoenix OS Blue Phoenix: Aurelia Edition
+Inherits=home-aurelia,breeze
+Directories=places
+[places]
+Size=512
+Context=Places
+Type=Scalable

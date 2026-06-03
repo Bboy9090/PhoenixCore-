@@ -1,0 +1,5 @@
+[General]
+Name=HomeAurelia-Native
+[Colors:Window]
+BackgroundNormal=4,5,15
+ForegroundNormal=225,238,255

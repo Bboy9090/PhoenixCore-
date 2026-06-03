@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs><radialGradient id="bg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#00C3FF" stop-opacity=".35"/><stop offset="1" stop-color="#030711"/></radialGradient><filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect width="512" height="512" rx="64" fill="url(#bg)"/>
+<g filter="url(#glow)"><path d="M256 38 L424 136 L418 342 L256 472 L94 342 L88 136 Z" fill="#030711" stroke="#E53935" stroke-width="14"/><path d="M144 162 L256 90 L368 162 L342 344 L256 420 L170 344 Z" fill="#081426" stroke="#00C3FF" stroke-width="8"/><path d="M88 414 L182 292 H148 L286 78 L236 272 H334 L160 468" stroke="#E53935" stroke-width="13" fill="none" stroke-linecap="round"/><path d="M256 116 L308 228 L256 394 L204 228 Z" fill="#00C3FF" stroke="#CDEBFF" stroke-width="7"/><path d="M148 230 C190 158 226 180 256 244 C214 226 178 242 142 294 Z M364 230 C322 158 286 180 256 244 C298 226 334 242 370 294 Z" fill="#00C3FF" stroke="#A9782D" stroke-width="7"/></g>
+</svg>

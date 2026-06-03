@@ -1,0 +1,4 @@
+Home Aurelia Arcwyre icons
+Identity: dark stormforged crimson rebellion
+SVG masters are vector geometry only. No embedded PNG/image tags.
+Generated contact sheets are built from actual PNG outputs.

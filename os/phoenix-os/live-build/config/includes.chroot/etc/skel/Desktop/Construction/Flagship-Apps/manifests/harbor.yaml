@@ -1,0 +1,8 @@
+public_name: "Harbor"
+internal_id: "org.aurelia.citadel.harbor"
+category: "System;PackageManager"
+tier: 1
+release_status: "SHIP"
+requires_governance: false
+offline_capable: false
+launch_critical: true

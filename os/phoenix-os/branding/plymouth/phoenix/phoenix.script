@@ -12,37 +12,21 @@ Window.SetBackgroundTopColor(__BG_TOP_R__, __BG_TOP_G__, __BG_TOP_B__);
 Window.SetBackgroundBottomColor(__BG_BOT_R__, __BG_BOT_G__, __BG_BOT_B__);
 
 # Edition splash backdrop (staged as splash-background.png)
+# This is our pre-rendered minimal cosmic galaxy + Phoenix loader image
 splash_image = Image("splash-background.png");
 scaled_splash_image = splash_image.Scale(screen_width, screen_height);
 splash_sprite = Sprite(scaled_splash_image);
 splash_sprite.SetPosition(0, 0, 0);
-splash_sprite.SetOpacity(0.20);
+splash_sprite.SetOpacity(1.0); # Solid 100% opacity for minimal splash loader
 
-# Core visual assets
-logo_image = Image("phoenix-logo-boot.png");
-bar_bg_image = Image("progress-bg.png");
-bar_fill_image = Image("progress-fill.png");
+# The user's provided background images already contain the progress bar UI baked in.
+# We will completely disable Plymouth's native progress bar drawing so it doesn't clash.
+# bar_bg_image = Image("progress-bg.png");
+# bar_fill_image = Image("progress-fill.png");
 
-# Logo sprite
-logo_sprite = Sprite(logo_image);
-logo_x = (screen_width - logo_image.GetWidth()) / 2;
-logo_y = (screen_height - logo_image.GetHeight()) / 2 - 70;
-logo_sprite.SetPosition(logo_x, logo_y, 1);
-logo_sprite.SetOpacity(0);
-
-# Progress bar geometry
-progress_bar_height = 6;
-progress_bar_y = screen_height - 80;
-progress_bar_max_width = screen_width * 0.46;
-progress_bar_x_start = (screen_width - progress_bar_max_width) / 2;
-
-scaled_bg_image = bar_bg_image.Scale(progress_bar_max_width, progress_bar_height);
-bar_bg_sprite = Sprite(scaled_bg_image);
-bar_bg_sprite.SetPosition(progress_bar_x_start, progress_bar_y, 1);
-
-scaled_fill_image = bar_fill_image.Scale(2, progress_bar_height);
-bar_fill_sprite = Sprite(scaled_fill_image);
-bar_fill_sprite.SetPosition(progress_bar_x_start, progress_bar_y, 2);
+# scaled_fill_image = bar_fill_image.Scale(2, progress_bar_height);
+# bar_fill_sprite = Sprite(scaled_fill_image);
+# bar_fill_sprite.SetPosition(progress_bar_x_start, progress_bar_y, 2);
 
 frame = 0;
 logo_fade_in_frames = 28;
@@ -50,28 +34,9 @@ logo_fade_in_frames = 28;
 fun refresh_callback() {
     frame++;
 
-    if (frame <= logo_fade_in_frames) {
-        opacity = frame / logo_fade_in_frames;
-        logo_sprite.SetOpacity(opacity);
-    } else {
-        logo_sprite.SetOpacity(1.0);
-    }
-
-    boot_progress = Plymouth.GetBootProgress();
-    if (boot_progress < 0) {
-        boot_progress = 0;
-    }
-    if (boot_progress > 1) {
-        boot_progress = 1;
-    }
-
-    current_width = progress_bar_max_width * boot_progress;
-    if (current_width < 2) {
-        current_width = 2;
-    }
-
-    scaled_fill_image = bar_fill_image.Scale(current_width, progress_bar_height);
-    bar_fill_sprite.SetImage(scaled_fill_image);
+    # Native progress bar update disabled because UI is baked into the splash image.
+    # boot_progress = Plymouth.GetBootProgress();
+    # ...
 }
 
 Plymouth.SetRefreshFunction(refresh_callback);
@@ -83,7 +48,7 @@ fun message_callback(text) {
 Plymouth.SetMessageFunction(message_callback);
 
 fun quit_callback() {
-    logo_sprite.SetOpacity(0);
+    # Fade out happens natively in Plymouth 0.9+
 }
 
 Plymouth.SetQuitFunction(quit_callback);

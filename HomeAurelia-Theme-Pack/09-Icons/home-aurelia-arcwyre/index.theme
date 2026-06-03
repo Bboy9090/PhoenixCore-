@@ -1,0 +1,9 @@
+[Icon Theme]
+Name=home-aurelia-arcwyre
+Comment=Icons for Phoenix OS Bobby’s Worldwide OS: ARCWYRE Edition
+Inherits=home-aurelia,breeze
+Directories=places
+[places]
+Size=512
+Context=Places
+Type=Scalable

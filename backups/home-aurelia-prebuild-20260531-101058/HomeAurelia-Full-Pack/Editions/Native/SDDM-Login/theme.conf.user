@@ -1,0 +1,6 @@
+[General]
+type=image
+background=background.png
+
+[Theme]
+Current=HomeAurelia-Native

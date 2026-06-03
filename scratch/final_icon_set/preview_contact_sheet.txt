@@ -1,0 +1,32 @@
+# 💎 HomeAurelia Flagship Icon Pack Visual Preview Sheet
+===================================================
+UMBRELLA BRAND: Home Aurelia
+TAGLINE: Four Legacies. One Throne.
+DESIGN STANDARD: Dark navy bases, electric blue highlights, royal gold borders
+
+## Mapped 22 Blueprint Icon Concepts:
+1. Documents (folder-documents): Royal Gold borders on Obsidian document sheet with clean Electric Blue text lines.
+2. Downloads (folder-downloads): Descending Blue glow arrow resting above a solid Royal Gold support line.
+3. Music (folder-music): Dual connected Gold-and-Blue musical notes centered in folder crest.
+4. Pictures (folder-pictures): Obsidian polaroid landscape frame housing glowing Electric Blue peaks and a Royal Gold Sun.
+5. Videos (folder-videos): Navy film slate highlighting a glowing gold play vector crest in the center.
+6. Trash (user-trash / user-trash-full): Circular royal shield base containing an obsidian trash canister with gold grill dividers.
+7. Settings (system-settings / preferences-system): Detailed golden outer gear wheel enclosing a dark navy dial with a central bright blue electric core.
+8. Terminal (utilities-terminal): Gold bordered terminal envelope showing an active electric blue command prompt.
+9. Browser (internet-web-browser): Interlocking electric blue longitude/latitude grids centered with a bold gold equator line.
+10. Mail (internet-mail): Golden border mail envelope containing a clean blue glowing letter flap.
+11. Calendar (office-calendar): Blue and gold framed calendar page reflecting the sovereign boot day '25'.
+12. Network (network-wireless / network-workgroup): Concentric glowing electric blue frequency waves radiating from a golden base transmitter.
+13. Bluetooth (bluetooth): Pure golden runic storm bluetooth transmitter node.
+14. User (user): Stylized golden profile ring resting on a glowing electric blue body shoulder.
+15. Power (system-shutdown / system-reboot): Golden vertical energy toggle dividing an electric blue radial sleep ring.
+16. Software (system-software-install): Translucent obsidian cube showing a golden top lid and bright blue structural edges.
+17. Help (dialog-question): Classic serif Cinzel question mark glowing in royal gold gradient.
+18. Drive (drive-harddisk / drive-removable-media): Dark navy disk rack showcasing glowing electric blue LED status sensors.
+19. System (computer): Gold bounded desktop CPU enclosure showcasing a glowing blue core processor node.
+20. Firewall (network-firewall): Electric blue stone battlement wall segment detailed with gold mortar lines.
+21. Calculator (accessories-calculator): Blue framed key-matrix showing golden digits and a glowing electric blue display field.
+22. Text Editor (accessories-text-editor): Glowing blue text page intersecting a golden drafting calligraphy pen.
+
+===================================================
+Zero Missing Files Audit: Staging complete and verified.

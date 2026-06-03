@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Phoenix Game Mode
+GenericName=System Optimizer
+Comment=Instantly optimizes Phoenix OS for maximum gaming performance
+Icon=input-gaming
+Exec=/usr/local/bin/phoenix-gamemode
+Terminal=true
+Categories=Game;System;
+Keywords=game;optimize;performance;proton;

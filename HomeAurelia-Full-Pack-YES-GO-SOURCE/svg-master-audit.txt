@@ -1,0 +1,1 @@
+PASS: no embedded PNG/image SVG wrappers found.

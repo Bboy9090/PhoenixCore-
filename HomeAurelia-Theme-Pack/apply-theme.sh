@@ -70,6 +70,20 @@ esac
 WALLPAPER_PATH="${USER_WALLPAPER_DIR}/${WALLPAPER_FILE}"
 WALLPAPER_URI="file://${WALLPAPER_PATH}"
 
+# Determine Dynamic Theme Names
+if [[ "$VARIANT" == "HomeAurelia" ]]; then
+    ICON_THEME="home-aurelia"
+    KVANTUM_THEME="HomeAurelia"
+    AURORAE_THEME="HomeAurelia"
+else
+    # Extract suffix and lowercase (e.g. HomeAurelia-Arcwyre -> home-aurelia-arcwyre)
+    SUFFIX="${VARIANT#HomeAurelia-}"
+    ICON_THEME="home-aurelia-${SUFFIX,,}"
+    KVANTUM_THEME="${VARIANT}"
+    AURORAE_THEME="${VARIANT}"
+fi
+CURSOR_THEME="${ICON_THEME}-cursors"
+
 # 3. Apply KDE Color Scheme
 echo -e "${BLUE}[INFO] Setting color scheme to: ${GREEN}${VARIANT}${NC}..."
 if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
@@ -83,41 +97,41 @@ else
     done
 fi
 
-# 4. Apply Icon Theme (home-aurelia)
-echo -e "${BLUE}[INFO] Setting icon theme to: ${GREEN}home-aurelia${NC}..."
+# 4. Apply Icon Theme
+echo -e "${BLUE}[INFO] Setting icon theme to: ${GREEN}${ICON_THEME}${NC}..."
 for kwriteconfig in kwriteconfig6 kwriteconfig5; do
     if command -v "${kwriteconfig}" >/dev/null 2>&1; then
-        "${kwriteconfig}" --file kdeglobals --group Icons --key Theme "home-aurelia" || true
+        "${kwriteconfig}" --file kdeglobals --group Icons --key Theme "${ICON_THEME}" || true
     fi
 done
 
-# 5. Apply Cursor Theme (home-aurelia-cursors)
-echo -e "${BLUE}[INFO] Setting cursor theme to: ${GREEN}home-aurelia-cursors${NC}..."
+# 5. Apply Cursor Theme
+echo -e "${BLUE}[INFO] Setting cursor theme to: ${GREEN}${CURSOR_THEME}${NC}..."
 if command -v plasma-apply-cursortheme >/dev/null 2>&1; then
-    plasma-apply-cursortheme "home-aurelia-cursors" || true
+    plasma-apply-cursortheme "${CURSOR_THEME}" || true
 else
     for kwriteconfig in kwriteconfig6 kwriteconfig5; do
         if command -v "${kwriteconfig}" >/dev/null 2>&1; then
-            "${kwriteconfig}" --file kcminputrc --group Mouse --key cursorTheme "home-aurelia-cursors" || true
+            "${kwriteconfig}" --file kcminputrc --group Mouse --key cursorTheme "${CURSOR_THEME}" || true
         fi
     done
 fi
 
-# 6. Apply Window Decoration Theme (HomeAurelia Aurorae)
-echo -e "${BLUE}[INFO] Setting window decoration theme to: ${GREEN}HomeAurelia${NC}..."
+# 6. Apply Window Decoration Theme
+echo -e "${BLUE}[INFO] Setting window decoration theme to: ${GREEN}${AURORAE_THEME}${NC}..."
 for kwriteconfig in kwriteconfig6 kwriteconfig5; do
     if command -v "${kwriteconfig}" >/dev/null 2>&1; then
         "${kwriteconfig}" --file kwinrc --group org.kde.kdecoration2 --key library "org.kde.aurorae" || true
-        "${kwriteconfig}" --file kwinrc --group org.kde.kdecoration2 --key theme "HomeAurelia" || true
+        "${kwriteconfig}" --file kwinrc --group org.kde.kdecoration2 --key theme "${AURORAE_THEME}" || true
     fi
 done
 
-# 7. Apply Kvantum Widget Style Config (HomeAurelia)
-echo -e "${BLUE}[INFO] Setting Kvantum widget style to: ${GREEN}HomeAurelia${NC}..."
+# 7. Apply Kvantum Widget Style Config
+echo -e "${BLUE}[INFO] Setting Kvantum widget style to: ${GREEN}${KVANTUM_THEME}${NC}..."
 mkdir -p "$HOME_DIR/.config/Kvantum"
 cat > "$HOME_DIR/.config/Kvantum/kvantum.kvconfig" <<EOF
 [General]
-theme=HomeAurelia
+theme=${KVANTUM_THEME}
 EOF
 
 # 8. Apply Wallpaper

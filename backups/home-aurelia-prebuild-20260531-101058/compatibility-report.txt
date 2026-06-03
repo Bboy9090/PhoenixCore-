@@ -1,0 +1,243 @@
+Home Aurelia compatibility report (duplicate/symlink placements)
+
+[folder-documents]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[folder-downloads]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[folder-music]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[folder-pictures]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[folder-videos]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[user-trash]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[system-settings]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[utilities-terminal]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[internet-web-browser]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[internet-mail]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[office-calendar]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[network-wireless]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[bluetooth]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[user]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[system-shutdown]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[system-software-install]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[dialog-question]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[drive-harddisk]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[computer]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[network-firewall]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[accessories-calculator]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+
+[accessories-text-editor]
+  16x16: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  22x22: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  24x24: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  32x32: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  48x48: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  64x64: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  128x128: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  256x256: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none
+  512x512: contexts=8 -> apps, places, actions, devices, status, mimetypes, categories, emblems; symlink_contexts=none

@@ -1,0 +1,132 @@
+{
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devPath": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Phoenix Control Center",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "focus": true,
+        "alwaysOnTop": false,
+        "decorations": true,
+        "transparent": false,
+        "visible": true,
+        "skipTaskbar": false
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "updater": {
+      "active": false
+    }
+  },
+  "package": {
+    "productName": "Phoenix Control Center",
+    "version": "2.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "execute": true,
+        "open": true,
+        "sidecar": true
+      },
+      "fs": {
+        "all": false,
+        "readDir": true,
+        "readFile": true,
+        "writeFile": true,
+        "createDir": true,
+        "removeDir": true,
+        "removeFile": true,
+        "copyFile": true,
+        "renameFile": true,
+        "exists": true,
+        "metadata": true,
+        "scope": ["/home/**", "/tmp/**", "/media/**"]
+      },
+      "path": {
+        "all": true
+      },
+      "window": {
+        "all": false,
+        "create": false,
+        "center": true,
+        "requestUserAttention": true,
+        "setResizable": true,
+        "setMaxPhysicalSize": true,
+        "setMinPhysicalSize": true,
+        "setTitle": true,
+        "maximize": true,
+        "unmaximize": true,
+        "minimize": true,
+        "unminimize": true,
+        "show": true,
+        "hide": true,
+        "close": true,
+        "setDecorations": true,
+        "setAlwaysOnTop": true,
+        "setContentProtected": true,
+        "setFullscreen": true,
+        "setFocus": true,
+        "setSkipTaskbar": true,
+        "setCursorGrab": true,
+        "setCursorVisible": true,
+        "setCursorIcon": true,
+        "setCursorPosition": true,
+        "setIgnoreCursorEvents": true,
+        "startDragging": true
+      },
+      "dialog": {
+        "all": false,
+        "open": true,
+        "save": true
+      },
+      "notification": {
+        "all": true
+      },
+      "http": {
+        "all": false,
+        "request": true,
+        "scope": ["http://*", "https://*"]
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": ["deb", "appimage"],
+      "identifier": "com.phoenix.control-center",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "resources": [],
+      "externalBin": [],
+      "copyright": "Copyright © 2026 Phoenix OS Contributors",
+      "category": "Utility",
+      "shortDescription": "Phoenix OS System Control Center",
+      "longDescription": "Professional system management and recovery tools for Phoenix OS",
+      "deb": {
+        "depends": ["libssl3", "libxdo3"],
+        "useBootstrapper": true
+      },
+      "appimage": {
+        "bundleMediaToken": false
+      }
+    }
+  }
+}

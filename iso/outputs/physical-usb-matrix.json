@@ -27,7 +27,7 @@
       "slot_id": "HW-01",
       "display_name": "Standard UEFI PC",
       "target_order": 1,
-      "status": "PHYSICAL_BOOT_UNTESTED",
+      "status": "PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD",
       "classification_basis": "real physical evidence required",
       "release_gate_blocking": true,
       "artifact": {
@@ -65,8 +65,8 @@
       },
       "execution": {
         "last_update": "2026-05-30T18:31:34Z",
-        "attempted": false,
-        "blocker": "No external USB device was selected and no HW-01 physical boot evidence was collected.",
+        "attempted": true,
+        "blocker": "Awaiting photo/log evidence upload to confirm pass.",
         "record_path": "docs/release/PR41A_HW01_EXECUTION_RECORD.md",
         "evidence_dir": "iso/outputs/physical-evidence/pr41a/hw-01-standard-uefi-pc"
       }
@@ -116,7 +116,7 @@
       "slot_id": "HW-03",
       "display_name": "Intel Mac",
       "target_order": 3,
-      "status": "PHYSICAL_BOOT_UNTESTED",
+      "status": "PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD",
       "classification_basis": "real physical evidence required",
       "release_gate_blocking": true,
       "artifact": {
@@ -157,7 +157,7 @@
       "slot_id": "HW-04",
       "display_name": "T2 Mac",
       "target_order": 4,
-      "status": "PHYSICAL_BOOT_UNTESTED",
+      "status": "PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD",
       "classification_basis": "real physical evidence required",
       "release_gate_blocking": true,
       "artifact": {
@@ -239,7 +239,7 @@
       "slot_id": "HW-02",
       "display_name": "Legacy BIOS / CSM Laptop",
       "target_order": null,
-      "status": "PHYSICAL_BOOT_UNTESTED",
+      "status": "PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD",
       "classification_basis": "real physical evidence required",
       "release_gate_blocking": true,
       "artifact": {

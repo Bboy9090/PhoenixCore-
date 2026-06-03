@@ -1,0 +1,1 @@
+Home Aurelia Flagship Icons Compiled from Hand-Cropped Master PNGs.

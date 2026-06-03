@@ -132,6 +132,10 @@ Allowed classifications:
 - `PHYSICAL_BOOT_FAIL_DESKTOP`: Kernel/init reached but desktop failed.
 - `PHYSICAL_BOOT_UNTESTED`: No physical attempt executed yet.
 
-## Current HW-01 State
+## Current Validation State
 
-`HW-01` remains `PHYSICAL_BOOT_UNTESTED`. No USB image write or physical boot attempt was executed in this update.
+- `HW-01` (Windows PC): `PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD`
+- `HW-03` (iMac): `PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD`
+- `HW-04` (second iMac): `PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD`
+- `HW-02` (Chromebook): `PHYSICAL_BOOT_PASS_PENDING_EVIDENCE_UPLOAD`
+- `HW-05` (Apple Silicon M1): `PHYSICAL_BOOT_UNTESTED`

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+# Enable i386 (32-bit) architecture in the chroot before packages are installed.
+# This is strictly required for Wine32 and Steam to install correctly.
+
+echo "I: Phoenix OS - Enabling i386 architecture for gaming compatibility..."
+dpkg --add-architecture i386
+apt-get update

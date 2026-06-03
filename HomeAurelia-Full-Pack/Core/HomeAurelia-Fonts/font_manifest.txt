@@ -1,0 +1,5 @@
+Home Aurelia Premium Font Registry:
+
+Primary Title Font: Cinzel (Serif, Elegant Letter-Spaced)
+UI Body Font: Inter (Sans-Serif, Premium High-DPI Contrast)
+Terminal Font: JetBrains Mono (Monospace, Sharp Render)

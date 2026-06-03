@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=HomeAurelia-Native
+Description=Home Aurelia mythic phoenix boot splash - dark navy, electric blue, restrained gold
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/home-aurelia-native
+ScriptFile=/usr/share/plymouth/themes/home-aurelia-native/home-aurelia-native.script

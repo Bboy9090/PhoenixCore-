@@ -1,0 +1,9 @@
+[Icon Theme]
+Name=home-aurelia-thunder-god-arm64
+Comment=Icons for Phoenix OS Arcwyre: Thundergod ARM64 Edition
+Inherits=home-aurelia,breeze
+Directories=places
+[places]
+Size=512
+Context=Places
+Type=Scalable

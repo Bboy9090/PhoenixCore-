@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" version="1.1">
+  <defs>
+    
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFC857" />
+      <stop offset="50%" stop-color="#D4AF37" />
+      <stop offset="100%" stop-color="#8A6600" />
+    </linearGradient>
+    <linearGradient id="goldTrim" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D4AF37" />
+      <stop offset="50%" stop-color="#FFC857" />
+      <stop offset="100%" stop-color="#D4AF37" />
+    </linearGradient>
+    
+    
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E6BFF" />
+      <stop offset="100%" stop-color="#00C3FF" />
+    </linearGradient>
+    <linearGradient id="folderGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0F1E3A" />
+      <stop offset="100%" stop-color="#081426" />
+    </linearGradient>
+    <linearGradient id="frontFlapGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1A2E5C" />
+      <stop offset="40%" stop-color="#0F1E3A" />
+      <stop offset="100%" stop-color="#070D1A" />
+    </linearGradient>
+    <radialGradient id="electricGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00C3FF" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#1E6BFF" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="baseGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00C3FF" stop-opacity="0" />
+      <stop offset="25%" stop-color="#00C3FF" stop-opacity="1" />
+      <stop offset="75%" stop-color="#00C3FF" stop-opacity="1" />
+      <stop offset="100%" stop-color="#00C3FF" stop-opacity="0" />
+    </linearGradient>
+    
+  </defs>
+  <path d="M 40,90 C 40,75 55,65 70,65 L 180,65 C 195,65 205,80 215,95 L 235,120 L 442,120 C 457,120 472,135 472,150 L 472,410 C 472,425 457,440 442,440 L 70,440 C 55,440 40,425 40,410 Z" 
+        fill="url(#folderGrad)" stroke="#1E6BFF" stroke-width="3" />
+  <path d="M 40,150 C 40,135 55,125 70,125 L 442,125 C 457,125 472,135 472,150 L 472,410 C 472,425 457,440 442,440 L 70,440 C 55,440 40,425 40,410 Z" 
+        fill="url(#frontFlapGrad)" stroke="#1E6BFF" stroke-width="2" />
+  <path d="M 70,125 L 442,125" stroke="url(#goldTrim)" stroke-width="2.5" stroke-linecap="round" />
+  <path d="M 70,434 L 442,434" stroke="url(#baseGlow)" stroke-width="4.5" stroke-linecap="round" />
+  
+    <g transform="translate(146, 175) scale(0.43)">
+      <rect x="20" y="30" width="200" height="200" rx="8" fill="#05070D" stroke="url(#goldGrad)" stroke-width="6" />
+      <path d="M 30,210 L 100,100 L 150,170 L 190,110 L 210,210 Z" fill="url(#blueGrad)" fill-opacity="0.3" stroke="#00C3FF" stroke-width="6" stroke-linejoin="round" />
+      <circle cx="170" cy="80" r="20" fill="url(#goldGrad)" />
+    </g>
+    
+</svg>

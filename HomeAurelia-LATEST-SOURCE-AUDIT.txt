@@ -1,0 +1,48 @@
+HOME AURELIA — LATEST SOURCE AUDIT
+
+1. APPROVED YES-GO SOURCE FILES FOUND (01_APPROVED_REFERENCE_BOARDS)
+- aurelia_icon_set_design_guide.png (1,932,602 bytes)
+- aurelia_production_style_guide_poster.png (2,203,381 bytes)
+- aurelia_kde_theme_design_mockup.png (2,126,527 bytes)
+- a_high_detail_promotional_concept_art_splash_scr.png (2,954,717 bytes)
+- home_aurelia_theme_design_concept.png (2,506,576 bytes)
+- plymouth_theme_design_concept_sheet.png (2,328,776 bytes)
+- aurelia_four_legacies_one_throne.png (2,372,141 bytes)
+- epic_phoenix_legacy_theme_art.png (2,541,177 bytes)
+- home_aurelia_three_forms_one_legacy.png (2,709,002 bytes)
+- home_aurelia_eternal_sky_legend.png (2,653,326 bytes)
+
+2. ALL NO-GO / REJECTED SOURCE FILES FOUND
+- circular_generic_glyphs.svg / generic circular icon glyphs (rejected)
+- flat_blue_line_icons (rejected)
+- single_recolored_shared_icon_pack (rejected)
+- simple_rectangles_with_text.svg (rejected)
+- fake_svgs_with_embedded_pngs (rejected)
+- old rejected output proofs (e.g. HomeAurelia-four-edition-output-proof.png, HomeAurelia-side-by-side-reference-vs-output.png)
+
+3. SOURCE FILE MAPPING TO THEMES
+- Aurelia Icons: Derived from aurelia_icon_set_design_guide.png (blue-dominant royal style with subtle violet/pink glow accents, gold trim)
+- Arcwyre Icons: Derived from home_aurelia_theme_design_concept.png / epic_phoenix_legacy_theme_art.png (dark red/crimson storm energy with electric blue accents)
+- Thundergod Icons: Derived from aurelia_icon_set_design_guide.png / home_aurelia_three_forms_one_legacy.png (white/gold/blue divine style, red scarf & gem accent)
+- Native Icons: Derived from aurelia_four_legacies_one_throne.png (blue/red ancestral ascension energy)
+- Aurelia Splash: Derived from a_high_detail_promotional_concept_art_splash_scr.png
+- Arcwyre Splash: Derived from epic_phoenix_legacy_theme_art.png
+- Thundergod Splash: Derived from home_aurelia_three_forms_one_legacy.png
+- Native Splash: Derived from aurelia_four_legacies_one_throne.png
+- Default Home Aurelia Splash: Derived from home_aurelia_eternal_sky_legend.png
+- Plymouth/Loading Screens: Derived from plymouth_theme_design_concept_sheet.png
+- KDE Wallpaper Sets: Derived from high-detail 4K vertical/horizontal crops of respective approved reference boards
+- KDE Theme/Shell References: Derived from aurelia_kde_theme_design_mockup.png
+
+4. PRIOR REJECTED OUTPUTS
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Theme-Pack (failed visual pass output)
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Theme-Pack-v1.0.0.zip (failed package build)
+
+5. PRIOR TECHNICAL REFERENCES
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH (contains correct freedesktop naming structure and configurations used as packaging technical reference)
+
+6. EXACT NEW NEW OUTPUT FOLDER
+- /Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-YES-GO-SOURCE
+
+7. BACKUP PATH
+- /Users/bj90-m1/PhoenixCore-/backups/home-aurelia-yes-go-prebuild-20260531-162200

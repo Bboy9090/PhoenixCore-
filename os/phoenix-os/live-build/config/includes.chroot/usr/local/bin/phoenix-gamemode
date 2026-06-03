@@ -1,0 +1,33 @@
+#!/bin/bash
+# Phoenix OS - Game Mode Optimizer
+
+echo "Initializing Phoenix OS Maximum Performance Game Mode..."
+
+# 1. Set CPU Governor to Performance
+if command -v cpupower &> /dev/null; then
+    sudo cpupower frequency-set -g performance
+    echo "CPU Governor set to Performance."
+else
+    echo "cpupower not found, attempting generic sysfs override..."
+    echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor || true
+fi
+
+# 2. Suspend non-critical background services
+echo "Suspending background indexing and update checks..."
+sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer || true
+balooctl suspend || true
+
+# 3. Clear RAM cache
+echo "Clearing system cache to free RAM..."
+echo 3 | sudo tee /proc/sys/vm/drop_caches
+
+# 4. Trigger Feral Interactive Gamemode if available
+if command -v gamemoded &> /dev/null; then
+    echo "Triggering native Gamemode daemon..."
+    gamemoded -t
+fi
+
+# Show Desktop Notification
+notify-send -u critical -i input-gaming "Phoenix Game Mode Activated" "Maximum system resources are now dedicated to gaming. CPU set to performance." -t 5000
+
+echo "Game Mode Fully Active!"

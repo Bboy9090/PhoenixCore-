@@ -62,28 +62,23 @@ def get_connected_disks():
         return []
 
 def format_usb_to_ventoy_layout(disk_path: str):
-    """Formats the selected drive into two partitions: BOOT (FAT32) and AURELIA (ExFAT) under GPT."""
-    print(f"\n{BLUE}🔄 Preparing drive {disk_path} (zeroing out partition table)...{RESET}")
+    """Formats the selected drive using GPT HFS+ to match Apple's official bootloader guidelines."""
+    print(f"\n{BLUE}🔄 Preparing drive {disk_path}...{RESET}")
     try:
         subprocess.run(["diskutil", "unmountDisk", "force", disk_path], check=True)
-        raw_disk = disk_path.replace("/dev/disk", "/dev/rdisk")
-        print(f"{YELLOW}⚡ Wiping legacy partition structures on {raw_disk}... (requires sudo){RESET}")
-        subprocess.run(["sudo", "dd", "if=/dev/zero", f"of={raw_disk}", "bs=1m", "count=32"], check=True)
         
         print(f"{YELLOW}⏳ Settling disk state...{RESET}")
-        time.sleep(3)
+        time.sleep(2)
         
         subprocess.run(["diskutil", "unmountDisk", "force", disk_path], check=False)
         
-        print(f"{BLUE}🔄 Partitioning disk with Boot-First GPT Layout (BOOT FAT32: 200MB, AURELIA ExFAT: Remainder)...{RESET}")
-        # Command: diskutil partitionDisk diskX 2 GPT "MS-DOS FAT32" BOOT 200M ExFAT AURELIA R
-        # Changed partition scheme to GPT, ensuring legacy Apple EFI ROM can detect EFI bootloader!
+        print(f"{BLUE}🔄 Partitioning disk with GUID Partition Table (GPT) and single HFS+ volume (AURELIA)...{RESET}")
         subprocess.run([
-            "diskutil", "partitionDisk", disk_path, "2", "GPT", 
-            "MS-DOS FAT32", "BOOT", "200M", "ExFAT", "AURELIA", "R"
+            "diskutil", "partitionDisk", disk_path, "1", "GPT", 
+            "Journaled HFS+", "AURELIA", "R"
         ], check=True)
         
-        print(f"{GREEN}✓ Disk partitioned successfully with GPT ExFAT + FAT32!{RESET}")
+        print(f"{GREEN}✓ Disk partitioned successfully with GPT HFS+!{RESET}")
         return True
     except subprocess.CalledProcessError as e:
         print(f"{RED}❌ Failed to partition disk: {e}{RESET}")
@@ -102,7 +97,7 @@ set default=0
 insmod part_gpt
 insmod part_msdos
 insmod fat
-insmod exfat   # Added for ExFAT support
+insmod hfsplus   # Added for HFS+ support
 insmod normal
 insmod video
 insmod video_fb
@@ -119,67 +114,88 @@ terminal_output gfxterm
 set menu_color_normal=white/black
 set menu_color_highlight=yellow/blue
 
-# --- 1. Aurelia OS (64-bit AMD64) ---
-# nomodeset added for fallback VESA console to safeguard the Intel GMA X3100 GPU
-menuentry "🔥 Phoenix OS: Aurelia Edition (64-bit Live - nomodeset)" --class phoenix {
-    set isofile="/iso/bwos-aurelia.iso"
+# --- 1. Home Aurelia Edition (32-bit/64-bit Mixed-Mode) ---
+menuentry "🔥 Phoenix OS: Home Aurelia Edition (32-bit/64-bit)" --class phoenix {
+    set isofile="/iso/bwos-home.iso"
     search --no-floppy --set=root --file $isofile
     loopback loop $isofile
-    linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash nomodeset username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img-5.10.0-43-amd64
-}
-
-menuentry "🔥 Phoenix OS: Aurelia Edition (64-bit Live - Legacy Kernel Fallback)" --class phoenix {
-    set isofile="/iso/bwos-aurelia.iso"
-    search --no-floppy --set=root --file $isofile
-    loopback loop $isofile
-    linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash nomodeset username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img
-}
-
-# --- 2. MX Linux 23.6 Fluxbox (32-bit Recovery) ---
-menuentry "❄️ MX Linux 23.6 Fluxbox (32-bit Live Recovery)" --class mx {
-    set isofile="/iso/MX-23.6_fluxbox_386.iso"
-    search --no-floppy --set=root --file $isofile
-    loopback loop $isofile
-    linux (loop)/antiX/vmlinuz quiet splash fromiso=$isofile nomodeset
-    initrd (loop)/antiX/initrd.gz
-}
-
-# --- 3. Linux Mint 22.3 XFCE (64-bit Recovery) ---
-menuentry "🌱 Linux Mint 22.3 XFCE (64-bit Live Recovery - nomodeset)" --class mint {
-    set isofile="/iso/linuxmint-22.3-xfce-64bit.iso"
-    search --no-floppy --set=root --file $isofile
-    loopback loop $isofile
-    linux (loop)/casper/vmlinuz boot=casper iso-scan/filename=$isofile quiet splash nomodeset
-    initrd (loop)/casper/initrd.lz
-}
-
-# --- 4. macOS Sonoma Installer / Recovery (64-bit) ---
-# NOTE: Directly chainloading Sonoma boot.efi on MacBook 4,1 requires OCLP!
-# You must build/boot OpenCore first to inject 32-to-64bit translation hooks.
-menuentry "🍎 macOS Sonoma Recovery & Installer (via OCLP)" --class osx {
-    set isofile="/iso/Sonoma.iso"
-    search --no-floppy --set=root --file $isofile
-    loopback loop $isofile
-    chainloader (loop)/System/Library/CoreServices/boot.efi
-}
-
-# --- 5. Windows BootCamp Handoff (Chainload Local Partition) ---
-menuentry "🏁 Windows BootCamp (EFI / Legacy Boot)" --class windows {
-    insmod ntfs
-    insmod ntfscomp
-    insmod chain
-    # Scan all partitions for bootmgfw.efi
-    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi
-    if [ -f ($root)/EFI/Microsoft/Boot/bootmgfw.efi ]; then
-        chainloader ($root)/EFI/Microsoft/Boot/bootmgfw.efi
-    elif [ -f ($root)/bootmgr ]; then
-        # Fallback for legacy BIOS Windows bootmgr on Bootcamp
-        ntldr ($root)/bootmgr
+    if [ -f (loop)/live/vmlinuz-5.10.0-44-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-44-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-44-amd64
+    elif [ -f (loop)/live/vmlinuz-5.10.0-43-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-43-amd64
     else
-        echo "❌ BootCamp Windows bootloader not found on local partitions."
-        sleep 3
+        linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img
+    fi
+}
+
+# --- 2. Aurelia OS (64-bit) ---
+menuentry "🔥 Phoenix OS: Aurelia OS (64-bit)" --class phoenix {
+    set isofile="/iso/bwos-aurelia.iso"
+    search --no-floppy --set=root --file $isofile
+    loopback loop $isofile
+    if [ -f (loop)/live/vmlinuz-5.10.0-44-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-44-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-44-amd64
+    elif [ -f (loop)/live/vmlinuz-5.10.0-43-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-43-amd64
+    else
+        linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img
+    fi
+}
+
+# --- 3. Thundergod Edition (64-bit) ---
+menuentry "⚡ Phoenix OS: Thundergod Edition (64-bit)" --class thunder {
+    set isofile="/iso/bwos-thunder-god.iso"
+    search --no-floppy --set=root --file $isofile
+    loopback loop $isofile
+    if [ -f (loop)/live/vmlinuz-5.10.0-44-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-44-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-44-amd64
+    elif [ -f (loop)/live/vmlinuz-5.10.0-43-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-43-amd64
+    else
+        linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img
+    fi
+}
+
+# --- 4. Blue Phoenix (Native) ---
+menuentry "❄️ Phoenix OS: Blue Phoenix (Native)" --class native {
+    set isofile="/iso/bwos-blue-phoenix.iso"
+    search --no-floppy --set=root --file $isofile
+    loopback loop $isofile
+    if [ -f (loop)/live/vmlinuz-5.10.0-44-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-44-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-44-amd64
+    elif [ -f (loop)/live/vmlinuz-5.10.0-43-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-43-amd64
+    else
+        linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img
+    fi
+}
+
+# --- 5. Arcwyre OS (64-bit) ---
+menuentry "⚡ Phoenix OS: Arcwyre OS (64-bit)" --class arcwyre {
+    set isofile="/iso/bwos-arcwyre.iso"
+    search --no-floppy --set=root --file $isofile
+    loopback loop $isofile
+    if [ -f (loop)/live/vmlinuz-5.10.0-44-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-44-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-44-amd64
+    elif [ -f (loop)/live/vmlinuz-5.10.0-43-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-43-amd64
+    else
+        linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img
     fi
 }
 
@@ -214,6 +230,19 @@ def build_friendly_name(filename: str) -> str:
         return "bwos-thunder-god-arm64.iso"
     return filename
 
+def robust_copy(src: Path, dst: Path):
+    """Copies a file using native cp command-line tool to bypass Python shutil fcopyfile bugs on macOS."""
+    try:
+        subprocess.run(["cp", str(src), str(dst)], check=True)
+    except Exception:
+        with open(src, "rb") as fsrc:
+            with open(dst, "wb") as fdst:
+                while True:
+                    buf = fsrc.read(64 * 1024 * 1024)
+                    if not buf:
+                        break
+                    fdst.write(buf)
+
 def main():
     print_banner()
     
@@ -225,10 +254,11 @@ def main():
         sys.exit(1)
         
     iso_targets = {
-        "bwos-aurelia.iso": "Aurelia OS (64-bit AMD64)",
-        "Sonoma.iso": "macOS Sonoma Installer (64-bit)",
-        "MX-23.6_fluxbox_386.iso": "MX Linux 23.6 Fluxbox (32-bit Recovery)",
-        "linuxmint-22.3-xfce-64bit.iso": "Linux Mint 22.3 XFCE (64-bit Recovery)"
+        "bwos-home.iso": "Home Aurelia Edition (32-bit/64-bit)",
+        "bwos-aurelia.iso": "Aurelia OS (64-bit)",
+        "bwos-thunder-god.iso": "Thundergod Edition (64-bit)",
+        "bwos-blue-phoenix.iso": "Blue Phoenix (Native)",
+        "bwos-arcwyre.iso": "Arcwyre OS (64-bit)"
     }
     
     found_isos = {}
@@ -304,22 +334,21 @@ def main():
         
     # 4. Stage Files
     mount_point_aurelia = Path("/Volumes/AURELIA")
-    mount_point_boot = Path("/Volumes/BOOT")
     
     # Verify mount
-    if not mount_point_aurelia.exists() or not mount_point_boot.exists():
-        print(f"{YELLOW}⏳ Waiting for partitions to auto-mount...{RESET}")
+    if not mount_point_aurelia.exists():
+        print(f"{YELLOW}⏳ Waiting for partition to auto-mount...{RESET}")
         time.sleep(5)
-        if not mount_point_aurelia.exists() or not mount_point_boot.exists():
-            print(f"{RED}❌ Drive partitions failed to auto-mount. Please unplug/replug and try again.{RESET}")
+        if not mount_point_aurelia.exists():
+            print(f"{RED}❌ Drive partition failed to auto-mount. Please unplug/replug and try again.{RESET}")
             sys.exit(1)
             
-    print(f"\n{BLUE}📂 Staging recovery boot configurations onto BOOT partition...{RESET}")
+    print(f"\n{BLUE}📂 Staging recovery boot configurations onto AURELIA partition...{RESET}")
     
     # Create directories
-    boot_dir = mount_point_boot / "EFI" / "BOOT"
+    boot_dir = mount_point_aurelia / "EFI" / "BOOT"
     boot_theme_dir = boot_dir / "themes" / "phoenix"
-    apple_dir = mount_point_boot / "System" / "Library" / "CoreServices"
+    apple_dir = mount_point_aurelia / "System" / "Library" / "CoreServices"
     iso_dir = mount_point_aurelia / "iso"
     
     boot_dir.mkdir(parents=True, exist_ok=True)
@@ -332,8 +361,22 @@ def main():
     shutil.copy2(bootloader_source, boot_dir / "BOOTIA32.EFI")
     
     # 1.5. Stage custom graphical bootloader theme (unrecognizable custom GUI wrapper)
-    print(f"   🎨 Copying premium graphical theme assets to /EFI/BOOT/themes/phoenix/...")
-    shutil.copy2(workspace_root / "os" / "phoenix-os" / "branding" / "grub" / "phoenix" / "theme.txt", boot_theme_dir / "theme.txt")
+    print(f"   🎨 Copying and patching premium graphical theme assets to /EFI/BOOT/themes/phoenix/...")
+    theme_tmpl_path = workspace_root / "os" / "phoenix-os" / "branding" / "grub" / "phoenix" / "theme.txt"
+    if theme_tmpl_path.exists():
+        with open(theme_tmpl_path, "r") as f:
+            theme_content = f.read()
+        
+        theme_content = theme_content.replace("__COLOR_BACKGROUND__", "#05070A")
+        theme_content = theme_content.replace("__COLOR_PRIMARY__", "#D4AF37")
+        theme_content = theme_content.replace("__COLOR_SURFACE__", "#101827")
+        theme_content = theme_content.replace("__COLOR_TEXT__", "#F8FAFC")
+        theme_content = theme_content.replace("__EDITION_NAME__", "Phoenix OS: Aurelia Suite")
+        theme_content = theme_content.replace("__EDITION_TAGLINE__", "Four Legacies. One Throne.")
+        
+        with open(boot_theme_dir / "theme.txt", "w") as f:
+            f.write(theme_content)
+            
     shutil.copy2(workspace_root / "os" / "phoenix-os" / "branding" / "grub" / "phoenix" / "background.png", boot_theme_dir / "background.png")
     
     # 2. Stage Apple Legacy Handoff (Blessing Path)
@@ -366,11 +409,11 @@ def main():
     with open(apple_dir / "grub.cfg", "w") as f:
         f.write(grub_cfg)
         
-    # 3. Copy OS files to AURELIA partition (ExFAT)
-    print(f"\n{BLUE}📂 Staging ISO payloads onto AURELIA (ExFAT) partition (bypassing 4GB limit)...{RESET}")
+    # 3. Copy OS files to AURELIA partition (HFS+)
+    print(f"\n{BLUE}📂 Staging ISO payloads onto AURELIA (HFS+) partition...{RESET}")
     for filename, info in found_isos.items():
         print(f"   🖥️  Copying {info['display']} ({info['size']})...")
-        shutil.copy2(info["resolved"], iso_dir / filename)
+        robust_copy(info["resolved"], iso_dir / filename)
         
     # 5. Stage Broadcom Offline Wireless Drivers
     drivers_dir = mount_point_aurelia / "drivers" / "broadcom"
@@ -445,11 +488,8 @@ echo "🎉 Wi-Fi driver successfully installed and loaded! Your wireless network
             print(f"     {YELLOW}⚠️  Could not pre-download offline resource {filename}: {e}{RESET}")
             print(f"     {YELLOW}   (You can still manually download it to Partition 2 under /drivers/broadcom/ later if needed.){RESET}")
         
-    print(f"\n{GREEN}🎉 Success! Your Ventoy-style Multi-ISO & Recovery USB is ready!{RESET}")
-    print(f"{BLUE}🔌 Ejecting drive...{RESET}")
-    subprocess.run(["diskutil", "eject", selected_disk], capture_output=True)
-    print(f"{GREEN}✓ Safe to remove. Plug the USB into your MacBook 4,1,{RESET}")
-    print(f"{GREEN}  hold down OPTION (Alt) while booting, select 'EFI Boot', and launch any system!{RESET}")
+    print(f"\n{GREEN}🎉 Success! Your Ventoy-style Multi-ISO & Recovery USB files have been staged!{RESET}")
+    print(f"{GREEN}   Ready for manual HFS+ blessing in your terminal.{RESET}")
 
 if __name__ == "__main__":
     main()

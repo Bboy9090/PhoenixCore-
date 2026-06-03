@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs><radialGradient id="bg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#00C3FF" stop-opacity=".35"/><stop offset="1" stop-color="#030711"/></radialGradient><filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect width="512" height="512" rx="64" fill="url(#bg)"/>
+<g filter="url(#glow)"><path d="M256 38 L424 136 L418 342 L256 472 L94 342 L88 136 Z" fill="#030711" stroke="#E53935" stroke-width="14"/><path d="M144 162 L256 90 L368 162 L342 344 L256 420 L170 344 Z" fill="#081426" stroke="#00C3FF" stroke-width="8"/><path d="M88 414 L182 292 H148 L286 78 L236 272 H334 L160 468" stroke="#E53935" stroke-width="13" fill="none" stroke-linecap="round"/><rect x="180" y="178" width="152" height="152" rx="14" fill="#0B36B8" stroke="#A9782D" stroke-width="10"/><path d="M116 206 H180 M116 256 H180 M116 306 H180 M332 206 H396 M332 256 H396 M332 306 H396 M206 116 V178 M256 116 V178 M306 116 V178 M206 330 V396 M256 330 V396 M306 330 V396" stroke="#A9782D" stroke-width="10"/><path d="M256 200 L306 256 L256 312 L206 256 Z" fill="#00C3FF" stroke="#CDEBFF" stroke-width="6"/></g>
+</svg>

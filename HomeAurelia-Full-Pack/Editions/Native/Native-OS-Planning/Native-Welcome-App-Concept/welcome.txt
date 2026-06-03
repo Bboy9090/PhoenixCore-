@@ -1,0 +1,18 @@
+===================================================
+🌌 NATIVE OS WELCOME TERMINAL SCREEN
+===================================================
+Welcome, Sovereign Creator Bobby!
+You have successfully booted into the Ancestral Ascension.
+
+Tagline: Four Legacies. One Throne.
+
+Select active theme colorway configuration:
+[1] Aurelia Edition     (Noble Skyborn Blue & Gold)
+[2] Arcwyre Edition     (Rebellion Crimson & Black)
+[3] Thundergod Edition  (Divine Storm White & Gold)
+[4] Native Edition      (Ascended Phoenix Blue & Red)
+
+Initializing Direct-to-GPU Fluid Compositor...
+Vanguard microkernel capability channels active.
+System ready. Enjoy eternity.
+===================================================

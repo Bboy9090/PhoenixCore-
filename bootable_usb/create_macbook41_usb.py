@@ -112,16 +112,16 @@ menuentry "⚡ Phoenix OS: {display_name} (64-bit Live)" --class phoenix {{
     set isofile="/iso/{iso_name}"
     search --no-floppy --set=root --file $isofile
     loopback loop $isofile
-    linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img-5.10.0-43-amd64
-}}
-
-menuentry "⚡ Phoenix OS: {display_name} (64-bit Live - Legacy Kernel Fallback)" --class phoenix {{
-    set isofile="/iso/{iso_name}"
-    search --no-floppy --set=root --file $isofile
-    loopback loop $isofile
-    linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img
+    if [ -f (loop)/live/vmlinuz-5.10.0-44-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-44-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-44-amd64
+    elif [ -f (loop)/live/vmlinuz-5.10.0-43-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-43-amd64
+    else
+        linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img
+    fi
 }}
 
 menuentry "💻 Reboot System" {{

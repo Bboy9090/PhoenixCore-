@@ -41,6 +41,7 @@ diskutil list external
 echo ""
 
 read -p "🔌 Enter the target USB disk identifier (e.g., disk12): " TARGET_DISK
+TARGET_DISK="${TARGET_DISK#/dev/}"
 if [ -z "$TARGET_DISK" ]; then
     echo "❌ Disk identifier cannot be empty."
     exit 1
@@ -77,10 +78,19 @@ echo ""
 EFI_PART="${TARGET_DISK}s1"
 DATA_PART="${TARGET_DISK}s2"
 
-# 4. Mount partitions
+# 4. Format and mount partitions
+echo "Formatting EFI partition as FAT32..."
+diskutil eraseVolume "MS-DOS FAT32" "EFI" "/dev/$EFI_PART"
+
+# macOS sometimes renumbers the slice during eraseVolume
+EFI_PART=$(diskutil list "/dev/$TARGET_DISK" | grep -i "EFI" | awk '{print $NF}')
+if [ -z "$EFI_PART" ]; then
+    EFI_PART="${TARGET_DISK}s1" # fallback
+fi
+
 echo "Mounting partitions..."
-diskutil mount "/dev/$EFI_PART"
-diskutil mount "/dev/$DATA_PART"
+diskutil mount "/dev/$EFI_PART" || true
+diskutil mount "/dev/$DATA_PART" || true
 
 # Get mount paths
 EFI_MOUNT=$(diskutil info "$EFI_PART" | grep "Mount Point" | sed 's/.*Mount Point:[[:space:]]*//')
@@ -97,7 +107,7 @@ TEMP_MOUNT="/tmp/bp_iso_mount"
 mkdir -p "$TEMP_MOUNT"
 
 # Mount boot artifact read-only
-hdiutil attach -nomount "$FIRST_ARTIFACT" -nodefaultkey
+hdiutil attach -nomount "$FIRST_ARTIFACT" -noverify
 # Find the boot artifact disk mount node
 ISO_NODE=$(diskutil list | grep "PHOENIX_OS" | awk '{print $NF}' | head -n 1)
 if [ -z "$ISO_NODE" ]; then
@@ -116,8 +126,8 @@ cp -R "$TEMP_MOUNT/boot/" "$EFI_MOUNT/boot/"
 cp -R "$TEMP_MOUNT/EFI/" "$EFI_MOUNT/EFI/"
 
 # Unmount ISO
-umount "$TEMP_MOUNT"
-hdiutil detach "/dev/$(echo "$ISO_NODE" | cut -d's' -f1)"
+umount "$TEMP_MOUNT" || true
+hdiutil detach "/dev/$(echo "$ISO_NODE" | cut -d's' -f1)" || true
 rm -rf "$TEMP_MOUNT"
 
 echo "✅ Bootloader extraction complete."
@@ -127,8 +137,12 @@ echo ""
 echo "📦 Copying boot artifacts to Data Partition (this may take several minutes, please wait)..."
 mkdir -p "$DATA_MOUNT/boot/iso"
 for artifact in "${ARTIFACTS[@]}"; do
-    echo "  -> Copying $(basename "$artifact")..."
-    cp "$artifact" "$DATA_MOUNT/boot/iso/"
+    if [ -f "$artifact" ]; then
+        echo "  -> Copying $(basename "$artifact")..."
+        cp "$artifact" "$DATA_MOUNT/boot/iso/" || echo "⚠️ Warning: Failed to copy $(basename "$artifact")"
+    else
+        echo "⚠️ Skipping missing artifact: $(basename "$artifact")"
+    fi
 done
 
 echo "✅ All active boot artifacts copied."

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" version="1.1">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#0F1730"/>
+      <stop offset="55%" stop-color="#060A14"/>
+      <stop offset="100%" stop-color="#020306"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFC857"/>
+      <stop offset="45%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#8A6600"/>
+    </linearGradient>
+    <linearGradient id="gold2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="50%" stop-color="#FFE29A"/>
+      <stop offset="100%" stop-color="#D4AF37"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E6BFF"/>
+      <stop offset="100%" stop-color="#00C3FF"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="256" cy="256" r="228" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="228" fill="none" stroke="url(#gold)" stroke-width="14"/>
+  <circle cx="256" cy="256" r="206" fill="none" stroke="url(#gold2)" stroke-width="6" opacity="0.9"/>
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#00C3FF" stroke-opacity="0.18" stroke-width="4"/>
+
+  <g filter="url(#glow)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 206 226 H 306" stroke="url(#blue)" stroke-width="18" fill="none"/><path d="M 224 250 H 288 L 282 356 H 230 Z" fill="url(#blue)" opacity="0.18"/><path d="M 216 242 H 296 L 288 362 H 224 Z" stroke="url(#blue)" stroke-width="18" fill="none"/><path d="M 240 264 V 340" stroke="#00C3FF" stroke-width="12" fill="none"/><path d="M 272 264 V 340" stroke="#00C3FF" stroke-width="12" fill="none"/>
+  </g>
+</svg>

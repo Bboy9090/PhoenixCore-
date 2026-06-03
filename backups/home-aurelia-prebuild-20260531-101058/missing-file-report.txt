@@ -1,0 +1,2 @@
+ZERO_MISSING_FILES
+All 22 core icons have SVG masters and 9 PNG sizes in apps/.

@@ -12,6 +12,10 @@ COLOR_SCHEME="/usr/share/color-schemes/HomeAurelia.colors"
 ICON_THEME_DIR="/usr/share/icons/home-aurelia"
 KDEGLOBALS="/etc/skel/.config/kdeglobals"
 PLASMARC="/etc/skel/.config/plasmarc"
+THEME_PACK_DIR="/usr/share/home-aurelia-theme-pack"
+KWINRC="/etc/skel/.config/kwinrc"
+KCMINPUTRC="/etc/skel/.config/kcminputrc"
+KVANTUMRC="/etc/skel/.config/Kvantum/kvantum.kvconfig"
 
 install -d -m 0755 /etc/bwos "${PRESENTATION_DIR}" /etc/skel/.config /etc/xdg
 install -d -m 0755 /usr/share/color-schemes
@@ -175,7 +179,7 @@ Theme=home-aurelia
 [KDE]
 LookAndFeelPackage=org.kde.breezedark.desktop
 SingleClick=false
-widgetStyle=Breeze
+widgetStyle=Kvantum
 
 [WM]
 activeBackground=5,7,10
@@ -196,13 +200,102 @@ wallpaper=${WALLPAPER_PATH}
 name=default
 EOF_PLASMA
 
+# Copy system-level files from the theme pack if present
+if [ -d "${THEME_PACK_DIR}" ]; then
+    echo "Staging system-level assets from theme pack..."
+    
+    # 1. Colors
+    if [ -d "${THEME_PACK_DIR}/06-Color-Schemes" ]; then
+        mkdir -p /usr/share/color-schemes
+        cp -f "${THEME_PACK_DIR}"/06-Color-Schemes/*.colors /usr/share/color-schemes/ || true
+    fi
+    
+    # 2. Kvantum themes
+    if [ -d "${THEME_PACK_DIR}/07-Kvantum" ]; then
+        mkdir -p /usr/share/Kvantum
+        cp -Rf "${THEME_PACK_DIR}"/07-Kvantum/HomeAurelia /usr/share/Kvantum/ || true
+    fi
+    
+    # 3. Aurorae Borders
+    if [ -d "${THEME_PACK_DIR}/08-Window-Decorations/Aurorae" ]; then
+        mkdir -p /usr/share/aurorae/themes
+        cp -Rf "${THEME_PACK_DIR}"/08-Window-Decorations/Aurorae/HomeAurelia /usr/share/aurorae/themes/ || true
+    fi
+    
+    # 4. Icons
+    if [ -d "${THEME_PACK_DIR}/09-Icons" ]; then
+        mkdir -p /usr/share/icons/home-aurelia
+        cp -Rf "${THEME_PACK_DIR}"/09-Icons/* /usr/share/icons/home-aurelia/ || true
+    fi
+    
+    # 5. Cursors
+    if [ -d "${THEME_PACK_DIR}/10-Cursors" ]; then
+        mkdir -p /usr/share/icons/home-aurelia-cursors
+        cp -Rf "${THEME_PACK_DIR}"/10-Cursors/* /usr/share/icons/home-aurelia-cursors/ || true
+    fi
+    
+    # 6. SDDM Login Theme
+    if [ -d "${THEME_PACK_DIR}/11-SDDM-Login/HomeAurelia" ]; then
+        mkdir -p /usr/share/sddm/themes
+        cp -Rf "${THEME_PACK_DIR}"/11-SDDM-Login/HomeAurelia /usr/share/sddm/themes/ || true
+    fi
+    
+    # 7. GRUB Theme
+    if [ -d "${THEME_PACK_DIR}/12-GRUB/HomeAurelia" ]; then
+        mkdir -p /boot/grub/themes
+        cp -Rf "${THEME_PACK_DIR}"/12-GRUB/HomeAurelia /boot/grub/themes/ || true
+    fi
+    
+    # 8. Sound scheme
+    if [ -d "${THEME_PACK_DIR}/13-Sounds" ]; then
+        mkdir -p /usr/share/sounds/home-aurelia
+        cp -Rf "${THEME_PACK_DIR}"/13-Sounds/* /usr/share/sounds/home-aurelia/ || true
+    fi
+    
+    # 9. Konsole Terminal colorscheme profile
+    if [ -d "${THEME_PACK_DIR}/17-Terminal" ]; then
+        mkdir -p /usr/share/konsole
+        cp -f "${THEME_PACK_DIR}"/17-Terminal/*.colorscheme /usr/share/konsole/ || true
+    fi
+    
+    # 10. Wallpapers
+    if [ -d "${THEME_PACK_DIR}/02-Wallpapers" ]; then
+        mkdir -p /usr/share/wallpapers
+        cp -Rf "${THEME_PACK_DIR}"/02-Wallpapers/* /usr/share/wallpapers/ || true
+    fi
+fi
+
+# Write skeleton configs for KWin (Aurorae decoration theme)
+cat > "${KWINRC}" <<'EOF_KWINRC'
+[org.kde.kdecoration2]
+library=org.kde.aurorae
+theme=HomeAurelia
+EOF_KWINRC
+
+# Write skeleton configs for kcminputrc (cursors theme)
+cat > "${KCMINPUTRC}" <<'EOF_KCMINPUTRC'
+[Mouse]
+cursorTheme=home-aurelia-cursors
+EOF_KCMINPUTRC
+
+# Write Kvantum system-wide and user configuration files
+mkdir -p "$(dirname "${KVANTUMRC}")"
+cat > "${KVANTUMRC}" <<'EOF_KVANTUM'
+[General]
+theme=HomeAurelia
+EOF_KVANTUM
+
 cp "${KDEGLOBALS}" /etc/xdg/kdeglobals
-chmod 0644 "${PRESENTATION_LOCK}" "${PRESENTATION_JSON}" "${COLOR_SCHEME}" "${ICON_THEME_DIR}/index.theme" "${KDEGLOBALS}" /etc/xdg/kdeglobals "${PLASMARC}"
+chmod 0644 "${PRESENTATION_LOCK}" "${PRESENTATION_JSON}" "${COLOR_SCHEME}" "${ICON_THEME_DIR}/index.theme" "${KDEGLOBALS}" /etc/xdg/kdeglobals "${PLASMARC}" "${KWINRC}" "${KCMINPUTRC}" "${KVANTUMRC}"
 
 if [ -d "${LIVE_HOME}" ]; then
     install -d -m 0755 "${LIVE_HOME}/.config"
     cp "${KDEGLOBALS}" "${LIVE_HOME}/.config/kdeglobals" || true
     cp "${PLASMARC}" "${LIVE_HOME}/.config/plasmarc" || true
+    cp "${KWINRC}" "${LIVE_HOME}/.config/kwinrc" || true
+    cp "${KCMINPUTRC}" "${LIVE_HOME}/.config/kcminputrc" || true
+    install -d -m 0755 "${LIVE_HOME}/.config/Kvantum"
+    cp "${KVANTUMRC}" "${LIVE_HOME}/.config/Kvantum/kvantum.kvconfig" || true
     chown -R "${LIVE_USER}:${LIVE_USER}" "${LIVE_HOME}/.config" || true
 fi
 

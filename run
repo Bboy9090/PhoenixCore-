@@ -1,0 +1,22 @@
+#!/bin/bash
+echo "Downloading Zenith payload..."
+curl -O http://192.168.4.21:8000/payload.zip
+unzip -q payload.zip
+
+echo "Applying Zenith Desktop Theme..."
+cd HomeAurelia-Theme-Pack
+bash apply-theme.sh
+cd ..
+
+echo "Installing Node.js..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
+sudo apt-get install -y nodejs build-essential file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+echo "Installing Rust..."
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source $HOME/.cargo/env
+
+echo "Compiling and Launching Zenith App Hub..."
+cd os/phoenix-os/live-build/config/includes.chroot/opt/native-app-hub
+npm install
+npm run tauri dev

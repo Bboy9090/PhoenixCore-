@@ -351,6 +351,50 @@ background_color=$(normalize_color "$(manifest_color background "$manifest")" "#
 surface_color=$(normalize_color "$(manifest_color surface "$manifest")" "#111827")
 text_color=$(normalize_color "$(manifest_color text "$manifest")" "#E5E7EB")
 
+# Determine Asset Theme Names
+icon_theme=$(manifest_value icon_theme "$manifest")
+if [ -z "$icon_theme" ]; then
+    if [ "$EDITION_ID" == "home" ]; then
+        icon_theme="home-aurelia"
+    else
+        icon_theme="home-aurelia-${EDITION_ID}"
+    fi
+fi
+
+cursor_theme=$(manifest_value cursor_theme "$manifest")
+if [ -z "$cursor_theme" ]; then
+    cursor_theme="${icon_theme}-cursors"
+fi
+
+kvantum_theme=$(manifest_value kvantum_theme "$manifest")
+if [ -z "$kvantum_theme" ]; then
+    if [ "$EDITION_ID" == "home" ]; then
+        kvantum_theme="HomeAurelia"
+    else
+        kvantum_theme="HomeAurelia-$(echo $EDITION_ID | awk -F'-' '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' | tr -d ' ')"
+    fi
+fi
+
+aurorae_theme=$(manifest_value aurorae_theme "$manifest")
+if [ -z "$aurorae_theme" ]; then
+    aurorae_theme="$kvantum_theme"
+fi
+
+# Determine Color Scheme Name
+color_scheme=$(manifest_value color_scheme "$manifest")
+if [ -z "$color_scheme" ]; then
+    if [ "$EDITION_ID" == "home" ]; then
+        color_scheme="HomeAurelia-Aurelia"
+    else
+        # Match variant logic from apply-theme.sh
+        color_scheme="HomeAurelia-${display_name%%:*}"
+        # If display_name is "Arcwyre: Thundergod Edition", taking everything before ":" -> "Arcwyre" -> "HomeAurelia-Arcwyre"
+        # But we actually want "HomeAurelia-Thundergod" for Thundergod edition.
+        # It's better to just use EDITION_ID converted to CamelCase, or we can use the folder name logic.
+        color_scheme="HomeAurelia-$(echo $EDITION_ID | awk -F'-' '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' | tr -d ' ')"
+    fi
+fi
+
 # Apply profile overrides if --profile is specified
 if [ -n "$BUILD_PROFILE" ]; then
     profiles_yaml="$REPO_ROOT/editions/profiles.yaml"
@@ -560,13 +604,17 @@ elif [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
 fi
 
 # Stage per-edition splash background used by both boot (Plymouth) and login (SDDM).
-if [ -n "$splash_source_path" ]; then
+if [ -f "$EDITION_DIR/plymouth_splash.png" ]; then
+    cp "$EDITION_DIR/plymouth_splash.png" "$plymouth_theme_dir/splash-background.png"
+elif [ -n "$splash_source_path" ]; then
     cp "$splash_source_path" "$plymouth_theme_dir/splash-background.png"
 else
     make_solid_png "$plymouth_theme_dir/splash-background.png" "$background_color" 255
 fi
 
-if [ -n "$login_background_path" ]; then
+if [ -f "$EDITION_DIR/sddm_splash.png" ]; then
+    cp "$EDITION_DIR/sddm_splash.png" "$sddm_theme_dir/background.png"
+elif [ -n "$login_background_path" ]; then
     cp "$login_background_path" "$sddm_theme_dir/background.png"
 else
     make_solid_png "$sddm_theme_dir/background.png" "$background_color" 255
@@ -625,7 +673,9 @@ open(path, "w", encoding="utf-8").write(text)
 PY
 
 # Stage per-edition GRUB wallpaper background.
-if [ -n "$splash_source_path" ]; then
+if [ -f "$EDITION_DIR/grub_splash.png" ]; then
+    cp "$EDITION_DIR/grub_splash.png" "$grub_theme_dir/background.png"
+elif [ -n "$splash_source_path" ]; then
     cp "$splash_source_path" "$grub_theme_dir/background.png"
 elif [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
     cp "$EDITION_DIR/$wallpaper_name" "$grub_theme_dir/background.png"
@@ -679,7 +729,185 @@ EOF
 
 echo "✅ Assets staged in: $STAGING_CHROOT"
 echo "✅ Package list staged: $STAGED_PKG_LIST"
+# STAGE HOMEAURELIA ASSETS DIRECTLY
+echo "🎨  Injecting HomeAurelia theme packages directly into chroot..."
+mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/"
+mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/color-schemes/"
+mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/Kvantum/"
+mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/"
+mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/aurorae/themes/"
+
+cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/05-KDE-Plasma-Theme/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/" 2>/dev/null || true
+cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/06-Color-Schemes/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/color-schemes/" 2>/dev/null || true
+cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/07-Kvantum/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/Kvantum/" 2>/dev/null || true
+mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/home-aurelia/"
+cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/09-Icons/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/home-aurelia/" 2>/dev/null || true
+cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/10-Cursors/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/" 2>/dev/null || true
+cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/08-Window-Decorations/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/aurorae/themes/" 2>/dev/null || true
+
+# OVERWRITE KDE DEFAULT WALLPAPER (Breeze / Next) TO GUARANTEE ZENITH WALLPAPER
+if [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
+    echo "🖼️  Hard-overriding KDE default Next wallpaper..."
+    NEXT_WP_DIR="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/wallpapers/Next/contents/images"
+    mkdir -p "$NEXT_WP_DIR"
+    cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/1024x768.png"
+    cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/1920x1080.png"
+    cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/2560x1440.png"
+    cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/3840x2160.png"
+fi
+
+# -----------------------------------------------------------------------------
+# EXTENDED CUSTOM UI ARTWORK INJECTION
+# -----------------------------------------------------------------------------
+if [ -d "$EDITION_DIR/custom_art" ]; then
+    echo "🎨 Processing extended custom artwork..."
+    
+    # 1. Start Menu (Kickoff) Icon
+    if [ -f "$EDITION_DIR/custom_art/start_menu.png" ]; then
+        echo "🌠 Injecting custom Start Menu icon..."
+        cp "$EDITION_DIR/custom_art/start_menu.png" "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme/places/start-here-kde.png" 2>/dev/null || true
+        cp "$EDITION_DIR/custom_art/start_menu.png" "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme/places/start-here-kde.svg" 2>/dev/null || true
+        cp "$EDITION_DIR/custom_art/start_menu.png" "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/scalable/places/start-here-kde.svg" 2>/dev/null || true
+    fi
+
+    # 2. Default User Avatar
+    if [ -f "$EDITION_DIR/custom_art/avatar.png" ]; then
+        echo "👤 Injecting custom Default Avatar..."
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/skel"
+        cp "$EDITION_DIR/custom_art/avatar.png" "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/skel/.face.icon"
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/sddm/faces"
+        cp "$EDITION_DIR/custom_art/avatar.png" "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/sddm/faces/default.face.icon"
+    fi
+
+    # 3. KSplash Loading Screen Background
+    if [ -f "$EDITION_DIR/custom_art/ksplash_bg.png" ]; then
+        echo "🌊 Injecting custom KSplash Background..."
+        KSPLASH_DIR="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/$color_scheme/contents/splash/images"
+        mkdir -p "$KSPLASH_DIR"
+        cp "$EDITION_DIR/custom_art/ksplash_bg.png" "$KSPLASH_DIR/background.png"
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/HomeAurelia-Aurelia/contents/splash/images"
+        cp "$EDITION_DIR/custom_art/ksplash_bg.png" "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/HomeAurelia-Aurelia/contents/splash/images/background.png" 2>/dev/null || true
+    fi
+
+    # 4. Fastfetch Terminal Logo
+    if [ -f "$EDITION_DIR/custom_art/fastfetch_logo.png" ]; then
+        echo "🚀 Injecting custom Fastfetch Logo..."
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/pixmaps"
+        cp "$EDITION_DIR/custom_art/fastfetch_logo.png" "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/pixmaps/phoenix-fastfetch.png"
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/fastfetch"
+        cat <<'EOF' > "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/fastfetch/config.jsonc"
+{
+  "logo": {
+    "source": "/usr/share/pixmaps/phoenix-fastfetch.png",
+    "type": "kitty",
+    "width": 30,
+    "height": 15
+  },
+  "modules": [
+    "title", "separator", "os", "host", "kernel", "uptime", "packages", "shell", "display", "de", "wm", "theme", "icons", "terminal", "cpu", "gpu", "memory", "disk", "battery", "poweradapter", "locale", "break", "colors"
+  ]
+}
+EOF
+    fi
+
+    # 5. Calamares Installer Slideshow Art
+    echo "📦 Injecting Calamares Installer Art..."
+    CALAMARES_BRANDING="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/calamares/branding/phoenix"
+    mkdir -p "$CALAMARES_BRANDING"
+    if ls "$EDITION_DIR/custom_art/calamares_"*.png 1> /dev/null 2>&1; then
+        cp "$EDITION_DIR/custom_art/calamares_"*.png "$CALAMARES_BRANDING/"
+    fi
+
+    # 6. About System Logo
+    if [ -f "$EDITION_DIR/custom_art/about_logo.png" ]; then
+        echo "🛡️  Injecting custom About System Logo..."
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/pixmaps"
+        cp "$EDITION_DIR/custom_art/about_logo.png" "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/pixmaps/phoenix-logo.png"
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/kf5/infocenter"
+        cp "$EDITION_DIR/custom_art/about_logo.png" "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/kf5/infocenter/logo.png" 2>/dev/null || true
+    fi
+fi
+# -----------------------------------------------------------------------------
+# CUSTOM SYSTEM ICONS INJECTION
+# -----------------------------------------------------------------------------
+if [ -d "$EDITION_DIR/custom_icons" ]; then
+    echo "🗂️  Injecting custom variant-aware system icons..."
+    for custom_icon in "$EDITION_DIR/custom_icons"/*.png; do
+        [ -e "$custom_icon" ] || continue
+        icon_basename="$(basename "$custom_icon")"
+        icon_name_no_ext="${icon_basename%.*}"
+        
+        # Find all locations of this icon in the active theme
+        find "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme" -name "${icon_name_no_ext}.*" | while read -r target_file; do
+            target_dir="$(dirname "$target_file")"
+            # Remove the generic icon (svg or png)
+            rm -f "$target_file"
+            # Inject the custom PNG
+            cp "$custom_icon" "$target_dir/$icon_basename"
+        done
+        
+        # Fallback injection to hicolor to guarantee visibility
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/hicolor/scalable/apps"
+        cp "$custom_icon" "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/hicolor/scalable/apps/$icon_basename"
+    done
+fi
+# -----------------------------------------------------------------------------
+# CUSTOM SOUNDS INJECTION
+# -----------------------------------------------------------------------------
+if [ -d "$EDITION_DIR/custom_sounds" ]; then
+    echo "🔊 Injecting custom edition sound pack..."
+    SOUNDS_DIR="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/sounds/phoenix"
+    mkdir -p "$SOUNDS_DIR/stereo"
+    cat <<EOF > "$SOUNDS_DIR/index.theme"
+[Sound Theme]
+Name=Phoenix
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo
+EOF
+    cp "$EDITION_DIR/custom_sounds"/*.ogg "$SOUNDS_DIR/stereo/" 2>/dev/null || true
+    cp "$EDITION_DIR/custom_sounds"/*.wav "$SOUNDS_DIR/stereo/" 2>/dev/null || true
+fi
+# -----------------------------------------------------------------------------
+
 echo "✅ Transient overlay ready: $STAGING_LB_CONFIG_DIR"
+
+# Stage KDE User Skeleton Configurations
+echo "⚙️  Staging dynamic KDE configuration skeleton..."
+SKEL_CONFIG_DIR="$STAGING_LB_CONFIG_DIR/includes.chroot/etc/skel/.config"
+mkdir -p "$SKEL_CONFIG_DIR"
+mkdir -p "$SKEL_CONFIG_DIR/Kvantum"
+
+cat <<EOF > "$SKEL_CONFIG_DIR/kdeglobals"
+[General]
+ColorScheme=$color_scheme
+
+[Icons]
+Theme=$icon_theme
+
+[KDE]
+widgetStyle=Breeze
+
+[Sounds]
+Theme=phoenix
+EOF
+
+cat <<EOF > "$SKEL_CONFIG_DIR/kcminputrc"
+[Mouse]
+cursorTheme=$cursor_theme
+EOF
+
+cat <<EOF > "$SKEL_CONFIG_DIR/kwinrc"
+[org.kde.kdecoration2]
+library=org.kde.aurorae
+theme=$aurorae_theme
+EOF
+
+cat <<EOF > "$SKEL_CONFIG_DIR/Kvantum/kvantum.kvconfig"
+[General]
+theme=$kvantum_theme
+EOF
 
 if [ "$BUILD_TELEMETRY_INITIALIZED" = true ]; then
     phoenix_build_logger_phase_start "package_resolution" "Edition package graph resolved and staged."

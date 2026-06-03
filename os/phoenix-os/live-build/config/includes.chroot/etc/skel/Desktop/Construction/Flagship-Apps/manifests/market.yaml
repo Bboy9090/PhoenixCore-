@@ -1,0 +1,8 @@
+public_name: "Market"
+internal_id: "org.aurelia.citadel.market"
+category: "Office;Finance"
+tier: 1
+release_status: "SHIP"
+requires_governance: false
+offline_capable: false
+launch_critical: true

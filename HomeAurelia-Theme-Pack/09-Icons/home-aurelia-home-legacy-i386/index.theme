@@ -1,0 +1,9 @@
+[Icon Theme]
+Name=home-aurelia-home-legacy-i386
+Comment=Icons for Phoenix OS Home Aurelia OS (Legacy i386)
+Inherits=home-aurelia,breeze
+Directories=places
+[places]
+Size=512
+Context=Places
+Type=Scalable

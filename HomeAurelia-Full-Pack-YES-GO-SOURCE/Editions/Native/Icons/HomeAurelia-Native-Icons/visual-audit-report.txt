@@ -1,0 +1,3 @@
+HomeAurelia Native icon set
+Identity: Native hand-cropped pixel recolorway
+SVG audit rule: no <image> tags, no data:image base64 wrappers.

@@ -1,0 +1,8 @@
+[General]
+Name=HomeAurelia Arcwyre
+[Colors:Window]
+BackgroundNormal=8,19,38
+ForegroundNormal=247,247,255
+[Colors:Selection]
+BackgroundNormal=0,195,255
+ForegroundNormal=255,255,255

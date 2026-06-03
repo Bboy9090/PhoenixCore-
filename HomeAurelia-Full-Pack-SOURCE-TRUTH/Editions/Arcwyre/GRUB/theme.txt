@@ -1,0 +1,2 @@
+title-text: "HOME AURELIA ARCWYRE"
+desktop-image: "background.png"

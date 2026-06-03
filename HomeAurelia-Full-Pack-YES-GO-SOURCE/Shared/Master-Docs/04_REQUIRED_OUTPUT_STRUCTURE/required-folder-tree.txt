@@ -1,0 +1,12 @@
+HomeAurelia-Full-Pack/
+  Editions/
+    Aurelia/
+      Icons/ Splash-Screens/ KDE-Plasma-Theme/ Plymouth/ Wallpapers/ Screensavers/ Lock-Screen/ Sounds/ Cursors/ SDDM-Login/ GRUB/ Kvantum/ Aurorae-Window-Decoration/ Color-Scheme/ App-Branding/ System-Branding/ Installer-Branding/ Preview-Sheets/ Docs/ ZIP/
+    Arcwyre/
+      same as Aurelia
+    Thundergod/
+      same as Aurelia
+    Native/
+      same as Aurelia plus Native-OS-Planning/ Native-Apps/ Native-Control-Center/ Native-Recovery-Center/ Native-Driver-Bridge/ Native-App-Hub/ Native-Update-Manager/ Native-USB-Creator/
+  Shared/
+    Fonts/ Build-Scripts/ License/ Master-Docs/ Reference-Boards/

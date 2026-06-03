@@ -1,0 +1,4 @@
+HomeAurelia Native icon set
+Identity: majority blue ancestral ascension with red aura and dual electricity
+Approved cropped source icons used where available: 18 categories. Generated real vector SVG + PNG used for missing categories: Help, Drive, System, Firewall, Calculator, Text Editor.
+SVG audit rule: no <image> tags, no data:image base64 wrappers.

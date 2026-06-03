@@ -125,48 +125,48 @@ menuentry "⚡ Phoenix OS: Aurelia Edition (64-bit Live)" --class phoenix {
     set isofile="/iso/bwos-aurelia.iso"
     search --no-floppy --set=root --file $isofile
     loopback loop $isofile
-    linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img-5.10.0-43-amd64
-}
-
-menuentry "⚡ Phoenix OS: Aurelia Edition (64-bit Live - Legacy Kernel Fallback)" --class phoenix {
-    set isofile="/iso/bwos-aurelia.iso"
-    search --no-floppy --set=root --file $isofile
-    loopback loop $isofile
-    linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img
+    if [ -f (loop)/live/vmlinuz-5.10.0-44-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-44-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-44-amd64
+    elif [ -f (loop)/live/vmlinuz-5.10.0-43-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-43-amd64
+    else
+        linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img
+    fi
 }
 
 menuentry "⚡ Phoenix OS: Arcwyre Edition (64-bit Live)" --class arcwyre {
     set isofile="/iso/bwos-arcwyre.iso"
     search --no-floppy --set=root --file $isofile
     loopback loop $isofile
-    linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img-5.10.0-43-amd64
-}
-
-menuentry "⚡ Phoenix OS: Arcwyre Edition (64-bit Live - Legacy Kernel Fallback)" --class arcwyre {
-    set isofile="/iso/bwos-arcwyre.iso"
-    search --no-floppy --set=root --file $isofile
-    loopback loop $isofile
-    linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img
+    if [ -f (loop)/live/vmlinuz-5.10.0-44-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-44-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-44-amd64
+    elif [ -f (loop)/live/vmlinuz-5.10.0-43-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-43-amd64
+    else
+        linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img
+    fi
 }
 
 menuentry "⚡ Phoenix OS: Thundergod Edition (64-bit Live)" --class thunder {
     set isofile="/iso/bwos-thunder-god.iso"
     search --no-floppy --set=root --file $isofile
     loopback loop $isofile
-    linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img-5.10.0-43-amd64
-}
-
-menuentry "⚡ Phoenix OS: Thundergod Edition (64-bit Live - Legacy Kernel Fallback)" --class thunder {
-    set isofile="/iso/bwos-thunder-god.iso"
-    search --no-floppy --set=root --file $isofile
-    loopback loop $isofile
-    linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
-    initrd (loop)/live/initrd.img
+    if [ -f (loop)/live/vmlinuz-5.10.0-44-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-44-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-44-amd64
+    elif [ -f (loop)/live/vmlinuz-5.10.0-43-amd64 ]; then
+        linux (loop)/live/vmlinuz-5.10.0-43-amd64 boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img-5.10.0-43-amd64
+    else
+        linux (loop)/live/vmlinuz boot=live components findiso=$isofile quiet splash username=phoenix bwos.session=wayland console=tty0
+        initrd (loop)/live/initrd.img
+    fi
 }
 
 menuentry "💻 Reboot System" {

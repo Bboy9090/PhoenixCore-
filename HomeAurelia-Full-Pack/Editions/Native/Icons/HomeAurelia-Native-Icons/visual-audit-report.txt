@@ -1,0 +1,4 @@
+Home Aurelia Native icons
+Identity: blue phoenix with red aura future Native OS foundation
+SVG masters are vector geometry only. No embedded PNG/image tags.
+Generated contact sheets are built from actual PNG outputs.

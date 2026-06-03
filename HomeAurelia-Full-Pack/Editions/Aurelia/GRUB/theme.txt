@@ -1,0 +1,2 @@
+title-text: "Home Aurelia Aurelia"
+desktop-image: "background.png"

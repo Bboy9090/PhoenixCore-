@@ -1,0 +1,27 @@
+{
+  "backup": "/Users/bj90-m1/PhoenixCore-/backups/home-aurelia-source-truth-prebuild-20260531-133003",
+  "output": "/Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH",
+  "editions": {
+    "Aurelia": {
+      "source": "/private/tmp/home-aurelia-cropped-editions-20260531125648/HomeAurelia_CROPPED_EDITIONS/HomeAurelia-Aurelia",
+      "icon_zip": "/Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH/HomeAurelia-Aurelia-Icons.zip",
+      "edition_zip": "/Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH/HomeAurelia-Aurelia-Edition.zip"
+    },
+    "Arcwyre": {
+      "source": "/private/tmp/home-aurelia-cropped-editions-20260531125648/HomeAurelia_CROPPED_EDITIONS/HomeAurelia-Arcwyre",
+      "icon_zip": "/Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH/HomeAurelia-Arcwyre-Icons.zip",
+      "edition_zip": "/Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH/HomeAurelia-Arcwyre-Edition.zip"
+    },
+    "Thundergod": {
+      "source": "/private/tmp/home-aurelia-cropped-editions-20260531125648/HomeAurelia_CROPPED_EDITIONS/HomeAurelia-Thundergod",
+      "icon_zip": "/Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH/HomeAurelia-Thundergod-Icons.zip",
+      "edition_zip": "/Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH/HomeAurelia-Thundergod-Edition.zip"
+    },
+    "Native": {
+      "source": "/private/tmp/home-aurelia-cropped-editions-20260531125648/HomeAurelia_CROPPED_EDITIONS/HomeAurelia-Native",
+      "icon_zip": "/Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH/HomeAurelia-Native-Icons.zip",
+      "edition_zip": "/Users/bj90-m1/PhoenixCore-/HomeAurelia-Full-Pack-SOURCE-TRUTH/HomeAurelia-Native-Edition.zip"
+    }
+  },
+  "warnings": []
+}

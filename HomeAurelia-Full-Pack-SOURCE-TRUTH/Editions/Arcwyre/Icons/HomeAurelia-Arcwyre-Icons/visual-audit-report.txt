@@ -1,0 +1,4 @@
+HomeAurelia Arcwyre icon set
+Identity: obsidian stormforged rebellion with crimson/electric aggression
+Approved cropped source icons used where available: 18 categories. Generated real vector SVG + PNG used for missing categories: Help, Drive, System, Firewall, Calculator, Text Editor.
+SVG audit rule: no <image> tags, no data:image base64 wrappers.

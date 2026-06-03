@@ -1,0 +1,8 @@
+{
+  "name": "Native OS Terminal Profile",
+  "color_scheme": "Native-Ascension",
+  "font_face": "JetBrains Mono",
+  "background": "#05070D",
+  "foreground": "#F7F7FF",
+  "cursor": "#FF1744"
+}

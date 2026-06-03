@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Launch Zenith App Hub
+Comment=Downloads compilers and launches the Zenith App Hub
+Exec=konsole -e bash -c 'sudo chmod +x /usr/local/bin/build-zenith-ui.sh && /usr/local/bin/build-zenith-ui.sh; read -p "Press Enter to close..."'
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Development;
