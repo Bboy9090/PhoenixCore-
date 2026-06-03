@@ -8,7 +8,7 @@ To resolve this without altering the host environment, we introduced a Docker-ba
 ## Implementation Details
 - **Wrapper Script:** `scripts/build-zenith-app-hub-deb-container.sh`
 - **Internal Script Executed:** `scripts/build-zenith-app-hub-deb.sh`
-- **Container Environment:** `ubuntu:22.04`
+- **Container Environment:** `ubuntu:22.04` (forced `--platform linux/amd64` for x86_64 Debian targeting)
 - **Volume Mount:** `$REPO_ROOT:/workspace`
 - **Toolchain Injected:**
   - Rust & Cargo
