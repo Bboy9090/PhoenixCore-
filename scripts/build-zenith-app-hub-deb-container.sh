@@ -19,8 +19,8 @@ fi
 
 echo "📦 Spinning up Ubuntu container and installing toolchain..."
 
-# We use debian:bullseye because the live-build target OS is Bullseye.
-docker run --rm --platform linux/amd64 -v "$REPO_ROOT:/workspace" -w "/workspace" -e CI=true debian:bullseye /bin/bash -c "
+# We use debian:bookworm because the live-build target OS is Bookworm.
+docker run --rm --platform linux/amd64 -v "$REPO_ROOT:/workspace" -w "/workspace" -e CI=true debian:bookworm /bin/bash -c "
     set -euo pipefail
     
     export DEBIAN_FRONTEND=noninteractive

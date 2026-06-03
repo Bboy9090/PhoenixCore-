@@ -9,6 +9,7 @@ BOOTLOADER_VALUE="${PHOENIX_LIVE_BOOTLOADER:-grub-efi}"
 lb config noauto \
     --mode debian \
     --system live \
+    --distribution bookworm \
     --architectures "$ARCHITECTURES_VALUE" \
     --linux-flavours "$LINUX_FLAVOUR_VALUE" \
     --debian-installer false \
