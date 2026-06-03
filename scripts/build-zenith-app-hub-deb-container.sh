@@ -29,7 +29,7 @@ docker run --rm -v "$REPO_ROOT:/workspace" -w "/workspace" -e CI=true ubuntu:22.
     
     echo '=> Installing system dependencies...'
     apt-get install -yq curl ca-certificates build-essential pkg-config dpkg-dev patchelf \
-        libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+        libwebkit2gtk-4.1-dev libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev
     
     echo '=> Installing Node.js & pnpm...'
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
