@@ -19,8 +19,8 @@ fi
 
 echo "📦 Spinning up Ubuntu container and installing toolchain..."
 
-# We use ubuntu:22.04 because it is a stable Debian-derivative suitable for Tauri builds
-docker run --rm --platform linux/amd64 -v "$REPO_ROOT:/workspace" -w "/workspace" -e CI=true ubuntu:22.04 /bin/bash -c "
+# We use debian:bullseye because the live-build target OS is Bullseye.
+docker run --rm --platform linux/amd64 -v "$REPO_ROOT:/workspace" -w "/workspace" -e CI=true debian:bullseye /bin/bash -c "
     set -euo pipefail
     
     export DEBIAN_FRONTEND=noninteractive
@@ -33,7 +33,7 @@ docker run --rm --platform linux/amd64 -v "$REPO_ROOT:/workspace" -w "/workspace
     
     echo '=> Installing system dependencies...'
     apt-get install -yq curl ca-certificates build-essential pkg-config dpkg-dev patchelf \
-        libwebkit2gtk-4.1-dev libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev
+        libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libsoup2.4-dev
     
     echo '=> Installing Node.js & pnpm...'
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
