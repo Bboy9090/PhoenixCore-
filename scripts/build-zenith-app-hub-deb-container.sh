@@ -20,7 +20,7 @@ fi
 echo "📦 Spinning up Ubuntu container and installing toolchain..."
 
 # We use ubuntu:22.04 because it is a stable Debian-derivative suitable for Tauri builds
-docker run --rm -v "$REPO_ROOT:/workspace" -w "/workspace" ubuntu:22.04 /bin/bash -c "
+docker run --rm -v "$REPO_ROOT:/workspace" -w "/workspace" -e CI=true ubuntu:22.04 /bin/bash -c "
     set -euo pipefail
     
     export DEBIAN_FRONTEND=noninteractive
