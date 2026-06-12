@@ -1,17 +1,16 @@
 /** @type {const} */
-// Phoenix Core — Premium Blue Phoenix & Home Aurelia Color System
-// Primary: Electric Blue (#00d2ff), Accent: Gold (#ffd700), Purple (#9d4edd), Cyan (#00ffff)
+// Arcwyre Control Center Color System (matching Desktop theme.py)
 const themeColors = {
-  // Electric Blue — the Phoenix Core signature color
-  primary:    { light: '#00b0e6', dark: '#00d2ff' },
-  // Deep Space Navy backgrounds
-  background: { light: '#f0f4f8', dark: '#050811' },
-  // Panel / card surfaces
-  surface:    { light: '#ffffff', dark: '#0a0e1a' },
+  // Arcwyre Cyan
+  primary:    { light: '#00B0CC', dark: '#00D0E5' },
+  // Arcwyre Window Background
+  background: { light: '#f0f4f8', dark: '#1E1E1E' },
+  // Arcwyre Elevated Surfaces
+  surface:    { light: '#ffffff', dark: '#2C2C2E' },
   // Primary text
-  foreground: { light: '#0d1117', dark: '#ffffff' },
+  foreground: { light: '#0d1117', dark: '#FFFFFF' },
   // Secondary / muted text
-  muted:      { light: '#64748b', dark: '#94a3b8' },
+  muted:      { light: '#64748b', dark: '#98989D' },
   // Borders
   border:     { light: '#e2e8f0', dark: 'rgba(255,255,255,0.08)' },
   // Status colors
