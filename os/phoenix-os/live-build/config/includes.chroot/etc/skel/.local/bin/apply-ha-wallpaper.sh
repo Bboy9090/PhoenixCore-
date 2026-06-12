@@ -1,7 +1,7 @@
 #!/bin/bash
 # Apply HomeAurelia wallpaper on first boot
 
-WALLPAPER="$HOME/.local/share/wallpapers/FHD/ha_wallpaper_home_aurelia_main_1920x1080.png"
+WALLPAPER="$HOME/.local/share/wallpapers/FHD/ha_wallpaper_arcwyre_1920x1080.png"
 if [ -f "$WALLPAPER" ]; then
     # Wait for Plasma to fully initialize
     sleep 5

@@ -1,54 +1,52 @@
-# Blue Phoenix OS — Plymouth Boot Theme (Edition Template)
-#
-# This template is patched at staging-time by scripts/build-edition.sh:
-#   __BG_TOP_R__ __BG_TOP_G__ __BG_TOP_B__
-#   __BG_BOT_R__ __BG_BOT_G__ __BG_BOT_B__
-
+# Blue Phoenix OS — Plymouth Boot Theme
 screen_width  = Window.GetWidth();
 screen_height = Window.GetHeight();
 
-# Edition-aware background tones
-Window.SetBackgroundTopColor(__BG_TOP_R__, __BG_TOP_G__, __BG_TOP_B__);
-Window.SetBackgroundBottomColor(__BG_BOT_R__, __BG_BOT_G__, __BG_BOT_B__);
+Window.SetBackgroundTopColor(0.01, 0.02, 0.05);
+Window.SetBackgroundBottomColor(0.01, 0.02, 0.05);
 
-# Edition splash backdrop (staged as splash-background.png)
-# This is our pre-rendered minimal cosmic galaxy + Phoenix loader image
+# Splash Image (The Sovereign Bird)
 splash_image = Image("splash-background.png");
 scaled_splash_image = splash_image.Scale(screen_width, screen_height);
 splash_sprite = Sprite(scaled_splash_image);
 splash_sprite.SetPosition(0, 0, 0);
-splash_sprite.SetOpacity(1.0); # Solid 100% opacity for minimal splash loader
+splash_sprite.SetOpacity(1.0);
 
-# The user's provided background images already contain the progress bar UI baked in.
-# We will completely disable Plymouth's native progress bar drawing so it doesn't clash.
-# bar_bg_image = Image("progress-bg.png");
-# bar_fill_image = Image("progress-fill.png");
+# Progress Bar Setup
+bar_bg_image = Image("progress-bg.png");
+bar_fill_image = Image("progress-fill.png");
 
-# scaled_fill_image = bar_fill_image.Scale(2, progress_bar_height);
-# bar_fill_sprite = Sprite(scaled_fill_image);
-# bar_fill_sprite.SetPosition(progress_bar_x_start, progress_bar_y, 2);
+# Scale the 1x1 pixel dynamically to a 600x6 progress bar
+scaled_width = 600;
+scaled_height = 6;
+bar_bg_scaled = bar_bg_image.Scale(scaled_width, scaled_height);
+bar_fill_scaled = bar_fill_image.Scale(scaled_width, scaled_height);
 
-frame = 0;
-logo_fade_in_frames = 28;
+bar_width = bar_bg_scaled.GetWidth();
+bar_height = bar_bg_scaled.GetHeight();
+bar_x = (screen_width / 2) - (bar_width / 2);
+bar_y = (screen_height / 2) + 200; # 200px below center
+
+bar_bg_sprite = Sprite(bar_bg_scaled);
+bar_bg_sprite.SetPosition(bar_x, bar_y, 1);
+
+bar_fill_sprite = Sprite();
+bar_fill_sprite.SetPosition(bar_x, bar_y, 2);
 
 fun refresh_callback() {
-    frame++;
-
-    # Native progress bar update disabled because UI is baked into the splash image.
-    # boot_progress = Plymouth.GetBootProgress();
-    # ...
+    # Move the progress bar from Left to Right flawlessly
+    boot_progress = Plymouth.GetBootProgress();
+    
+    # Calculate how much of the bar is filled
+    fill_width = bar_width * boot_progress;
+    
+    # Crop the fill image from left to right
+    if (fill_width > 0) {
+        cropped_fill = bar_fill_scaled.Crop(0, 0, fill_width, bar_height);
+        bar_fill_sprite.SetImage(cropped_fill);
+    }
 }
 
 Plymouth.SetRefreshFunction(refresh_callback);
-
-fun message_callback(text) {
-    # Quiet splash; keep boot logs hidden unless debug mode is enabled.
-}
-
-Plymouth.SetMessageFunction(message_callback);
-
-fun quit_callback() {
-    # Fade out happens natively in Plymouth 0.9+
-}
-
-Plymouth.SetQuitFunction(quit_callback);
+Plymouth.SetMessageFunction(fun(text) { });
+Plymouth.SetQuitFunction(fun() { });
