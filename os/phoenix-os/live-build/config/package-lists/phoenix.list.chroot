@@ -13,3 +13,16 @@ firmware-linux
 firmware-linux-nonfree
 firmware-iwlwifi
 firmware-realtek
+grub-efi-amd64
+grub-pc-bin
+efibootmgr
+dosfstools
+mtools
+xserver-xorg-video-all
+xwayland
+libgl1-mesa-dri
+sddm-theme-breeze
+python3-pyqt6
+python3-pip
+chromium
+xdg-utils

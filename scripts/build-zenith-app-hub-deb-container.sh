@@ -33,7 +33,7 @@ docker run --rm --platform linux/amd64 -v "$REPO_ROOT:/workspace" -w "/workspace
     
     echo '=> Installing system dependencies...'
     apt-get install -yq curl ca-certificates build-essential pkg-config dpkg-dev patchelf \
-        libwebkit2gtk-4.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libsoup2.4-dev
+        libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev
     
     echo '=> Installing Node.js & pnpm...'
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -

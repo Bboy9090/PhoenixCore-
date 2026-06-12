@@ -14,6 +14,16 @@ firmware-linux
 firmware-linux-nonfree
 firmware-iwlwifi
 firmware-realtek
+grub-efi-amd64
+grub-efi-amd64-bin
+grub-pc
+efibootmgr
+dosfstools
+mtools
+xserver-xorg-video-all
+xwayland
+libgl1-mesa-dri
+sddm-theme-breeze
 
 # Proven Core Launch Applications
 firefox-esr
@@ -23,3 +33,10 @@ konsole
 systemsettings
 kwrite
 gwenview
+python3-pyqt6
+python3-pip
+
+# Arcwyre Lyte EXE Recovery Layer
+wine
+wine64
+winetricks

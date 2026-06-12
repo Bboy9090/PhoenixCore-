@@ -740,8 +740,8 @@ mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/aurorae/themes/"
 cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/05-KDE-Plasma-Theme/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/" 2>/dev/null || true
 cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/06-Color-Schemes/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/color-schemes/" 2>/dev/null || true
 cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/07-Kvantum/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/Kvantum/" 2>/dev/null || true
-mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/home-aurelia/"
-cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/09-Icons/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/home-aurelia/" 2>/dev/null || true
+mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme/"
+cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/09-Icons/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme/" 2>/dev/null || true
 cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/10-Cursors/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/" 2>/dev/null || true
 cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/08-Window-Decorations/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/aurorae/themes/" 2>/dev/null || true
 
@@ -838,7 +838,7 @@ if [ -d "$EDITION_DIR/custom_icons" ]; then
         icon_name_no_ext="${icon_basename%.*}"
         
         # Find all locations of this icon in the active theme
-        find "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme" -name "${icon_name_no_ext}.*" | while read -r target_file; do
+        find "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme" -type f -name "${icon_name_no_ext}.*" | while read -r target_file; do
             target_dir="$(dirname "$target_file")"
             # Remove the generic icon (svg or png)
             rm -f "$target_file"

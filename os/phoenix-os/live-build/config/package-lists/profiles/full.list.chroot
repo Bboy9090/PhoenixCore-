@@ -2,3 +2,13 @@
 kde-standard
 calamares
 calamares-settings-debian
+
+# Zenith Gaming & Heavy Compatibility Layer
+wine
+wine64
+winetricks
+lutris
+steam-installer
+gamemode
+mesa-vulkan-drivers
+vulkan-tools
