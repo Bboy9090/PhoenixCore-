@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AADEN'S OVERRIDE</title>
+    <style>
+        :root {
+            --phosphor-green: #33ff33;
+            --phosphor-dim: #1a5c1a;
+            --crt-bg: #050505;
+            --glitch-red: #ff0000;
+            --feedback-green: #33ff33;
+            --feedback-yellow: #ffff33;
+            --feedback-red: #ff3333;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--crt-bg);
+            color: var(--phosphor-green);
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* CRT Scanlines and Flicker Effect */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 100;
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* CRT Curvature */
+        #screen-curve {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.4) 100%);
+            z-index: 102;
+            pointer-events: none;
+        }
+
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: rgba(18, 16, 16, 0.1);
+            opacity: 0;
+            z-index: 101;
+            pointer-events: none;
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.27861; }
+            5% { opacity: 0.34769; }
+            10% { opacity: 0.23604; }
+            15% { opacity: 0.90626; }
+            20% { opacity: 0.18128; }
+            25% { opacity: 0.83891; }
+            30% { opacity: 0.65583; }
+            35% { opacity: 0.67807; }
+            40% { opacity: 0.26559; }
+            45% { opacity: 0.84693; }
+            50% { opacity: 0.96019; }
+            55% { opacity: 0.08594; }
+            60% { opacity: 0.20313; }
+            65% { opacity: 0.71988; }
+            70% { opacity: 0.53455; }
+            75% { opacity: 0.37288; }
+            80% { opacity: 0.71428; }
+            85% { opacity: 0.70419; }
+            90% { opacity: 0.7003; }
+            95% { opacity: 0.36108; }
+            100% { opacity: 0.24387; }
+        }
+
+        #game-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            z-index: 10;
+            text-shadow: 0 0 5px var(--phosphor-green);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--phosphor-green);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        #timer {
+            font-size: 1.5rem;
+            color: var(--feedback-red);
+        }
+
+        #history {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            border: 1px solid var(--phosphor-dim);
+            padding: 10px;
+            background: rgba(0, 20, 0, 0.2);
+        }
+
+        .history-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px dashed var(--phosphor-dim);
+        }
+
+        .feedback-dots {
+            display: flex;
+            gap: 5px;
+        }
+
+        .square {
+            width: 18px;
+            height: 18px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .square.green { background-color: var(--feedback-green); box-shadow: 0 0 10px var(--feedback-green); }
+        .square.yellow { background-color: var(--feedback-yellow); box-shadow: 0 0 10px var(--feedback-yellow); }
+        .square.red { background-color: var(--feedback-red); box-shadow: 0 0 10px var(--feedback-red); }
+
+        #current-guess-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .guess-slot {
+            width: 50px;
+            height: 60px;
+            border: 2px solid var(--phosphor-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            background: rgba(0, 40, 0, 0.3);
+        }
+
+        #keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .key {
+            height: 80px;
+            border: 2px solid var(--phosphor-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            background: transparent;
+            color: var(--phosphor-green);
+            transition: all 0.1s;
+        }
+
+        .key:active {
+            background-color: var(--phosphor-green);
+            color: var(--crt-bg);
+            box-shadow: 0 0 20px var(--phosphor-green);
+            transform: scale(0.95);
+        }
+
+        .key.action {
+            grid-column: span 3;
+            height: 60px;
+            font-size: 1.2rem;
+        }
+
+        /* Overlay Modals */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .overlay h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .btn-restart {
+            padding: 15px 30px;
+            border: 2px solid var(--phosphor-green);
+            background: transparent;
+            color: var(--phosphor-green);
+            font-size: 1.5rem;
+            font-family: inherit;
+            margin-top: 20px;
+        }
+
+        /* Animations */
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-5px, 5px); }
+            40% { transform: translate(-5px, -5px); }
+            60% { transform: translate(5px, 5px); }
+            80% { transform: translate(5px, -5px); }
+            100% { transform: translate(0); }
+        }
+
+        .glitch-effect {
+            animation: glitch 0.2s linear 2;
+            background-color: rgba(255, 0, 0, 0.2) !important;
+        }
+
+        @keyframes cascade {
+            0% { transform: scale(0.5); opacity: 0; filter: blur(10px); }
+            50% { transform: scale(1.2); opacity: 1; filter: blur(0px); }
+            100% { transform: scale(1); opacity: 1; text-shadow: 0 0 30px var(--feedback-green); }
+        }
+
+        .access-granted {
+            color: var(--feedback-green);
+            animation: cascade 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            font-size: 4rem !important;
+        }
+
+        .access-denied {
+            color: var(--feedback-red);
+        }
+
+        #scanline-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            z-index: 100;
+            pointer-events: none;
+        }
+    
+/* =========================================================
+   ZENITH-LEVEL AESTHETIC OVERRIDE
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap');
+
+body {
+    background: radial-gradient(circle at top right, rgba(0, 255, 65, 0.15), transparent 500px),
+                radial-gradient(circle at bottom left, rgba(0, 150, 255, 0.1), transparent 500px),
+                linear-gradient(135deg, #0d1117 0%, #000000 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* Glassmorphic Surfaces */
+.container, .panel, .card, .toolbar, .shortcut-bar, .app-container, .main-content, .sidebar, header, footer {
+    background: rgba(20, 25, 35, 0.45) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    border-radius: 12px;
+}
+
+/* Interactive Elements */
+button, .btn, .key, .action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border-radius: 8px;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+}
+
+button:hover, .btn:hover, .key:hover, .action-btn:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border-color: rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+button:active, .btn:active, .key:active {
+    transform: translateY(0);
+}
+
+/* Inputs and Textareas */
+input, textarea, select {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-family: 'Inter', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.25) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.5);
+}
+
+</style>
+</head>
+<body>
+    <div id="scanline-overlay"></div>
+    <div id="screen-curve"></div>
+    
+    <div id="game-container">
+        <header>
+            <div class="title">AADEN'S OVERRIDE v1.0</div>
+            <div id="timer">02:00</div>
+        </header>
+
+        <div id="history">
+            <div style="color: var(--phosphor-dim); margin-bottom: 10px;">[SYSTEM LOG: INITIALIZING SECURITY TRACE...]</div>
+        </div>
+
+        <div id="current-guess-container">
+            <div class="guess-slot" id="slot-0"></div>
+            <div class="guess-slot" id="slot-1"></div>
+            <div class="guess-slot" id="slot-2"></div>
+            <div class="guess-slot" id="slot-3"></div>
+        </div>
+
+        <div id="keypad">
+            <div class="key" onclick="inputDigit(1)">1</div>
+            <div class="key" onclick="inputDigit(2)">2</div>
+            <div class="key" onclick="inputDigit(3)">3</div>
+            <div class="key" onclick="inputDigit(4)">4</div>
+            <div class="key" onclick="inputDigit(5)">5</div>
+            <div class="key" onclick="inputDigit(6)">6</div>
+            <div class="key action" onclick="clearGuess()">CLEAR</div>
+        </div>
+    </div>
+
+    <!-- Win Overlay -->
+    <div id="win-overlay" class="overlay">
+        <h1 class="access-granted">ACCESS GRANTED</h1>
+        <p>FIREWALL BREACHED SUCCESSFULLY</p>
+        <p id="win-stats"></p>
+        <button class="btn-restart" onclick="resetGame()">REBOOT SYSTEM</button>
+    </div>
+
+    <!-- Loss Overlay -->
+    <div id="loss-overlay" class="overlay">
+        <h1 class="access-denied">SYSTEM LOCKED</h1>
+        <p>SECURITY TRACE COMPLETE. UPLOAD TERMINATED.</p>
+        <p id="loss-reveal"></p>
+        <button class="btn-restart" onclick="resetGame()">RETRY UPLOAD</button>
+    </div>
+
+    <script>
+        let targetCode = [];
+        let currentGuess = [];
+        let attempts = 0;
+        let maxAttempts = 10;
+        let timeLeft = 120;
+        let timerInterval = null;
+        let gameActive = false;
+
+        function bootSequence() {
+            const history = document.getElementById('history');
+            const lines = [
+                "> USER: AADEN IDENTIFIED",
+                "> INITIALIZING OMNI-LAYER BYPASS...",
+                "> CONNECTING TO SECURE GATEWAY...",
+                "> BYPASSING KERNEL PROTECTION...",
+                "> SECURITY TRACE DETECTED!",
+                "> UPLOADING OVERRIDE MODULE..."
+            ];
+            
+            let i = 0;
+            const interval = setInterval(() => {
+                if (i < lines.length) {
+                    const line = document.createElement('div');
+                    line.style.color = 'var(--phosphor-dim)';
+                    line.textContent = lines[i];
+                    history.appendChild(line);
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    initGame();
+                }
+            }, 400);
+        }
+
+        function initGame() {
+            targetCode = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
+            currentGuess = [];
+            attempts = 0;
+            timeLeft = 120;
+            gameActive = true;
+            
+            document.getElementById('history').innerHTML = '<div style="color: var(--phosphor-dim); margin-bottom: 10px;">[SYSTEM LOG: INITIALIZING SECURITY TRACE...]</div>';
+            updateTimerDisplay();
+            updateSlots();
+            
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(tick, 1000);
+            
+            document.getElementById('win-overlay').style.display = 'none';
+            document.getElementById('loss-overlay').style.display = 'none';
+        }
+
+        function tick() {
+            if (!gameActive) return;
+            timeLeft--;
+            updateTimerDisplay();
+            if (timeLeft <= 0) {
+                endGame(false, "TIMEOUT");
+            }
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const secs = (timeLeft % 60).toString().padStart(2, '0');
+            document.getElementById('timer').textContent = `${mins}:${secs}`;
+        }
+
+        function inputDigit(digit) {
+            if (!gameActive || currentGuess.length >= 4) return;
+            currentGuess.push(digit);
+            updateSlots();
+            
+            if (currentGuess.length === 4) {
+                setTimeout(submitGuess, 300);
+            }
+        }
+
+        function clearGuess() {
+            currentGuess = [];
+            updateSlots();
+        }
+
+        function updateSlots() {
+            for (let i = 0; i < 4; i++) {
+                const slot = document.getElementById(`slot-${i}`);
+                slot.textContent = currentGuess[i] || '';
+                slot.style.borderColor = currentGuess[i] ? 'var(--phosphor-green)' : 'var(--phosphor-dim)';
+            }
+        }
+
+        function submitGuess() {
+            attempts++;
+            const result = evaluateGuess(currentGuess, targetCode);
+            addHistoryRow(currentGuess, result);
+            
+            if (result.green === 4) {
+                endGame(true);
+            } else if (attempts >= maxAttempts) {
+                endGame(false, "MAX_ATTEMPTS");
+            } else {
+                // Wrong guess - glitch effect
+                document.body.classList.add('glitch-effect');
+                setTimeout(() => document.body.classList.remove('glitch-effect'), 400);
+                currentGuess = [];
+                updateSlots();
+            }
+        }
+
+        function evaluateGuess(guess, target) {
+            let green = 0;
+            let yellow = 0;
+            let red = 0;
+
+            const targetCopy = [...target];
+            const guessCopy = [...guess];
+
+            // Check for Green
+            for (let i = 0; i < 4; i++) {
+                if (guessCopy[i] === targetCopy[i]) {
+                    green++;
+                    targetCopy[i] = null;
+                    guessCopy[i] = null;
+                }
+            }
+
+            // Check for Yellow
+            for (let i = 0; i < 4; i++) {
+                if (guessCopy[i] !== null) {
+                    const index = targetCopy.indexOf(guessCopy[i]);
+                    if (index !== -1) {
+                        yellow++;
+                        targetCopy[index] = null;
+                    }
+                }
+            }
+
+            red = 4 - green - yellow;
+            return { green, yellow, red };
+        }
+
+        function addHistoryRow(guess, result) {
+            const history = document.getElementById('history');
+            const row = document.createElement('div');
+            row.className = 'history-row';
+            
+            const guessStr = guess.join(' ');
+            const squaresHtml = 
+                Array(result.green).fill('<div class="square green"></div>').join('') +
+                Array(result.yellow).fill('<div class="square yellow"></div>').join('') +
+                Array(result.red).fill('<div class="square red"></div>').join('');
+            
+            row.innerHTML = `
+                <span>NODE_${attempts.toString().padStart(2, '0')}: [${guessStr}]</span>
+                <div class="feedback-dots">${squaresHtml}</div>
+            `;
+            
+            history.appendChild(row);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function endGame(won, reason) {
+            gameActive = false;
+            clearInterval(timerInterval);
+            
+            if (won) {
+                document.getElementById('win-stats').textContent = `TIME REMAINING: ${timeLeft}s | ATTEMPTS: ${attempts}`;
+                document.getElementById('win-overlay').style.display = 'flex';
+            } else {
+                document.getElementById('loss-reveal').textContent = `CODE WAS: ${targetCode.join(' ')}`;
+                document.getElementById('loss-overlay').style.display = 'flex';
+            }
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        // Prevent zoom on double tap for iOS
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        window.onload = bootSequence;
+    </script>
+</body>
+</html>

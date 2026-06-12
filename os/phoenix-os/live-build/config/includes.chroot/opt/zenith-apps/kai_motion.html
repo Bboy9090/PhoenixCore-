@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>King Kai-Motion</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%);
+            --accent-color: #ff0844;
+            --text-color: #2d3436;
+            --font-family: 'Comic Sans MS', 'Chalkboard SE', 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg-gradient);
+            font-family: var(--font-family);
+            color: var(--text-color);
+            touch-action: none; /* Critical for iPad optimization */
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-around;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .ui-element {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-size: 28px;
+            font-weight: 900;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            border: 3px solid var(--accent-color);
+        }
+
+        #game-stage {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px 20px 20px;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        h1 { 
+            font-size: 64px; 
+            margin-bottom: 20px; 
+            text-shadow: 4px 4px 0px rgba(255,255,255,0.8);
+            color: var(--accent-color);
+            letter-spacing: -2px;
+        }
+        p { 
+            font-size: 24px; 
+            margin-bottom: 30px; 
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .btn {
+            background: var(--accent-color);
+            color: #333;
+            border: none;
+            padding: 20px 40px;
+            font-size: 28px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+
+        .btn:active { transform: scale(0.95); }
+
+        /* Grid Styles */
+        .grid {
+            display: grid;
+            gap: 15px;
+            max-width: 90vw;
+            max-height: 70vh;
+        }
+
+        .emoji-item {
+            font-size: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            aspect-ratio: 1/1;
+            width: 80px;
+            height: 80px;
+        }
+
+        .emoji-item:active { transform: scale(0.9); }
+
+        /* Catch Mode Styles */
+        #falling-area {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .falling-emoji {
+            position: absolute;
+            font-size: 60px;
+            cursor: pointer;
+            will-change: transform;
+        }
+
+        /* Animations */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.4); }
+            100% { transform: scale(1); }
+        }
+
+        .pop-anim { animation: pop 0.3s ease-out; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .shake-anim { animation: shake 0.2s ease-in-out 2; }
+
+        #prompt-overlay {
+            position: absolute;
+            top: 120px;
+            font-size: 32px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 50;
+        }
+    
+/* =========================================================
+   ZENITH-LEVEL AESTHETIC OVERRIDE
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap');
+
+body {
+    background: radial-gradient(circle at top right, rgba(0, 255, 65, 0.15), transparent 500px),
+                radial-gradient(circle at bottom left, rgba(0, 150, 255, 0.1), transparent 500px),
+                linear-gradient(135deg, #0d1117 0%, #000000 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* Glassmorphic Surfaces */
+.container, .panel, .card, .toolbar, .shortcut-bar, .app-container, .main-content, .sidebar, header, footer {
+    background: rgba(20, 25, 35, 0.45) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    border-radius: 12px;
+}
+
+/* Interactive Elements */
+button, .btn, .key, .action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border-radius: 8px;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+}
+
+button:hover, .btn:hover, .key:hover, .action-btn:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border-color: rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+button:active, .btn:active, .key:active {
+    transform: translateY(0);
+}
+
+/* Inputs and Textareas */
+input, textarea, select {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-family: 'Inter', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.25) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.5);
+}
+
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-overlay">
+        <div class="ui-element">Score: <span id="score-val">0</span></div>
+        <div class="ui-element">Time: <span id="timer-val">30</span>s</div>
+    </div>
+
+    <div id="prompt-overlay"></div>
+
+    <div id="game-stage">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen active">
+            <h1>👑 King Kai-Motion</h1>
+            <p>The ultimate emoji reflex challenge!</p>
+            <button class="btn" onclick="game.start()">START GAME</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="play-screen" class="screen">
+            <div id="game-content" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
+                <!-- Mini-game content will be injected here -->
+            </div>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-screen" class="screen">
+            <h1>Game Over!</h1>
+            <p>Your Score: <span id="final-score">0</span></p>
+            <button class="btn" onclick="game.reset()">PLAY AGAIN</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const EMOJIS = {
+        faces: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕'],
+        emotions: {
+            'HAPPY': ['😀', '😃', '😄', '😁', '😊', '😇', '🙂', '🤩', '🥳'],
+            'ANGRY': ['😤', '😠', '😡', '🤬', '👿'],
+            'SAD': ['😞', '😔', '😟', '😕', '🙁', '☹️', '😢', '😭', '🥺'],
+            'SURPRISED': ['😮', '😲', '😳', '🤯', '😱', '😨'],
+            'COOL': ['😎', '😏', '🤪', '😜', '🧐']
+        }
+    };
+
+    class Game {
+        constructor() {
+            this.score = 0;
+            this.timeLeft = 30;
+            this.timer = null;
+            this.currentMode = null;
+            this.isPlaying = false;
+            
+            this.screens = {
+                start: document.getElementById('start-screen'),
+                play: document.getElementById('play-screen'),
+                result: document.getElementById('result-screen')
+            };
+            
+            this.elements = {
+                score: document.getElementById('score-val'),
+                timer: document.getElementById('timer-val'),
+                content: document.getElementById('game-content'),
+                prompt: document.getElementById('prompt-overlay'),
+                finalScore: document.getElementById('final-score')
+            };
+        }
+
+        start() {
+            this.score = 0;
+            this.timeLeft = 30;
+            this.isPlaying = true;
+            this.updateUI();
+            this.showScreen('play');
+            this.nextMode();
+            
+            this.timer = setInterval(() => {
+                this.timeLeft--;
+                this.updateUI();
+                if (this.timeLeft <= 0) this.end();
+            }, 1000);
+        }
+
+        end() {
+            this.isPlaying = false;
+            clearInterval(this.timer);
+            this.elements.finalScore.innerText = this.score;
+            this.showScreen('result');
+            this.elements.prompt.innerText = '';
+        }
+
+        reset() {
+            this.showScreen('start');
+        }
+
+        updateUI() {
+            this.elements.score.innerText = this.score;
+            this.elements.timer.innerText = this.timeLeft;
+        }
+
+        showScreen(id) {
+            Object.values(this.screens).forEach(s => s.classList.remove('active'));
+            this.screens[id].classList.add('active');
+        }
+
+        nextMode() {
+            if (!this.isPlaying) return;
+            this.elements.content.innerHTML = '';
+            const modes = ['odd', 'match', 'catch'];
+            this.currentMode = modes[Math.floor(Math.random() * modes.length)];
+            
+            if (this.currentMode === 'odd') this.initOddOneOut();
+            else if (this.currentMode === 'match') this.initPerfectMatch();
+            else if (this.currentMode === 'catch') this.initCatchEmotion();
+        }
+
+        initOddOneOut() {
+            this.elements.prompt.innerText = "Find the different one!";
+            const grid = document.createElement('div');
+            grid.className = 'grid';
+            grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+            
+            const baseEmoji = EMOJIS.faces[Math.floor(Math.random() * EMOJIS.faces.length)];
+            let oddEmoji = baseEmoji;
+            while (oddEmoji === baseEmoji) {
+                oddEmoji = EMOJIS.faces[Math.floor(Math.random() * EMOJIS.faces.length)];
+            }
+            
+            const size = 16;
+            const oddIndex = Math.floor(Math.random() * size);
+            
+            for (let i = 0; i < size; i++) {
+                const item = document.createElement('div');
+                item.className = 'emoji-item';
+                item.innerText = (i === oddIndex) ? oddEmoji : baseEmoji;
+                item.onclick = (e) => {
+                    if (i === oddIndex) {
+                        this.handleSuccess(item);
+                    } else {
+                        this.handleFailure(item);
+                    }
+                };
+                grid.appendChild(item);
+            }
+            this.elements.content.appendChild(grid);
+        }
+
+        handleSuccess(el) {
+            this.score += 10;
+            this.updateUI();
+            el.classList.add('pop-anim');
+            setTimeout(() => this.nextMode(), 300);
+        }
+
+        handleFailure(el) {
+            this.score = Math.max(0, this.score - 5);
+            this.updateUI();
+            el.classList.add('shake-anim');
+            setTimeout(() => el.classList.remove('shake-anim'), 400);
+        }
+        
+        initPerfectMatch() {
+            this.elements.prompt.innerText = "Find the matching pair!";
+            const grid = document.createElement('div');
+            grid.className = 'grid';
+            grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+            
+            const size = 16;
+            const pool = [...EMOJIS.faces].sort(() => 0.5 - Math.random());
+            const uniqueEmojis = pool.slice(0, size - 1);
+            const matchEmoji = uniqueEmojis[Math.floor(Math.random() * uniqueEmojis.length)];
+            
+            const gameEmojis = [...uniqueEmojis, matchEmoji].sort(() => 0.5 - Math.random());
+            let selected = [];
+
+            gameEmojis.forEach((emoji, index) => {
+                const item = document.createElement('div');
+                item.className = 'emoji-item';
+                item.innerText = emoji;
+                item.onclick = () => {
+                    if (selected.includes(item)) return;
+                    
+                    item.style.background = 'rgba(255, 255, 255, 0.4)';
+                    selected.push({el: item, emoji: emoji});
+                    
+                    if (selected.length === 2) {
+                        if (selected[0].emoji === selected[1].emoji) {
+                            this.score += 15;
+                            this.updateUI();
+                            selected.forEach(s => s.el.classList.add('pop-anim'));
+                            setTimeout(() => this.nextMode(), 400);
+                        } else {
+                            this.score = Math.max(0, this.score - 5);
+                            this.updateUI();
+                            selected.forEach(s => {
+                                s.el.classList.add('shake-anim');
+                                setTimeout(() => {
+                                    s.el.classList.remove('shake-anim');
+                                    s.el.style.background = 'rgba(255, 255, 255, 0.1)';
+                                }, 400);
+                            });
+                            selected = [];
+                        }
+                    }
+                };
+                grid.appendChild(item);
+            });
+            this.elements.content.appendChild(grid);
+        }
+        initCatchEmotion() {
+            const emotionNames = Object.keys(EMOJIS.emotions);
+            const targetEmotion = emotionNames[Math.floor(Math.random() * emotionNames.length)];
+            this.elements.prompt.innerText = `Catch ${targetEmotion} faces!`;
+            
+            const area = document.createElement('div');
+            area.id = 'falling-area';
+            this.elements.content.appendChild(area);
+            
+            let caught = 0;
+            const targetCount = 5;
+            const spawnInterval = setInterval(() => {
+                if (!this.isPlaying || this.currentMode !== 'catch') {
+                    clearInterval(spawnInterval);
+                    return;
+                }
+                
+                const isTarget = Math.random() > 0.4;
+                const emotionType = isTarget ? targetEmotion : emotionNames.filter(e => e !== targetEmotion)[Math.floor(Math.random() * (emotionNames.length - 1))];
+                const emojiList = EMOJIS.emotions[emotionType];
+                const emoji = emojiList[Math.floor(Math.random() * emojiList.length)];
+                
+                const el = document.createElement('div');
+                el.className = 'falling-emoji';
+                el.innerText = emoji;
+                el.style.left = Math.random() * 80 + 10 + '%';
+                el.style.top = '-100px';
+                area.appendChild(el);
+                
+                let pos = -100;
+                const speed = 3 + Math.random() * 4;
+                
+                const fall = () => {
+                    if (!el.parentNode) return;
+                    pos += speed;
+                    el.style.transform = `translateY(${pos}px)`;
+                    
+                    if (pos > window.innerHeight) {
+                        if (isTarget) {
+                            this.score = Math.max(0, this.score - 2);
+                            this.updateUI();
+                        }
+                        el.remove();
+                    } else {
+                        requestAnimationFrame(fall);
+                    }
+                };
+                
+                el.onclick = () => {
+                    if (isTarget) {
+                        this.score += 10;
+                        caught++;
+                        el.classList.add('pop-anim');
+                        setTimeout(() => el.remove(), 200);
+                        if (caught >= targetCount) {
+                            clearInterval(spawnInterval);
+                            setTimeout(() => this.nextMode(), 500);
+                        }
+                    } else {
+                        this.score = Math.max(0, this.score - 10);
+                        el.classList.add('shake-anim');
+                        setTimeout(() => el.remove(), 200);
+                    }
+                    this.updateUI();
+                };
+                
+                requestAnimationFrame(fall);
+            }, 600);
+        }
+    }
+
+    const game = new Game();
+
+    // Prevent default touch behaviors (scrolling, zooming)
+    document.addEventListener('touchstart', (e) => {
+        if (e.target.tagName !== 'BUTTON') {
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+    }, { passive: false });
+
+    // Handle orientation changes for iPad
+    window.addEventListener('resize', () => {
+        if (game.isPlaying && game.currentMode === 'catch') {
+            // Recalculate or reset catch mode if needed
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>System Pulse | Hardware Telemetry</title>
+    <style>
+        :root {
+            --bg-deep: #0a0a0a;
+            --bg-surface: #121212;
+            --bg-card: #1a1a1a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #888888;
+            --accent-primary: #00ff9d;
+            --accent-secondary: #00d4ff;
+            --accent-warning: #ffcc00;
+            --accent-danger: #ff4d4d;
+            --border: #2a2a2a;
+            --font-mono: 'SF Mono', 'Fira Code', 'Roboto Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden; /* Fixed viewport for iPad */
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            height: 60px;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-surface);
+            z-index: 10;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            font-size: 1.2rem;
+        }
+
+        .pulse-icon {
+            width: 12px;
+            height: 12px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-primary);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 157, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 255, 157, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 157, 0); }
+        }
+
+        .system-status {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Main Layout */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 16px;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .card-value {
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            color: var(--accent-primary);
+        }
+
+        /* CPU Grid */
+        .cpu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            flex: 1;
+        }
+
+        .core-stat {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 8px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .core-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+        }
+
+        .core-bar-container {
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .core-bar {
+            height: 100%;
+            background: var(--accent-primary);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Graphs */
+        .graph-container {
+            flex: 1;
+            min-height: 120px;
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Process Table */
+        .process-card {
+            grid-column: span 2;
+            overflow: hidden;
+        }
+
+        .table-container {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background: var(--bg-card);
+            text-align: left;
+            padding: 12px 8px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
+            z-index: 1;
+        }
+
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .state-tag {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .state-running { background: rgba(0, 255, 157, 0.1); color: var(--accent-primary); }
+        .state-sleeping { background: rgba(136, 136, 136, 0.1); color: var(--text-secondary); }
+
+        /* Responsive adjustments for iPad */
+        @media (max-width: 768px) {
+            main {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto 1fr;
+            }
+            .process-card {
+                grid-column: span 1;
+            }
+        }
+
+        /* Performance Overlay */
+        #fps-counter {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-secondary);
+            pointer-events: none;
+        }
+    
+/* =========================================================
+   ZENITH-LEVEL AESTHETIC OVERRIDE
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap');
+
+body {
+    background: radial-gradient(circle at top right, rgba(0, 255, 65, 0.15), transparent 500px),
+                radial-gradient(circle at bottom left, rgba(0, 150, 255, 0.1), transparent 500px),
+                linear-gradient(135deg, #0d1117 0%, #000000 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* Glassmorphic Surfaces */
+.container, .panel, .card, .toolbar, .shortcut-bar, .app-container, .main-content, .sidebar, header, footer {
+    background: rgba(20, 25, 35, 0.45) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    border-radius: 12px;
+}
+
+/* Interactive Elements */
+button, .btn, .key, .action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border-radius: 8px;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+}
+
+button:hover, .btn:hover, .key:hover, .action-btn:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border-color: rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+button:active, .btn:active, .key:active {
+    transform: translateY(0);
+}
+
+/* Inputs and Textareas */
+input, textarea, select {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-family: 'Inter', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.25) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.5);
+}
+
+</style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <div class="pulse-icon"></div>
+            SYSTEM PULSE
+        </div>
+        <div class="system-status" id="uptime-display">UPTIME: 00:00:00</div>
+    </header>
+
+    <main>
+        <!-- CPU Card -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">CPU Load</span>
+                <span class="card-value" id="cpu-total">0%</span>
+            </div>
+            <div class="cpu-grid">
+                <div class="core-stat">
+                    <span class="core-label">CORE 0</span>
+                    <div class="core-bar-container"><div class="core-bar" id="core-0-bar"></div></div>
+                </div>
+                <div class="core-stat">
+                    <span class="core-label">CORE 1</span>
+                    <div class="core-bar-container"><div class="core-bar" id="core-1-bar"></div></div>
+                </div>
+                <div class="core-stat">
+                    <span class="core-label">CORE 2</span>
+                    <div class="core-bar-container"><div class="core-bar" id="core-2-bar"></div></div>
+                </div>
+                <div class="core-stat">
+                    <span class="core-label">CORE 3</span>
+                    <div class="core-bar-container"><div class="core-bar" id="core-3-bar"></div></div>
+                </div>
+            </div>
+            <div class="graph-container">
+                <canvas id="cpu-graph"></canvas>
+            </div>
+        </div>
+
+        <!-- Memory Card -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Memory Allocation</span>
+                <span class="card-value" id="mem-total">0.0 GB</span>
+            </div>
+            <div style="display: flex; gap: 20px; font-size: 0.8rem; font-family: var(--font-mono);">
+                <div><span style="color: var(--accent-primary)">●</span> Used: <span id="mem-used">0</span></div>
+                <div><span style="color: var(--accent-secondary)">●</span> Cache: <span id="mem-cached">0</span></div>
+                <div><span style="color: var(--text-secondary)">●</span> Free: <span id="mem-free">0</span></div>
+            </div>
+            <div class="graph-container">
+                <canvas id="mem-graph"></canvas>
+            </div>
+        </div>
+
+        <!-- Process Table -->
+        <div class="card process-card">
+            <div class="card-header">
+                <span class="card-title">Active Processes</span>
+                <span class="card-value" id="proc-count">0 tasks</span>
+            </div>
+            <div class="table-container">
+                <table id="process-table">
+                    <thead>
+                        <tr>
+                            <th>PID</th>
+                            <th>NAME</th>
+                            <th>CPU%</th>
+                            <th>MEM%</th>
+                            <th>STATE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="process-body">
+                        <!-- Injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div id="fps-counter">FPS: 60</div>
+
+    <script>
+        /**
+         * System Pulse - High Performance Telemetry Dashboard
+         * Optimized for iPad / Touch / 60FPS
+         */
+
+        // --- Constants & Config ---
+        const UPDATE_INTERVAL = 500; // ms
+        const MAX_HISTORY = 100;
+        const PROCESS_LIST = [
+            { pid: 1, name: 'init', cpu: 0.1, mem: 0.1, state: 'Running' },
+            { pid: 42, name: 'kernel_thr', cpu: 1.2, mem: 0.0, state: 'Running' },
+            { pid: 108, name: 'phoenix_core', cpu: 15.4, mem: 8.2, state: 'Running' },
+            { pid: 256, name: 'user_sandbox', cpu: 4.5, mem: 12.1, state: 'Running' },
+            { pid: 512, name: 'sys_pulse_ui', cpu: 2.1, mem: 1.5, state: 'Running' },
+            { pid: 1024, name: 'net_daemon', cpu: 0.8, mem: 0.4, state: 'Sleeping' },
+            { pid: 2048, name: 'disk_io_mgr', cpu: 0.5, mem: 0.9, state: 'Sleeping' },
+            { pid: 4096, name: 'gpu_render', cpu: 12.8, mem: 5.4, state: 'Running' }
+        ];
+
+        // --- Data State ---
+        const state = {
+            startTime: Date.now(),
+            cpuHistory: new Array(MAX_HISTORY).fill(0),
+            memHistory: new Array(MAX_HISTORY).fill(0),
+            cores: [0, 0, 0, 0],
+            memory: { used: 0, cached: 0, free: 0, total: 16 },
+            processes: [...PROCESS_LIST],
+            fps: 0,
+            lastFrameTime: performance.now()
+        };
+
+        // --- Utility Functions ---
+        const lerp = (a, b, t) => a + (b - a) * t;
+        const formatSize = (gb) => gb.toFixed(1) + ' GB';
+        const randomRange = (min, max) => Math.random() * (max - min) + min;
+
+        // --- Telemetry Simulation ---
+        function updateTelemetry() {
+            // Simulate CPU
+            let totalCpu = 0;
+            state.cores = state.cores.map(() => {
+                const val = Math.max(2, Math.min(98, randomRange(5, 40) + (Math.sin(Date.now() / 2000) * 20)));
+                totalCpu += val;
+                return val;
+            });
+            const avgCpu = totalCpu / 4;
+            state.cpuHistory.push(avgCpu);
+            state.cpuHistory.shift();
+
+            // Simulate Memory
+            const usedBase = 6 + (Math.sin(Date.now() / 5000) * 1.5);
+            state.memory.used = usedBase;
+            state.memory.cached = 2.4 + (Math.cos(Date.now() / 3000) * 0.5);
+            state.memory.free = state.memory.total - state.memory.used - state.memory.cached;
+            state.memHistory.push((state.memory.used / state.memory.total) * 100);
+            state.memHistory.shift();
+
+            // Simulate Processes
+            state.processes.forEach(p => {
+                if (p.name === 'phoenix_core') p.cpu = 10 + randomRange(0, 20);
+                else if (p.name === 'gpu_render') p.cpu = 5 + randomRange(0, 15);
+                else p.cpu = Math.max(0.1, p.cpu + randomRange(-0.5, 0.5));
+                
+                p.mem = Math.max(0.1, p.mem + randomRange(-0.1, 0.1));
+            });
+
+            updateDOM();
+        }
+
+        // --- UI Updates ---
+        function updateDOM() {
+            // Uptime
+            const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+            const h = Math.floor(elapsed / 3600).toString().padStart(2, '0');
+            const m = Math.floor((elapsed % 3600) / 60).padStart(2, '0');
+            const s = (elapsed % 60).toString().padStart(2, '0');
+            document.getElementById('uptime-display').textContent = `UPTIME: ${h}:${m}:${s}`;
+
+            // CPU
+            document.getElementById('cpu-total').textContent = `${(state.cpuHistory[MAX_HISTORY-1]).toFixed(1)}%`;
+            state.cores.forEach((val, i) => {
+                document.getElementById(`core-${i}-bar`).style.width = `${val}%`;
+            });
+
+            // Memory
+            document.getElementById('mem-total').textContent = formatSize(state.memory.used);
+            document.getElementById('mem-used').textContent = formatSize(state.memory.used);
+            document.getElementById('mem-cached').textContent = formatSize(state.memory.cached);
+            document.getElementById('mem-free').textContent = formatSize(state.memory.free);
+
+            // Processes
+            const tbody = document.getElementById('process-body');
+            let html = '';
+            state.processes.sort((a, b) => b.cpu - a.cpu).forEach(p => {
+                html += `
+                    <tr>
+                        <td>${p.pid}</td>
+                        <td style="color: white">${p.name}</td>
+                        <td style="color: ${p.cpu > 15 ? 'var(--accent-danger)' : 'var(--text-primary)'}">${p.cpu.toFixed(1)}%</td>
+                        <td>${p.mem.toFixed(1)}%</td>
+                        <td><span class="state-tag ${p.state === 'Running' ? 'state-running' : 'state-sleeping'}">${p.state}</span></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            document.getElementById('proc-count').textContent = `${state.processes.length} tasks`;
+        }
+
+        // --- Graph Rendering Engine ---
+        class Sparkline {
+            constructor(canvasId, color) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d', { alpha: false });
+                this.color = color;
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                const dpr = window.devicePixelRatio || 1;
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width * dpr;
+                this.canvas.height = rect.height * dpr;
+                this.ctx.scale(dpr, dpr);
+                this.width = rect.width;
+                this.height = rect.height;
+            }
+
+            render(data) {
+                const ctx = this.ctx;
+                ctx.fillStyle = '#1a1a1a'; // Match card background
+                ctx.fillRect(0, 0, this.width, this.height);
+
+                // Grid lines
+                ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+                ctx.lineWidth = 1;
+                for (let i = 1; i < 4; i++) {
+                    const y = (this.height / 4) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(this.width, y);
+                    ctx.stroke();
+                }
+
+                // Line
+                ctx.beginPath();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.lineJoin = 'round';
+
+                const step = this.width / (MAX_HISTORY - 1);
+                data.forEach((val, i) => {
+                    const x = i * step;
+                    const y = this.height - (val / 100) * this.height;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                // Area under line
+                ctx.lineTo(this.width, this.height);
+                ctx.lineTo(0, this.height);
+                const gradient = ctx.createLinearGradient(0, 0, 0, this.height);
+                gradient.addColorStop(0, this.color.replace('1)', '0.2)'));
+                gradient.addColorStop(1, this.color.replace('1)', '0)'));
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            }
+        }
+
+        // --- Main Loop ---
+        let cpuGraph, memGraph;
+
+        function init() {
+            cpuGraph = new Sparkline('cpu-graph', 'rgba(0, 255, 157, 1)');
+            memGraph = new Sparkline('mem-graph', 'rgba(0, 212, 255, 1)');
+
+            // Start simulation
+            setInterval(updateTelemetry, UPDATE_INTERVAL);
+            
+            // Start rendering loop
+            requestAnimationFrame(renderLoop);
+        }
+
+        function renderLoop(now) {
+            // FPS Calculation
+            const delta = now - state.lastFrameTime;
+            state.lastFrameTime = now;
+            const fps = Math.round(1000 / delta);
+            if (now % 500 < 20) { // Update FPS display twice a second
+                document.getElementById('fps-counter').textContent = `FPS: ${fps}`;
+            }
+
+            // Render Graphs
+            cpuGraph.render(state.cpuHistory);
+            memGraph.render(state.memHistory);
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

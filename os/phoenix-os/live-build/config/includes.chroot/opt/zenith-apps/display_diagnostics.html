@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>Arcwyre Digitizer & Display Diagnostics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0a0e27;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            color: #ffffff;
+        }
+
+        /* Dashboard View */
+        #dashboard {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            gap: 30px;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+        }
+
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .dashboard-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .dashboard-header p {
+            font-size: 1rem;
+            color: #888;
+            font-weight: 400;
+        }
+
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .test-button {
+            padding: 24px 32px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .test-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transition: left 0.3s ease;
+            z-index: 0;
+        }
+
+        .test-button:hover::before {
+            left: 100%;
+        }
+
+        .test-button span {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        #pixelTestBtn {
+            background: linear-gradient(135deg, #ff006e 0%, #c2185b 100%);
+            color: white;
+        }
+
+        #pixelTestBtn:active {
+            transform: scale(0.98);
+            box-shadow: 0 4px 12px rgba(255, 0, 110, 0.4);
+        }
+
+        #digitizerTestBtn {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            color: white;
+        }
+
+        #digitizerTestBtn:active {
+            transform: scale(0.98);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+        }
+
+        /* Dead Pixel Test View */
+        #pixelTestView {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            background: #000000;
+        }
+
+        #pixelTestView.active {
+            display: flex;
+        }
+
+        .color-indicator {
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+            color: #ffffff;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .exit-hint {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        /* Digitizer Test View */
+        #digitizerTestView {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            flex-direction: column;
+            background: #0a0e27;
+        }
+
+        #digitizerTestView.active {
+            display: flex;
+        }
+
+        .digitizer-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1f3a 0%, #0a0e27 100%);
+            border-bottom: 2px solid #00d4ff;
+            text-align: center;
+        }
+
+        .digitizer-header h2 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            color: #00d4ff;
+        }
+
+        .digitizer-header p {
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        #touchCanvas {
+            flex: 1;
+            width: 100%;
+            display: block;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            cursor: crosshair;
+        }
+
+        .digitizer-footer {
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1f3a 0%, #0a0e27 100%);
+            border-top: 2px solid #00d4ff;
+            text-align: center;
+        }
+
+        .digitizer-footer p {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 12px;
+        }
+
+        .exit-button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #ff006e 0%, #c2185b 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .exit-button:active {
+            transform: scale(0.98);
+        }
+
+        /* Touch Point Styling */
+        .touch-point {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Fullscreen Styles */
+        #pixelTestView:fullscreen {
+            background: #000000;
+        }
+
+        #digitizerTestView:fullscreen {
+            background: #0a0e27;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .dashboard-header h1 {
+                font-size: 2rem;
+            }
+
+            .test-button {
+                padding: 20px 24px;
+                font-size: 1.25rem;
+            }
+
+            .color-indicator {
+                font-size: 1.25rem;
+            }
+        }
+
+        /* Prevent scrolling */
+        body.no-scroll {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+        }
+    
+/* =========================================================
+   ZENITH-LEVEL AESTHETIC OVERRIDE
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap');
+
+body {
+    background: radial-gradient(circle at top right, rgba(0, 255, 65, 0.15), transparent 500px),
+                radial-gradient(circle at bottom left, rgba(0, 150, 255, 0.1), transparent 500px),
+                linear-gradient(135deg, #0d1117 0%, #000000 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* Glassmorphic Surfaces */
+.container, .panel, .card, .toolbar, .shortcut-bar, .app-container, .main-content, .sidebar, header, footer {
+    background: rgba(20, 25, 35, 0.45) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    border-radius: 12px;
+}
+
+/* Interactive Elements */
+button, .btn, .key, .action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border-radius: 8px;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+}
+
+button:hover, .btn:hover, .key:hover, .action-btn:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border-color: rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+button:active, .btn:active, .key:active {
+    transform: translateY(0);
+}
+
+/* Inputs and Textareas */
+input, textarea, select {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-family: 'Inter', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.25) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.5);
+}
+
+</style>
+</head>
+<body>
+    <!-- Dashboard -->
+    <div id="dashboard">
+        <div class="dashboard-header">
+            <h1>Arcwyre Diagnostics</h1>
+            <p>Hardware Repair Suite</p>
+        </div>
+        <div class="button-container">
+            <button id="pixelTestBtn" class="test-button">
+                <span>🔴 Test Dead Pixels</span>
+            </button>
+            <button id="digitizerTestBtn" class="test-button">
+                <span>👆 Test Digitizer</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Dead Pixel Test View -->
+    <div id="pixelTestView">
+        <div class="color-indicator" id="colorLabel">RED</div>
+        <div class="exit-hint">Tap screen to cycle colors • Press ESC or tap outside to exit</div>
+    </div>
+
+    <!-- Digitizer Test View -->
+    <div id="digitizerTestView">
+        <div class="digitizer-header">
+            <h2>Multi-Touch Digitizer Test</h2>
+            <p>Place multiple fingers on screen to test simultaneous touch detection</p>
+        </div>
+        <canvas id="touchCanvas"></canvas>
+        <div class="digitizer-footer">
+            <p id="touchInfo">Touch points: 0 | Ready for input</p>
+            <button class="exit-button" id="exitDigitizerBtn">Exit Test</button>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // GLOBAL STATE & CONFIGURATION
+        // ============================================================
+        const state = {
+            currentView: 'dashboard',
+            pixelTestActive: false,
+            digitizerTestActive: false,
+            currentColorIndex: 0,
+            activeTouches: new Map(),
+            touchPoints: []
+        };
+
+        const diagnosticColors = [
+            { name: 'RED', hex: '#FF0000', rgb: 'rgb(255, 0, 0)' },
+            { name: 'GREEN', hex: '#00FF00', rgb: 'rgb(0, 255, 0)' },
+            { name: 'BLUE', hex: '#0000FF', rgb: 'rgb(0, 0, 255)' },
+            { name: 'WHITE', hex: '#FFFFFF', rgb: 'rgb(255, 255, 255)' },
+            { name: 'BLACK', hex: '#000000', rgb: 'rgb(0, 0, 0)' }
+        ];
+
+        const touchColors = [
+            '#FF006E', '#00D4FF', '#00FF41', '#FFD700', '#FF6B35',
+            '#A78BFA', '#F472B6', '#34D399', '#60A5FA', '#FBBF24'
+        ];
+
+        // ============================================================
+        // DOM ELEMENTS
+        // ============================================================
+        const dashboard = document.getElementById('dashboard');
+        const pixelTestView = document.getElementById('pixelTestView');
+        const digitizerTestView = document.getElementById('digitizerTestView');
+        const pixelTestBtn = document.getElementById('pixelTestBtn');
+        const digitizerTestBtn = document.getElementById('digitizerTestBtn');
+        const exitDigitizerBtn = document.getElementById('exitDigitizerBtn');
+        const colorLabel = document.getElementById('colorLabel');
+        const touchCanvas = document.getElementById('touchCanvas');
+        const touchInfo = document.getElementById('touchInfo');
+        const ctx = touchCanvas.getContext('2d');
+
+        // ============================================================
+        // UTILITY FUNCTIONS
+        // ============================================================
+        function resizeCanvas() {
+            touchCanvas.width = digitizerTestView.clientWidth;
+            touchCanvas.height = digitizerTestView.clientHeight - 120; // Account for header/footer
+        }
+
+        function preventDefaultTouchBehavior(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function disableDefaultGestures() {
+            document.addEventListener('touchmove', preventDefaultTouchBehavior, { passive: false });
+            document.addEventListener('gesturestart', preventDefaultTouchBehavior, { passive: false });
+            document.addEventListener('touchstart', preventDefaultTouchBehavior, { passive: false });
+        }
+
+        function enableDefaultGestures() {
+            document.removeEventListener('touchmove', preventDefaultTouchBehavior);
+            document.removeEventListener('gesturestart', preventDefaultTouchBehavior);
+            document.removeEventListener('touchstart', preventDefaultTouchBehavior);
+        }
+
+        // ============================================================
+        // DEAD PIXEL TEST FUNCTIONS
+        // ============================================================
+        async function enterFullscreen(element) {
+            try {
+                if (element.requestFullscreen) {
+                    await element.requestFullscreen();
+                } else if (element.webkitRequestFullscreen) {
+                    await element.webkitRequestFullscreen();
+                } else if (element.mozRequestFullScreen) {
+                    await element.mozRequestFullScreen();
+                } else if (element.msRequestFullscreen) {
+                    await element.msRequestFullscreen();
+                }
+            } catch (err) {
+                console.log('Fullscreen request failed:', err);
+            }
+        }
+
+        function exitFullscreen() {
+            if (document.fullscreenElement) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+
+        function startPixelTest() {
+            state.pixelTestActive = true;
+            state.currentColorIndex = 0;
+            state.currentView = 'pixelTest';
+            
+            dashboard.style.display = 'none';
+            pixelTestView.classList.add('active');
+            
+            disableDefaultGestures();
+            updatePixelTestColor();
+            enterFullscreen(pixelTestView);
+        }
+
+        function updatePixelTestColor() {
+            const color = diagnosticColors[state.currentColorIndex];
+            colorLabel.textContent = color.name;
+            pixelTestView.style.background = color.rgb;
+            
+            // Adjust text color for visibility
+            if (color.name === 'WHITE') {
+                colorLabel.style.color = '#000000';
+                document.querySelector('.exit-hint').style.color = 'rgba(0, 0, 0, 0.6)';
+            } else {
+                colorLabel.style.color = '#FFFFFF';
+                document.querySelector('.exit-hint').style.color = 'rgba(255, 255, 255, 0.6)';
+            }
+        }
+
+        function cyclePixelTestColor() {
+            state.currentColorIndex = (state.currentColorIndex + 1) % diagnosticColors.length;
+            updatePixelTestColor();
+        }
+
+        function exitPixelTest() {
+            state.pixelTestActive = false;
+            state.currentView = 'dashboard';
+            
+            pixelTestView.classList.remove('active');
+            dashboard.style.display = 'flex';
+            
+            enableDefaultGestures();
+            exitFullscreen();
+        }
+
+        // ============================================================
+        // DIGITIZER TEST FUNCTIONS
+        // ============================================================
+        function startDigitizerTest() {
+            state.digitizerTestActive = true;
+            state.currentView = 'digitizer';
+            state.activeTouches.clear();
+            state.touchPoints = [];
+            
+            dashboard.style.display = 'none';
+            digitizerTestView.classList.add('active');
+            
+            disableDefaultGestures();
+            resizeCanvas();
+            clearCanvas();
+        }
+
+        function exitDigitizerTest() {
+            state.digitizerTestActive = false;
+            state.currentView = 'dashboard';
+            state.activeTouches.clear();
+            state.touchPoints = [];
+            
+            digitizerTestView.classList.remove('active');
+            dashboard.style.display = 'flex';
+            
+            enableDefaultGestures();
+            clearCanvas();
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = 'rgba(10, 14, 39, 1)';
+            ctx.fillRect(0, 0, touchCanvas.width, touchCanvas.height);
+        }
+
+        function drawTouchPoints() {
+            clearCanvas();
+            
+            state.activeTouches.forEach((touch, identifier) => {
+                const radius = 35;
+                const colorIndex = identifier % touchColors.length;
+                const color = touchColors[colorIndex];
+                
+                // Draw circle
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 0.3;
+                ctx.beginPath();
+                ctx.arc(touch.x, touch.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw border
+                ctx.strokeStyle = color;
+                ctx.globalAlpha = 0.8;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(touch.x, touch.y, radius, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Draw center dot
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 1;
+                ctx.beginPath();
+                ctx.arc(touch.x, touch.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw coordinates text
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 1;
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${Math.round(touch.x)}, ${Math.round(touch.y)}`, touch.x, touch.y - 50);
+            });
+            
+            ctx.globalAlpha = 1;
+        }
+
+        function updateTouchInfo() {
+            const count = state.activeTouches.size;
+            const status = count === 0 ? 'Ready for input' : `${count} finger${count !== 1 ? 's' : ''} detected`;
+            touchInfo.textContent = `Touch points: ${count} | ${status}`;
+        }
+
+        // ============================================================
+        // TOUCH EVENT HANDLERS
+        // ============================================================
+        function handleTouchStart(e) {
+            if (!state.digitizerTestActive) return;
+            
+            preventDefaultTouchBehavior(e);
+            
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                const rect = touchCanvas.getBoundingClientRect();
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                
+                state.activeTouches.set(touch.identifier, { x, y });
+            }
+            
+            updateTouchInfo();
+            drawTouchPoints();
+        }
+
+        function handleTouchMove(e) {
+            if (!state.digitizerTestActive) return;
+            
+            preventDefaultTouchBehavior(e);
+            
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                const rect = touchCanvas.getBoundingClientRect();
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                
+                if (state.activeTouches.has(touch.identifier)) {
+                    state.activeTouches.set(touch.identifier, { x, y });
+                }
+            }
+            
+            drawTouchPoints();
+        }
+
+        function handleTouchEnd(e) {
+            if (!state.digitizerTestActive) return;
+            
+            preventDefaultTouchBehavior(e);
+            
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                state.activeTouches.delete(touch.identifier);
+            }
+            
+            updateTouchInfo();
+            drawTouchPoints();
+        }
+
+        function handleTouchCancel(e) {
+            if (!state.digitizerTestActive) return;
+            
+            preventDefaultTouchBehavior(e);
+            state.activeTouches.clear();
+            updateTouchInfo();
+            drawTouchPoints();
+        }
+
+        // ============================================================
+        // PIXEL TEST EVENT HANDLERS
+        // ============================================================
+        function handlePixelTestClick(e) {
+            if (!state.pixelTestActive) return;
+            preventDefaultTouchBehavior(e);
+            cyclePixelTestColor();
+        }
+
+        function handlePixelTestKeydown(e) {
+            if (!state.pixelTestActive) return;
+            
+            if (e.key === 'Escape' || e.key === 'Backspace') {
+                exitPixelTest();
+            } else if (e.key === ' ' || e.key === 'Enter') {
+                cyclePixelTestColor();
+            }
+        }
+
+        // ============================================================
+        // GENERAL EVENT HANDLERS
+        // ============================================================
+        function handleKeydown(e) {
+            if (e.key === 'Escape') {
+                if (state.pixelTestActive) {
+                    exitPixelTest();
+                } else if (state.digitizerTestActive) {
+                    exitDigitizerTest();
+                }
+            }
+        }
+
+        // ============================================================
+        // EVENT LISTENER SETUP
+        // ============================================================
+        pixelTestBtn.addEventListener('click', startPixelTest);
+        digitizerTestBtn.addEventListener('click', startDigitizerTest);
+        exitDigitizerBtn.addEventListener('click', exitDigitizerTest);
+
+        pixelTestView.addEventListener('click', handlePixelTestClick);
+        pixelTestView.addEventListener('touchstart', handlePixelTestClick);
+
+        touchCanvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        touchCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        touchCanvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        touchCanvas.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+
+        document.addEventListener('keydown', handleKeydown);
+
+        // Handle window resize for canvas
+        window.addEventListener('resize', () => {
+            if (state.digitizerTestActive) {
+                resizeCanvas();
+                drawTouchPoints();
+            }
+        });
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+        disableDefaultGestures();
+        console.log('Arcwyre Digitizer & Display Diagnostics initialized');
+    </script>
+</body>
+</html>

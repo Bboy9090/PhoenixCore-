@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phoenix NodeForge</title>
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --grid-color: #1a1f2b;
+            --accent-color: #00f2ff;
+            --node-bg: #151921;
+            --node-border: #2a3142;
+            --text-color: #e0e6ed;
+            --wire-color: #00f2ff;
+            --port-color: #3d4b66;
+            --port-hover: #00f2ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
+
+        input, textarea {
+            -webkit-user-select: text;
+            user-select: text;
+            touch-action: auto;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text-color);
+        }
+
+        #app-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #canvas-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #node-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .node {
+            position: absolute;
+            width: 240px;
+            background: var(--node-bg);
+            border: 1px solid var(--node-border);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            transition: border-color 0.2s;
+        }
+
+        .node:active {
+            border-color: var(--accent-color);
+        }
+
+        .node-header {
+            padding: 10px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--node-border);
+            cursor: move;
+            font-weight: 600;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #8892b0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .node-delete {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 4px;
+            color: #4a5568;
+            transition: all 0.2s;
+            font-size: 1.2rem;
+        }
+
+        .node-delete:active {
+            background: #e53e3e;
+            color: white;
+        }
+
+        .node-content {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .node-title-input {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid transparent;
+            color: var(--text-color);
+            font-size: 1rem;
+            font-weight: bold;
+            outline: none;
+            width: 100%;
+            padding: 4px 0;
+        }
+
+        .node-title-input:focus {
+            border-bottom-color: var(--accent-color);
+        }
+
+        .node-notes {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--node-border);
+            border-radius: 4px;
+            color: #a0aec0;
+            font-size: 0.85rem;
+            min-height: 60px;
+            padding: 8px;
+            resize: none;
+            outline: none;
+            width: 100%;
+        }
+
+        .ports {
+            position: relative;
+            height: 0;
+            width: 100%;
+        }
+
+        .port {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: var(--port-color);
+            border: 3px solid var(--node-bg);
+            border-radius: 50%;
+            z-index: 10;
+            cursor: crosshair;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .port:active {
+            background: var(--port-hover);
+            transform: scale(1.4) translateY(-50%);
+        }
+
+        .port.input {
+            left: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .port.output {
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            background: #1a1f2b;
+            border: 1px solid #2a3142;
+            color: #a0aec0;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .btn:active {
+            background: var(--accent-color);
+            color: #000;
+            border-color: var(--accent-color);
+            transform: translateY(1px);
+        }
+
+        .btn-primary {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        #logo {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-weight: 900;
+            font-style: italic;
+            font-size: 1.5rem;
+            color: rgba(255,255,255,0.1);
+            pointer-events: none;
+            z-index: 100;
+        }
+    
+/* =========================================================
+   ZENITH-LEVEL AESTHETIC OVERRIDE
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap');
+
+body {
+    background: radial-gradient(circle at top right, rgba(0, 255, 65, 0.15), transparent 500px),
+                radial-gradient(circle at bottom left, rgba(0, 150, 255, 0.1), transparent 500px),
+                linear-gradient(135deg, #0d1117 0%, #000000 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* Glassmorphic Surfaces */
+.container, .panel, .card, .toolbar, .shortcut-bar, .app-container, .main-content, .sidebar, header, footer {
+    background: rgba(20, 25, 35, 0.45) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    border-radius: 12px;
+}
+
+/* Interactive Elements */
+button, .btn, .key, .action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border-radius: 8px;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+}
+
+button:hover, .btn:hover, .key:hover, .action-btn:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border-color: rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+button:active, .btn:active, .key:active {
+    transform: translateY(0);
+}
+
+/* Inputs and Textareas */
+input, textarea, select {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-family: 'Inter', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.25) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.5);
+}
+
+</style>
+</head>
+<body>
+
+<div id="app-container">
+    <canvas id="canvas-bg"></canvas>
+    <div id="node-layer"></div>
+    
+    <div id="ui-overlay">
+        <button class="btn btn-primary" onclick="exportJSON()">Export JSON</button>
+        <button class="btn" onclick="resetCamera()">Reset View</button>
+        <button class="btn" onclick="clearBoard()">Clear Board</button>
+    </div>
+
+    <div id="logo">PHOENIX NODEFORGE</div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas-bg');
+    const ctx = canvas.getContext('2d');
+    const nodeLayer = document.getElementById('node-layer');
+    const container = document.getElementById('app-container');
+
+    let state = {
+        pan: { x: 0, y: 0 },
+        nodes: [],
+        connections: [],
+        isPanning: false,
+        isDraggingNode: null,
+        isDrawingWire: null,
+        lastTouch: { x: 0, y: 0 },
+        lastTapTime: 0,
+        nextId: 1
+    };
+
+    function init() {
+        window.addEventListener('resize', resize);
+        resize();
+        loadState();
+        
+        container.addEventListener('mousedown', onStart);
+        container.addEventListener('mousemove', onMove);
+        container.addEventListener('mouseup', onEnd);
+        container.addEventListener('touchstart', onStart, { passive: false });
+        container.addEventListener('touchmove', onMove, { passive: false });
+        container.addEventListener('touchend', onEnd, { passive: false });
+
+        render();
+    }
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        render();
+    }
+
+    function saveState() {
+        const data = {
+            pan: state.pan,
+            nodes: state.nodes.map(n => ({
+                id: n.id,
+                x: n.x,
+                y: n.y,
+                title: n.el.querySelector('.node-title-input').value,
+                notes: n.el.querySelector('.node-notes').value
+            })),
+            connections: state.connections,
+            nextId: state.nextId
+        };
+        localStorage.setItem('nodeforge_state', JSON.stringify(data));
+    }
+
+    function loadState() {
+        const saved = localStorage.getItem('nodeforge_state');
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                state.pan = data.pan || { x: 0, y: 0 };
+                state.nextId = data.nextId || 1;
+                data.nodes.forEach(n => createNode(n.x, n.y, n.id, n.title, n.notes));
+                state.connections = data.connections || [];
+            } catch (e) {
+                console.error("Failed to load state", e);
+            }
+        }
+    }
+
+    function clearBoard() {
+        if (confirm('Clear all nodes and connections?')) {
+            state.nodes.forEach(n => n.el.remove());
+            state.nodes = [];
+            state.connections = [];
+            state.pan = { x: 0, y: 0 };
+            saveState();
+            render();
+        }
+    }
+
+    function resetCamera() {
+        state.pan = { x: 0, y: 0 };
+        state.nodes.forEach(updateNodeElement);
+        saveState();
+        render();
+    }
+
+    function exportJSON() {
+        saveState();
+        const data = localStorage.getItem('nodeforge_state');
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'nodeforge_architecture.json';
+        a.click();
+    }
+
+    function createNode(x, y, id = null, title = 'New Node', notes = '') {
+        const nodeId = id || state.nextId++;
+        const el = document.createElement('div');
+        el.className = 'node';
+        el.id = `node-${nodeId}`;
+        el.innerHTML = `
+            <div class="node-header">
+                <span>NODE ${nodeId}</span>
+                <div class="node-delete" data-id="${nodeId}">×</div>
+            </div>
+            <div class="node-content">
+                <input type="text" class="node-title-input" value="${title}" placeholder="Node Title">
+                <textarea class="node-notes" placeholder="Notes...">${notes}</textarea>
+            </div>
+            <div class="ports">
+                <div class="port input" data-id="${nodeId}" data-type="input"></div>
+                <div class="port output" data-id="${nodeId}" data-type="output"></div>
+            </div>
+        `;
+
+        nodeLayer.appendChild(el);
+        const node = { id: nodeId, x, y, el };
+        state.nodes.push(node);
+        updateNodeElement(node);
+
+        el.querySelector('.node-title-input').addEventListener('input', saveState);
+        el.querySelector('.node-notes').addEventListener('input', saveState);
+        
+        el.querySelector('.node-delete').addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            deleteNode(nodeId);
+        });
+
+        return node;
+    }
+
+    function deleteNode(id) {
+        const nodeIndex = state.nodes.findIndex(n => n.id === id);
+        if (nodeIndex > -1) {
+            state.nodes[nodeIndex].el.remove();
+            state.nodes.splice(nodeIndex, 1);
+            state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
+            saveState();
+            render();
+        }
+    }
+
+    function updateNodeElement(node) {
+        node.el.style.transform = `translate(${node.x + state.pan.x}px, ${node.y + state.pan.y}px)`;
+    }
+
+    function getPos(e) {
+        const touch = e.touches ? e.touches[0] : e;
+        return { x: touch.clientX, y: touch.clientY };
+    }
+
+    function onStart(e) {
+        const pos = getPos(e);
+        const now = Date.now();
+        const delta = now - state.lastTapTime;
+        const target = e.target;
+
+        if (target.classList.contains('port')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const nodeId = parseInt(target.dataset.id);
+            const type = target.dataset.type;
+            state.isDrawingWire = { nodeId, type, currentX: pos.x, currentY: pos.y };
+            return;
+        }
+
+        const nodeEl = target.closest('.node');
+        if (nodeEl) {
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.classList.contains('node-delete')) {
+                return;
+            }
+            e.preventDefault();
+            const nodeId = parseInt(nodeEl.id.split('-')[1]);
+            state.isDraggingNode = state.nodes.find(n => n.id === nodeId);
+            nodeLayer.appendChild(nodeEl);
+            state.lastTouch = pos;
+            return;
+        }
+
+        if (delta < 300 && delta > 0) {
+            e.preventDefault();
+            createNode(pos.x - state.pan.x - 120, pos.y - state.pan.y - 50);
+            saveState();
+            render();
+            state.lastTapTime = 0;
+            return;
+        }
+        state.lastTapTime = now;
+        state.lastTouch = pos;
+        state.isPanning = true;
+    }
+
+    function onMove(e) {
+        if (e.cancelable) e.preventDefault();
+        const pos = getPos(e);
+        const dx = pos.x - state.lastTouch.x;
+        const dy = pos.y - state.lastTouch.y;
+
+        if (state.isDrawingWire) {
+            state.isDrawingWire.currentX = pos.x;
+            state.isDrawingWire.currentY = pos.y;
+            render();
+        } else if (state.isDraggingNode) {
+            state.isDraggingNode.x += dx;
+            state.isDraggingNode.y += dy;
+            updateNodeElement(state.isDraggingNode);
+            render();
+        } else if (state.isPanning) {
+            state.pan.x += dx;
+            state.pan.y += dy;
+            state.nodes.forEach(updateNodeElement);
+            render();
+        }
+
+        state.lastTouch = pos;
+    }
+
+    function onEnd(e) {
+        if (state.isDrawingWire) {
+            const pos = state.lastTouch;
+            const target = document.elementFromPoint(pos.x, pos.y);
+            if (target && target.classList.contains('port')) {
+                const toId = parseInt(target.dataset.id);
+                const toType = target.dataset.type;
+                const from = state.isDrawingWire;
+
+                if (from.nodeId !== toId && from.type !== toType) {
+                    const connection = from.type === 'output' 
+                        ? { from: from.nodeId, to: toId }
+                        : { from: toId, to: from.nodeId };
+                    
+                    const exists = state.connections.some(c => c.from === connection.from && c.to === connection.to);
+                    if (!exists) {
+                        state.connections.push(connection);
+                        saveState();
+                    }
+                }
+            }
+        }
+        
+        if (state.isDraggingNode || state.isPanning) {
+            saveState();
+        }
+
+        state.isPanning = false;
+        state.isDraggingNode = null;
+        state.isDrawingWire = null;
+        render();
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGrid();
+        drawConnections();
+        drawActiveWire();
+    }
+
+    function drawGrid() {
+        const size = 40;
+        const offsetX = state.pan.x % size;
+        const offsetY = state.pan.y % size;
+
+        ctx.strokeStyle = '#1a1f2b';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = offsetX; x < canvas.width; x += size) {
+            ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+        }
+        for (let y = offsetY; y < canvas.height; y += size) {
+            ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = '#242b3d';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let x = offsetX; x < canvas.width; x += size * 5) {
+            ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+        }
+        for (let y = offsetY; y < canvas.height; y += size * 5) {
+            ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+        }
+        ctx.stroke();
+    }
+
+    function getPortPos(nodeId, type) {
+        const node = state.nodes.find(n => n.id === nodeId);
+        if (!node) return { x: 0, y: 0 };
+        const rect = node.el.getBoundingClientRect();
+        const centerX = node.x + state.pan.x + (type === 'output' ? 240 : 0);
+        const centerY = node.y + state.pan.y + rect.height / 2;
+        return { x: centerX, y: centerY };
+    }
+
+    function drawBezier(p1, p2) {
+        const dist = Math.abs(p2.x - p1.x) * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.bezierCurveTo(p1.x + dist, p1.y, p2.x - dist, p2.y, p2.x, p2.y);
+        ctx.stroke();
+    }
+
+    function drawConnections() {
+        ctx.strokeStyle = '#00f2ff';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'rgba(0, 242, 255, 0.5)';
+        state.connections.forEach(conn => {
+            drawBezier(getPortPos(conn.from, 'output'), getPortPos(conn.to, 'input'));
+        });
+        ctx.shadowBlur = 0;
+    }
+
+    function drawActiveWire() {
+        if (!state.isDrawingWire) return;
+        const from = state.isDrawingWire;
+        const p1 = getPortPos(from.nodeId, from.type);
+        const p2 = { x: from.currentX, y: from.currentY };
+        ctx.strokeStyle = 'rgba(0, 242, 255, 0.5)';
+        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 2;
+        from.type === 'input' ? drawBezier(p2, p1) : drawBezier(p1, p2);
+        ctx.setLineDash([]);
+    }
+
+    init();
+</script>
+</body>
+</html>

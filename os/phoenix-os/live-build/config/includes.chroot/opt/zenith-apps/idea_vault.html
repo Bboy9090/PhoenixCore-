@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Idea Vault - Markdown Editor</title>
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --accent-color: #00ff41; /* Terminal green */
+            --text-color: #e0e0e0;
+            --toolbar-height: 50px;
+            --shortcut-height: 45px;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: -webkit-fill-available;
+        }
+
+        /* Top Header */
+        header {
+            height: var(--toolbar-height);
+            background-color: var(--surface-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+        }
+
+        .title {
+            font-weight: bold;
+            color: var(--accent-color);
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: #333;
+            border: 1px solid #444;
+            color: var(--text-color);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        button:active {
+            background: #444;
+        }
+
+        .btn-clear { color: #ff5555; }
+        .btn-export { color: var(--accent-color); }
+
+        /* Mode Toggle */
+        .view-toggle {
+            display: flex;
+            background: #000;
+            border-radius: 20px;
+            padding: 2px;
+        }
+
+        .view-toggle span {
+            padding: 4px 12px;
+            border-radius: 18px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .view-toggle span.active {
+            background: var(--accent-color);
+            color: #000;
+        }
+
+        /* Shortcuts Toolbar */
+        .shortcuts {
+            height: var(--shortcut-height);
+            background-color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            padding: 0 5px;
+            gap: 5px;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .shortcuts::-webkit-scrollbar {
+            display: none;
+        }
+
+        .shortcut-btn {
+            background: #2a2a2a;
+            border: none;
+            color: var(--text-color);
+            min-width: 40px;
+            height: 35px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        /* Content Area */
+        .main-container {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+        }
+
+        #editor, #preview {
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        #editor {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            font-family: inherit;
+            font-size: 16px; /* Prevents auto-zoom on iOS */
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            z-index: 1;
+            padding-bottom: 100px; /* Space for keyboard */
+        }
+
+        #preview {
+            background: var(--bg-color);
+            z-index: 0;
+            opacity: 0;
+            pointer-events: none;
+            line-height: 1.6;
+        }
+
+        #preview.active {
+            z-index: 2;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Markdown Styling in Preview */
+        #preview h1, #preview h2, #preview h3 { color: var(--accent-color); border-bottom: 1px solid #333; padding-bottom: 5px; }
+        #preview code { background: #2a2a2a; padding: 2px 5px; border-radius: 3px; font-family: inherit; }
+        #preview pre { background: #1a1a1a; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #333; }
+        #preview blockquote { border-left: 4px solid var(--accent-color); margin: 0; padding-left: 15px; color: #aaa; }
+        #preview img { max-width: 100%; }
+        #preview table { border-collapse: collapse; width: 100%; }
+        #preview th, #preview td { border: 1px solid #333; padding: 8px; text-align: left; }
+        #preview th { background: #1a1a1a; }
+
+        /* Responsive Layout for iPad Landscape */
+        @media (min-width: 768px) {
+            .main-container.split #editor {
+                width: 50%;
+                position: relative;
+                border-right: 1px solid #333;
+                opacity: 1;
+            }
+            .main-container.split #preview {
+                width: 50%;
+                position: relative;
+                left: 0;
+                opacity: 1;
+                pointer-events: auto;
+            }
+            .view-toggle { display: none; }
+        }
+    
+/* =========================================================
+   ZENITH-LEVEL AESTHETIC OVERRIDE
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap');
+
+body {
+    background: radial-gradient(circle at top right, rgba(0, 255, 65, 0.15), transparent 500px),
+                radial-gradient(circle at bottom left, rgba(0, 150, 255, 0.1), transparent 500px),
+                linear-gradient(135deg, #0d1117 0%, #000000 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* Glassmorphic Surfaces */
+.container, .panel, .card, .toolbar, .shortcut-bar, .app-container, .main-content, .sidebar, header, footer {
+    background: rgba(20, 25, 35, 0.45) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    border-radius: 12px;
+}
+
+/* Interactive Elements */
+button, .btn, .key, .action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border-radius: 8px;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+}
+
+button:hover, .btn:hover, .key:hover, .action-btn:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border-color: rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+button:active, .btn:active, .key:active {
+    transform: translateY(0);
+}
+
+/* Inputs and Textareas */
+input, textarea, select {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-family: 'Inter', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.25) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.5);
+}
+
+</style>
+</head>
+<body>
+
+<div id="app">
+    <header>
+        <div class="title">IDEA VAULT</div>
+        <div class="actions">
+            <div class="view-toggle" id="viewToggle">
+                <span id="toggleEdit" class="active">Edit</span>
+                <span id="togglePreview">View</span>
+            </div>
+            <button class="btn-export" id="exportBtn">Export</button>
+            <button class="btn-clear" id="clearBtn">Clear</button>
+        </div>
+    </header>
+
+    <div class="shortcuts">
+        <button class="shortcut-btn" data-insert="#">#</button>
+        <button class="shortcut-btn" data-insert="##">##</button>
+        <button class="shortcut-btn" data-insert="**">**</button>
+        <button class="shortcut-btn" data-insert="*">*</button>
+        <button class="shortcut-btn" data-insert="`">`</button>
+        <button class="shortcut-btn" data-insert="> ">&gt;</button>
+        <button class="shortcut-btn" data-insert="- ">-</button>
+        <button class="shortcut-btn" data-insert="- [ ] ">[ ]</button>
+        <button class="shortcut-btn" data-insert="![]()">Img</button>
+        <button class="shortcut-btn" data-insert="[]()">Link</button>
+    </div>
+
+    <div class="main-container" id="mainContainer">
+        <textarea id="editor" placeholder="Start typing your ideas..."></textarea>
+        <div id="preview"></div>
+    </div>
+</div>
+
+<script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const mainContainer = document.getElementById('mainContainer');
+    const toggleEdit = document.getElementById('toggleEdit');
+    const togglePreview = document.getElementById('togglePreview');
+    const exportBtn = document.getElementById('exportBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const shortcuts = document.querySelectorAll('.shortcut-btn');
+
+    // Initialize marked options
+    marked.setOptions({
+        breaks: true,
+        gfm: true
+    });
+
+    // Persistence Engine
+    const STORAGE_KEY = 'idea_vault_content';
+
+    function saveContent() {
+        localStorage.setItem(STORAGE_KEY, editor.value);
+        updatePreview();
+    }
+
+    function loadContent() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            editor.value = saved;
+            updatePreview();
+        }
+    }
+
+    function updatePreview() {
+        preview.innerHTML = marked.parse(editor.value || '*Nothing to preview*');
+    }
+
+    // Event Listeners
+    editor.addEventListener('input', saveContent);
+
+    // Toggle Logic
+    function setMode(mode) {
+        if (mode === 'edit') {
+            toggleEdit.classList.add('active');
+            togglePreview.classList.remove('active');
+            preview.classList.remove('active');
+        } else {
+            toggleEdit.classList.remove('active');
+            togglePreview.classList.add('active');
+            preview.classList.add('active');
+        }
+    }
+
+    toggleEdit.addEventListener('click', () => setMode('edit'));
+    togglePreview.addEventListener('click', () => setMode('preview'));
+
+    // Handle Split Screen on Resize
+    function checkLayout() {
+        if (window.innerWidth >= 768) {
+            mainContainer.classList.add('split');
+        } else {
+            mainContainer.classList.remove('split');
+        }
+    }
+
+    window.addEventListener('resize', checkLayout);
+    checkLayout();
+
+    // Toolbar Shortcuts
+    shortcuts.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const textToInsert = btn.getAttribute('data-insert');
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const text = editor.value;
+            
+            editor.value = text.substring(0, start) + textToInsert + text.substring(end);
+            
+            // Reposition cursor
+            const newPos = start + textToInsert.length;
+            editor.focus();
+            editor.setSelectionRange(newPos, newPos);
+            
+            saveContent();
+        });
+    });
+
+    // Export functionality
+    exportBtn.addEventListener('click', () => {
+        const blob = new Blob([editor.value], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        a.href = url;
+        a.download = `idea-vault-${timestamp}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    // Clear functionality
+    clearBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all content? This cannot be undone.')) {
+            editor.value = '';
+            localStorage.removeItem(STORAGE_KEY);
+            updatePreview();
+        }
+    });
+
+    // Prevent zoom on double tap for buttons
+    document.addEventListener('touchstart', function(event) {
+        if (event.touches.length > 1) {
+            event.preventDefault();
+        }
+    }, { passive: false });
+
+    // Initial Load
+    loadContent();
+</script>
+
+</body>
+</html>

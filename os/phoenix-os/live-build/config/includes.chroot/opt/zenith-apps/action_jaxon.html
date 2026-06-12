@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Action Jaxon</title>
+    <style>
+        :root {
+            --neon-blue: #00f2ff;
+            --neon-gold: #ffd700;
+            --neon-red: #ff3131;
+            --neon-purple: #bc13fe;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        #gameCanvas {
+            display: block;
+            background: #000;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            color: white;
+            z-index: 10;
+        }
+        .score-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+        .rampage-timer {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            color: var(--neon-gold);
+            display: none;
+            text-shadow: 0 0 10px var(--neon-gold);
+        }
+        .combo-multiplier {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 48px;
+            font-weight: 900;
+            color: var(--neon-purple);
+            display: none;
+            text-shadow: 0 0 20px var(--neon-purple);
+            animation: pulse 0.5s infinite alternate;
+        }
+        @keyframes pulse {
+            from { transform: translateX(-50%) scale(1); }
+            to { transform: translateX(-50%) scale(1.1); }
+        }
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            pointer-events: auto;
+        }
+        h1 {
+            font-size: 64px;
+            margin: 0;
+            color: var(--neon-blue);
+            text-shadow: 0 0 20px var(--neon-blue);
+            text-transform: uppercase;
+            letter-spacing: 10px;
+        }
+        .btn {
+            margin-top: 40px;
+            padding: 15px 40px;
+            font-size: 24px;
+            background: transparent;
+            color: white;
+            border: 2px solid var(--neon-blue);
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px var(--neon-blue);
+            transition: all 0.3s;
+        }
+        .btn:active {
+            transform: scale(0.95);
+            background: var(--neon-blue);
+        }
+        #game-over-screen { display: none; }
+        .game-over-title { color: var(--neon-red); text-shadow: 0 0 20px var(--neon-red); }
+    
+/* =========================================================
+   ZENITH-LEVEL AESTHETIC OVERRIDE
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap');
+
+body {
+    background: radial-gradient(circle at top right, rgba(0, 255, 65, 0.15), transparent 500px),
+                radial-gradient(circle at bottom left, rgba(0, 150, 255, 0.1), transparent 500px),
+                linear-gradient(135deg, #0d1117 0%, #000000 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* Glassmorphic Surfaces */
+.container, .panel, .card, .toolbar, .shortcut-bar, .app-container, .main-content, .sidebar, header, footer {
+    background: rgba(20, 25, 35, 0.45) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    border-radius: 12px;
+}
+
+/* Interactive Elements */
+button, .btn, .key, .action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border-radius: 8px;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+}
+
+button:hover, .btn:hover, .key:hover, .action-btn:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border-color: rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+button:active, .btn:active, .key:active {
+    transform: translateY(0);
+}
+
+/* Inputs and Textareas */
+input, textarea, select {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-family: 'Inter', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.25) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.5);
+}
+
+</style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui-overlay">
+        <div class="score-container">SCORE: <span id="score-val">0</span></div>
+        <div class="rampage-timer" id="rampage-timer">RAMPAGE: <span id="timer-val">8.0</span>s</div>
+        <div class="combo-multiplier" id="combo-multiplier">x<span id="combo-val">1</span></div>
+    </div>
+
+    <div id="start-screen">
+        <h1>Action Jaxon</h1>
+        <p style="color: #aaa; margin-top: 10px;">TAP & DRAG TO DASH</p>
+        <button class="btn" id="start-btn">START GAME</button>
+    </div>
+
+    <div id="game-over-screen">
+        <h1 class="game-over-title">GAME OVER</h1>
+        <div style="color: white; font-size: 24px; margin-top: 20px;">FINAL SCORE: <span id="final-score">0</span></div>
+        <button class="btn" id="restart-btn">RETRY</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreVal = document.getElementById('score-val');
+        const rampageTimerUI = document.getElementById('rampage-timer');
+        const timerValUI = document.getElementById('timer-val');
+        const comboMultiplierUI = document.getElementById('combo-multiplier');
+        const comboValUI = document.getElementById('combo-val');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreUI = document.getElementById('final-score');
+
+        // Game State
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let score = 0;
+        let combo = 1;
+        let lastTime = 0;
+        let shakeAmount = 0;
+        let rampageTimeLeft = 0;
+        let powerUpSpawnTimer = 15; // 15 seconds
+
+        // Settings
+        const JAXON_RADIUS = 25;
+        const ENEMY_RADIUS = 15;
+        const POWERUP_RADIUS = 20;
+        const LERP_FACTOR = 0.2; // Smooth movement
+        const RAMPAGE_DURATION = 8;
+
+        // Entities
+        let player = { x: 0, y: 0, targetX: 0, targetY: 0, isRampage: false };
+        let enemies = [];
+        let particles = [];
+        let powerUp = null;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (gameState === 'START') {
+                player.x = canvas.width / 2;
+                player.y = canvas.height / 2;
+                player.targetX = player.x;
+                player.targetY = player.y;
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Logic Functions ---
+
+        function spawnEnemy() {
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            if (side === 0) { x = -50; y = Math.random() * canvas.height; }
+            else if (side === 1) { x = canvas.width + 50; y = Math.random() * canvas.height; }
+            else if (side === 2) { x = Math.random() * canvas.width; y = -50; }
+            else { x = Math.random() * canvas.width; y = canvas.height + 50; }
+            
+            enemies.push({
+                x, y, 
+                speed: 2 + Math.random() * 2 + (score / 1000), 
+                angle: 0
+            });
+        }
+
+        function spawnPowerUp() {
+            powerUp = {
+                x: 100 + Math.random() * (canvas.width - 200),
+                y: 100 + Math.random() * (canvas.height - 200),
+                pulse: 0
+            };
+        }
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 1.0,
+                    decay: 0.02 + Math.random() * 0.02,
+                    color
+                });
+            }
+        }
+
+        function update(dt) {
+            if (gameState !== 'PLAYING') return;
+
+            // Player Movement
+            player.x += (player.targetX - player.x) * LERP_FACTOR;
+            player.y += (player.targetY - player.y) * LERP_FACTOR;
+
+            // Player Particle Trail
+            particles.push({
+                x: player.x, y: player.y,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
+                life: 0.5,
+                decay: 0.05,
+                color: player.isRampage ? '#bc13fe' : '#00f2ff'
+            });
+
+            // Rampage Logic
+            if (player.isRampage) {
+                rampageTimeLeft -= dt;
+                timerValUI.innerText = rampageTimeLeft.toFixed(1);
+                if (rampageTimeLeft <= 0) {
+                    player.isRampage = false;
+                    rampageTimerUI.style.display = 'none';
+                    comboMultiplierUI.style.display = 'none';
+                    combo = 1;
+                }
+            } else {
+                powerUpSpawnTimer -= dt;
+                if (powerUpSpawnTimer <= 0) {
+                    spawnPowerUp();
+                    powerUpSpawnTimer = 15;
+                }
+            }
+
+            // Power-up Collision
+            if (powerUp) {
+                powerUp.pulse += dt * 5;
+                const dist = Math.hypot(player.x - powerUp.x, player.y - powerUp.y);
+                if (dist < JAXON_RADIUS + POWERUP_RADIUS) {
+                    player.isRampage = true;
+                    rampageTimeLeft = RAMPAGE_DURATION;
+                    powerUp = null;
+                    shakeAmount = 20;
+                    rampageTimerUI.style.display = 'block';
+                    comboMultiplierUI.style.display = 'block';
+                    createParticles(player.x, player.y, '#ffd700', 30);
+                }
+            }
+
+            // Enemies Logic
+            if (Math.random() < 0.03 + (score / 50000)) spawnEnemy();
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
+
+                const dist = Math.hypot(player.x - e.x, player.y - e.y);
+                if (dist < JAXON_RADIUS + ENEMY_RADIUS) {
+                    if (player.isRampage) {
+                        enemies.splice(i, 1);
+                        score += 10 * combo;
+                        combo++;
+                        comboValUI.innerText = combo;
+                        shakeAmount = 5;
+                        createParticles(e.x, e.y, '#ff3131', 15);
+                        scoreVal.innerText = score;
+                    } else {
+                        endGame();
+                    }
+                }
+            }
+
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= p.decay;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            // Shake Decay
+            if (shakeAmount > 0) shakeAmount *= 0.9;
+        }
+
+        function endGame() {
+            gameState = 'GAMEOVER';
+            gameOverScreen.style.display = 'flex';
+            finalScoreUI.innerText = score;
+            createParticles(player.x, player.y, '#00f2ff', 50);
+        }
+
+        function resetGame() {
+            score = 0;
+            combo = 1;
+            scoreVal.innerText = '0';
+            enemies = [];
+            particles = [];
+            powerUp = null;
+            powerUpSpawnTimer = 15;
+            player.isRampage = false;
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            player.targetX = player.x;
+            player.targetY = player.y;
+            rampageTimerUI.style.display = 'none';
+            comboMultiplierUI.style.display = 'none';
+            gameState = 'PLAYING';
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+        }
+
+        document.getElementById('start-btn').addEventListener('click', resetGame);
+        document.getElementById('restart-btn').addEventListener('click', resetGame);
+
+        // --- Input Handling ---
+        function handleInput(e) {
+            if (gameState !== 'PLAYING') return;
+            e.preventDefault();
+            const touch = e.touches ? e.touches[0] : e;
+            player.targetX = touch.clientX;
+            player.targetY = touch.clientY;
+        }
+
+        canvas.addEventListener('touchstart', handleInput, { passive: false });
+        canvas.addEventListener('touchmove', handleInput, { passive: false });
+        canvas.addEventListener('mousedown', (e) => {
+            const move = (me) => {
+                player.targetX = me.clientX;
+                player.targetY = me.clientY;
+            };
+            window.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', () => window.removeEventListener('mousemove', move), { once: true });
+            move(e);
+        });
+
+        // --- Drawing Functions ---
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+
+            if (!player.isRampage) {
+                // Normal State: Glowing Blue Energy Core
+                ctx.beginPath();
+                ctx.arc(0, 0, JAXON_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = '#00f2ff';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00f2ff';
+                ctx.fill();
+                
+                // Inner core
+                ctx.beginPath();
+                ctx.arc(0, 0, JAXON_RADIUS * 0.6, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+            } else {
+                // Rampage State: Fuzzy Monster
+                const time = Date.now() / 100;
+                
+                // Draw Cape
+                ctx.beginPath();
+                ctx.moveTo(-10, 0);
+                const capeWiggle = Math.sin(time) * 10;
+                ctx.bezierCurveTo(-40, -20 + capeWiggle, -60, 20 - capeWiggle, -80, 0);
+                ctx.bezierCurveTo(-60, 40 + capeWiggle, -40, 20 - capeWiggle, -10, 10);
+                ctx.fillStyle = '#ff3131';
+                ctx.fill();
+
+                // Draw Fuzzy Body (Jagged Circle)
+                ctx.beginPath();
+                const points = 16;
+                for (let i = 0; i <= points; i++) {
+                    const angle = (i / points) * Math.PI * 2;
+                    const wobble = (i % 2 === 0 ? 5 : -5) + Math.sin(time + i) * 3;
+                    const r = JAXON_RADIUS * 1.4 + wobble;
+                    const x = Math.cos(angle) * r;
+                    const y = Math.sin(angle) * r;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fillStyle = '#4b0082'; // Deep purple
+                ctx.fill();
+                ctx.strokeStyle = '#bc13fe';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw Mask
+                ctx.beginPath();
+                ctx.rect(-JAXON_RADIUS * 1.2, -JAXON_RADIUS * 0.6, JAXON_RADIUS * 2.4, JAXON_RADIUS * 0.6);
+                ctx.fillStyle = '#ff3131'; // Red mask
+                ctx.fill();
+
+                // Draw Eyes
+                ctx.fillStyle = '#fff';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#fff';
+                
+                // Left Eye
+                ctx.beginPath();
+                ctx.arc(-JAXON_RADIUS * 0.5, -JAXON_RADIUS * 0.3, JAXON_RADIUS * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Right Eye
+                ctx.beginPath();
+                ctx.arc(JAXON_RADIUS * 0.5, -JAXON_RADIUS * 0.3, JAXON_RADIUS * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawEnemies() {
+            enemies.forEach(e => {
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                ctx.rotate(Date.now() / 500);
+                ctx.beginPath();
+                // Draw Diamond Shape
+                ctx.moveTo(0, -ENEMY_RADIUS);
+                ctx.lineTo(ENEMY_RADIUS, 0);
+                ctx.lineTo(0, ENEMY_RADIUS);
+                ctx.lineTo(-ENEMY_RADIUS, 0);
+                ctx.closePath();
+                ctx.fillStyle = '#ff3131';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ff3131';
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function drawPowerUp() {
+            if (!powerUp) return;
+            ctx.save();
+            ctx.translate(powerUp.x, powerUp.y);
+            const scale = 1 + Math.sin(powerUp.pulse) * 0.2;
+            ctx.scale(scale, scale);
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, POWERUP_RADIUS, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffd700';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ffd700';
+            ctx.fill();
+
+            // Inner star-like shape
+            ctx.beginPath();
+            for(let i=0; i<5; i++) {
+                const angle = (i/5) * Math.PI * 2;
+                ctx.lineTo(Math.cos(angle)*POWERUP_RADIUS*0.5, Math.sin(angle)*POWERUP_RADIUS*0.5);
+                const nextAngle = ((i+0.5)/5) * Math.PI * 2;
+                ctx.lineTo(Math.cos(nextAngle)*POWERUP_RADIUS, Math.sin(nextAngle)*POWERUP_RADIUS);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        function render(time) {
+            // Handle first frame
+            if (!lastTime) {
+                lastTime = time;
+                requestAnimationFrame(render);
+                return;
+            }
+
+            const dt = Math.min((time - lastTime) / 1000, 0.1); // Cap dt to prevent huge jumps
+            lastTime = time;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            if (shakeAmount > 0) {
+                ctx.translate(Math.random() * shakeAmount - shakeAmount / 2, Math.random() * shakeAmount - shakeAmount / 2);
+            }
+
+            update(dt);
+            drawParticles();
+            drawPowerUp();
+            drawEnemies();
+            drawPlayer();
+
+            ctx.restore();
+            
+            // UI Glow Effect
+            if (player.isRampage) {
+                ctx.strokeStyle = '#bc13fe';
+                ctx.lineWidth = 10;
+                ctx.globalAlpha = 0.3 * (Math.sin(Date.now() / 100) * 0.5 + 0.5);
+                ctx.strokeRect(0, 0, canvas.width, canvas.height);
+                ctx.globalAlpha = 1.0;
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        // Prevent iPad gestures
+        document.addEventListener('gesturestart', function (e) {
+            e.preventDefault();
+        });
+
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>

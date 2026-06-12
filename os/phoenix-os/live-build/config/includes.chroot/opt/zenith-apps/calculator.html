@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Programmer's Calculator</title>
+    <style>
+        :root {
+            --bg-color: #0d0d0d;
+            --surface-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --accent-color: #00ff41; /* Terminal green */
+            --accent-dim: #004d1a;
+            --error-color: #ff3e3e;
+            --key-bg: #2a2a2a;
+            --key-active: #3a3a3a;
+            --key-disabled: #151515;
+            --hex-color: #ff9d00;
+            --dec-color: #00ccff;
+            --oct-color: #ccff00;
+            --bin-color: #00ff41;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid var(--accent-dim);
+            font-size: 1.2rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: var(--accent-color);
+        }
+
+        /* Display Area */
+        .display-container {
+            padding: 10px 20px;
+            background: #000;
+            border-bottom: 2px solid var(--accent-dim);
+        }
+
+        .display-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .display-row.active {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid var(--accent-dim);
+        }
+
+        .label {
+            width: 50px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .value {
+            flex-grow: 1;
+            text-align: right;
+            font-size: 1.4rem;
+            word-break: break-all;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #hex-row .label { color: var(--hex-color); }
+        #dec-row .label { color: var(--dec-color); }
+        #oct-row .label { color: var(--oct-color); }
+        #bin-row .label { color: var(--bin-color); }
+
+        #hex-val { color: var(--hex-color); }
+        #dec-val { color: var(--dec-color); }
+        #oct-val { color: var(--oct-color); }
+        #bin-val { color: var(--bin-color); font-size: 1.1rem; }
+
+        /* Keypad Area */
+        .keypad {
+            flex-grow: 1;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 2px;
+            padding: 2px;
+            background: #333;
+        }
+
+        .key {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--key-bg);
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--text-color);
+            border: none;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .key:active {
+            background: var(--key-active);
+            transform: scale(0.98);
+        }
+
+        .key.disabled {
+            background: var(--key-disabled);
+            color: #444;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .key.operator {
+            background: #1e1e1e;
+            color: var(--accent-color);
+        }
+
+        .key.action {
+            background: #252525;
+            color: var(--error-color);
+        }
+
+        .key.wide {
+            grid-column: span 2;
+        }
+
+        /* Bit Toggler (Optional visual) */
+        .bit-viewer {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+            padding: 10px;
+            background: #0a0a0a;
+            font-size: 0.7rem;
+        }
+
+        /* iPad specific tweaks */
+        @media (min-width: 768px) {
+            .key { font-size: 1.5rem; }
+            .value { font-size: 2rem; }
+            #bin-val { font-size: 1.6rem; }
+        }
+    
+/* =========================================================
+   ZENITH-LEVEL AESTHETIC OVERRIDE
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap');
+
+body {
+    background: radial-gradient(circle at top right, rgba(0, 255, 65, 0.15), transparent 500px),
+                radial-gradient(circle at bottom left, rgba(0, 150, 255, 0.1), transparent 500px),
+                linear-gradient(135deg, #0d1117 0%, #000000 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* Glassmorphic Surfaces */
+.container, .panel, .card, .toolbar, .shortcut-bar, .app-container, .main-content, .sidebar, header, footer {
+    background: rgba(20, 25, 35, 0.45) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    border-radius: 12px;
+}
+
+/* Interactive Elements */
+button, .btn, .key, .action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border-radius: 8px;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+}
+
+button:hover, .btn:hover, .key:hover, .action-btn:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border-color: rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+button:active, .btn:active, .key:active {
+    transform: translateY(0);
+}
+
+/* Inputs and Textareas */
+input, textarea, select {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-family: 'Inter', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.25) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.5);
+}
+
+</style>
+</head>
+<body>
+
+<header>PROG_CALC_v1.0</header>
+
+<div class="display-container">
+    <div id="hex-row" class="display-row" onclick="setBase('HEX')">
+        <span class="label">HEX</span>
+        <span id="hex-val" class="value">00000000</span>
+    </div>
+    <div id="dec-row" class="display-row active" onclick="setBase('DEC')">
+        <span class="label">DEC</span>
+        <span id="dec-val" class="value">0</span>
+    </div>
+    <div id="oct-row" class="display-row" onclick="setBase('OCT')">
+        <span class="label">OCT</span>
+        <span id="oct-val" class="value">0</span>
+    </div>
+    <div id="bin-row" class="display-row" onclick="setBase('BIN')">
+        <span class="label">BIN</span>
+        <span id="bin-val" class="value">0000 0000 0000 0000 0000 0000 0000 0000</span>
+    </div>
+</div>
+
+<div class="keypad">
+    <!-- Row 1 -->
+    <button class="key operator" onclick="applyOp('LSH')">&lt;&lt;</button>
+    <button class="key operator" onclick="applyOp('RSH')">&gt;&gt;</button>
+    <button class="key operator" onclick="applyOp('OR')">OR</button>
+    <button class="key operator" onclick="applyOp('XOR')">XOR</button>
+    <button class="key operator" onclick="applyOp('NOT')">NOT</button>
+    <button class="key action" onclick="clearAll()">AC</button>
+
+    <!-- Row 2 -->
+    <button class="key hex-key" data-val="D" onclick="press('D')">D</button>
+    <button class="key hex-key" data-val="E" onclick="press('E')">E</button>
+    <button class="key hex-key" data-val="F" onclick="press('F')">F</button>
+    <button class="key operator" onclick="applyOp('AND')">AND</button>
+    <button class="key operator" onclick="applyOp('MOD')">MOD</button>
+    <button class="key action" onclick="backspace()">DEL</button>
+
+    <!-- Row 3 -->
+    <button class="key hex-key" data-val="A" onclick="press('A')">A</button>
+    <button class="key hex-key" data-val="B" onclick="press('B')">B</button>
+    <button class="key hex-key" data-val="C" onclick="press('C')">C</button>
+    <button class="key dec-key" data-val="7" onclick="press('7')">7</button>
+    <button class="key dec-key" data-val="8" onclick="press('8')">8</button>
+    <button class="key dec-key" data-val="9" onclick="press('9')">9</button>
+
+    <!-- Row 4 -->
+    <button class="key oct-key" data-val="4" onclick="press('4')">4</button>
+    <button class="key oct-key" data-val="5" onclick="press('5')">5</button>
+    <button class="key oct-key" data-val="6" onclick="press('6')">6</button>
+    <button class="key dec-key" data-val="1" onclick="press('1')">1</button>
+    <button class="key dec-key" data-val="2" onclick="press('2')">2</button>
+    <button class="key dec-key" data-val="3" onclick="press('3')">3</button>
+
+    <!-- Row 5 -->
+    <button class="key bin-key" data-val="0" onclick="press('0')">0</button>
+    <button class="key bin-key" data-val="1" onclick="press('1')">1</button>
+    <button class="key oct-key" data-val="2" onclick="press('2')">2</button>
+    <button class="key oct-key" data-val="3" onclick="press('3')">3</button>
+    <button class="key wide operator" onclick="applyOp('EQU')">=</button>
+</div>
+
+<script>
+    let currentValue = 0; // Unsigned 32-bit
+    let currentBase = 'DEC';
+    let lastValue = 0;
+    let pendingOp = null;
+    let isNewInput = true;
+
+    function updateDisplay() {
+        // Ensure 32-bit unsigned
+        const val = currentValue >>> 0;
+
+        // HEX
+        document.getElementById('hex-val').innerText = val.toString(16).toUpperCase().padStart(8, '0');
+        
+        // DEC
+        document.getElementById('dec-val').innerText = val.toString(10);
+        
+        // OCT
+        document.getElementById('oct-val').innerText = val.toString(8);
+        
+        // BIN
+        let binStr = val.toString(2).padStart(32, '0');
+        let formattedBin = '';
+        for (let i = 0; i < 32; i += 4) {
+            formattedBin += binStr.substr(i, 4) + ' ';
+        }
+        document.getElementById('bin-val').innerText = formattedBin.trim();
+
+        updateButtonStates();
+    }
+
+    function setBase(base) {
+        currentBase = base;
+        document.querySelectorAll('.display-row').forEach(row => row.classList.remove('active'));
+        document.getElementById(base.toLowerCase() + '-row').classList.add('active');
+        isNewInput = true;
+        updateButtonStates();
+    }
+
+    function updateButtonStates() {
+        const keys = document.querySelectorAll('.key');
+        keys.forEach(key => {
+            const val = key.getAttribute('data-val');
+            if (!val) return; // Operators/Actions
+
+            let disabled = false;
+            if (currentBase === 'BIN') {
+                if (!['0', '1'].includes(val)) disabled = true;
+            } else if (currentBase === 'OCT') {
+                if (!['0', '1', '2', '3', '4', '5', '6', '7'].includes(val)) disabled = true;
+            } else if (currentBase === 'DEC') {
+                if (!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(val)) disabled = true;
+            }
+            // HEX allows all (0-9, A-F)
+
+            if (disabled) {
+                key.classList.add('disabled');
+            } else {
+                key.classList.remove('disabled');
+            }
+        });
+    }
+
+    function press(char) {
+        if (isNewInput) {
+            currentValue = 0;
+            isNewInput = false;
+        }
+
+        let baseNum = 10;
+        if (currentBase === 'HEX') baseNum = 16;
+        if (currentBase === 'OCT') baseNum = 8;
+        if (currentBase === 'BIN') baseNum = 2;
+
+        let strValue = (currentValue >>> 0).toString(baseNum);
+        if (strValue === '0') strValue = '';
+        strValue += char;
+
+        // Parse and clamp to 32-bit
+        let newVal = parseInt(strValue, baseNum);
+        if (newVal > 0xFFFFFFFF) newVal = 0xFFFFFFFF;
+        
+        currentValue = newVal >>> 0;
+        updateDisplay();
+    }
+
+    function backspace() {
+        let baseNum = 10;
+        if (currentBase === 'HEX') baseNum = 16;
+        if (currentBase === 'OCT') baseNum = 8;
+        if (currentBase === 'BIN') baseNum = 2;
+
+        let strValue = (currentValue >>> 0).toString(baseNum);
+        if (strValue.length > 1) {
+            strValue = strValue.slice(0, -1);
+            currentValue = parseInt(strValue, baseNum) >>> 0;
+        } else {
+            currentValue = 0;
+        }
+        updateDisplay();
+    }
+
+    function clearAll() {
+        currentValue = 0;
+        lastValue = 0;
+        pendingOp = null;
+        isNewInput = true;
+        updateDisplay();
+    }
+
+    function applyOp(op) {
+        if (op === 'NOT') {
+            currentValue = (~currentValue) >>> 0;
+            isNewInput = true;
+        } else if (op === 'EQU') {
+            if (pendingOp) {
+                executePending();
+            }
+            isNewInput = true;
+        } else {
+            if (pendingOp) executePending();
+            lastValue = currentValue;
+            pendingOp = op;
+            isNewInput = true;
+        }
+        updateDisplay();
+    }
+
+    function executePending() {
+        const a = lastValue >>> 0;
+        const b = currentValue >>> 0;
+        let res = 0;
+
+        switch(pendingOp) {
+            case 'AND': res = a & b; break;
+            case 'OR':  res = a | b; break;
+            case 'XOR': res = a ^ b; break;
+            case 'LSH': res = a << b; break;
+            case 'RSH': res = a >>> b; break; // Unsigned right shift
+            case 'MOD': res = b !== 0 ? a % b : 0; break;
+        }
+        currentValue = res >>> 0;
+        pendingOp = null;
+    }
+
+    // Initialize
+    updateDisplay();
+
+    // Prevent zoom on double tap for iPad
+    document.addEventListener('touchstart', function (event) {
+        if (event.touches.length > 1) {
+            event.preventDefault();
+        }
+    }, { passive: false });
+    
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function (event) {
+        let now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+        }
+        lastTouchEnd = now;
+    }, false);
+
+</script>
+
+</body>
+</html>

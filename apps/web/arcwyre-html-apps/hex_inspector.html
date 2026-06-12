@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arcwyre Hex & Binary Inspector</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --text-primary: #ffb000; /* Amber */
+            --text-secondary: #00ff41; /* Neon Green */
+            --accent-color: #333333;
+            --border-color: #444444;
+            --highlight-color: rgba(255, 176, 0, 0.2);
+            --touch-target-size: 48px;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-height: 100vh;
+        }
+
+        header {
+            padding: 15px;
+            background-color: var(--surface-color);
+            border-bottom: 2px solid var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: var(--text-primary);
+            border: 1px solid var(--text-primary);
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            min-height: var(--touch-target-size);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            border-radius: 4px;
+        }
+
+        .btn:active {
+            background-color: var(--text-primary);
+            color: var(--bg-color);
+        }
+
+        #file-info {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 5px;
+        }
+
+        input[type="text"] {
+            background-color: var(--bg-color);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            font-family: inherit;
+            flex-grow: 1;
+            min-height: var(--touch-target-size);
+            border-radius: 4px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--text-secondary);
+        }
+
+        /* Dropzone */
+        #dropzone {
+            border: 2px dashed var(--border-color);
+            padding: 40px;
+            text-align: center;
+            margin: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        #dropzone.dragover {
+            border-color: var(--text-secondary);
+            background-color: var(--highlight-color);
+        }
+
+        /* Hex Viewer Styles */
+        #viewer-container {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: var(--bg-color);
+        }
+
+        #scroll-viewport {
+            height: 100%;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #virtual-canvas {
+            position: relative;
+            width: 100%;
+        }
+
+        .hex-row {
+            display: flex;
+            font-size: 14px;
+            line-height: 24px;
+            height: 24px;
+            white-space: pre;
+            padding: 0 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .offset {
+            color: #888;
+            margin-right: 20px;
+            user-select: none;
+        }
+
+        .hex-bytes {
+            color: var(--text-primary);
+            margin-right: 20px;
+        }
+
+        .ascii-chars {
+            color: var(--text-secondary);
+        }
+
+        .highlight {
+            background-color: var(--highlight-color);
+            font-weight: bold;
+        }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 768px) {
+            .hex-row {
+                font-size: 12px;
+                padding: 0 5px;
+            }
+            .offset { margin-right: 10px; }
+            .hex-bytes { margin-right: 10px; }
+        }
+
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 176, 0, 0.1);
+            border-left: 4px solid var(--text-primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    
+/* =========================================================
+   ZENITH-LEVEL AESTHETIC OVERRIDE
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;700&display=swap');
+
+body {
+    background: radial-gradient(circle at top right, rgba(0, 255, 65, 0.15), transparent 500px),
+                radial-gradient(circle at bottom left, rgba(0, 150, 255, 0.1), transparent 500px),
+                linear-gradient(135deg, #0d1117 0%, #000000 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    color: #e2e8f0 !important;
+}
+
+/* Glassmorphic Surfaces */
+.container, .panel, .card, .toolbar, .shortcut-bar, .app-container, .main-content, .sidebar, header, footer {
+    background: rgba(20, 25, 35, 0.45) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    border-radius: 12px;
+}
+
+/* Interactive Elements */
+button, .btn, .key, .action-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(4px) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    border-radius: 8px;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+}
+
+button:hover, .btn:hover, .key:hover, .action-btn:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border-color: rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+button:active, .btn:active, .key:active {
+    transform: translateY(0);
+}
+
+/* Inputs and Textareas */
+input, textarea, select {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-family: 'Inter', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.25) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.5);
+}
+
+</style>
+</head>
+<body>
+
+<div id="app">
+    <header>
+        <div class="header-top">
+            <h1>Arcwyre : Inspector</h1>
+            <div class="controls">
+                <input type="file" id="file-input" style="display: none;">
+                <button class="btn" onclick="document.getElementById('file-input').click()">LOAD FILE</button>
+            </div>
+        </div>
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Search Hex (e.g. 41 42) or String...">
+            <button class="btn" id="search-btn">FIND</button>
+        </div>
+        <div id="file-info">No file loaded. Ready for input.</div>
+    </header>
+
+    <div id="viewer-container">
+        <div id="dropzone">
+            DRAG & DROP BINARY FILE OR CLICK "LOAD FILE"<br>
+            <small>(Supports .bin, .sys, .dat, .exe, etc.)</small>
+        </div>
+        
+        <div id="scroll-viewport" style="display: none;">
+            <div id="virtual-canvas">
+                <!-- Virtual rows will be rendered here -->
+            </div>
+        </div>
+
+        <div id="loading-overlay">
+            <div class="spinner"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Constants
+    const BYTES_PER_ROW = 16;
+    const ROW_HEIGHT = 24;
+    const VISIBLE_PADDING = 10; // Extra rows to render above/below
+
+    // State
+    let fileBuffer = null;
+    let fileSize = 0;
+    let totalRows = 0;
+    let viewportHeight = 0;
+    let scrollTop = 0;
+    let searchResults = [];
+    let currentSearchIndex = -1;
+
+    // DOM Elements
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const fileInfo = document.getElementById('file-info');
+    const scrollViewport = document.getElementById('scroll-viewport');
+    const virtualCanvas = document.getElementById('virtual-canvas');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const searchInput = document.getElementById('search-input');
+    const searchBtn = document.getElementById('search-btn');
+
+    // Initialization
+    window.addEventListener('resize', handleResize);
+    scrollViewport.addEventListener('scroll', handleScroll);
+    
+    // File Loading
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) loadFile(e.target.files[0]);
+    });
+
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) loadFile(e.dataTransfer.files[0]);
+    });
+
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    function showLoading(show) {
+        loadingOverlay.style.display = show ? 'flex' : 'none';
+    }
+
+    async function loadFile(file) {
+        showLoading(true);
+        try {
+            fileSize = file.size;
+            fileInfo.textContent = `Loading: ${file.name} (${formatBytes(fileSize)})`;
+            
+            // Using ArrayBuffer for efficient memory usage
+            fileBuffer = new Uint8Array(await file.arrayBuffer());
+            
+            totalRows = Math.ceil(fileSize / BYTES_PER_ROW);
+            virtualCanvas.style.height = `${totalRows * ROW_HEIGHT}px`;
+            
+            dropzone.style.display = 'none';
+            scrollViewport.style.display = 'block';
+            
+            handleResize();
+            render();
+            
+            fileInfo.textContent = `Loaded: ${file.name} | Size: ${formatBytes(fileSize)} | Rows: ${totalRows.toLocaleString()}`;
+        } catch (err) {
+            console.error(err);
+            fileInfo.textContent = "Error loading file.";
+        }
+        showLoading(false);
+    }
+
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Virtualization Logic
+    function handleResize() {
+        viewportHeight = scrollViewport.clientHeight;
+        render();
+    }
+
+    function handleScroll() {
+        scrollTop = scrollViewport.scrollTop;
+        // Use requestAnimationFrame for smooth iPad scrolling
+        window.requestAnimationFrame(render);
+    }
+
+    function render() {
+        if (!fileBuffer) return;
+
+        const startRow = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - VISIBLE_PADDING);
+        const endRow = Math.min(totalRows, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + VISIBLE_PADDING);
+
+        const fragment = document.createDocumentFragment();
+        
+        for (let i = startRow; i < endRow; i++) {
+            const row = createRow(i);
+            row.style.position = 'absolute';
+            row.style.top = `${i * ROW_HEIGHT}px`;
+            row.style.width = '100%';
+            fragment.appendChild(row);
+        }
+
+        virtualCanvas.innerHTML = '';
+        virtualCanvas.appendChild(fragment);
+    }
+
+    function createRow(rowIndex) {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'hex-row';
+        
+        const offset = rowIndex * BYTES_PER_ROW;
+        const bytes = fileBuffer.slice(offset, offset + BYTES_PER_ROW);
+        
+        // Offset
+        const offsetSpan = document.createElement('span');
+        offsetSpan.className = 'offset';
+        offsetSpan.textContent = offset.toString(16).toUpperCase().padStart(8, '0');
+        
+        // Hex Bytes
+        const hexSpan = document.createElement('span');
+        hexSpan.className = 'hex-bytes';
+        let hexStr = '';
+        for (let i = 0; i < BYTES_PER_ROW; i++) {
+            if (i < bytes.length) {
+                hexStr += bytes[i].toString(16).toUpperCase().padStart(2, '0') + ' ';
+            } else {
+                hexStr += '   ';
+            }
+            if (i === 7) hexStr += ' '; // Gap at 8 bytes
+        }
+        hexSpan.textContent = hexStr;
+        
+        // ASCII
+        const asciiSpan = document.createElement('span');
+        asciiSpan.className = 'ascii-chars';
+        let asciiStr = '';
+        for (let i = 0; i < bytes.length; i++) {
+            const charCode = bytes[i];
+            // Printable range
+            if (charCode >= 32 && charCode <= 126) {
+                asciiStr += String.fromCharCode(charCode);
+            } else {
+                asciiStr += '.';
+            }
+        }
+        asciiSpan.textContent = asciiStr;
+        
+        rowDiv.appendChild(offsetSpan);
+        rowDiv.appendChild(hexSpan);
+        rowDiv.appendChild(asciiSpan);
+        
+        return rowDiv;
+    }
+
+    // Search Logic
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
+
+    function performSearch() {
+        const query = searchInput.value.trim();
+        if (!query || !fileBuffer) return;
+
+        showLoading(true);
+        
+        // Use a slight timeout to allow UI to show loading
+        setTimeout(() => {
+            let pattern = [];
+            
+            // Try to detect if it's a hex pattern (e.g. "41 42" or "4142")
+            if (/^[0-9A-Fa-f\s]+$/.test(query)) {
+                const hex = query.replace(/\s+/g, '');
+                if (hex.length % 2 === 0) {
+                    for (let i = 0; i < hex.length; i += 2) {
+                        pattern.push(parseInt(hex.substr(i, 2), 16));
+                    }
+                }
+            }
+            
+            // If not a valid hex pattern, treat as string
+            if (pattern.length === 0) {
+                for (let i = 0; i < query.length; i++) {
+                    pattern.push(query.charCodeAt(i));
+                }
+            }
+
+            const results = findPattern(fileBuffer, pattern);
+            
+            if (results.length > 0) {
+                fileInfo.textContent = `Found ${results.length} matches. Scrolling to first.`;
+                // Scroll to first result
+                const targetRow = Math.floor(results[0] / BYTES_PER_ROW);
+                scrollViewport.scrollTop = targetRow * ROW_HEIGHT;
+                render();
+            } else {
+                fileInfo.textContent = "No matches found.";
+            }
+            
+            showLoading(false);
+        }, 50);
+    }
+
+    function findPattern(buffer, pattern) {
+        const results = [];
+        const n = buffer.length;
+        const m = pattern.length;
+        
+        for (let i = 0; i <= n - m; i++) {
+            let match = true;
+            for (let j = 0; j < m; j++) {
+                if (buffer[i + j] !== pattern[j]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                results.push(i);
+                // Limit results for performance
+                if (results.length > 1000) break;
+            }
+        }
+        return results;
+    }
+
+</script>
+</body>
+</html>
