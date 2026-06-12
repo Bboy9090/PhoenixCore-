@@ -53,7 +53,7 @@ export default function RecipeExportScreen() {
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={{ marginBottom: 24 }}>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: '#00d2ff', marginBottom: 4 }}>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: colors.primary, marginBottom: 4 }}>
             ⚡ Export Recipe
           </Text>
           <Text style={{ color: colors.muted, fontSize: 14 }}>
@@ -63,14 +63,14 @@ export default function RecipeExportScreen() {
 
         {/* Recipe Card */}
         <View style={{
-          backgroundColor: '#0a0e1a',
+          backgroundColor: colors.surface,
           borderRadius: 16,
           borderWidth: 1,
-          borderColor: 'rgba(0,210,255,0.25)',
+          borderColor: 'rgba(255, 255, 255, 0.05)',
           padding: 20,
           marginBottom: 20,
         }}>
-          <Text style={{ color: '#ffd700', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 12 }}>
+          <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 12 }}>
             RECIPE SUMMARY
           </Text>
           {[
@@ -93,14 +93,14 @@ export default function RecipeExportScreen() {
 
         {/* JSON Preview */}
         <View style={{
-          backgroundColor: '#020408',
+          backgroundColor: 'rgba(0,0,0,0.15)',
           borderRadius: 12,
           borderWidth: 1,
-          borderColor: 'rgba(255,215,0,0.2)',
+          borderColor: 'rgba(255, 255, 255, 0.05)',
           padding: 16,
           marginBottom: 20,
         }}>
-          <Text style={{ color: '#ffd700', fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 10 }}>
+          <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 10 }}>
             JSON RECIPE
           </Text>
           <Text style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 11, lineHeight: 18 }}>
@@ -112,7 +112,7 @@ export default function RecipeExportScreen() {
         <TouchableOpacity
           onPress={handleCopy}
           style={{
-            backgroundColor: copied ? '#10b981' : '#00d2ff',
+            backgroundColor: copied ? colors.success : colors.primary,
             borderRadius: 14,
             paddingVertical: 16,
             alignItems: 'center',
