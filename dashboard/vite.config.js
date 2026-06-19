@@ -229,6 +229,64 @@ function usbCreatorBridgePlugin() {
           return
         }
 
+        if (requestUrl.pathname === '/api/write/export') {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          let body = ''
+          req.on('data', (chunk) => {
+            body += chunk
+          })
+          req.on('end', () => {
+            try {
+              const payload = JSON.parse(body || '{}')
+              const drivePath = payload.drive
+              const imagePath = payload.image
+              const format = payload.format
+              const exportPath = payload.path
+
+              if (!drivePath || !imagePath || !format || !exportPath) {
+                sendJson(res, 400, {
+                  schema: 'bootforge.audit_export.v1',
+                  safe_mode: true,
+                  destructive: false,
+                  operation: 'audit_evidence_export',
+                  status: 'failed',
+                  error: 'Missing required parameters: drive, image, format, and path are required in the POST body.',
+                })
+                return
+              }
+
+              const exportFlag = format === 'json' ? '--export-json' : '--export-markdown'
+              runUsbCreator(
+                ['--audit-plan', '--target-drive', drivePath, '--image', imagePath, exportFlag, exportPath],
+                {
+                  schema: 'bootforge.audit_export.v1',
+                  safe_mode: true,
+                  destructive: false,
+                  operation: 'audit_evidence_export',
+                  format: format,
+                  export_path: exportPath,
+                  status: 'failed',
+                },
+                res
+              )
+            } catch (parseError) {
+              sendJson(res, 400, {
+                schema: 'bootforge.audit_export.v1',
+                safe_mode: true,
+                destructive: false,
+                operation: 'audit_evidence_export',
+                status: 'failed',
+                error: `Failed to parse POST body: ${parseError.message}`,
+              })
+            }
+          })
+          return
+        }
+
         next()
       })
     },

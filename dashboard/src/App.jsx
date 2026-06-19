@@ -118,6 +118,11 @@ export default function App() {
   const [auditData, setAuditData] = useState(null);
   const [isAuditingPlan, setIsAuditingPlan] = useState(false);
   const [auditError, setAuditError] = useState(null);
+
+  // Safety Audit Export States (Phase 3C)
+  const [exportPath, setExportPath] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
   
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
@@ -322,6 +327,180 @@ export default function App() {
     } finally {
       setIsAuditingPlan(false);
     }
+  };
+
+  const exportAuditToHost = async (format) => {
+    const trimmedPath = exportPath.trim();
+    if (!trimmedPath) {
+      setExportStatus({ status: 'error', message: 'Please specify a local host save path.' });
+      return;
+    }
+    if (!selectedDrive || !imagePath) {
+      setExportStatus({ status: 'error', message: 'Target drive and OS image path are required to export.' });
+      return;
+    }
+
+    setIsExporting(true);
+    setExportStatus(null);
+    addLog('info', `Saving ${format.toUpperCase()} audit summary to host at ${trimmedPath}...`);
+
+    try {
+      const response = await fetch('/api/write/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          drive: selectedDrive,
+          image: imagePath,
+          format: format,
+          path: trimmedPath
+        })
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || `Export failed with HTTP ${response.status}`);
+      }
+
+      if (payload.status === 'success') {
+        setExportStatus({ status: 'success', message: `Successfully exported ${format.toUpperCase()} report to ${trimmedPath}.` });
+        addLog('success', `Export complete: ${trimmedPath}`);
+      } else {
+        throw new Error(payload.error || 'Unknown error occurred during export.');
+      }
+    } catch (error) {
+      setExportStatus({ status: 'error', message: error.message });
+      addLog('error', `Export error: ${error.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const generateBrowserMarkdown = (data) => {
+    const plan = data.write_plan || {};
+    const drive = (plan.drive_safety && plan.drive_safety.drive) || {};
+    const image = (plan.image_inspection && plan.image_inspection.image) || {};
+    
+    const statusEmoji = data.validation_status === 'passed' ? '✅ PASSED' : '❌ FAILED';
+    
+    const checksStr = (data.checks || []).map(c => {
+      const mark = c.passed ? '[PASS]' : '[FAIL]';
+      return `- ${mark} ${c.label}`;
+    }).join('\n');
+    
+    const reasonsStr = (data.block_reasons || []).length > 0
+      ? (data.block_reasons || []).map(r => `- ${r}`).join('\n')
+      : 'None';
+      
+    const warningsStr = (data.warnings || []).length > 0
+      ? (data.warnings || []).map(w => `- ${w}`).join('\n')
+      : 'None';
+      
+    const driveStr = drive.requested_path 
+      ? `- **Requested Path**: ${drive.requested_path}
+- **Root Mount**: ${drive.root || 'N/A'}
+- **Label**: ${drive.label || 'N/A'}
+- **Type**: ${drive.type || 'N/A'}
+- **Filesystem**: ${drive.filesystem || 'N/A'}
+- **Total Capacity**: ${drive.total_size_gb || 0} GB
+- **Free Space**: ${drive.free_size_gb || 0} GB
+- **System Drive**: ${drive.is_system_drive ? 'Yes' : 'No'}
+- **Risk Level**: ${String(drive.risk_level).toUpperCase()}
+- **Eligible**: ${drive.eligible_for_future_write ? 'Yes' : 'No'}`
+      : 'N/A';
+      
+    const imgSizeStr = image.size_gb >= 0.01 
+      ? `${image.size_gb} GB` 
+      : `${image.size_bytes || 0} bytes`;
+      
+    const imageStr = image.path
+      ? `- **Filename**: ${image.filename}
+- **Path**: ${image.path}
+- **Extension**: ${image.extension}
+- **Exists**: ${image.exists ? 'Yes' : 'No'}
+- **Supported**: ${image.supported ? 'Yes' : 'No'}
+- **Size**: ${imgSizeStr}
+- **Calculated SHA256**: ${image.sha256 || 'N/A'}`
+      : 'N/A';
+      
+    return `# PhoenixCore / BootForge Audit Evidence Report
+
+## General Info
+- **Plan ID**: ${data.plan_id}
+- **Plan Hash**: ${data.plan_hash}
+- **Validation Status**: ${statusEmoji}
+- **Generated At**: ${data.generated_at}
+- **Platform**: ${data.platform}
+- **Target Drive**: ${plan.target_drive || 'N/A'}
+- **Image Path**: ${plan.image_path || 'N/A'}
+- **Eligibility**: ${data.eligible ? 'Yes' : 'No'}
+- **Blocked**: ${data.blocked ? 'Yes' : 'No'}
+
+---
+
+## Safety Checks Checklist
+${checksStr}
+
+---
+
+## Drive Safety Summary
+${driveStr}
+
+---
+
+## Image Inspection Summary
+${imageStr}
+
+---
+
+## Block Reasons
+${reasonsStr}
+
+---
+
+## Warnings
+${warningsStr}
+
+---
+
+## Read-Only Safety Statement
+> [!IMPORTANT]
+> **This report is evidence of a dry-run audit only. It does not indicate that a write, format, partition, or mount operation was performed.**
+> All actual destructive writing engines remain completely locked and dry-run safe.
+
+---
+*Prepared by PhoenixCore BootForge Supply-Chain Safety Engine.*
+`;
+  };
+
+  const downloadAuditInBrowser = (format) => {
+    if (!auditData) return;
+    
+    let content = '';
+    let filename = '';
+    let mimeType = '';
+    
+    if (format === 'json') {
+      content = JSON.stringify(auditData, null, 2);
+      filename = `audit_${auditData.plan_id || 'plan'}.json`;
+      mimeType = 'application/json';
+    } else {
+      content = generateBrowserMarkdown(auditData);
+      filename = `audit_${auditData.plan_id || 'plan'}.md`;
+      mimeType = 'text/markdown';
+    }
+    
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    addLog('success', `Browser download triggered for ${filename}`);
   };
 
   const inspectImage = async () => {
@@ -1008,13 +1187,143 @@ export default function App() {
                 </div>
               )}
 
+              {/* Evidence Export Center */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontFamily: 'var(--font-tech)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Settings size={14} style={{ color: 'var(--primary)' }} />
+                  <span>Evidence Export Center</span>
+                </h3>
+                
+                {/* Local Host Save Input */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Option A: Export to Local Host File Path (No Target USB path)</span>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="text"
+                      value={exportPath}
+                      onChange={(e) => {
+                        setExportPath(e.target.value);
+                        setExportStatus(null);
+                      }}
+                      placeholder="Example: C:\Users\Bobby\Documents\audit.md (or .json)"
+                      disabled={isExporting}
+                      style={{
+                        padding: '10px',
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid var(--border-glass)',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        outline: 'none',
+                        flex: 1,
+                        fontSize: '0.85rem'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      className="glass-panel"
+                      onClick={() => exportAuditToHost('json')}
+                      disabled={isExporting || !exportPath.trim()}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        cursor: exportPath.trim() ? 'pointer' : 'not-allowed',
+                        color: '#fff',
+                        fontSize: '0.8rem',
+                        border: '1px solid var(--border-glass)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <RefreshCw size={12} className={isExporting ? 'spin-anim' : ''} />
+                      Save JSON to Host
+                    </button>
+                    <button
+                      className="glass-panel"
+                      onClick={() => exportAuditToHost('markdown')}
+                      disabled={isExporting || !exportPath.trim()}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        cursor: exportPath.trim() ? 'pointer' : 'not-allowed',
+                        color: '#fff',
+                        fontSize: '0.8rem',
+                        border: '1px solid var(--border-glass)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <RefreshCw size={12} className={isExporting ? 'spin-anim' : ''} />
+                      Save Markdown to Host
+                    </button>
+                  </div>
+                </div>
+
+                {/* Direct Browser Download */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Option B: Direct Browser Download (In-Memory)</span>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      className="glass-panel"
+                      onClick={() => downloadAuditInBrowser('json')}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        color: '#fff',
+                        fontSize: '0.8rem',
+                        border: '1px solid var(--border-glass)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <FolderPlus size={12} />
+                      Download JSON (Browser)
+                    </button>
+                    <button
+                      className="glass-panel"
+                      onClick={() => downloadAuditInBrowser('markdown')}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        color: '#fff',
+                        fontSize: '0.8rem',
+                        border: '1px solid var(--border-glass)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <FolderPlus size={12} />
+                      Download Markdown (Browser)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status Message */}
+                {exportStatus && (
+                  <div style={{ 
+                    fontSize: '0.85rem', 
+                    padding: '8px 12px', 
+                    borderRadius: '6px', 
+                    background: exportStatus.status === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: exportStatus.status === 'success' ? '#10b981' : '#f87171',
+                    border: `1px solid ${exportStatus.status === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                    marginTop: '4px'
+                  }}>
+                    {exportStatus.message}
+                  </div>
+                )}
+              </div>
+
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-glass)', paddingTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <ShieldAlert size={12} style={{ color: auditData.validation_status === 'passed' ? '#10b981' : '#ef4444' }} />
                 <span>
-                  {auditData.validation_status === 'passed' 
-                    ? 'All safety constraints are satisfied. Ready for future confirmation candidate.' 
-                    : 'Safety audit failed. Write candidate generation has been permanently blocked.'
-                  }
+                  This report is evidence of a dry-run audit only. It does not indicate that a write, format, partition, or mount operation was performed.
                 </span>
               </div>
             </div>

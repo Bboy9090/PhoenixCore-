@@ -981,6 +981,224 @@ def print_write_plan_audit_json(drive_path, image_path):
     print(json.dumps(payload, indent=2))
     return payload
 
+def generate_audit_markdown(audit_payload):
+    """
+    Generates a beautifully formatted human-readable Markdown summary from the audit payload.
+    """
+    plan = audit_payload.get("write_plan", {})
+    drive_safety = plan.get("drive_safety", {})
+    drive = drive_safety.get("drive", {})
+    image_inspect = plan.get("image_inspection", {})
+    image = image_inspect.get("image", {})
+    
+    status_emoji = "✅ PASSED" if audit_payload.get("validation_status") == "passed" else "❌ FAILED"
+    
+    checks_lines = []
+    for c in audit_payload.get("checks", []):
+        mark = "[PASS]" if c.get("passed") else "[FAIL]"
+        checks_lines.append(f"- {mark} {c.get('label')}")
+    checks_str = "\n".join(checks_lines)
+    
+    reasons_str = "None"
+    reasons = audit_payload.get("block_reasons", [])
+    if reasons:
+        reasons_str = "\n".join(f"- {r}" for r in reasons)
+        
+    warnings_str = "None"
+    warnings = audit_payload.get("warnings", [])
+    if warnings:
+        warnings_str = "\n".join(f"- {w}" for w in warnings)
+        
+    # Drive info
+    drive_str = "N/A"
+    if drive:
+        drive_str = f"""- **Requested Path**: {drive.get('requested_path')}
+- **Root Mount**: {drive.get('root')}
+- **Label**: {drive.get('label')}
+- **Type**: {drive.get('type')}
+- **Filesystem**: {drive.get('filesystem')}
+- **Total Capacity**: {drive.get('total_size_gb')} GB
+- **Free Space**: {drive.get('free_size_gb')} GB
+- **System Drive**: {"Yes" if drive.get('is_system_drive') else "No"}
+- **Risk Level**: {str(drive.get('risk_level')).upper()}
+- **Eligible**: {"Yes" if drive.get('eligible_for_future_write') else "No"}"""
+
+    # Image info
+    image_str = "N/A"
+    if image:
+        size_gb = image.get('size_gb', 0.0)
+        size_str = f"{size_gb} GB" if size_gb >= 0.01 else f"{image.get('size_bytes', 0)} bytes"
+        image_str = f"""- **Filename**: {image.get('filename')}
+- **Path**: {image.get('path')}
+- **Extension**: {image.get('extension')}
+- **Exists**: {"Yes" if image.get('exists') else "No"}
+- **Supported**: {"Yes" if image.get('supported') else "No"}
+- **Size**: {size_str}
+- **Calculated SHA256**: {image.get('sha256') or "N/A"}"""
+
+    md = f"""# PhoenixCore / BootForge Audit Evidence Report
+
+## General Info
+- **Plan ID**: {audit_payload.get("plan_id")}
+- **Plan Hash**: {audit_payload.get("plan_hash")}
+- **Validation Status**: {status_emoji}
+- **Generated At**: {audit_payload.get("generated_at")}
+- **Platform**: {audit_payload.get("platform")}
+- **Target Drive**: {audit_payload.get("write_plan", {}).get("target_drive", "N/A")}
+- **Image Path**: {audit_payload.get("write_plan", {}).get("image_path", "N/A")}
+- **Eligibility**: {"Yes" if audit_payload.get("eligible") else "No"}
+- **Blocked**: {"Yes" if audit_payload.get("blocked") else "No"}
+
+---
+
+## Safety Checks Checklist
+{checks_str}
+
+---
+
+## Drive Safety Summary
+{drive_str}
+
+---
+
+## Image Inspection Summary
+{image_str}
+
+---
+
+## Block Reasons
+{reasons_str}
+
+---
+
+## Warnings
+{warnings_str}
+
+---
+
+## Read-Only Safety Statement
+> [!IMPORTANT]
+> **This report is evidence of a dry-run audit only. It does not indicate that a write, format, partition, or mount operation was performed.**
+> All actual destructive writing engines remain completely locked and dry-run safe.
+
+---
+*Prepared by PhoenixCore BootForge Supply-Chain Safety Engine.*
+"""
+    return md
+
+def validate_export_safety(export_path, target_drive, format_type):
+    """
+    Validates export path safety according to Phase 3C rules:
+    1. Output file must not already exist (overwrite protection).
+    2. Output file must not be on the target drive.
+    3. Parent directory of output path must exist.
+    4. Extension must match format (json -> .json, markdown -> .md).
+    """
+    p = Path(export_path).resolve()
+    
+    # 1. Overwrite protection
+    if p.exists():
+        raise ValueError(f"Export file '{export_path}' already exists. Overwriting is blocked.")
+        
+    # 2. Match format and extension
+    ext = p.suffix.lower()
+    if format_type == "json" and ext != ".json":
+        raise ValueError(f"Export path extension '{ext}' does not match format 'json' (expected '.json').")
+    elif format_type == "markdown" and ext != ".md":
+        raise ValueError(f"Export path extension '{ext}' does not match format 'markdown' (expected '.md').")
+    elif format_type not in ("json", "markdown"):
+        raise ValueError(f"Unsupported export format '{format_type}'. Only 'json' and 'markdown' are supported.")
+        
+    # 3. Target drive root check
+    if target_drive:
+        target_root = get_drive_root(target_drive)
+        export_root = get_drive_root(p)
+        if target_root and export_root and target_root.lower() == export_root.lower():
+            raise ValueError(f"Export target path '{export_path}' is on the target drive '{target_drive}'. Exporting to the target drive is blocked.")
+            
+    # 4. Parent directory exists
+    parent_dir = p.parent
+    if not parent_dir.exists() or not parent_dir.is_dir():
+        raise ValueError(f"Parent directory of export path '{export_path}' does not exist.")
+
+def export_audit_json(audit_payload, export_path, target_drive=None):
+    """
+    Safely exports the audit payload as JSON to the user-selected path.
+    """
+    validate_export_safety(export_path, target_drive, "json")
+    with open(export_path, "w", encoding="utf-8") as f:
+        json.dump(audit_payload, f, indent=2)
+    return True
+
+def export_audit_markdown(audit_payload, export_path, target_drive=None):
+    """
+    Safely generates and exports the human-readable Markdown summary of the audit to the user-selected path.
+    """
+    validate_export_safety(export_path, target_drive, "markdown")
+    md_content = generate_audit_markdown(audit_payload)
+    with open(export_path, "w", encoding="utf-8") as f:
+        f.write(md_content)
+    return True
+
+def build_audit_export_payload(drive_path, image_path, format_type, export_path):
+    """
+    Builds the write plan safety audit and exports it to the target file.
+    Always returns a structured status dictionary.
+    """
+    audit_payload = build_write_plan_audit_payload(drive_path, image_path)
+    
+    # Catch any error in write plan generation itself
+    if audit_payload.get("error"):
+        return {
+            "schema": "bootforge.audit_export.v1",
+            "generated_at": utc_now_iso(),
+            "safe_mode": True,
+            "destructive": False,
+            "operation": "audit_evidence_export",
+            "format": format_type,
+            "export_path": export_path,
+            "status": "failed",
+            "audit_validation_status": "failed",
+            "plan_id": None,
+            "error": audit_payload["error"]
+        }
+        
+    try:
+        if format_type == "json":
+            export_audit_json(audit_payload, export_path, drive_path)
+        elif format_type == "markdown":
+            export_audit_markdown(audit_payload, export_path, drive_path)
+        else:
+            raise ValueError(f"Unsupported format '{format_type}'")
+            
+        return {
+            "schema": "bootforge.audit_export.v1",
+            "generated_at": utc_now_iso(),
+            "safe_mode": True,
+            "destructive": False,
+            "operation": "audit_evidence_export",
+            "format": format_type,
+            "export_path": export_path,
+            "status": "success",
+            "audit_validation_status": audit_payload.get("validation_status"),
+            "plan_id": audit_payload.get("plan_id"),
+            "error": None
+        }
+    except Exception as e:
+        return {
+            "schema": "bootforge.audit_export.v1",
+            "generated_at": utc_now_iso(),
+            "safe_mode": True,
+            "destructive": False,
+            "operation": "audit_evidence_export",
+            "format": format_type,
+            "export_path": export_path,
+            "status": "failed",
+            "audit_validation_status": audit_payload.get("validation_status"),
+            "plan_id": audit_payload.get("plan_id"),
+            "error": str(e)
+        }
+
 def download_latest_oclp(dest_dir=None, dry_run=False):
     """
     Downloads the latest OpenCore Legacy Patcher release GUI package.
@@ -1145,6 +1363,8 @@ if __name__ == "__main__":
     parser.add_argument("--audit-plan", action="store_true", help="Generate a dry-run write plan audit trail payload")
     parser.add_argument("--target-drive", type=str, help="Target drive for write plan generation")
     parser.add_argument("--image", type=str, help="Source OS image for write plan generation")
+    parser.add_argument("--export-json", type=str, help="Export write plan audit as JSON to a local path")
+    parser.add_argument("--export-markdown", type=str, help="Export human-readable audit summary as Markdown to a local path")
     parser.add_argument("--download-oclp", action="store_true", help="Automatically fetch the latest OpenCore Legacy Patcher GUI")
     parser.add_argument("--create", type=str, help="Target drive letter (e.g. E:\\) to initialize structure")
     parser.add_argument("--dry-run", action="store_true", help="Perform a simulated execution without writing to disk")
@@ -1171,7 +1391,14 @@ if __name__ == "__main__":
                 "error": "Missing required arguments: --target-drive and --image are required with --audit-plan."
             }, indent=2))
         else:
-            print_write_plan_audit_json(args.target_drive, args.image)
+            if args.export_json:
+                export_res = build_audit_export_payload(args.target_drive, args.image, "json", args.export_json)
+                print(json.dumps(export_res, indent=2))
+            elif args.export_markdown:
+                export_res = build_audit_export_payload(args.target_drive, args.image, "markdown", args.export_markdown)
+                print(json.dumps(export_res, indent=2))
+            else:
+                print_write_plan_audit_json(args.target_drive, args.image)
     elif args.plan_write:
         if not args.target_drive or not args.image:
             print(json.dumps({
