@@ -802,6 +802,185 @@ def print_write_plan_json(drive_path, image_path):
     print(json.dumps(payload, indent=2))
     return payload
 
+def build_write_plan_audit_payload(drive_path, image_path):
+    """
+    Builds a clean, machine-readable dry-run write plan audit trail payload.
+    Strictly read-only: performs no write, partition, or format operations.
+    """
+    write_plan = build_write_plan_payload(drive_path, image_path)
+    
+    payload = {
+        "schema": "bootforge.write_plan_audit.v1",
+        "generated_at": utc_now_iso(),
+        "platform": sys.platform,
+        "safe_mode": True,
+        "destructive": False,
+        "operation": "dry_run_write_plan_audit",
+        "plan_id": None,
+        "plan_hash": None,
+        "validation_status": "failed",
+        "eligible": False,
+        "blocked": True,
+        "block_reasons": [],
+        "warnings": [],
+        "checks": [],
+        "write_plan": write_plan,
+        "error": None
+    }
+
+    if write_plan.get("error"):
+        payload["error"] = write_plan["error"]
+        payload["block_reasons"] = [write_plan["error"]]
+        return payload
+
+    static_plan = {
+        "schema": write_plan.get("schema"),
+        "platform": write_plan.get("platform"),
+        "safe_mode": write_plan.get("safe_mode"),
+        "destructive": write_plan.get("destructive"),
+        "operation": write_plan.get("operation"),
+        "actual_write_enabled": write_plan.get("actual_write_enabled"),
+        "requires_future_confirmation": write_plan.get("requires_future_confirmation"),
+        "target_drive": write_plan.get("target_drive"),
+        "image_path": write_plan.get("image_path"),
+        "eligible": write_plan.get("eligible"),
+        "blocked": write_plan.get("blocked"),
+        "block_reasons": write_plan.get("block_reasons"),
+        "steps": write_plan.get("steps")
+    }
+
+    if write_plan.get("drive_safety") and write_plan["drive_safety"].get("drive"):
+        d = write_plan["drive_safety"]["drive"]
+        static_plan["drive"] = {
+            "path": d.get("requested_path"),
+            "root": d.get("root"),
+            "label": d.get("label"),
+            "type": d.get("type"),
+            "filesystem": d.get("filesystem"),
+            "total_size_gb": d.get("total_size_gb"),
+            "is_system_drive": d.get("is_system_drive"),
+            "is_removable_or_external": d.get("is_removable_or_external")
+        }
+
+    if write_plan.get("image_inspection") and write_plan["image_inspection"].get("image"):
+        img = write_plan["image_inspection"]["image"]
+        static_plan["image"] = {
+            "path": img.get("path"),
+            "filename": img.get("filename"),
+            "extension": img.get("extension"),
+            "exists": img.get("exists"),
+            "supported": img.get("supported"),
+            "size_bytes": img.get("size_bytes"),
+            "sha256": img.get("sha256")
+        }
+
+    canonical_json = json.dumps(static_plan, sort_keys=True, separators=(",", ":"))
+    plan_hash = hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+    plan_id = f"bootforge-plan-{plan_hash[:12]}"
+
+    payload["plan_hash"] = plan_hash
+    payload["plan_id"] = plan_id
+
+    schema_valid = write_plan.get("schema") == "bootforge.write_plan.v1"
+    
+    no_destructive_steps = True
+    steps = write_plan.get("steps", [])
+    if isinstance(steps, list):
+        for step in steps:
+            if isinstance(step, dict) and step.get("destructive") is True:
+                no_destructive_steps = False
+                break
+    else:
+        no_destructive_steps = False
+
+    actual_write_disabled = write_plan.get("actual_write_enabled") is False
+
+    drive_safety_eligible = False
+    if write_plan.get("drive_safety") and write_plan["drive_safety"].get("drive"):
+        drive_safety_eligible = write_plan["drive_safety"]["drive"].get("eligible_for_future_write", False)
+
+    image_inspection_valid = False
+    if write_plan.get("image_inspection") and write_plan["image_inspection"].get("image"):
+        img_info = write_plan["image_inspection"]["image"]
+        image_inspection_valid = (
+            img_info.get("exists", False) and 
+            img_info.get("supported", False) and 
+            img_info.get("sha256") is not None
+        )
+
+    safe_mode_confirmed = (
+        write_plan.get("safe_mode") is True and 
+        write_plan.get("destructive") is False
+    )
+
+    checks = [
+        {
+            "id": "schema_valid",
+            "label": "Write plan schema is valid",
+            "passed": schema_valid
+        },
+        {
+            "id": "no_destructive_steps",
+            "label": "All plan steps are non-destructive",
+            "passed": no_destructive_steps
+        },
+        {
+            "id": "actual_write_disabled",
+            "label": "Actual write engine remains disabled",
+            "passed": actual_write_disabled
+        },
+        {
+            "id": "drive_safety_eligible",
+            "label": "Target drive is eligible for future write candidate",
+            "passed": drive_safety_eligible
+        },
+        {
+            "id": "image_inspection_valid",
+            "label": "Image exists, is supported, and has SHA256 metadata",
+            "passed": image_inspection_valid
+        },
+        {
+            "id": "safe_mode_confirmed",
+            "label": "Safe mode is confirmed",
+            "passed": safe_mode_confirmed
+        }
+    ]
+
+    payload["checks"] = checks
+
+    all_passed = all(c["passed"] for c in checks)
+    
+    if all_passed:
+        payload["validation_status"] = "passed"
+        payload["eligible"] = True
+        payload["blocked"] = False
+        payload["block_reasons"] = []
+    else:
+        payload["validation_status"] = "failed"
+        payload["eligible"] = False
+        payload["blocked"] = True
+        
+        block_reasons = []
+        plan_reasons = write_plan.get("block_reasons", [])
+        if plan_reasons:
+            block_reasons.extend(plan_reasons)
+            
+        for c in checks:
+            if not c["passed"]:
+                block_reasons.append(f"Safety Check Failed: {c['label']}")
+                
+        payload["block_reasons"] = block_reasons
+
+    return payload
+
+def print_write_plan_audit_json(drive_path, image_path):
+    """
+    Emits JSON-only read-only write plan audit output for UI bridges.
+    """
+    payload = build_write_plan_audit_payload(drive_path, image_path)
+    print(json.dumps(payload, indent=2))
+    return payload
+
 def download_latest_oclp(dest_dir=None, dry_run=False):
     """
     Downloads the latest OpenCore Legacy Patcher release GUI package.
@@ -963,6 +1142,7 @@ if __name__ == "__main__":
     parser.add_argument("--inspect-image", type=str, help="Read-only ISO/IMG/DMG image metadata and SHA256 inspection")
     parser.add_argument("--inspect-drive", type=str, help="Read-only target drive safety and eligibility verification")
     parser.add_argument("--plan-write", action="store_true", help="Generate a dry-run write execution plan")
+    parser.add_argument("--audit-plan", action="store_true", help="Generate a dry-run write plan audit trail payload")
     parser.add_argument("--target-drive", type=str, help="Target drive for write plan generation")
     parser.add_argument("--image", type=str, help="Source OS image for write plan generation")
     parser.add_argument("--download-oclp", action="store_true", help="Automatically fetch the latest OpenCore Legacy Patcher GUI")
@@ -971,7 +1151,28 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    if args.plan_write:
+    if args.audit_plan:
+        if not args.target_drive or not args.image:
+            print(json.dumps({
+                "schema": "bootforge.write_plan_audit.v1",
+                "generated_at": utc_now_iso(),
+                "platform": sys.platform,
+                "safe_mode": True,
+                "destructive": False,
+                "operation": "dry_run_write_plan_audit",
+                "plan_id": None,
+                "plan_hash": None,
+                "validation_status": "failed",
+                "eligible": False,
+                "blocked": True,
+                "block_reasons": ["Missing required arguments: --target-drive and --image are required with --audit-plan."],
+                "checks": [],
+                "write_plan": {},
+                "error": "Missing required arguments: --target-drive and --image are required with --audit-plan."
+            }, indent=2))
+        else:
+            print_write_plan_audit_json(args.target_drive, args.image)
+    elif args.plan_write:
         if not args.target_drive or not args.image:
             print(json.dumps({
                 "schema": "bootforge.write_plan.v1",

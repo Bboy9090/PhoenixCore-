@@ -5,6 +5,7 @@ import {
   Terminal as TerminalIcon, 
   CheckCircle2, 
   ShieldAlert, 
+  ShieldCheck,
   RefreshCw, 
   FolderPlus,
   Disc,
@@ -107,9 +108,16 @@ export default function App() {
   const [safetyData, setSafetyData] = useState(null);
   const [isCheckingSafety, setIsCheckingSafety] = useState(false);
   const [safetyError, setSafetyError] = useState(null);
+  
+  // Write Plan States
   const [writePlanData, setWritePlanData] = useState(null);
   const [isPlanningWrite, setIsPlanningWrite] = useState(false);
   const [planningError, setPlanningError] = useState(null);
+
+  // Safety Audit States (Phase 3B)
+  const [auditData, setAuditData] = useState(null);
+  const [isAuditingPlan, setIsAuditingPlan] = useState(false);
+  const [auditError, setAuditError] = useState(null);
   
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
@@ -229,6 +237,8 @@ export default function App() {
     setIsPlanningWrite(true);
     setPlanningError(null);
     setWritePlanData(null);
+    setAuditData(null);
+    setAuditError(null);
     addLog('info', `Generating dry-run write execution plan for ${trimmedDrive} with ${trimmedImg}...`);
 
     try {
@@ -252,10 +262,14 @@ export default function App() {
       if (payload.error) {
         setPlanningError(payload.error);
         addLog('error', `Write plan returned error: ${payload.error}`);
-      } else if (payload.blocked) {
-        addLog('warning', `Dry-run plan generated but BLOCKED. Reasons: ${payload.block_reasons.join('; ')}`);
       } else {
-        addLog('success', `Dry-run write plan generated successfully! Drive is ready for simulation.`);
+        if (payload.blocked) {
+          addLog('warning', `Dry-run plan generated but BLOCKED. Reasons: ${payload.block_reasons.join('; ')}`);
+        } else {
+          addLog('success', `Dry-run write plan generated successfully! Drive is ready for simulation.`);
+        }
+        // Automatically trigger safety audit trail validation
+        runPlanAudit(trimmedDrive, trimmedImg);
       }
     } catch (error) {
       setWritePlanData(null);
@@ -263,6 +277,50 @@ export default function App() {
       addLog('error', `Write plan bridge error: ${error.message}`);
     } finally {
       setIsPlanningWrite(false);
+    }
+  };
+
+  const runPlanAudit = async (drivePath, imgPath) => {
+    const trimmedDrive = drivePath ? drivePath.trim() : '';
+    const trimmedImg = imgPath ? imgPath.trim() : '';
+    if (!trimmedDrive || !trimmedImg) return;
+
+    setIsAuditingPlan(true);
+    setAuditError(null);
+    setAuditData(null);
+    addLog('info', 'Running paranoid dry-run safety validation audit...');
+
+    try {
+      const response = await fetch(`/api/write/audit?drive=${encodeURIComponent(trimmedDrive)}&image=${encodeURIComponent(trimmedImg)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || `Safety audit failed with HTTP ${response.status}`);
+      }
+
+      if (payload.destructive !== false || payload.operation !== 'dry_run_write_plan_audit') {
+        throw new Error('Safety audit bridge failed schema validation.');
+      }
+
+      setAuditData(payload);
+
+      if (payload.error) {
+        setAuditError(payload.error);
+        addLog('error', `Safety audit returned error: ${payload.error}`);
+      } else if (payload.validation_status === 'failed') {
+        addLog('warning', `Safety audit FAILED! Gate failure reasons: ${payload.block_reasons.join('; ')}`);
+      } else {
+        addLog('success', `Safety audit PASSED! Canonical Plan ID: ${payload.plan_id}`);
+      }
+    } catch (error) {
+      setAuditData(null);
+      setAuditError(error.message);
+      addLog('error', `Safety audit bridge error: ${error.message}`);
+    } finally {
+      setIsAuditingPlan(false);
     }
   };
 
@@ -837,6 +895,127 @@ export default function App() {
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-glass)', paddingTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <ShieldAlert size={12} style={{ color: 'var(--accent)' }} />
                 <span>Actual write operations are locked. Planning only.</span>
+              </div>
+            </div>
+          )}
+
+          {isAuditingPlan && (
+            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '30px', gap: '16px', border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(255,255,255,0.02)' }}>
+              <RefreshCw size={24} className="spin-anim" style={{ color: 'var(--primary)' }} />
+              <div style={{ fontFamily: 'var(--font-tech)', fontSize: '1rem', color: '#fff', letterSpacing: '0.05em' }}>RUNNING PARANOID SAFETY AUDIT...</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Verifying write plan schema and checking safety gates</div>
+            </div>
+          )}
+
+          {auditError && (
+            <div className="glass-panel" style={{ padding: '20px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.05)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', fontWeight: 600, fontSize: '1rem' }}>
+                <ShieldAlert size={20} />
+                <span>Plan Audit Failure</span>
+              </div>
+              <div style={{ fontSize: '0.88rem', color: '#f87171' }}>{auditError}</div>
+            </div>
+          )}
+
+          {auditData && (
+            <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '18px', border: '1px solid var(--border-glass)' }}>
+              <h2 style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '8px', marginBottom: '4px' }}>
+                <ShieldCheck size={20} style={{ color: auditData.validation_status === 'passed' ? '#10b981' : '#ef4444' }} />
+                <span>Dry-Run Safety Audit Trail (Phase 3B)</span>
+              </h2>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ 
+                  padding: '6px 12px', 
+                  borderRadius: '20px', 
+                  fontSize: '0.82rem', 
+                  fontWeight: 600,
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  background: auditData.validation_status === 'passed' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: auditData.validation_status === 'passed' ? '#10b981' : '#ef4444',
+                  border: `1px solid ${auditData.validation_status === 'passed' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                }}>
+                  {auditData.validation_status === 'passed' ? <CheckCircle2 size={14} /> : <ShieldAlert size={14} />}
+                  AUDIT: {auditData.validation_status.toUpperCase()}
+                </div>
+
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Platform: <strong>{auditData.platform}</strong>
+                </div>
+              </div>
+
+              {/* Identity & Hashes Box */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.82rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '6px', marginBottom: '2px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Audit Identity (Deterministic plan_id):</span>
+                  <code style={{ color: 'var(--accent)', fontWeight: 600 }}>{auditData.plan_id || 'N/A'}</code>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Canonical Plan Hash (SHA256):</span>
+                  <code style={{ color: '#94a3b8', fontSize: '0.76rem', wordBreak: 'break-all' }}>{auditData.plan_hash || 'N/A'}</code>
+                </div>
+              </div>
+
+              {/* Safety Gate Checklist */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontFamily: 'var(--font-tech)' }}>Safety Gate Verification Checklist:</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {auditData.checks.map((check) => (
+                    <div key={check.id} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between', 
+                      padding: '10px 14px', 
+                      background: check.passed ? 'rgba(16, 185, 129, 0.03)' : 'rgba(239, 68, 68, 0.03)', 
+                      borderRadius: '8px',
+                      border: `1px solid ${check.passed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
+                      fontSize: '0.86rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {check.passed ? (
+                          <CheckCircle2 size={16} style={{ color: '#10b981' }} />
+                        ) : (
+                          <ShieldAlert size={16} style={{ color: '#ef4444' }} />
+                        )}
+                        <span style={{ color: check.passed ? '#fff' : '#f87171', fontWeight: check.passed ? 500 : 600 }}>{check.label}</span>
+                      </div>
+                      <span style={{ 
+                        fontSize: '0.75rem', 
+                        fontFamily: 'var(--font-tech)',
+                        fontWeight: 600,
+                        color: check.passed ? '#10b981' : '#ef4444'
+                      }}>
+                        {check.passed ? 'PASSED' : 'BLOCKED'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {auditData.blocked && auditData.block_reasons.length > 0 && (
+                <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.18)', borderRadius: '8px', fontSize: '0.85rem', color: '#f87171' }}>
+                  <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    <ShieldAlert size={15} />
+                    Audit Block Reasons
+                  </div>
+                  <ul style={{ paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {auditData.block_reasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-glass)', paddingTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldAlert size={12} style={{ color: auditData.validation_status === 'passed' ? '#10b981' : '#ef4444' }} />
+                <span>
+                  {auditData.validation_status === 'passed' 
+                    ? 'All safety constraints are satisfied. Ready for future confirmation candidate.' 
+                    : 'Safety audit failed. Write candidate generation has been permanently blocked.'
+                  }
+                </span>
               </div>
             </div>
           )}
