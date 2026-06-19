@@ -2,18 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Cpu, 
   HardDrive, 
-  Download, 
-  Check, 
   Terminal as TerminalIcon, 
   CheckCircle2, 
-  AlertTriangle, 
   ShieldAlert, 
   RefreshCw, 
-  FolderPlus, 
-  HelpCircle,
+  FolderPlus,
   Disc,
   Settings,
-  ChevronRight,
   Sparkles
 } from 'lucide-react';
 
@@ -22,7 +17,6 @@ const OCLP_VERSIONS = ['v1.5.0 (Latest)', 'v1.4.3', 'v1.3.0', 'v1.2.1'];
 
 // Macbook Target models for BootCamp Windows-on-Mac support
 const MACBOOK_MODELS = [
-  // MacBook Pro Series
   'MacBookPro5,1 (15", Late 2008)',
   'MacBookPro6,1 (17", Mid 2010)',
   'MacBookPro8,1 (13", Early/Late 2011)',
@@ -33,23 +27,17 @@ const MACBOOK_MODELS = [
   'MacBookPro12,1 (Retina 13", Early 2015)',
   'MacBookPro13,3 (Retina 15", Late 2016)',
   'MacBookPro14,1 (Retina 13", Mid 2017)',
-  
-  // MacBook Air Series
   'MacBookAir3,1 (11", Late 2010)',
   'MacBookAir4,2 (13", Mid 2011)',
   'MacBookAir5,2 (13", Mid 2012)',
   'MacBookAir6,2 (13", Mid 2013/Early 2014)',
   'MacBookAir7,2 (13", Early 2015/2017)',
-  
-  // MacBook (12" / Polycarbonate) Series
   'MacBook2,1 (White/Black Polycarbonate, Late 2006/Mid 2007 - 32-bit EFI)',
   'MacBook5,2 (White Polycarbonate, Early/Mid 2009)',
   'MacBook7,1 (White Unibody, Mid 2010)',
   'MacBook8,1 (Retina 12", Early 2015)',
   'MacBook9,1 (Retina 12", Early 2016)',
   'MacBook10,1 (Retina 12", Mid 2017)',
-  
-  // iMac Series
   'iMac9,1 (24", Early 2009)',
   'iMac11,1 (27", Late 2009)',
   'iMac12,1 (21.5", Mid 2011)',
@@ -58,16 +46,12 @@ const MACBOOK_MODELS = [
   'iMac15,1 (Retina 5K 27", Late 2014/Mid 2015)',
   'iMac17,1 (Retina 5K 27", Late 2015)',
   'iMac18,3 (Retina 5K 27", Mid 2017)',
-  
-  // Mac mini Series
   'Macmini3,1 (Late 2009)',
   'Macmini4,1 (Mid 2010)',
   'Macmini5,1 (Mid 2011)',
   'Macmini6,2 (Late 2012)',
   'Macmini7,1 (Late 2014)',
   'Macmini8,1 (Late 2018)',
-  
-  // Mac Pro Series
   'MacPro3,1 (Early 2008)',
   'MacPro4,1 (Early 2009)',
   'MacPro5,1 (Mid 2010/Mid 2012)',
@@ -105,12 +89,21 @@ const getUsedPercent = (drive) => {
   return Math.max(0, Math.min(100, ((total - free) / total) * 100));
 };
 
+const formatImageSize = (image) => {
+  if (!image) return 'Unknown';
+  if (image.size_gb && image.size_gb >= 0.01) return `${image.size_gb} GB`;
+  return `${image.size_bytes || 0} bytes`;
+};
+
 export default function App() {
   const [drives, setDrives] = useState([]);
   const [selectedDrive, setSelectedDrive] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedOclp, setSelectedOclp] = useState(OCLP_VERSIONS[0]);
   const [targetMacModel, setTargetMacModel] = useState(MACBOOK_MODELS[0]);
+  const [imagePath, setImagePath] = useState('');
+  const [inspectedImage, setInspectedImage] = useState(null);
+  const [isInspectingImage, setIsInspectingImage] = useState(false);
   
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
@@ -122,8 +115,8 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [terminalLogs, setTerminalLogs] = useState([
     { type: 'info', text: 'PhoenixCore & BootForge Engine v2.5.0 Initialized.' },
-    { type: 'warning', text: 'Foundation Lock active: real USB scanning only. Write, format, partition, and burn actions are disabled.' },
-    { type: 'info', text: 'Click Scan USBs to query the read-only Python drive detection bridge.' }
+    { type: 'warning', text: 'Foundation Lock active: real USB scanning and image inspection only. Write, format, partition, and burn actions are disabled.' },
+    { type: 'info', text: 'Click Scan USBs or inspect an ISO/IMG path through the read-only Python bridge.' }
   ]);
   
   const terminalEndRef = useRef(null);
@@ -164,6 +157,7 @@ export default function App() {
 
       const nextDrives = Array.isArray(payload.drives) ? payload.drives : [];
       setDrives(nextDrives);
+      setStatus('success');
 
       if (nextDrives.length === 0) {
         addLog('warning', `Scan complete on ${payload.platform}. No removable USB drives detected.`);
@@ -179,13 +173,55 @@ export default function App() {
     }
   };
 
-  // Phase 1 safety lock: no writer exists yet, so do not simulate destructive work.
-  const handleCreate = () => {
-    addLog('warning', 'Creation is disabled in Phase 1 Foundation Lock. Scan-only mode prevents accidental write, format, partition, or burn operations.');
-    setProgress(0);
+  const inspectImage = async () => {
+    const trimmedPath = imagePath.trim();
+    if (!trimmedPath) {
+      addLog('error', 'No image path entered for inspection.');
+      return;
+    }
+
+    setIsInspectingImage(true);
+    setInspectedImage(null);
+    addLog('info', `Inspecting image through read-only bridge: ${trimmedPath}`);
+
+    try {
+      const response = await fetch(`/api/image/inspect?path=${encodeURIComponent(trimmedPath)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || `Image inspection failed with HTTP ${response.status}`);
+      }
+
+      if (payload.destructive !== false || payload.operation !== 'read_only_image_inspection') {
+        throw new Error('Image inspection bridge failed safety validation. Refusing to trust payload.');
+      }
+
+      setInspectedImage(payload.image);
+      setStatus(payload.error ? 'error' : 'success');
+
+      if (payload.error) {
+        addLog('error', `Image inspection returned error: ${payload.error}`);
+      } else {
+        addLog('success', `Image inspected: ${payload.image.filename} | ${formatImageSize(payload.image)} | SHA256 ready.`);
+      }
+    } catch (error) {
+      setInspectedImage(null);
+      setStatus('error');
+      addLog('error', `Image inspection bridge error: ${error.message}`);
+    } finally {
+      setIsInspectingImage(false);
+    }
   };
 
-  const selectedDriveDetails = drives.find(d => d.drive === selectedDrive);
+  // Phase 1/2A safety lock: no writer exists yet, so do not simulate destructive work.
+  const handleCreate = () => {
+    addLog('warning', 'Creation is disabled in Phase 2A. Image inspection is read-only; USB write, format, partition, and burn operations remain locked.');
+    setProgress(0);
+  };
 
   // SVG calculations for progress ring
   const radius = 70;
@@ -209,14 +245,14 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className={`status-badge ${status === 'working' ? 'active' : status === 'success' ? 'success' : status === 'error' ? 'error' : 'idle'}`}>
             <span className="status-dot"></span>
-            {status === 'idle' && 'Scan-Only Idle'}
-            {status === 'working' && 'Scanning USBs...'}
-            {status === 'success' && 'Scan Completed'}
+            {status === 'idle' && 'Read-Only Idle'}
+            {status === 'working' && 'Bridge Working...'}
+            {status === 'success' && 'Read-Only Pass'}
             {status === 'error' && 'Bridge Error'}
           </div>
           <button 
             onClick={refreshDrives} 
-            disabled={status === 'working' || isRefreshing}
+            disabled={isRefreshing || isInspectingImage}
             className="glass-panel" 
             style={{ 
               padding: '10px', 
@@ -248,10 +284,10 @@ export default function App() {
           <div className="glass-panel" style={{ padding: '14px', borderColor: 'rgba(250, 204, 21, 0.35)' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <ShieldAlert size={18} />
-              <span>Phase 1 Foundation Lock</span>
+              <span>Phase 2A Read-Only Lock</span>
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-              This dashboard is connected only to the read-only USB scan bridge. Writing, formatting, partitioning,
+              This dashboard can scan USB drives and inspect ISO/IMG/DMG files only. Writing, formatting, partitioning,
               mounting, unmounting, and burn actions remain disabled until the safety model is complete.
             </p>
           </div>
@@ -280,7 +316,7 @@ export default function App() {
                 return (
                   <div 
                     key={key} 
-                    onClick={() => status !== 'working' && setSelectedDrive(item.drive)}
+                    onClick={() => setSelectedDrive(item.drive)}
                     className={`drive-card ${selectedDrive === item.drive ? 'selected' : ''}`}
                   >
                     <div className="drive-info">
@@ -309,53 +345,114 @@ export default function App() {
             </div>
           </div>
 
-          {/* Form Group 2: Recovery Utility Pack */}
+          {/* Form Group 2: Image Inspection */}
           <div className="form-group">
-            <label className="form-label">2. Select Rescue Utilities & Systems</label>
+            <label className="form-label">2. Select / Inspect OS Image</label>
+            <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input
+                type="text"
+                value={imagePath}
+                onChange={(e) => setImagePath(e.target.value)}
+                placeholder={'Example: C:\\Users\\Bobby\\Downloads\\debian.iso'}
+                disabled={isRefreshing || isInspectingImage}
+                style={{
+                  padding: '10px',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  outline: 'none',
+                  width: '100%'
+                }}
+              />
+              <button
+                className="glass-panel"
+                onClick={inspectImage}
+                disabled={isRefreshing || isInspectingImage || !imagePath.trim()}
+                style={{
+                  padding: '10px',
+                  borderRadius: '10px',
+                  cursor: imagePath.trim() ? 'pointer' : 'not-allowed',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  border: '1px solid var(--border-glass)'
+                }}
+              >
+                <RefreshCw size={16} className={isInspectingImage ? 'spin-anim' : ''} />
+                Inspect Image Read-Only
+              </button>
+
+              {inspectedImage && (
+                <div className="drive-card" style={{ cursor: 'default' }}>
+                  <div className="drive-info">
+                    <div className="drive-icon-wrapper">
+                      <Disc size={22} />
+                    </div>
+                    <div className="drive-details">
+                      <h3>{inspectedImage.filename || 'Image File'}</h3>
+                      <p>{inspectedImage.supported ? 'Supported image type' : 'Unsupported image type'} • {inspectedImage.extension || 'no extension'}</p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                    <span><strong>Path:</strong> {inspectedImage.path}</span>
+                    <span><strong>Size:</strong> {formatImageSize(inspectedImage)}</span>
+                    <span><strong>SHA256:</strong> {inspectedImage.sha256 || 'Unavailable'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Form Group 3: Recovery Utility Pack */}
+          <div className="form-group">
+            <label className="form-label">3. Select Rescue Utilities & Systems</label>
             <div className="utility-grid">
               
               {/* OCLP Patcher Card */}
               <div 
                 className={`utility-card ${includeOclp ? 'selected' : ''}`}
-                onClick={() => status !== 'working' && setIncludeOclp(!includeOclp)}
+                onClick={() => setIncludeOclp(!includeOclp)}
               >
                 <div className="utility-header">
                   <span className="utility-icon"><Cpu size={18} /></span>
                   {includeOclp && <CheckCircle2 size={16} style={{ color: 'var(--accent)' }} />}
                 </div>
                 <h3>OpenCore OCLP</h3>
-                <p>Install OpenCore bootloader & EFI patches for legacy Macs.</p>
+                <p>Future packaging slot. Disabled from writing during Phase 2A.</p>
               </div>
 
               {/* BootCamp Drivers Card */}
               <div 
                 className={`utility-card ${includeBootcamp ? 'selected' : ''}`}
-                onClick={() => status !== 'working' && setIncludeBootcamp(!includeBootcamp)}
+                onClick={() => setIncludeBootcamp(!includeBootcamp)}
               >
                 <div className="utility-header">
                   <span className="utility-icon"><Disc size={18} /></span>
                   {includeBootcamp && <CheckCircle2 size={16} style={{ color: 'var(--accent)' }} />}
                 </div>
                 <h3>BootCamp Drivers</h3>
-                <p>Windows support software & drivers for running Windows natively on Mac hardware.</p>
+                <p>Future driver bundle slot. Disabled from writing during Phase 2A.</p>
               </div>
 
               {/* Rescue Tools Card */}
               <div 
                 className={`utility-card ${includeRescueTools ? 'selected' : ''}`}
-                onClick={() => status !== 'working' && setIncludeRescueTools(!includeRescueTools)}
+                onClick={() => setIncludeRescueTools(!includeRescueTools)}
               >
                 <div className="utility-header">
                   <span className="utility-icon"><FolderPlus size={18} /></span>
                   {includeRescueTools && <CheckCircle2 size={16} style={{ color: 'var(--accent)' }} />}
                 </div>
                 <h3>Rescue Tools Suite</h3>
-                <p>Future bundle slot. Disabled from writing during Foundation Lock.</p>
+                <p>Future bundle slot. Disabled from writing during Phase 2A.</p>
               </div>
             </div>
           </div>
 
-          {/* Form Group 3: Specific Configuration Details */}
+          {/* Form Group 4: Specific Configuration Details */}
           {(includeOclp || includeBootcamp) && (
             <div className="glass-panel" style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.01)', borderStyle: 'dashed' }}>
               <h3 style={{ fontSize: '0.95rem', fontFamily: 'var(--font-tech)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -368,7 +465,6 @@ export default function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>OCLP Target Patcher</span>
                     <select 
-                      disabled={status === 'working'}
                       value={selectedOclp}
                       onChange={(e) => setSelectedOclp(e.target.value)}
                       style={{ padding: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: '#fff', outline: 'none' }}
@@ -381,7 +477,6 @@ export default function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: includeOclp ? 'auto' : 'span 2' }}>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Apple Target MacBook Model</span>
                     <select 
-                      disabled={status === 'working'}
                       value={targetMacModel}
                       onChange={(e) => setTargetMacModel(e.target.value)}
                       style={{ padding: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: '#fff', outline: 'none' }}
@@ -398,11 +493,10 @@ export default function App() {
           <button 
             className="btn-primary" 
             onClick={handleCreate} 
-            disabled={status === 'working'}
             style={{ opacity: 0.75 }}
           >
             <ShieldAlert size={20} />
-            <span>PHASE 1 SCAN-ONLY LOCK ACTIVE</span>
+            <span>PHASE 2A READ-ONLY LOCK ACTIVE</span>
           </button>
         </div>
 
@@ -438,16 +532,15 @@ export default function App() {
               <div style={{ textAlign: 'center' }}>
                 <h3 style={{ fontFamily: 'var(--font-tech)', fontSize: '1.2rem', marginBottom: '4px' }}>
                   {status === 'idle' && 'PhoenixCore Standby'}
-                  {status === 'working' && 'Scanning Removable Drives...'}
-                  {status === 'success' && 'Scan Complete'}
+                  {status === 'working' && 'Read-Only Bridge Running...'}
+                  {status === 'success' && 'Read-Only Operation Complete'}
                   {status === 'error' && 'Bridge Error'}
                 </h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                  {status === 'idle' && 'Scan-only mode. No write operations are available.'}
-                  {status === 'working' && 'Read-only USB detection bridge is running.'}
-                  {status === 'success' && selectedDrive && `Selected ${selectedDrive}. Creation remains disabled in Phase 1.`}
-                  {status === 'success' && !selectedDrive && 'Drive scan completed. Select a drive only for inspection.'}
-                  {status === 'error' && 'The dashboard could not reach or parse the USB scan bridge.'}
+                  {status === 'idle' && 'Scan USBs or inspect an OS image. No writes are available.'}
+                  {status === 'working' && 'Read-only bridge is running.'}
+                  {status === 'success' && 'Read-only validation completed. Creation remains disabled.'}
+                  {status === 'error' && 'The dashboard could not reach or parse a bridge response.'}
                 </p>
               </div>
             </div>
@@ -474,7 +567,7 @@ export default function App() {
                   </span>
                 </div>
               ))}
-              {status === 'working' && (
+              {(isRefreshing || isInspectingImage) && (
                 <div className="terminal-line">
                   <span className="terminal-prompt">&gt;</span>
                   <span className="terminal-text info blink">_</span>
