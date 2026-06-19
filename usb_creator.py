@@ -7,7 +7,7 @@ import urllib.request
 import subprocess
 import argparse
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ==============================================================================
 # ROADMAP & FUTURE PLAN CHECKLIST (TODO)
@@ -335,7 +335,7 @@ def build_drive_scan_payload():
     """
     return {
         "schema": "bootforge.drive_scan.v1",
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "platform": sys.platform,
         "safe_mode": True,
         "destructive": False,
@@ -434,7 +434,7 @@ def download_latest_oclp(dest_dir=None, dry_run=False):
                     "publisher": "Dortania",
                     "verified": True,
                     "signature_verified": True,
-                    "downloaded_at": datetime.utcnow().isoformat() + "Z",
+                    "downloaded_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "source_type": "official_release"
                 }
                 _log("success", f"Supply-Chain Provenance Metadata: {json.dumps(provenance)}")
