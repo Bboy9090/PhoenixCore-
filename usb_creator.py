@@ -231,16 +231,23 @@ def validate_tool_against_registry(tool_id, download_url=None, file_path=None):
         
     return True
 
-def get_removable_drives():
+def get_removable_drives(quiet=False):
     """
     Scans the system for removable and external storage devices.
     Strictly non-destructive, read-only scanning logic.
+
+    Args:
+        quiet: Suppresses human log lines so callers can build clean JSON bridge payloads.
     """
-    _log("info", "Starting removable drives detection scan...")
+    def scan_log(level, message):
+        if not quiet:
+            _log(level, message)
+
+    scan_log("info", "Starting removable drives detection scan...")
     drives = []
     
     if sys.platform == "win32":
-        _log("info", "Platform: Windows (Win32 API detection active)")
+        scan_log("info", "Platform: Windows (Win32 API detection active)")
         bitmask = ctypes.windll.kernel32.GetLogicalDrives()
         for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
             if bitmask & 1:
@@ -267,7 +274,7 @@ def get_removable_drives():
             bitmask >>= 1
             
     elif sys.platform == "darwin":
-        _log("info", "Platform: macOS (diskutil plist parsing active)")
+        scan_log("info", "Platform: macOS (diskutil plist parsing active)")
         try:
             import plistlib
             # Run diskutil list -plist to get all disks
@@ -298,10 +305,10 @@ def get_removable_drives():
                 except Exception:
                     pass
         except Exception as e:
-            _log("error", f"macOS diskutil scanning failed: {e}")
+            scan_log("error", f"macOS diskutil scanning failed: {e}")
             
     else:
-        _log("info", "Platform: Linux (lsblk JSON API active)")
+        scan_log("info", "Platform: Linux (lsblk JSON API active)")
         try:
             out = subprocess.check_output(["lsblk", "-J", "-o", "NAME,SIZE,MOUNTPOINT,RM,LABEL"]).decode("utf-8")
             data = json.loads(out)
@@ -315,10 +322,35 @@ def get_removable_drives():
                         "type": "Removable"
                     })
         except Exception as e:
-            _log("error", f"Linux lsblk scanning failed: {e}")
+            scan_log("error", f"Linux lsblk scanning failed: {e}")
             
-    _log("success", f"Scanning complete. Detected drives count: {len(drives)}")
+    scan_log("success", f"Scanning complete. Detected drives count: {len(drives)}")
     return drives
+
+def build_drive_scan_payload():
+    """
+    Builds a clean, machine-readable USB scan payload for dashboard/desktop bridges.
+    This function is read-only and intentionally performs no mount, format, partition,
+    write, or privilege-elevation operations.
+    """
+    return {
+        "schema": "bootforge.drive_scan.v1",
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "platform": sys.platform,
+        "safe_mode": True,
+        "destructive": False,
+        "operation": "read_only_drive_scan",
+        "drives": get_removable_drives(quiet=True)
+    }
+
+def print_drive_scan_json():
+    """
+    Emits JSON-only removable drive scan output for UI bridges.
+    No human log lines are mixed into stdout, so dashboard wrappers can parse it safely.
+    """
+    payload = build_drive_scan_payload()
+    print(json.dumps(payload, indent=2))
+    return payload
 
 def download_latest_oclp(dest_dir=None, dry_run=False):
     """
@@ -476,14 +508,17 @@ This USB drive has been prepared by PhoenixCore & BootForge to assist in macOS r
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PhoenixCore & BootForge USB Rescue Creator Engine")
-    parser.add_argument("--list", action="store_true", help="List all connected removable drives in JSON format")
+    parser.add_argument("--list", action="store_true", help="List all connected removable drives with human logs")
+    parser.add_argument("--list-json", action="store_true", help="Emit clean JSON-only removable drive scan payload for dashboard bridges")
     parser.add_argument("--download-oclp", action="store_true", help="Automatically fetch the latest OpenCore Legacy Patcher GUI")
     parser.add_argument("--create", type=str, help="Target drive letter (e.g. E:\\) to initialize structure")
     parser.add_argument("--dry-run", action="store_true", help="Perform a simulated execution without writing to disk")
     
     args = parser.parse_args()
     
-    if args.list:
+    if args.list_json:
+        print_drive_scan_json()
+    elif args.list:
         drives = get_removable_drives()
         print(json.dumps(drives, indent=2))
     elif args.download_oclp:
