@@ -104,6 +104,9 @@ export default function App() {
   const [imagePath, setImagePath] = useState('');
   const [inspectedImage, setInspectedImage] = useState(null);
   const [isInspectingImage, setIsInspectingImage] = useState(false);
+  const [safetyData, setSafetyData] = useState(null);
+  const [isCheckingSafety, setIsCheckingSafety] = useState(false);
+  const [safetyError, setSafetyError] = useState(null);
   
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
@@ -170,6 +173,45 @@ export default function App() {
       addLog('error', `USB scan bridge error: ${error.message}`);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const checkDriveSafety = async (drivePath) => {
+    if (!drivePath) {
+      setSafetyData(null);
+      return;
+    }
+    setIsCheckingSafety(true);
+    setSafetyError(null);
+    addLog('info', `Checking safety for drive path: ${drivePath}`);
+    try {
+      const response = await fetch(`/api/usb/safety?path=${encodeURIComponent(drivePath)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || `Drive safety check failed with HTTP ${response.status}`);
+      }
+      if (payload.destructive !== false || payload.operation !== 'read_only_drive_safety_check') {
+        throw new Error('Drive safety check bridge failed safety validation.');
+      }
+      if (payload.error) {
+        setSafetyError(payload.error);
+        addLog('error', `Drive safety check returned error: ${payload.error}`);
+      } else {
+        setSafetyData(payload.drive);
+        const eligibilityStr = payload.drive.eligible_for_future_write 
+          ? 'Eligible for Future Write Candidate' 
+          : 'Write Blocked';
+        addLog('success', `Drive safety check complete: ${payload.drive.label} is ${eligibilityStr} (Risk: ${payload.drive.risk_level.toUpperCase()}).`);
+      }
+    } catch (error) {
+      setSafetyData(null);
+      setSafetyError(error.message);
+      addLog('error', `Drive safety bridge error: ${error.message}`);
+    } finally {
+      setIsCheckingSafety(false);
     }
   };
 
@@ -316,7 +358,10 @@ export default function App() {
                 return (
                   <div 
                     key={key} 
-                    onClick={() => setSelectedDrive(item.drive)}
+                    onClick={() => {
+                      setSelectedDrive(item.drive);
+                      checkDriveSafety(item.drive);
+                    }}
                     className={`drive-card ${selectedDrive === item.drive ? 'selected' : ''}`}
                   >
                     <div className="drive-info">
@@ -342,6 +387,115 @@ export default function App() {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Or Enter Path Manually to Inspect:</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="text"
+                  value={selectedDrive}
+                  onChange={(e) => {
+                    setSelectedDrive(e.target.value);
+                    setSafetyData(null);
+                  }}
+                  placeholder={'Example: E:\\'}
+                  disabled={isRefreshing || isCheckingSafety}
+                  style={{
+                    padding: '10px',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    outline: 'none',
+                    flex: 1
+                  }}
+                />
+                <button
+                  className="glass-panel"
+                  onClick={() => checkDriveSafety(selectedDrive)}
+                  disabled={isRefreshing || isCheckingSafety || !selectedDrive.trim()}
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    cursor: selectedDrive.trim() ? 'pointer' : 'not-allowed',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    border: '1px solid var(--border-glass)'
+                  }}
+                >
+                  <RefreshCw size={16} className={isCheckingSafety ? 'spin-anim' : ''} />
+                  Verify Drive
+                </button>
+              </div>
+
+              {safetyError && (
+                <div style={{ color: '#ef4444', fontSize: '0.88rem', marginTop: '4px' }}>
+                  <strong>Error:</strong> {safetyError}
+                </div>
+              )}
+
+              {safetyData && (
+                <div className="drive-card" style={{ cursor: 'default', flexDirection: 'column', gap: '12px', background: 'rgba(255, 255, 255, 0.02)', marginTop: '8px', width: '100%', border: '1px solid var(--border-glass)' }}>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', width: '100%' }}>
+                    <div style={{ 
+                      padding: '6px 12px', 
+                      borderRadius: '20px', 
+                      fontSize: '0.82rem', 
+                      fontWeight: 600,
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '6px',
+                      background: safetyData.eligible_for_future_write ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      color: safetyData.eligible_for_future_write ? '#10b981' : '#ef4444',
+                      border: `1px solid ${safetyData.eligible_for_future_write ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                    }}>
+                      <CheckCircle2 size={14} />
+                      {safetyData.eligible_for_future_write ? 'Eligible for Future Write Candidate' : 'Write Blocked'}
+                    </div>
+
+                    <div style={{ 
+                      padding: '6px 12px', 
+                      borderRadius: '20px', 
+                      fontSize: '0.82rem', 
+                      fontWeight: 600,
+                      background: safetyData.risk_level === 'low' ? 'rgba(16, 185, 129, 0.15)' : safetyData.risk_level === 'medium' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      color: safetyData.risk_level === 'low' ? '#10b981' : safetyData.risk_level === 'medium' ? '#f59e0b' : '#ef4444',
+                      border: `1px solid ${safetyData.risk_level === 'low' ? 'rgba(16, 185, 129, 0.3)' : safetyData.risk_level === 'medium' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                    }}>
+                      Risk Level: {safetyData.risk_level.toUpperCase()}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.85rem', borderTop: '1px solid var(--border-glass)', paddingTop: '10px', marginTop: '4px', width: '100%' }}>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Root Path:</span> <code style={{ color: 'var(--accent)' }}>{safetyData.root}</code></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Label:</span> <strong>{safetyData.label}</strong></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Filesystem:</span> <strong>{safetyData.filesystem}</strong></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Drive Type:</span> <strong>{safetyData.type}</strong></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Total Space:</span> <strong>{safetyData.total_size_gb} GB</strong></div>
+                    <div><span style={{ color: 'var(--text-muted)' }}>Free Space:</span> <strong>{safetyData.free_size_gb} GB</strong></div>
+                  </div>
+
+                  {safetyData.warnings.length > 0 && (
+                    <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '10px', marginTop: '4px', width: '100%' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                        <ShieldAlert size={14} />
+                        Safety Warnings ({safetyData.warnings.length})
+                      </span>
+                      <ul style={{ paddingLeft: '18px', margin: 0, fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {safetyData.warnings.map((w, idx) => (
+                          <li key={idx} style={{ color: '#f87171' }}>{w}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                </div>
+              )}
             </div>
           </div>
 

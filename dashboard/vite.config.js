@@ -112,6 +112,38 @@ function usbCreatorBridgePlugin() {
           )
           return
         }
+        if (requestUrl.pathname === '/api/usb/safety') {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          const drivePath = requestUrl.searchParams.get('path')
+          if (!drivePath) {
+            sendJson(res, 400, {
+              schema: 'bootforge.drive_safety.v1',
+              safe_mode: true,
+              destructive: false,
+              operation: 'read_only_drive_safety_check',
+              drive: null,
+              error: 'Missing required query parameter: path',
+            })
+            return
+          }
+
+          runUsbCreator(
+            ['--inspect-drive', drivePath],
+            {
+              schema: 'bootforge.drive_safety.v1',
+              safe_mode: true,
+              destructive: false,
+              operation: 'read_only_drive_safety_check',
+              drive: null,
+            },
+            res
+          )
+          return
+        }
 
         next()
       })

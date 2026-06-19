@@ -419,6 +419,262 @@ def print_image_inspection_json(image_path):
     print(json.dumps(payload, indent=2))
     return payload
 
+def get_drive_root(path):
+    """
+    Resolves an arbitrary file/directory path to its containing drive or mount root.
+    """
+    try:
+        p = Path(path).resolve()
+    except Exception:
+        p = Path(path).absolute()
+        
+    if sys.platform == "win32":
+        drive = p.drive
+        if drive:
+            if not drive.endswith("\\"):
+                drive += "\\"
+            return drive
+        curr_drive = Path(".").resolve().drive
+        if not curr_drive.endswith("\\"):
+            curr_drive += "\\"
+        return curr_drive
+    else:
+        curr = p
+        try:
+            while curr != curr.parent:
+                if curr.is_mount():
+                    return str(curr)
+                curr = curr.parent
+        except Exception:
+            pass
+        return "/"
+
+def build_drive_safety_payload(drive_path):
+    """
+    Builds a clean, machine-readable drive safety and eligibility verification payload.
+    Strictly read-only: performs no write, partition, or format operations.
+    """
+    import shutil
+    import re
+    root_path = get_drive_root(drive_path)
+    
+    payload = {
+        "schema": "bootforge.drive_safety.v1",
+        "generated_at": utc_now_iso(),
+        "platform": sys.platform,
+        "safe_mode": True,
+        "destructive": False,
+        "operation": "read_only_drive_safety_check",
+        "drive": None,
+        "error": None
+    }
+
+    if not root_path:
+        payload["error"] = "Could not resolve drive root from the provided path."
+        return payload
+
+    if not os.path.exists(root_path):
+        payload["error"] = "Drive path does not exist."
+        return payload
+
+    label = "Unknown Volume"
+    fs_type = "Unknown"
+    total_size_gb = 0.0
+    free_size_gb = 0.0
+    drive_type = "Unknown"
+
+    def get_device_node(mount_path):
+        if sys.platform == "win32":
+            return mount_path
+        try:
+            out = subprocess.check_output(["mount"]).decode("utf-8", errors="ignore")
+            for line in out.splitlines():
+                parts = line.split()
+                if len(parts) >= 3 and os.path.normpath(parts[2]).lower() == os.path.normpath(mount_path).lower():
+                    return parts[0]
+        except Exception:
+            pass
+        return mount_path
+
+    def get_whole_disk(dev_node):
+        m = re.match(r"^(/dev/disk\d+)", dev_node)
+        if m:
+            return m.group(1)
+        m = re.match(r"^(/dev/sd[a-z]+)", dev_node)
+        if m:
+            return m.group(1)
+        m = re.match(r"^(/dev/nvme\d+n\d+)", dev_node)
+        if m:
+            return m.group(1)
+        return dev_node
+
+    try:
+        if sys.platform == "win32":
+            win_type = ctypes.windll.kernel32.GetDriveTypeW(root_path)
+            type_map = {
+                0: "Unknown",
+                1: "No Root Directory",
+                2: "Removable",
+                3: "Fixed",
+                4: "Remote",
+                5: "CD-ROM",
+                6: "RAM Disk"
+            }
+            drive_type = type_map.get(win_type, "Unknown")
+
+            volume_name_buf = ctypes.create_unicode_buffer(1024)
+            fs_name_buf = ctypes.create_unicode_buffer(1024)
+            res = ctypes.windll.kernel32.GetVolumeInformationW(
+                root_path, volume_name_buf, 1024, None, None, None, fs_name_buf, 1024
+            )
+            if res:
+                label = volume_name_buf.value or "Local Disk"
+                fs_type = fs_name_buf.value or "Unknown"
+            else:
+                label = "Local Disk"
+
+            free_bytes = ctypes.c_ulonglong(0)
+            total_bytes = ctypes.c_ulonglong(0)
+            res_space = ctypes.windll.kernel32.GetDiskFreeSpaceExW(
+                root_path, None, ctypes.byref(total_bytes), ctypes.byref(free_bytes)
+            )
+            if res_space:
+                total_size_gb = round(total_bytes.value / (1024**3), 2)
+                free_size_gb = round(free_bytes.value / (1024**3), 2)
+        else:
+            drive_type = "Fixed"
+            try:
+                usage = shutil.disk_usage(root_path)
+                total_size_gb = round(usage.total / (1024**3), 2)
+                free_size_gb = round(usage.free / (1024**3), 2)
+            except Exception:
+                pass
+            label = os.path.basename(root_path.rstrip("/")) or "System Root"
+
+            norm_root = os.path.normpath(root_path).lower()
+            try:
+                with open("/proc/mounts", "r") as f:
+                    for line in f:
+                        parts = line.split()
+                        if len(parts) >= 3 and os.path.normpath(parts[1]).lower() == norm_root:
+                            fs_type = parts[2]
+                            break
+            except Exception:
+                pass
+    except Exception as e:
+        payload["error"] = f"Failed to retrieve drive metadata: {e}"
+        return payload
+
+    removable_list = get_removable_drives(quiet=True)
+    in_scanner_list = False
+    
+    if sys.platform == "win32":
+        norm_root = os.path.normpath(root_path).lower().rstrip("\\/")
+        for rd in removable_list:
+            rd_path = rd.get("drive", "")
+            if rd_path:
+                norm_rd = os.path.normpath(rd_path).lower().rstrip("\\/")
+                if norm_root == norm_rd:
+                    in_scanner_list = True
+                    label = rd.get("label", label)
+                    total_size_gb = rd.get("total_size_gb", total_size_gb)
+                    free_size_gb = rd.get("free_size_gb", free_size_gb)
+                    drive_type = rd.get("type", drive_type)
+                    break
+    else:
+        dev_node = get_device_node(root_path)
+        whole_disk = get_whole_disk(dev_node)
+        
+        norm_dev = dev_node.lower()
+        norm_whole = whole_disk.lower()
+        norm_root = os.path.normpath(root_path).lower().rstrip("/")
+        
+        for rd in removable_list:
+            rd_path = rd.get("drive", "")
+            if rd_path:
+                norm_rd = os.path.normpath(rd_path).lower().rstrip("/")
+                if norm_rd in (norm_dev, norm_whole, norm_root):
+                    in_scanner_list = True
+                    label = rd.get("label", label)
+                    total_size_gb = rd.get("total_size_gb", total_size_gb)
+                    free_size_gb = rd.get("free_size_gb", free_size_gb)
+                    drive_type = rd.get("type", drive_type)
+                    break
+
+    is_system_drive = False
+    if sys.platform == "win32":
+        sys_drive = os.environ.get("SystemDrive", "C:").strip(":").upper()
+        root_letter = root_path.strip(":\\").upper()
+        if sys_drive == root_letter:
+            is_system_drive = True
+    else:
+        if root_path in ("/", "/boot", "/System"):
+            is_system_drive = True
+
+    is_removable_or_external = (drive_type in ("Removable", "External")) and in_scanner_list
+
+    warnings = []
+    is_blocked = False
+    
+    if is_system_drive:
+        is_blocked = True
+        warnings.append("Drive is the system boot volume. Writing is strictly blocked for safety.")
+        
+    if not in_scanner_list:
+        is_blocked = True
+        warnings.append("Drive was not found in the trusted removable device list. Internal/fixed disks are blocked.")
+        
+    if drive_type not in ("Removable", "External"):
+        is_blocked = True
+        warnings.append(f"Drive type '{drive_type}' is not recognized as removable or external storage.")
+        
+    if drive_type == "CD-ROM":
+        is_blocked = True
+        warnings.append("Drive is a read-only optical CD-ROM device.")
+        
+    if total_size_gb < 2.0:
+        is_blocked = True
+        warnings.append(f"Drive capacity ({total_size_gb} GB) is below the minimum required 2.0 GB.")
+        
+    if total_size_gb > 256.0:
+        is_blocked = True
+        warnings.append(f"Large capacity drive ({total_size_gb} GB) detected. Writing is blocked to protect personal backups.")
+
+    if is_blocked:
+        risk_level = "high"
+    elif total_size_gb > 64.0 and total_size_gb <= 256.0:
+        risk_level = "medium"
+        warnings.append(f"Medium-large capacity drive ({total_size_gb} GB) detected. Double-check that this is the intended recovery USB.")
+    else:
+        risk_level = "low"
+
+    eligible_for_future_write = not is_blocked
+
+    payload["drive"] = {
+        "requested_path": drive_path,
+        "root": root_path,
+        "label": label,
+        "type": drive_type,
+        "filesystem": fs_type,
+        "total_size_gb": total_size_gb,
+        "free_size_gb": free_size_gb,
+        "is_system_drive": is_system_drive,
+        "is_removable_or_external": is_removable_or_external,
+        "eligible_for_future_write": eligible_for_future_write,
+        "risk_level": risk_level,
+        "warnings": warnings
+    }
+
+    return payload
+
+def print_drive_safety_json(drive_path):
+    """
+    Emits JSON-only read-only drive safety check output for UI bridges.
+    """
+    payload = build_drive_safety_payload(drive_path)
+    print(json.dumps(payload, indent=2))
+    return payload
+
 def download_latest_oclp(dest_dir=None, dry_run=False):
     """
     Downloads the latest OpenCore Legacy Patcher release GUI package.
@@ -578,6 +834,7 @@ if __name__ == "__main__":
     parser.add_argument("--list", action="store_true", help="List all connected removable drives with human logs")
     parser.add_argument("--list-json", action="store_true", help="Emit clean JSON-only removable drive scan payload for dashboard bridges")
     parser.add_argument("--inspect-image", type=str, help="Read-only ISO/IMG/DMG image metadata and SHA256 inspection")
+    parser.add_argument("--inspect-drive", type=str, help="Read-only target drive safety and eligibility verification")
     parser.add_argument("--download-oclp", action="store_true", help="Automatically fetch the latest OpenCore Legacy Patcher GUI")
     parser.add_argument("--create", type=str, help="Target drive letter (e.g. E:\\) to initialize structure")
     parser.add_argument("--dry-run", action="store_true", help="Perform a simulated execution without writing to disk")
@@ -586,6 +843,8 @@ if __name__ == "__main__":
     
     if args.inspect_image:
         print_image_inspection_json(args.inspect_image)
+    elif args.inspect_drive:
+        print_drive_safety_json(args.inspect_drive)
     elif args.list_json:
         print_drive_scan_json()
     elif args.list:
