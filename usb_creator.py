@@ -981,6 +981,62 @@ def print_write_plan_audit_json(drive_path, image_path):
     print(json.dumps(payload, indent=2))
     return payload
 
+
+def generate_mock_writer_events(total_bytes, chunk_size=1024*1024, fail_at_chunk=None, cancel_at_chunk=None):
+    # Null-device event stream only. No target drive is opened or modified.
+    safe_chunk_size = int(chunk_size or 1048576)
+    if safe_chunk_size <= 0: safe_chunk_size = 1048576
+    total_bytes = int(total_bytes or 0)
+    chunks = max(1, (total_bytes + safe_chunk_size - 1)//safe_chunk_size)
+    events=[{"type":"simulation_started","progress":0,"destructive":False}]
+    done=0
+    for i in range(1, chunks+1):
+        if cancel_at_chunk is not None and i == cancel_at_chunk:
+            events.append({"type":"simulation_cancelled","chunk_index":i,"chunks_total":chunks,"progress":max(0,min(99,int(((i-1)/chunks)*100))),"destructive":False})
+            return events,"cancelled",done,None
+        if fail_at_chunk is not None and i == fail_at_chunk:
+            err=f"Mock writer injected failure at chunk {i}."
+            events.append({"type":"simulation_failed","chunk_index":i,"chunks_total":chunks,"progress":max(0,min(99,int(((i-1)/chunks)*100))),"destructive":False,"message":err})
+            return events,"failed",done,err
+        remaining=max(0,total_bytes-done)
+        done += min(safe_chunk_size,remaining) if total_bytes else safe_chunk_size
+        progress=int((i/chunks)*100)
+        progress=max(1,min(99,progress)) if i < chunks else 99
+        events.append({"type":"chunk_simulated","chunk_index":i,"chunks_total":chunks,"bytes_simulated":done,"progress":progress,"destructive":False})
+    events.append({"type":"simulation_completed","progress":100,"destructive":False})
+    return events,"completed",done,None
+
+def build_mock_writer_payload(drive_path, image_path, chunk_size=1024*1024, fail_at_chunk=None, cancel_at_chunk=None):
+    # Builds a mock writer simulation payload. This is simulation-only and performs no drive I/O.
+    audit=build_write_plan_audit_payload(drive_path,image_path)
+    payload={"schema":"bootforge.mock_writer.v1","generated_at":utc_now_iso(),"platform":sys.platform,"safe_mode":True,"destructive":False,"operation":"mock_writer_simulation","actual_write_enabled":False,"target_type":"null_device","target_drive":drive_path,"image_path":image_path,"plan_id":audit.get("plan_id"),"plan_hash":audit.get("plan_hash"),"audit_validation_status":audit.get("validation_status"),"eligible":False,"blocked":True,"block_reasons":[],"total_bytes":0,"chunk_size":int(chunk_size or 1048576),"chunks_total":0,"chunks_completed":0,"bytes_simulated":0,"status":"blocked","events":[],"audit":audit,"error":None}
+    if audit.get("validation_status")!="passed" or audit.get("blocked"):
+        payload["block_reasons"]=audit.get("block_reasons") or ["Write plan audit did not pass. Mock writer simulation is blocked."]
+        payload["events"]=[{"type":"simulation_blocked","progress":0,"destructive":False}]
+        return payload
+    image=((audit.get("write_plan") or {}).get("image_inspection") or {}).get("image") or {}
+    total=int(image.get("size_bytes") or 0)
+    if total <= 0:
+        payload["block_reasons"]=["Image size is zero or unavailable. Mock writer simulation is blocked."]
+        payload["events"]=[{"type":"simulation_blocked","progress":0,"destructive":False}]
+        return payload
+    payload["eligible"]=True; payload["blocked"]=False; payload["total_bytes"]=total
+    events,status,done,err=generate_mock_writer_events(total,payload["chunk_size"],fail_at_chunk,cancel_at_chunk)
+    payload["events"]=events; payload["status"]=status; payload["bytes_simulated"]=done
+    payload["chunks_total"]=max(1,(total+payload["chunk_size"]-1)//payload["chunk_size"])
+    payload["chunks_completed"]=len([e for e in events if e.get("type")=="chunk_simulated"])
+    payload["error"]=err
+    if status in ("failed","cancelled"):
+        payload["eligible"]=False; payload["blocked"]=True
+        payload["block_reasons"]=[err] if err else ["Mock writer simulation was cancelled."]
+    return payload
+
+def print_mock_writer_json(drive_path, image_path, chunk_size=1024*1024, fail_at_chunk=None, cancel_at_chunk=None):
+    payload=build_mock_writer_payload(drive_path,image_path,chunk_size,fail_at_chunk,cancel_at_chunk)
+    print(json.dumps(payload,indent=2))
+    return payload
+
+
 def generate_audit_markdown(audit_payload):
     """
     Generates a beautifully formatted human-readable Markdown summary from the audit payload.
@@ -1361,17 +1417,25 @@ if __name__ == "__main__":
     parser.add_argument("--inspect-drive", type=str, help="Read-only target drive safety and eligibility verification")
     parser.add_argument("--plan-write", action="store_true", help="Generate a dry-run write execution plan")
     parser.add_argument("--audit-plan", action="store_true", help="Generate a dry-run write plan audit trail payload")
+    parser.add_argument("--simulate-write", action="store_true", help="Run null-device mock writer simulation. Does not write to target drives.")
     parser.add_argument("--target-drive", type=str, help="Target drive for write plan generation")
     parser.add_argument("--image", type=str, help="Source OS image for write plan generation")
     parser.add_argument("--export-json", type=str, help="Export write plan audit as JSON to a local path")
     parser.add_argument("--export-markdown", type=str, help="Export human-readable audit summary as Markdown to a local path")
+    parser.add_argument("--mock-fail-at-chunk", type=int, help="Inject mock failure at chunk number")
+    parser.add_argument("--mock-cancel-at-chunk", type=int, help="Cancel mock simulation at chunk number")
     parser.add_argument("--download-oclp", action="store_true", help="Automatically fetch the latest OpenCore Legacy Patcher GUI")
     parser.add_argument("--create", type=str, help="Target drive letter (e.g. E:\\) to initialize structure")
     parser.add_argument("--dry-run", action="store_true", help="Perform a simulated execution without writing to disk")
     
     args = parser.parse_args()
     
-    if args.audit_plan:
+    if args.simulate_write:
+        if not args.target_drive or not args.image:
+            print(json.dumps({"schema":"bootforge.mock_writer.v1","generated_at":utc_now_iso(),"platform":sys.platform,"safe_mode":True,"destructive":False,"operation":"mock_writer_simulation","actual_write_enabled":False,"target_type":"null_device","status":"blocked","events":[],"error":"Missing required arguments: --target-drive and --image are required with --simulate-write."}, indent=2))
+        else:
+            print_mock_writer_json(args.target_drive,args.image,fail_at_chunk=args.mock_fail_at_chunk,cancel_at_chunk=args.mock_cancel_at_chunk)
+    elif args.audit_plan:
         if not args.target_drive or not args.image:
             print(json.dumps({
                 "schema": "bootforge.write_plan_audit.v1",
