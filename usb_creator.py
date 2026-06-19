@@ -18,7 +18,10 @@ from datetime import datetime, timezone
 # TODO: [x] Add complete dry-run mode (--dry-run) to simulate full structure creation.
 # TODO: [x] Add governed execution hooks checking security sandboxing boundaries.
 # TODO: [x] Cryptographically sign tool_registry.json and verify detached signatures (Ed25519).
+# TODO: [x] Add read-only image inspection bridge with SHA256 reporting.
 # ==============================================================================
+
+SUPPORTED_IMAGE_EXTENSIONS = {".iso", ".img", ".dmg", ".bin", ".raw"}
 
 # ------------------------------------------------------------------------------
 # RFC 8032 Ed25519 Cryptography Reference Implementation
@@ -117,6 +120,10 @@ def ed25519_verify(pubkey_hex, sig_hex, msg_bytes):
 # Governed System Configuration
 # ------------------------------------------------------------------------------
 TRUST_ANCHOR_PUBKEY = "0ad76a7f232cb7d725937e8dfa5368cb212e6be1e68f329119ef510c1f1cff68"
+
+def utc_now_iso():
+    """Returns a timezone-aware UTC timestamp formatted with a trailing Z."""
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 def _log(level, message):
     """Lightweight logging helper for BootForge engine activities."""
@@ -335,7 +342,7 @@ def build_drive_scan_payload():
     """
     return {
         "schema": "bootforge.drive_scan.v1",
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at": utc_now_iso(),
         "platform": sys.platform,
         "safe_mode": True,
         "destructive": False,
@@ -349,6 +356,66 @@ def print_drive_scan_json():
     No human log lines are mixed into stdout, so dashboard wrappers can parse it safely.
     """
     payload = build_drive_scan_payload()
+    print(json.dumps(payload, indent=2))
+    return payload
+
+def build_image_inspection_payload(image_path):
+    """
+    Builds a clean, machine-readable image inspection payload.
+    This is read-only: it never writes to, mounts, burns, partitions, or modifies disks.
+    """
+    target = Path(image_path).expanduser()
+    extension = target.suffix.lower()
+    supported = extension in SUPPORTED_IMAGE_EXTENSIONS
+
+    image_info = {
+        "path": str(target),
+        "filename": target.name,
+        "extension": extension,
+        "exists": target.is_file(),
+        "supported": supported,
+        "supported_extensions": sorted(SUPPORTED_IMAGE_EXTENSIONS),
+        "size_bytes": 0,
+        "size_gb": 0.0,
+        "sha256": None,
+    }
+
+    payload = {
+        "schema": "bootforge.image_inspection.v1",
+        "generated_at": utc_now_iso(),
+        "platform": sys.platform,
+        "safe_mode": True,
+        "destructive": False,
+        "operation": "read_only_image_inspection",
+        "image": image_info,
+        "error": None,
+    }
+
+    if not target.exists():
+        payload["error"] = "Image path does not exist."
+        return payload
+
+    if not target.is_file():
+        payload["error"] = "Image path exists but is not a file."
+        return payload
+
+    try:
+        size_bytes = target.stat().st_size
+        image_info["size_bytes"] = size_bytes
+        image_info["size_gb"] = round(size_bytes / (1024**3), 4)
+        image_info["sha256"] = calculate_file_sha256(target)
+        if image_info["sha256"] is None:
+            payload["error"] = "Failed to calculate SHA256 for image."
+    except Exception as e:
+        payload["error"] = f"Failed to inspect image: {e}"
+
+    return payload
+
+def print_image_inspection_json(image_path):
+    """
+    Emits JSON-only read-only image inspection output for UI bridges.
+    """
+    payload = build_image_inspection_payload(image_path)
     print(json.dumps(payload, indent=2))
     return payload
 
@@ -434,7 +501,7 @@ def download_latest_oclp(dest_dir=None, dry_run=False):
                     "publisher": "Dortania",
                     "verified": True,
                     "signature_verified": True,
-                    "downloaded_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    "downloaded_at": utc_now_iso(),
                     "source_type": "official_release"
                 }
                 _log("success", f"Supply-Chain Provenance Metadata: {json.dumps(provenance)}")
@@ -510,13 +577,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PhoenixCore & BootForge USB Rescue Creator Engine")
     parser.add_argument("--list", action="store_true", help="List all connected removable drives with human logs")
     parser.add_argument("--list-json", action="store_true", help="Emit clean JSON-only removable drive scan payload for dashboard bridges")
+    parser.add_argument("--inspect-image", type=str, help="Read-only ISO/IMG/DMG image metadata and SHA256 inspection")
     parser.add_argument("--download-oclp", action="store_true", help="Automatically fetch the latest OpenCore Legacy Patcher GUI")
     parser.add_argument("--create", type=str, help="Target drive letter (e.g. E:\\) to initialize structure")
     parser.add_argument("--dry-run", action="store_true", help="Perform a simulated execution without writing to disk")
     
     args = parser.parse_args()
     
-    if args.list_json:
+    if args.inspect_image:
+        print_image_inspection_json(args.inspect_image)
+    elif args.list_json:
         print_drive_scan_json()
     elif args.list:
         drives = get_removable_drives()
