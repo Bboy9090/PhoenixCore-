@@ -1,0 +1,7 @@
+- `[x]` Implement write plan logic in `usb_creator.py`
+  - `[x]` Add `build_write_plan_payload(drive_path, image_path)`
+  - `[x]` Add CLI arguments `--plan-write`, `--target-drive`, `--image` and routing
+- `[x]` Create and run `tests/test_write_plan.py`
+- `[x]` Register `/api/write/plan` route in `dashboard/vite.config.js`
+- `[x]` Update `dashboard/src/App.jsx` with the Dry-Run Execution Plan panel
+- `[x]` Verify everything works and clean up

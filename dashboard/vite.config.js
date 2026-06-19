@@ -145,6 +145,42 @@ function usbCreatorBridgePlugin() {
           return
         }
 
+        if (requestUrl.pathname === '/api/write/plan') {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          const drivePath = requestUrl.searchParams.get('drive')
+          const imagePath = requestUrl.searchParams.get('image')
+          if (!drivePath || !imagePath) {
+            sendJson(res, 400, {
+              schema: 'bootforge.write_plan.v1',
+              safe_mode: true,
+              destructive: false,
+              operation: 'dry_run_write_plan',
+              actual_write_enabled: false,
+              requires_future_confirmation: true,
+              error: 'Missing required query parameters: drive and image are required.',
+            })
+            return
+          }
+
+          runUsbCreator(
+            ['--plan-write', '--target-drive', drivePath, '--image', imagePath],
+            {
+              schema: 'bootforge.write_plan.v1',
+              safe_mode: true,
+              destructive: false,
+              operation: 'dry_run_write_plan',
+              actual_write_enabled: false,
+              requires_future_confirmation: true,
+            },
+            res
+          )
+          return
+        }
+
         next()
       })
     },

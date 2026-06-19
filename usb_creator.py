@@ -675,6 +675,133 @@ def print_drive_safety_json(drive_path):
     print(json.dumps(payload, indent=2))
     return payload
 
+def build_write_plan_payload(drive_path, image_path):
+    """
+    Builds a clean, machine-readable dry-run write execution plan.
+    Strictly read-only: performs no write, partition, or format operations.
+    """
+    payload = {
+        "schema": "bootforge.write_plan.v1",
+        "generated_at": utc_now_iso(),
+        "platform": sys.platform,
+        "safe_mode": True,
+        "destructive": False,
+        "operation": "dry_run_write_plan",
+        "actual_write_enabled": False,
+        "requires_future_confirmation": True,
+        "target_drive": drive_path,
+        "image_path": image_path,
+        "eligible": False,
+        "blocked": False,
+        "block_reasons": [],
+        "drive_safety": {},
+        "image_inspection": {},
+        "steps": [],
+        "error": None
+    }
+
+    try:
+        image_inspection = build_image_inspection_payload(image_path)
+        payload["image_inspection"] = image_inspection
+    except Exception as e:
+        payload["error"] = f"Failed to inspect OS image: {e}"
+        return payload
+
+    try:
+        drive_safety = build_drive_safety_payload(drive_path)
+        payload["drive_safety"] = drive_safety
+    except Exception as e:
+        payload["error"] = f"Failed to verify drive safety: {e}"
+        return payload
+
+    image_ok = False
+    image_err = None
+    if image_inspection.get("error"):
+        image_err = image_inspection["error"]
+    elif image_inspection.get("image") and not image_inspection["image"].get("exists"):
+        image_err = "Image path does not exist."
+    elif image_inspection.get("image") and not image_inspection["image"].get("supported"):
+        image_err = f"Image type '{image_inspection['image'].get('extension')}' is not supported."
+    else:
+        image_ok = True
+
+    drive_ok = False
+    drive_err = None
+    if drive_safety.get("error"):
+        drive_err = drive_safety["error"]
+    elif drive_safety.get("drive") and not drive_safety["drive"].get("eligible_for_future_write"):
+        drive_warnings = drive_safety["drive"].get("warnings", [])
+        if drive_warnings:
+            drive_err = "; ".join(drive_warnings)
+        else:
+            drive_err = "Target drive is not eligible for future write."
+    else:
+        drive_ok = True
+
+    block_reasons = []
+    if not image_ok:
+        block_reasons.append(image_err)
+    if not drive_ok:
+        block_reasons.append(drive_err)
+
+    if block_reasons:
+        payload["eligible"] = False
+        payload["blocked"] = True
+        payload["block_reasons"] = block_reasons
+    else:
+        payload["eligible"] = True
+        payload["blocked"] = False
+        payload["block_reasons"] = []
+
+    payload["steps"] = [
+        {
+            "id": "verify_image",
+            "label": "Verify image hash",
+            "status": "planned",
+            "destructive": False
+        },
+        {
+            "id": "verify_drive_safety",
+            "label": "Verify drive safety eligibility",
+            "status": "planned",
+            "destructive": False
+        },
+        {
+            "id": "confirmation_gate",
+            "label": "Require future explicit confirmation",
+            "status": "planned",
+            "destructive": False
+        },
+        {
+            "id": "simulate_access",
+            "label": "Simulate exclusive access preflight",
+            "status": "planned",
+            "destructive": False
+        },
+        {
+            "id": "simulate_write",
+            "label": "Simulate chunked write workflow",
+            "status": "planned",
+            "destructive": False
+        },
+        {
+            "id": "simulate_verify",
+            "label": "Simulate post-write verification",
+            "status": "planned",
+            "destructive": False
+        }
+    ]
+
+    return payload
+
+def print_write_plan_json(drive_path, image_path):
+    """
+    Emits JSON-only read-only dry-run write plan output for UI bridges.
+    """
+    payload = build_write_plan_payload(drive_path, image_path)
+    print(json.dumps(payload, indent=2))
+    return payload
+
 def download_latest_oclp(dest_dir=None, dry_run=False):
     """
     Downloads the latest OpenCore Legacy Patcher release GUI package.
@@ -835,13 +962,31 @@ if __name__ == "__main__":
     parser.add_argument("--list-json", action="store_true", help="Emit clean JSON-only removable drive scan payload for dashboard bridges")
     parser.add_argument("--inspect-image", type=str, help="Read-only ISO/IMG/DMG image metadata and SHA256 inspection")
     parser.add_argument("--inspect-drive", type=str, help="Read-only target drive safety and eligibility verification")
+    parser.add_argument("--plan-write", action="store_true", help="Generate a dry-run write execution plan")
+    parser.add_argument("--target-drive", type=str, help="Target drive for write plan generation")
+    parser.add_argument("--image", type=str, help="Source OS image for write plan generation")
     parser.add_argument("--download-oclp", action="store_true", help="Automatically fetch the latest OpenCore Legacy Patcher GUI")
     parser.add_argument("--create", type=str, help="Target drive letter (e.g. E:\\) to initialize structure")
     parser.add_argument("--dry-run", action="store_true", help="Perform a simulated execution without writing to disk")
     
     args = parser.parse_args()
     
-    if args.inspect_image:
+    if args.plan_write:
+        if not args.target_drive or not args.image:
+            print(json.dumps({
+                "schema": "bootforge.write_plan.v1",
+                "generated_at": utc_now_iso(),
+                "platform": sys.platform,
+                "safe_mode": True,
+                "destructive": False,
+                "operation": "dry_run_write_plan",
+                "actual_write_enabled": False,
+                "requires_future_confirmation": True,
+                "error": "Missing required arguments: --target-drive and --image are required with --plan-write."
+            }, indent=2))
+        else:
+            print_write_plan_json(args.target_drive, args.image)
+    elif args.inspect_image:
         print_image_inspection_json(args.inspect_image)
     elif args.inspect_drive:
         print_drive_safety_json(args.inspect_drive)
