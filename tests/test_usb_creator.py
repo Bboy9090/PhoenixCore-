@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import io
 import unittest
 import tempfile
 import hashlib
@@ -178,6 +179,42 @@ class TestUSBCreator(unittest.TestCase):
         
         drives = usb_creator.get_removable_drives()
         self.assertEqual(0, len(drives))
+
+    @patch("usb_creator.get_removable_drives")
+    def test_build_drive_scan_payload_is_read_only_bridge(self, mock_get_drives):
+        """Verify dashboard bridge payload is clean, non-destructive, and parseable."""
+        mock_get_drives.return_value = [
+            {
+                "drive": "D:\\",
+                "label": "SanDiskRescue",
+                "total_size_gb": 64.0,
+                "free_size_gb": 63.5,
+                "type": "Removable"
+            }
+        ]
+
+        payload = usb_creator.build_drive_scan_payload()
+
+        self.assertEqual("bootforge.drive_scan.v1", payload["schema"])
+        self.assertTrue(payload["safe_mode"])
+        self.assertFalse(payload["destructive"])
+        self.assertEqual("read_only_drive_scan", payload["operation"])
+        self.assertEqual(1, len(payload["drives"]))
+        mock_get_drives.assert_called_once_with(quiet=True)
+
+    @patch("usb_creator.get_removable_drives")
+    def test_print_drive_scan_json_outputs_json_only(self, mock_get_drives):
+        """Verify --list-json bridge output can be parsed without log pollution."""
+        mock_get_drives.return_value = []
+        capture = io.StringIO()
+
+        with patch("sys.stdout", capture):
+            usb_creator.print_drive_scan_json()
+
+        parsed = json.loads(capture.getvalue())
+        self.assertEqual("bootforge.drive_scan.v1", parsed["schema"])
+        self.assertEqual([], parsed["drives"])
+        self.assertFalse(parsed["destructive"])
 
     def test_tool_registry_manifest(self):
         """Verify the manifests/tool_registry.json exists, parses cleanly, and maps correct schemas."""
