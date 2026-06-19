@@ -17,13 +17,6 @@ import {
   Sparkles
 } from 'lucide-react';
 
-// Mock list of drives
-const MOCK_DRIVES = [
-  { drive: 'D:\\', label: 'SanDisk Extreme', total_size_gb: 64.2, free_size_gb: 63.8, type: 'Removable' },
-  { drive: 'E:\\', label: 'Kingston DataTraveler', total_size_gb: 32.0, free_size_gb: 31.9, type: 'Removable' },
-  { drive: 'F:\\', label: 'PNY Turbo USB 3.0', total_size_gb: 128.0, free_size_gb: 12.4, type: 'Removable' }
-];
-
 // OCLP Releases
 const OCLP_VERSIONS = ['v1.5.0 (Latest)', 'v1.4.3', 'v1.3.0', 'v1.2.1'];
 
@@ -81,8 +74,39 @@ const MACBOOK_MODELS = [
   'MacPro6,1 (Trash Can, Late 2013)'
 ];
 
+const toNumericSize = (value) => {
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return 0;
+
+  const trimmed = value.trim();
+  const match = trimmed.match(/^([0-9.]+)\s*([KMGT]?)B?$/i);
+  if (!match) return Number(trimmed) || 0;
+
+  const amount = Number(match[1]);
+  const unit = match[2].toUpperCase();
+
+  if (Number.isNaN(amount)) return 0;
+  if (unit === 'T') return amount * 1024;
+  if (unit === 'M') return amount / 1024;
+  if (unit === 'K') return amount / (1024 * 1024);
+  return amount;
+};
+
+const formatSize = (value) => {
+  if (typeof value === 'number') return `${value} GB`;
+  return value || 'Unknown';
+};
+
+const getUsedPercent = (drive) => {
+  const total = toNumericSize(drive.total_size_gb);
+  const free = toNumericSize(drive.free_size_gb);
+
+  if (!total || free > total) return 0;
+  return Math.max(0, Math.min(100, ((total - free) / total) * 100));
+};
+
 export default function App() {
-  const [drives, setDrives] = useState(MOCK_DRIVES);
+  const [drives, setDrives] = useState([]);
   const [selectedDrive, setSelectedDrive] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedOclp, setSelectedOclp] = useState(OCLP_VERSIONS[0]);
@@ -98,7 +122,8 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [terminalLogs, setTerminalLogs] = useState([
     { type: 'info', text: 'PhoenixCore & BootForge Engine v2.5.0 Initialized.' },
-    { type: 'info', text: 'Select a target USB drive and tools to compile the rescue system.' }
+    { type: 'warning', text: 'Foundation Lock active: real USB scanning only. Write, format, partition, and burn actions are disabled.' },
+    { type: 'info', text: 'Click Scan USBs to query the read-only Python drive detection bridge.' }
   ]);
   
   const terminalEndRef = useRef(null);
@@ -110,114 +135,54 @@ export default function App() {
     }
   }, [terminalLogs]);
 
-  // Refresh drive list simulation
-  const refreshDrives = () => {
-    setIsRefreshing(true);
-    addLog('info', 'Scanning system logical drives...');
-    setTimeout(() => {
-      // Simulate reading drives
-      setDrives(MOCK_DRIVES);
-      setIsRefreshing(false);
-      addLog('success', `Scan complete. Found ${MOCK_DRIVES.length} removable USB drives.`);
-    }, 1200);
-  };
-
   const addLog = (type, text) => {
     const timestamp = new Date().toLocaleTimeString();
     setTerminalLogs(prev => [...prev, { type, text: `[${timestamp}] ${text}` }]);
   };
 
-  // Run USB Creation simulation
-  const handleCreate = () => {
-    if (!selectedDrive) {
-      addLog('error', 'No target USB drive selected!');
-      return;
-    }
-    
-    setStatus('working');
-    setProgress(0);
-    setTerminalLogs([]);
-    
-    addLog('info', `PHOENIXCORE ENGINE: Launching Rescue USB Creator on target ${selectedDrive}...`);
-    
-    const steps = [
-      { 
-        percent: 10, 
-        log: `Locking volume ${selectedDrive} for exclusive partition access...`,
-        type: 'info'
-      },
-      { 
-        percent: 20, 
-        log: `Writing standard GUID Partition Table (GPT) to drive layout...`,
-        type: 'info'
-      },
-      { 
-        percent: 30, 
-        log: `Formatting partition as FAT32 Rescue System (Volume Name: PHOENIX)...`,
-        type: 'success'
-      },
-      { 
-        percent: 45, 
-        log: includeOclp 
-          ? `Fetching Dortania OpenCore Legacy Patcher API releases (${selectedOclp})...` 
-          : 'Skipping OpenCore Legacy Patcher packaging...',
-        type: 'info'
-      },
-      { 
-        percent: 55, 
-        log: includeOclp 
-          ? `Successfully downloaded and extracted OpenCore-Patcher-GUI to ${selectedDrive}OCLP_Patcher\\` 
-          : '',
-        type: includeOclp ? 'success' : ''
-      },
-      { 
-        percent: 65, 
-        log: includeBootcamp 
-          ? `Requesting Apple System Recovery servers for ${targetMacModel} BootCamp Windows-on-Mac support drivers...` 
-          : 'Skipping BootCamp hardware drivers...',
-        type: 'info'
-      },
-      { 
-        percent: 75, 
-        log: includeBootcamp 
-          ? `Downloaded and unpacked Windows Support Software (BootCamp v6.0) for running Windows natively on Apple Mac hardware to ${selectedDrive}BootCamp_Drivers\\` 
-          : '',
-        type: includeBootcamp ? 'success' : ''
-      },
-      { 
-        percent: 85, 
-        log: includeRescueTools 
-          ? `Bundling default Rescue Utilities: rufus-4.14.exe, void-live.iso, palen1x...` 
-          : 'Skipping third-party rescue utilities...',
-        type: 'info'
-      },
-      { 
-        percent: 92, 
-        log: `Generating index metadata and README instructions in ${selectedDrive}README.txt...`,
-        type: 'info'
-      },
-      { 
-        percent: 100, 
-        log: `SUCCESS: PhoenixCore USB Rescue drive initialized successfully! Safe to eject.`,
-        type: 'success'
-      }
-    ];
+  // Refresh drive list through the safe Vite dev bridge.
+  const refreshDrives = async () => {
+    setIsRefreshing(true);
+    setSelectedDrive('');
+    addLog('info', 'Scanning removable drives through read-only Python bridge...');
 
-    let currentStep = 0;
-    
-    const interval = setInterval(() => {
-      if (currentStep < steps.length) {
-        const step = steps[currentStep];
-        setProgress(step.percent);
-        if (step.log) {
-          addLog(step.type, step.log);
-        }
-        currentStep++;
-      } else {
-        clearInterval(interval);
-        setStatus('success');
+    try {
+      const response = await fetch('/api/usb/scan', {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || `USB scan failed with HTTP ${response.status}`);
       }
-    }, 1500);
+
+      if (payload.destructive !== false || payload.operation !== 'read_only_drive_scan') {
+        throw new Error('USB scan bridge failed safety validation. Refusing to trust payload.');
+      }
+
+      const nextDrives = Array.isArray(payload.drives) ? payload.drives : [];
+      setDrives(nextDrives);
+
+      if (nextDrives.length === 0) {
+        addLog('warning', `Scan complete on ${payload.platform}. No removable USB drives detected.`);
+      } else {
+        addLog('success', `Scan complete on ${payload.platform}. Found ${nextDrives.length} removable USB drive(s).`);
+      }
+    } catch (error) {
+      setDrives([]);
+      setStatus('error');
+      addLog('error', `USB scan bridge error: ${error.message}`);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Phase 1 safety lock: no writer exists yet, so do not simulate destructive work.
+  const handleCreate = () => {
+    addLog('warning', 'Creation is disabled in Phase 1 Foundation Lock. Scan-only mode prevents accidental write, format, partition, or burn operations.');
+    setProgress(0);
   };
 
   const selectedDriveDetails = drives.find(d => d.drive === selectedDrive);
@@ -242,11 +207,12 @@ export default function App() {
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div className={`status-badge ${status === 'working' ? 'active' : status === 'success' ? 'success' : 'idle'}`}>
+          <div className={`status-badge ${status === 'working' ? 'active' : status === 'success' ? 'success' : status === 'error' ? 'error' : 'idle'}`}>
             <span className="status-dot"></span>
-            {status === 'idle' && 'System Idle'}
-            {status === 'working' && 'Burning USB...'}
-            {status === 'success' && 'Build Completed'}
+            {status === 'idle' && 'Scan-Only Idle'}
+            {status === 'working' && 'Scanning USBs...'}
+            {status === 'success' && 'Scan Completed'}
+            {status === 'error' && 'Bridge Error'}
           </div>
           <button 
             onClick={refreshDrives} 
@@ -279,15 +245,41 @@ export default function App() {
             <span>Rescue Creator Configuration</span>
           </h2>
 
+          <div className="glass-panel" style={{ padding: '14px', borderColor: 'rgba(250, 204, 21, 0.35)' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <ShieldAlert size={18} />
+              <span>Phase 1 Foundation Lock</span>
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5 }}>
+              This dashboard is connected only to the read-only USB scan bridge. Writing, formatting, partitioning,
+              mounting, unmounting, and burn actions remain disabled until the safety model is complete.
+            </p>
+          </div>
+
           {/* Form Group 1: Target Drive */}
           <div className="form-group">
             <label className="form-label">1. Select Target USB Recovery Drive</label>
             <div className="drive-list">
+              {drives.length === 0 && (
+                <div className="drive-card" style={{ cursor: 'default', opacity: 0.78 }}>
+                  <div className="drive-info">
+                    <div className="drive-icon-wrapper">
+                      <HardDrive size={22} />
+                    </div>
+                    <div className="drive-details">
+                      <h3>No removable USB drives detected</h3>
+                      <p>Plug in a USB drive and click Scan USBs.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {drives.map(item => {
-                const usedPercent = ((item.total_size_gb - item.free_size_gb) / item.total_size_gb) * 100;
+                const usedPercent = getUsedPercent(item);
+                const key = item.drive || `${item.label}-${item.total_size_gb}`;
                 return (
                   <div 
-                    key={item.drive} 
+                    key={key} 
                     onClick={() => status !== 'working' && setSelectedDrive(item.drive)}
                     className={`drive-card ${selectedDrive === item.drive ? 'selected' : ''}`}
                   >
@@ -296,13 +288,13 @@ export default function App() {
                         <HardDrive size={22} />
                       </div>
                       <div className="drive-details">
-                        <h3>{item.label} ({item.drive})</h3>
-                        <p>{item.type} Drive • GPT Layout</p>
+                        <h3>{item.label || 'Removable Drive'} ({item.drive || 'Unknown path'})</h3>
+                        <p>{item.type || 'USB'} Drive • Read-only scan result</p>
                       </div>
                     </div>
                     <div className="drive-capacity">
                       <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                        {item.free_size_gb} GB free of {item.total_size_gb} GB
+                        {formatSize(item.free_size_gb)} free of {formatSize(item.total_size_gb)}
                       </span>
                       <div className="drive-capacity-bar">
                         <div 
@@ -358,7 +350,7 @@ export default function App() {
                   {includeRescueTools && <CheckCircle2 size={16} style={{ color: 'var(--accent)' }} />}
                 </div>
                 <h3>Rescue Tools Suite</h3>
-                <p>Includes Rufus-4.14, void-live.iso, and disk restoration ISOs.</p>
+                <p>Future bundle slot. Disabled from writing during Foundation Lock.</p>
               </div>
             </div>
           </div>
@@ -406,10 +398,11 @@ export default function App() {
           <button 
             className="btn-primary" 
             onClick={handleCreate} 
-            disabled={!selectedDrive || status === 'working'}
+            disabled={status === 'working'}
+            style={{ opacity: 0.75 }}
           >
-            <Cpu size={20} />
-            <span>INITIALIZE RECOVERY USB</span>
+            <ShieldAlert size={20} />
+            <span>PHASE 1 SCAN-ONLY LOCK ACTIVE</span>
           </button>
         </div>
 
@@ -445,13 +438,16 @@ export default function App() {
               <div style={{ textAlign: 'center' }}>
                 <h3 style={{ fontFamily: 'var(--font-tech)', fontSize: '1.2rem', marginBottom: '4px' }}>
                   {status === 'idle' && 'PhoenixCore Standby'}
-                  {status === 'working' && 'Burning Bootable Image...'}
-                  {status === 'success' && 'Phoenix Rescue USB Complete!'}
+                  {status === 'working' && 'Scanning Removable Drives...'}
+                  {status === 'success' && 'Scan Complete'}
+                  {status === 'error' && 'Bridge Error'}
                 </h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                  {status === 'idle' && 'Select options and click Initialize above.'}
-                  {status === 'working' && 'DO NOT eject the USB drive during installation.'}
-                  {status === 'success' && `Drive ${selectedDrive} is ready to revive your legacy Macbook.`}
+                  {status === 'idle' && 'Scan-only mode. No write operations are available.'}
+                  {status === 'working' && 'Read-only USB detection bridge is running.'}
+                  {status === 'success' && selectedDrive && `Selected ${selectedDrive}. Creation remains disabled in Phase 1.`}
+                  {status === 'success' && !selectedDrive && 'Drive scan completed. Select a drive only for inspection.'}
+                  {status === 'error' && 'The dashboard could not reach or parse the USB scan bridge.'}
                 </p>
               </div>
             </div>
@@ -523,6 +519,10 @@ export default function App() {
         .status-badge.success .status-dot {
           background: var(--success);
           box-shadow: 0 0 8px var(--success);
+        }
+        .status-badge.error .status-dot {
+          background: var(--danger, #ef4444);
+          box-shadow: 0 0 8px var(--danger, #ef4444);
         }
       `}</style>
     </div>
