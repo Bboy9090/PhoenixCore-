@@ -287,6 +287,53 @@ function usbCreatorBridgePlugin() {
           return
         }
 
+        if (requestUrl.pathname === '/api/write/simulate') {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          const drivePath = requestUrl.searchParams.get('drive')
+          const imagePath = requestUrl.searchParams.get('image')
+          const failAtChunk = requestUrl.searchParams.get('failAtChunk')
+          const cancelAtChunk = requestUrl.searchParams.get('cancelAtChunk')
+
+          if (!drivePath || !imagePath) {
+            sendJson(res, 400, {
+              schema: 'bootforge.mock_writer.v1',
+              safe_mode: true,
+              destructive: false,
+              operation: 'mock_writer_simulation',
+              actual_write_enabled: false,
+              target_type: 'null_device',
+              error: 'Missing required query parameters: drive and image are required.',
+            })
+            return
+          }
+
+          const args = ['--simulate-write', '--target-drive', drivePath, '--image', imagePath]
+          if (failAtChunk) {
+            args.push('--mock-fail-at-chunk', failAtChunk)
+          }
+          if (cancelAtChunk) {
+            args.push('--mock-cancel-at-chunk', cancelAtChunk)
+          }
+
+          runUsbCreator(
+            args,
+            {
+              schema: 'bootforge.mock_writer.v1',
+              safe_mode: true,
+              destructive: false,
+              operation: 'mock_writer_simulation',
+              actual_write_enabled: false,
+              target_type: 'null_device',
+            },
+            res
+          )
+          return
+        }
+
         next()
       })
     },
