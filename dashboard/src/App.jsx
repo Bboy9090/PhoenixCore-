@@ -123,6 +123,13 @@ export default function App() {
   const [exportPath, setExportPath] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState(null);
+
+  // Mock Writer Simulator States (Phase 4A-2B)
+  const [mockWriterData, setMockWriterData] = useState(null);
+  const [isSimulatingWrite, setIsSimulatingWrite] = useState(false);
+  const [mockWriterError, setMockWriterError] = useState(null);
+  const [mockFailAtChunk, setMockFailAtChunk] = useState('');
+  const [mockCancelAtChunk, setMockCancelAtChunk] = useState('');
   
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
@@ -501,6 +508,105 @@ ${warningsStr}
     URL.revokeObjectURL(url);
     
     addLog('success', `Browser download triggered for ${filename}`);
+  };
+
+  const runMockWriterSimulation = async (drivePath, imgPath) => {
+    const trimmedDrive = drivePath ? drivePath.trim() : '';
+    const trimmedImg = imgPath ? imgPath.trim() : '';
+    if (!trimmedDrive || !trimmedImg) {
+      setMockWriterError('Both target drive and image path are required.');
+      return;
+    }
+
+    setIsSimulatingWrite(true);
+    setMockWriterError(null);
+    setMockWriterData(null);
+    setProgress(0);
+
+    addLog('info', 'Initializing mock writer simulation (Phase 4A)...');
+
+    try {
+      let url = `/api/write/simulate?drive=${encodeURIComponent(trimmedDrive)}&image=${encodeURIComponent(trimmedImg)}`;
+      if (mockFailAtChunk) {
+        url += `&failAtChunk=${encodeURIComponent(mockFailAtChunk)}`;
+      }
+      if (mockCancelAtChunk) {
+        url += `&cancelAtChunk=${encodeURIComponent(mockCancelAtChunk)}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || `Simulation failed with HTTP ${response.status}`);
+      }
+
+      // Paranoid Security Validation
+      if (
+        payload.destructive !== false ||
+        payload.operation !== 'mock_writer_simulation' ||
+        payload.actual_write_enabled !== false ||
+        payload.target_type !== 'null_device'
+      ) {
+        throw new Error('Simulation payload failed paranoid safety verification check.');
+      }
+
+      if (payload.status === 'blocked' || payload.blocked) {
+        setMockWriterData(payload);
+        const blockReason = payload.block_reasons?.join('; ') || 'Simulation blocked';
+        addLog('warning', `Mock writer simulation BLOCKED: ${blockReason}`);
+        setProgress(0);
+        return;
+      }
+
+      const events = payload.events || [];
+
+      for (let i = 0; i < events.length; i++) {
+        const event = events[i];
+
+        // Wait for a short duration to simulate live updates
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        // Update progress ring from event progress
+        setProgress(event.progress);
+
+        if (event.type === 'simulation_started') {
+          addLog('info', 'Mock writer simulation started. Target type: null_device.');
+        } else if (event.type === 'chunk_simulated') {
+          addLog('info', `[Simulator] Chunk ${event.chunk_index}/${event.chunks_total} completed (${event.progress}%)`);
+        } else if (event.type === 'simulation_completed') {
+          addLog('success', 'Mock writer simulation completed successfully.');
+        } else if (event.type === 'simulation_failed') {
+          addLog('error', `Mock writer simulation failed: ${event.message || 'Error'}`);
+        } else if (event.type === 'simulation_cancelled') {
+          addLog('warning', `Mock writer simulation cancelled at chunk ${event.chunk_index}/${event.chunks_total}.`);
+        } else if (event.type === 'simulation_blocked') {
+          addLog('warning', 'Mock writer simulation blocked.');
+        }
+
+        const partialData = {
+          ...payload,
+          events: events.slice(0, i + 1),
+          chunks_completed: events.slice(0, i + 1).filter(e => e.type === 'chunk_simulated').length,
+          bytes_simulated: event.bytes_simulated || 0,
+          status: (event.type === 'simulation_completed') ? 'completed' :
+                  (event.type === 'simulation_failed') ? 'failed' :
+                  (event.type === 'simulation_cancelled') ? 'cancelled' : 'running'
+        };
+        setMockWriterData(partialData);
+      }
+
+    } catch (err) {
+      setMockWriterData(null);
+      setMockWriterError(err.message);
+      addLog('error', `Mock writer simulation error: ${err.message}`);
+    } finally {
+      setIsSimulatingWrite(false);
+    }
   };
 
   const inspectImage = async () => {
@@ -945,6 +1051,70 @@ ${warningsStr}
             <RefreshCw size={20} className={isPlanningWrite ? 'spin-anim' : ''} />
             <span>Generate Dry-Run Write Plan</span>
           </button>
+
+          {/* Simulation Inject Settings */}
+          <div className="glass-panel" style={{ marginTop: '20px', padding: '16px', borderStyle: 'dashed', background: 'rgba(255, 255, 255, 0.01)', border: '1px dashed var(--border-glass)' }}>
+            <h3 style={{ fontSize: '0.9rem', fontFamily: 'var(--font-tech)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Settings size={14} style={{ color: 'var(--accent)' }} />
+              <span>Simulation Controls (Optional)</span>
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Fail at Chunk #</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={mockFailAtChunk}
+                  onChange={(e) => setMockFailAtChunk(e.target.value)}
+                  placeholder="e.g. 5"
+                  style={{
+                    padding: '8px',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '6px',
+                    color: '#fff',
+                    outline: 'none',
+                    fontSize: '0.85rem'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Cancel at Chunk #</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={mockCancelAtChunk}
+                  onChange={(e) => setMockCancelAtChunk(e.target.value)}
+                  placeholder="e.g. 8"
+                  style={{
+                    padding: '8px',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid var(--border-glass)',
+                    borderRadius: '6px',
+                    color: '#fff',
+                    outline: 'none',
+                    fontSize: '0.85rem'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Run Mock Writer Simulation Button */}
+          <button 
+            className="btn-primary" 
+            onClick={() => runMockWriterSimulation(selectedDrive, imagePath)}
+            disabled={isSimulatingWrite || !selectedDrive || !imagePath}
+            style={{ 
+              opacity: (selectedDrive && imagePath) ? 1 : 0.5,
+              cursor: (selectedDrive && imagePath) ? 'pointer' : 'not-allowed',
+              background: 'linear-gradient(135deg, #7c3aed 0%, #c084fc 100%)',
+              marginTop: '12px'
+            }}
+          >
+            <Cpu size={20} className={isSimulatingWrite ? 'spin-anim' : ''} />
+            <span>Run Mock Writer Simulation</span>
+          </button>
         </div>
 
         {/* Right Hand: Terminal & Live Status */}
@@ -1324,6 +1494,139 @@ ${warningsStr}
                 <ShieldAlert size={12} style={{ color: auditData.validation_status === 'passed' ? '#10b981' : '#ef4444' }} />
                 <span>
                   This report is evidence of a dry-run audit only. It does not indicate that a write, format, partition, or mount operation was performed.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {(mockWriterData || isSimulatingWrite) && (
+            <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '18px', border: '1px solid var(--border-glass)' }}>
+              <h2 style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '8px', marginBottom: '4px' }}>
+                <Cpu size={20} style={{ color: 'var(--accent)' }} />
+                <span>Mock Writer Simulation Panel (Phase 4A-2B)</span>
+              </h2>
+
+              {/* Status & Basic Metadata Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Status</span>
+                  <strong style={{ 
+                    color: mockWriterData?.status === 'completed' ? '#10b981' : 
+                           mockWriterData?.status === 'failed' ? '#ef4444' : 
+                           mockWriterData?.status === 'cancelled' ? '#f59e0b' : 
+                           mockWriterData?.status === 'blocked' ? '#f87171' : '#60a5fa',
+                    textTransform: 'uppercase'
+                  }}>
+                    {isSimulatingWrite ? 'SIMULATING...' : (mockWriterData?.status || 'UNKNOWN')}
+                  </strong>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Target Type</span>
+                  <strong style={{ color: '#fff' }}>
+                    {mockWriterData?.target_type || 'N/A'}
+                  </strong>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Plan ID</span>
+                  <code style={{ color: 'var(--accent)', fontSize: '0.8rem' }}>
+                    {mockWriterData?.plan_id || 'N/A'}
+                  </code>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Actual Write Enabled</span>
+                  <strong style={{ color: mockWriterData?.actual_write_enabled ? '#ef4444' : '#10b981' }}>
+                    {mockWriterData?.actual_write_enabled ? 'TRUE' : 'FALSE'}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Progress & Bytes Info */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Chunks Progress</span>
+                  <strong>
+                    {mockWriterData?.chunks_completed || 0} / {mockWriterData?.chunks_total || 0}
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Bytes Simulated</span>
+                  <strong>
+                    {mockWriterData?.bytes_simulated?.toLocaleString() || 0} bytes
+                  </strong>
+                </div>
+              </div>
+
+              {/* Block Reasons if Blocked */}
+              {mockWriterData?.blocked && mockWriterData.block_reasons && mockWriterData.block_reasons.length > 0 && (
+                <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', fontSize: '0.88rem', color: '#f87171' }}>
+                  <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <ShieldAlert size={16} />
+                    Block Reasons
+                  </div>
+                  {mockWriterData.block_reasons.map((r, i) => (
+                    <div key={i} style={{ paddingLeft: '22px' }}>• {r}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Event Stream List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontFamily: 'var(--font-tech)' }}>Event Stream Log:</h3>
+                <div style={{ 
+                  maxHeight: '200px', 
+                  overflowY: 'auto', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '6px',
+                  background: 'rgba(0,0,0,0.3)',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.05)'
+                }}>
+                  {mockWriterData?.events && mockWriterData.events.length > 0 ? (
+                    mockWriterData.events.map((e, idx) => (
+                      <div key={idx} style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        fontSize: '0.82rem',
+                        padding: '4px 6px',
+                        borderRadius: '4px',
+                        background: e.type === 'simulation_completed' ? 'rgba(16, 185, 129, 0.08)' :
+                                    e.type === 'simulation_failed' ? 'rgba(239, 68, 68, 0.08)' : 'transparent'
+                      }}>
+                        <span style={{ 
+                          color: e.type === 'simulation_completed' ? '#10b981' : 
+                                 e.type === 'simulation_failed' ? '#ef4444' : 
+                                 e.type === 'simulation_cancelled' ? '#f59e0b' : '#e2e8f0'
+                        }}>
+                          {e.type}
+                        </span>
+                        <span style={{ color: 'var(--text-muted)' }}>{e.progress}%</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '10px' }}>
+                      Waiting for stream events...
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Error display */}
+              {mockWriterError && (
+                <div style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', color: '#f87171', fontSize: '0.85rem' }}>
+                  {mockWriterError}
+                </div>
+              )}
+
+              {/* Safety Copy */}
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-glass)', paddingTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldAlert size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                <span>
+                  Null-device simulation only. No USB write, format, partition, mount, unmount, or raw disk access is performed.
                 </span>
               </div>
             </div>
