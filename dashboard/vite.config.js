@@ -334,6 +334,37 @@ function usbCreatorBridgePlugin() {
           return
         }
 
+        if (requestUrl.pathname === '/api/write/contract') {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          const drivePath = requestUrl.searchParams.get('drive')
+          const imagePath = requestUrl.searchParams.get('image')
+          const auditPassed = requestUrl.searchParams.get('auditPassed') === 'true'
+          const simulationPassed = requestUrl.searchParams.get('simulationPassed') === 'true'
+
+          const args = ['--validate-writer-contract']
+          if (drivePath) args.push('--target-drive', drivePath)
+          if (imagePath) args.push('--image', imagePath)
+          if (auditPassed) args.push('--audit-passed')
+          if (simulationPassed) args.push('--simulation-passed')
+
+          runUsbCreator(
+            args,
+            {
+              schema: 'bootforge.writer_safety_contract.v1',
+              real_writer_implemented: false,
+              destructive_operations_enabled: false,
+              blocked: true,
+              block_reasons: ['contract preview endpoint error — safe fallback'],
+            },
+            res
+          )
+          return
+        }
+
         next()
       })
     },

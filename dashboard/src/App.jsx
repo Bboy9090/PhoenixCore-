@@ -130,7 +130,12 @@ export default function App() {
   const [mockWriterError, setMockWriterError] = useState(null);
   const [mockFailAtChunk, setMockFailAtChunk] = useState('');
   const [mockCancelAtChunk, setMockCancelAtChunk] = useState('');
-  
+
+  // Writer Safety Contract Preview States (Phase 4C-2)
+  const [contractData, setContractData] = useState(null);
+  const [isPreviewingContract, setIsPreviewingContract] = useState(false);
+  const [contractError, setContractError] = useState(null);
+
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
   const [includeBootcamp, setIncludeBootcamp] = useState(true);
@@ -657,6 +662,35 @@ ${warningsStr}
   const handleCreate = () => {
     addLog('warning', 'Creation is disabled in Phase 2A. Image inspection is read-only; USB write, format, partition, and burn operations remain locked.');
     setProgress(0);
+  };
+
+  // ----- Writer Safety Contract Preview (Phase 4C-2) -----
+  // Calls GET /api/write/contract — read-only, no drive mutation.
+  // Never writes, formats, partitions, mounts, unmounts, or accesses any drive.
+  const fetchContractPreview = async () => {
+    setIsPreviewingContract(true);
+    setContractError(null);
+    setContractData(null);
+    try {
+      const params = new URLSearchParams();
+      if (selectedDrive) params.set('drive', selectedDrive);
+      if (imagePath)     params.set('image', imagePath);
+      if (auditData?.validation_status === 'passed') params.set('auditPassed', 'true');
+      if (mockWriterData?.status === 'completed')    params.set('simulationPassed', 'true');
+      const response = await fetch(`/api/write/contract?${params.toString()}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await response.json();
+      if (!data || data.schema !== 'bootforge.writer_safety_contract.v1') {
+        throw new Error('Unexpected response schema from contract preview endpoint');
+      }
+      setContractData(data);
+    } catch (err) {
+      setContractError(err.message || 'Contract preview request failed');
+    } finally {
+      setIsPreviewingContract(false);
+    }
   };
 
   // SVG calculations for progress ring
@@ -1631,6 +1665,184 @@ ${warningsStr}
               </div>
             </div>
           )}
+
+          {/* --------------------------------------------------------- */}
+          {/* Writer Safety Contract Preview Panel (Phase 4C-2)          */}
+          {/* Read-only. No writes. No formatting. No drive mutation.    */}
+          {/* --------------------------------------------------------- */}
+          <div
+            id="writer-safety-contract-preview-panel"
+            className="glass-panel animate-fade-in"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              border: '1px solid rgba(139, 92, 246, 0.35)',
+              background: 'rgba(139, 92, 246, 0.04)',
+            }}
+          >
+            {/* Panel Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', borderBottom: '1px solid rgba(139,92,246,0.2)', paddingBottom: '10px' }}>
+              <h2 style={{ fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                <ShieldCheck size={18} style={{ color: '#8b5cf6' }} />
+                <span style={{ fontFamily: 'var(--font-tech)', letterSpacing: '0.04em' }}>Writer Safety Contract Preview</span>
+              </h2>
+              <button
+                id="btn-preview-writer-safety-contract"
+                className="btn-primary"
+                onClick={fetchContractPreview}
+                disabled={isPreviewingContract}
+                style={{
+                  background: 'linear-gradient(135deg, #6d28d9 0%, #8b5cf6 100%)',
+                  padding: '8px 16px',
+                  fontSize: '0.85rem',
+                  opacity: isPreviewingContract ? 0.6 : 1,
+                  cursor: isPreviewingContract ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isPreviewingContract
+                  ? <><RefreshCw size={14} className="spin-anim" /> Previewing…</>
+                  : <><ShieldCheck size={14} /> Preview Writer Safety Contract</>}
+              </button>
+            </div>
+
+            {/* Safety Copy — always visible */}
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'flex-start', gap: '6px', background: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: '6px', lineHeight: 1.5 }}>
+              <ShieldAlert size={13} style={{ color: '#8b5cf6', flexShrink: 0, marginTop: '1px' }} />
+              <span>Read-only safety contract preview. No USB write, format, partition, mount, unmount, raw disk access, or destructive operation is available.</span>
+            </div>
+
+            {/* Loading state */}
+            {isPreviewingContract && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                <RefreshCw size={16} className="spin-anim" style={{ color: '#8b5cf6' }} />
+                <span>Fetching safety contract from backend…</span>
+              </div>
+            )}
+
+            {/* Error state */}
+            {contractError && (
+              <div style={{ padding: '12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px', color: '#f87171', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldAlert size={16} />
+                <span>{contractError}</span>
+              </div>
+            )}
+
+            {/* Contract data */}
+            {contractData && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+                {/* Schema + IDs row */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontFamily: 'var(--font-tech)', fontSize: '0.75rem', padding: '3px 10px', borderRadius: '20px', background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                    {contractData.schema}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-tech)', fontSize: '0.72rem', padding: '3px 10px', borderRadius: '20px', background: 'rgba(0,0,0,0.2)', color: 'var(--text-muted)', border: '1px solid var(--border-glass)' }}>
+                    Phase {contractData.phase}
+                  </span>
+                  <span style={{
+                    fontFamily: 'var(--font-tech)', fontSize: '0.75rem', padding: '3px 10px', borderRadius: '20px', border: '1px solid rgba(239,68,68,0.35)',
+                    background: contractData.blocked ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)',
+                    color: contractData.blocked ? '#f87171' : '#10b981',
+                  }}>
+                    {contractData.blocked ? '⛔ BLOCKED' : '✓ UNBLOCKED'}
+                  </span>
+                </div>
+
+                {/* Immutable safety values */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {[{
+                    label: 'real_writer_implemented',
+                    value: String(contractData.real_writer_implemented),
+                    ok: contractData.real_writer_implemented === false,
+                  }, {
+                    label: 'destructive_operations_enabled',
+                    value: String(contractData.destructive_operations_enabled),
+                    ok: contractData.destructive_operations_enabled === false,
+                  }].map(({ label, value, ok }) => (
+                    <div key={label} style={{ background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '10px 12px', border: `1px solid ${ok ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.35)'}`, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-tech)' }}>{label}</span>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: ok ? '#10b981' : '#f87171', fontFamily: 'var(--font-tech)' }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Gate results table */}
+                {contractData.gate_results && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <h3 style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-tech)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gate Results</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {(contractData.required_gates || Object.keys(contractData.gate_results)).map((gate) => {
+                        const passed = contractData.gate_results[gate];
+                        return (
+                          <div key={gate} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', border: '1px solid var(--border-glass)', fontSize: '0.8rem' }}>
+                            <span style={{ color: passed ? '#fff' : 'var(--text-muted)', fontFamily: 'var(--font-tech)' }}>{gate}</span>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: passed ? '#10b981' : '#94a3b8', fontFamily: 'var(--font-tech)' }}>{passed ? '✓ PASS' : '— PENDING'}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Identity hashes */}
+                {(contractData.device_identity?.identity_hash || contractData.image_identity?.identity_hash) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <h3 style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-tech)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Identity Hashes</h3>
+                    {contractData.device_identity?.identity_hash && (
+                      <div style={{ fontFamily: 'var(--font-tech)', fontSize: '0.72rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', wordBreak: 'break-all' }}>
+                        <span style={{ color: '#a78bfa', marginRight: '8px' }}>device:</span>{contractData.device_identity.identity_hash}
+                      </div>
+                    )}
+                    {contractData.image_identity?.identity_hash && (
+                      <div style={{ fontFamily: 'var(--font-tech)', fontSize: '0.72rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', wordBreak: 'break-all' }}>
+                        <span style={{ color: '#a78bfa', marginRight: '8px' }}>image:</span>{contractData.image_identity.identity_hash}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Block reasons */}
+                {contractData.block_reasons?.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <h3 style={{ fontSize: '0.82rem', color: '#f87171', margin: 0, fontFamily: 'var(--font-tech)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Block Reasons</h3>
+                    {contractData.block_reasons.map((r, i) => (
+                      <div key={i} style={{ fontSize: '0.8rem', color: '#fca5a5', paddingLeft: '14px', display: 'flex', gap: '6px', alignItems: 'flex-start', lineHeight: 1.4 }}>
+                        <span style={{ color: '#ef4444', flexShrink: 0 }}>•</span>
+                        <span>{r}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Warnings */}
+                {contractData.warnings?.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <h3 style={{ fontSize: '0.82rem', color: '#fbbf24', margin: 0, fontFamily: 'var(--font-tech)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Warnings</h3>
+                    {contractData.warnings.map((w, i) => (
+                      <div key={i} style={{ fontSize: '0.78rem', color: '#fcd34d', paddingLeft: '14px', display: 'flex', gap: '6px', alignItems: 'flex-start', lineHeight: 1.4 }}>
+                        <span style={{ color: '#f59e0b', flexShrink: 0 }}>⚠</span>
+                        <span>{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Next required action */}
+                {contractData.next_required_action && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-glass)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <ShieldAlert size={13} style={{ color: '#8b5cf6', flexShrink: 0 }} />
+                    <span><strong style={{ color: '#c4b5fd' }}>Next action:</strong> {contractData.next_required_action}</span>
+                  </div>
+                )}
+
+                {/* Contract ID + timestamp */}
+                <div style={{ fontSize: '0.72rem', color: 'rgba(148,163,184,0.5)', fontFamily: 'var(--font-tech)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '8px' }}>
+                  {contractData.contract_id} · {contractData.created_at}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Terminal Console */}
           <div className="terminal-container">

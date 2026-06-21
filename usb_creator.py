@@ -1418,6 +1418,11 @@ if __name__ == "__main__":
     parser.add_argument("--plan-write", action="store_true", help="Generate a dry-run write execution plan")
     parser.add_argument("--audit-plan", action="store_true", help="Generate a dry-run write plan audit trail payload")
     parser.add_argument("--simulate-write", action="store_true", help="Run null-device mock writer simulation. Does not write to target drives.")
+    parser.add_argument("--validate-writer-contract", action="store_true", help="Preview the writer safety contract (read-only, no drive access, JSON output only)")
+    parser.add_argument("--audit-passed", action="store_true", help="(Contract preview) Report audit gate as passed")
+    parser.add_argument("--simulation-passed", action="store_true", help="(Contract preview) Report simulation gate as passed")
+    parser.add_argument("--typed-confirmation", type=str, help="(Contract preview) Typed confirmation phrase for future gate display")
+    parser.add_argument("--destructive-acknowledgement", type=str, help="(Contract preview) Typed acknowledgement phrase for future gate display")
     parser.add_argument("--target-drive", type=str, help="Target drive for write plan generation")
     parser.add_argument("--image", type=str, help="Source OS image for write plan generation")
     parser.add_argument("--export-json", type=str, help="Export write plan audit as JSON to a local path")
@@ -1430,7 +1435,10 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    if args.simulate_write:
+    if args.validate_writer_contract:
+        from writer_safety_contract import _cli_validate_writer_contract
+        _cli_validate_writer_contract(args)
+    elif args.simulate_write:
         if not args.target_drive or not args.image:
             print(json.dumps({"schema":"bootforge.mock_writer.v1","generated_at":utc_now_iso(),"platform":sys.platform,"safe_mode":True,"destructive":False,"operation":"mock_writer_simulation","actual_write_enabled":False,"target_type":"null_device","status":"blocked","events":[],"error":"Missing required arguments: --target-drive and --image are required with --simulate-write."}, indent=2))
         else:
