@@ -1,0 +1,32 @@
+# Arcwyre Flex OS — Services to Disable at Boot
+# Goal: Fast boot, low RAM usage
+# Rule: No optimization claims without measured numbers.
+#
+# STATUS: STUBBED — to be validated after Phase 1 (bootstrap)
+
+# === HEAVY PRELOAD DAEMONS ===
+preload                    # Preloads apps into RAM — defeats low-RAM goal
+tracker-miner-fs           # File indexing — not needed for simple mode
+tracker-store              # File indexing store
+zeitgeist-daemon           # Activity log — privacy + RAM cost
+
+# === UNUSED BACKGROUND SYNC ===
+evolution-source-registry  # Email sync daemon — not needed
+gvfs-goa-volume-monitor    # GNOME Online Accounts — not needed
+gvfs-mtp-volume-monitor    # MTP device monitor — enable on demand
+
+# === BLUETOOTH (optional — enable if hardware present) ===
+bluetooth                  # Disable by default, enable via settings
+
+# === PRINTING (optional) ===
+cups                       # Enable only if printer detected
+
+# === AVAHI (mDNS) ===
+avahi-daemon               # Disable by default — enable for network discovery
+
+# === SERVICES TO KEEP ENABLED ===
+# NetworkManager           — required for network
+# lightdm                  — required for login
+# systemd-resolved         — required for DNS
+# udev                     — required for hardware
+# dbus                     — required for everything

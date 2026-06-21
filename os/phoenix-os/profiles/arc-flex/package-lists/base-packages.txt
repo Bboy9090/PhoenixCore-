@@ -1,0 +1,71 @@
+# Arcwyre Flex OS — Base Package List
+# Target: Minimal Debian/Ubuntu base for lightweight desktop
+# Goal: Fast boot, low RAM, low storage
+#
+# STATUS: STUBBED — to be refined after Phase 0 audit
+
+# === CORE SYSTEM ===
+linux-image-generic
+systemd
+systemd-sysv
+udev
+dbus
+policykit-1
+sudo
+
+# === NETWORK ===
+network-manager
+wireless-tools
+wpasupplicant
+curl
+wget
+
+# === DISPLAY ===
+xorg
+lightdm
+lightdm-gtk-greeter
+
+# === DESKTOP (XFCE — Lightweight Edition) ===
+xfce4
+xfce4-terminal
+xfce4-panel
+xfce4-settings
+thunar
+xfce4-power-manager
+
+# === BROWSER ===
+firefox-esr
+
+# === ESSENTIAL APPS ===
+mousepad           # Text editor
+ristretto          # Image viewer
+parole             # Media player
+file-roller        # Archive manager
+gnome-calculator
+
+# === SYSTEM TOOLS ===
+gparted
+htop
+neofetch
+inxi
+
+# === FLATPAK SUPPORT ===
+flatpak
+gnome-software-plugin-flatpak
+
+# === RECOVERY TOOLS ===
+testdisk
+photorec
+smartmontools
+hdparm
+memtest86+
+
+# === FONTS ===
+fonts-liberation
+fonts-noto
+
+# === EXCLUDED (bloat) ===
+# libreoffice         — too heavy, use web apps instead
+# thunderbird         — use web app
+# gimp                — use web app (Canva, etc.)
+# transmission        — not needed for base

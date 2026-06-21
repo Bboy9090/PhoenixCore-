@@ -1,0 +1,29 @@
+[mode]
+name = "Simple Mode"
+id = "simple"
+description = "For normal users. Works like an appliance."
+
+[features]
+browser = true
+files = true
+app_launcher = true
+settings = true
+web_apps = true
+updates = true
+recovery = true
+cloud_login = "optional"
+terminal = false
+linux_apps = false
+developer_tools = false
+package_manager = false
+
+[ui]
+compositor = "xfwm4"
+animations = false
+effects = false
+panel = "bottom"
+theme = "arcwyre-simple"
+
+[services]
+disable_extra = true
+zram = true

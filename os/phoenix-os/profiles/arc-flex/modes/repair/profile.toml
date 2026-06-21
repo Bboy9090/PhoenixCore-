@@ -1,0 +1,37 @@
+[mode]
+name = "Repair Mode"
+id = "repair"
+description = "For technicians. Make it a repair-shop weapon."
+
+[features]
+browser = true
+files = true
+terminal = true
+disk_tools = true
+boot_repair = true
+usb_creator = true
+hardware_diagnostics = true
+logs = true
+network_tools = true
+phone_repair_companion = false  # Future — not yet implemented
+firmware_tools = "legal_and_safe_only"
+
+[tools]
+gparted = true
+testdisk = true
+smartmontools = true
+hdparm = true
+memtest = true
+inxi = true
+lshw = true
+ethtool = true
+
+[security]
+destructive_actions_require_confirmation = true
+no_unauthorized_bypass = true
+audit_log = true
+
+[ui]
+compositor = "xfwm4"
+animations = false
+theme = "arcwyre-repair"

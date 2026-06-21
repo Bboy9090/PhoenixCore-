@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Arcwyre Flex OS — XFCE Panel Configuration
+  Status: STUBBED — template for the Arcwyre Flex desktop panel
+  
+  Panel layout:
+  [App Launcher] [Window Buttons] .............. [System Tray] [Clock]
+  
+  Design goals:
+  - Single panel at the bottom (Windows-like comfort)
+  - App launcher on the left
+  - System tray on the right
+  - No heavy effects
+  - Fast rendering
+-->
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+  </property>
+  <property name="panel-1" type="empty">
+    <property name="position" type="string" value="p=8;x=0;y=0"/>
+    <property name="length" type="uint" value="100"/>
+    <property name="position-locked" type="bool" value="true"/>
+    <property name="size" type="uint" value="36"/>
+    <property name="plugin-ids" type="array">
+      <value type="int" value="1"/>
+      <value type="int" value="2"/>
+      <value type="int" value="3"/>
+      <value type="int" value="4"/>
+    </property>
+  </property>
+  <!-- Plugin 1: App Launcher -->
+  <property name="plugins" type="empty">
+    <property name="plugin-1" type="string" value="applicationsmenu"/>
+    <property name="plugin-2" type="string" value="tasklist"/>
+    <property name="plugin-3" type="string" value="systray"/>
+    <property name="plugin-4" type="string" value="clock"/>
+  </property>
+</channel>

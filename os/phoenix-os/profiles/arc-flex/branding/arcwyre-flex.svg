@@ -1,0 +1,44 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Arcwyre Flex OS Icon -->
+  <!-- Teal + Lime Green + Speed lines — Lightweight + Fast -->
+  <defs>
+    <linearGradient id="flexBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D1F22;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0A1A1D;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="flexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2EC4B6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#06D6A0;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="speedGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.0" />
+      <stop offset="100%" style="stop-color:#2EC4B6;stop-opacity:0.6" />
+    </linearGradient>
+    <filter id="flexGlow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <circle cx="64" cy="64" r="62" fill="url(#flexBg)" stroke="#2EC4B6" stroke-width="1.5"/>
+  <!-- Speed lines (lightweight / fast) -->
+  <line x1="10" y1="45" x2="50" y2="45" stroke="url(#speedGrad)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="5" y1="55" x2="45" y2="55" stroke="url(#speedGrad)" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="8" y1="65" x2="48" y2="65" stroke="url(#speedGrad)" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+  <!-- Main arc — the "arc" in Arcwyre -->
+  <path d="M25 95 Q64 18 103 95" stroke="url(#flexGrad)" stroke-width="7" fill="none"
+        stroke-linecap="round" filter="url(#flexGlow)"/>
+  <!-- Inner arc -->
+  <path d="M35 95 Q64 32 93 95" stroke="#CBF3F0" stroke-width="2.5" fill="none"
+        stroke-linecap="round" opacity="0.6"/>
+  <!-- Center kernel node -->
+  <circle cx="64" cy="62" r="9" fill="url(#flexGrad)" filter="url(#flexGlow)"/>
+  <circle cx="64" cy="62" r="4" fill="#FFFFFF" opacity="0.9"/>
+  <!-- Flex badge — "F" letterform -->
+  <path d="M56 50 L56 74 M56 50 L70 50 M56 62 L66 62" 
+        stroke="#CBF3F0" stroke-width="2.5" fill="none" 
+        stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+</svg>
