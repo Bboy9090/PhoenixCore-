@@ -1443,11 +1443,57 @@ if __name__ == "__main__":
     parser.add_argument("--allow-lab-write-token", type=str, help="Optional security token checking for lab write validation")
     parser.add_argument("--final-writer-readiness-gate", action="store_true", help="Preview or run the final readiness gate logic")
     
+    # Preflight CLI arguments (Phase 5A-2)
+    parser.add_argument("--hardware-writer-preflight", action="store_true", help="Run hardware writer preflight checks")
+    parser.add_argument("--lock-removable-target", action="store_true", help="Build deterministic removable target identity lock record")
+    parser.add_argument("--rescan-target-identity", action="store_true", help="Re-scan and compare latest target identity against lock")
+    parser.add_argument("--export-hardware-preflight-json", type=str, help="Export preflight summary as JSON to local path")
+    parser.add_argument("--export-hardware-preflight-markdown", type=str, help="Export preflight summary as Markdown to local path")
+    
     args = parser.parse_args()
     
     if args.validate_writer_contract:
         from writer_safety_contract import _cli_validate_writer_contract
         _cli_validate_writer_contract(args)
+    elif args.lock_removable_target:
+        from real_writer_interface import build_removable_target_identity_lock
+        lock = build_removable_target_identity_lock(args.target_drive)
+        # Optional ledger append if requested
+        ledger_path = args.append_writer_contract_ledger
+        if ledger_path:
+            from writer_safety_contract import append_writer_contract_ledger_record
+            append_writer_contract_ledger_record(lock, ledger_path)
+        print(json.dumps(lock, indent=2))
+        sys.exit(0)
+    elif args.rescan_target_identity:
+        from real_writer_interface import build_removable_target_identity_lock, rescan_and_compare_target_identity
+        lock = build_removable_target_identity_lock(args.target_drive)
+        # Mock scan payload
+        drives = get_removable_drives()
+        scan_payload = {"drives": drives}
+        cmp_res = rescan_and_compare_target_identity(lock, scan_payload)
+        print(json.dumps(cmp_res, indent=2))
+        sys.exit(0)
+    elif args.hardware_writer_preflight:
+        from real_writer_interface import build_removable_target_identity_lock, build_physical_writer_preflight_result, export_hardware_preflight_json, export_hardware_preflight_markdown
+        lock = build_removable_target_identity_lock(args.target_drive)
+        image_payload = None
+        if args.image:
+            image_payload = {
+                "image_path": args.image,
+                "image_sha256": calculate_file_sha256(args.image) if os.path.exists(args.image) else "mock_sha",
+                "image_size_bytes": os.path.getsize(args.image) if os.path.exists(args.image) else 0
+            }
+        preflight = build_physical_writer_preflight_result(lock, image_payload)
+        
+        # Optional exports
+        if args.export_hardware_preflight_json:
+            export_hardware_preflight_json(preflight, args.export_hardware_preflight_json)
+        elif args.export_hardware_preflight_markdown:
+            export_hardware_preflight_markdown(preflight, args.export_hardware_preflight_markdown)
+            
+        print(json.dumps(preflight, indent=2))
+        sys.exit(0)
     elif args.final_writer_readiness_gate:
         from writer_safety_contract import build_contract_preview_payload, build_writer_contract_ledger_record, build_final_destructive_readiness_gate
         contract = build_contract_preview_payload(

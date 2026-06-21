@@ -522,6 +522,69 @@ function usbCreatorBridgePlugin() {
           return
         }
 
+        if (requestUrl.pathname === '/api/write/hardware-preflight') {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          const drivePath = requestUrl.searchParams.get('drive')
+          const imagePath = requestUrl.searchParams.get('image')
+
+          const args = ['--hardware-writer-preflight']
+          if (drivePath) args.push('--target-drive', drivePath)
+          if (imagePath) args.push('--image', imagePath)
+
+          runUsbCreator(
+            args,
+            {
+              schema: 'bootforge.hardware_writer_preflight.v1',
+              status: 'failed',
+              error: 'hardware writer preflight dev bridge failure — safe fallback',
+            },
+            res
+          )
+          return
+        }
+
+        if (requestUrl.pathname === '/api/write/target-identity-lock') {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          let body = ''
+          req.on('data', (chunk) => {
+            body += chunk
+          })
+          req.on('end', () => {
+            try {
+              const payload = JSON.parse(body || '{}')
+              const drivePath = payload.drive
+
+              const args = ['--lock-removable-target']
+              if (drivePath) args.push('--target-drive', drivePath)
+
+              runUsbCreator(
+                args,
+                {
+                  schema: 'bootforge.removable_target_identity_lock.v1',
+                  status: 'failed',
+                  error: 'target identity lock dev bridge failure — safe fallback',
+                },
+                res
+              )
+            } catch (err) {
+              sendJson(res, 400, {
+                schema: 'bootforge.removable_target_identity_lock.v1',
+                status: 'failed',
+                error: `Failed to parse POST body: ${err.message}`,
+              })
+            }
+          })
+          return
+        }
+
         next()
       })
     },
