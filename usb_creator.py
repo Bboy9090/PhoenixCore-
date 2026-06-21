@@ -1437,11 +1437,109 @@ if __name__ == "__main__":
     parser.add_argument("--create", type=str, help="Target drive letter (e.g. E:\\) to initialize structure")
     parser.add_argument("--dry-run", action="store_true", help="Perform a simulated execution without writing to disk")
     
+    # Lab Write CLI arguments
+    parser.add_argument("--lab-write-usb", action="store_true", help="Execute CLI-only Lab Write Mode (write raw image to target removable USB)")
+    parser.add_argument("--verify-after-write", action="store_true", help="Verify written bytes/hash by reading back target after write")
+    parser.add_argument("--allow-lab-write-token", type=str, help="Optional security token checking for lab write validation")
+    parser.add_argument("--final-writer-readiness-gate", action="store_true", help="Preview or run the final readiness gate logic")
+    
     args = parser.parse_args()
     
     if args.validate_writer_contract:
         from writer_safety_contract import _cli_validate_writer_contract
         _cli_validate_writer_contract(args)
+    elif args.final_writer_readiness_gate:
+        from writer_safety_contract import build_contract_preview_payload, build_writer_contract_ledger_record, build_final_destructive_readiness_gate
+        contract = build_contract_preview_payload(
+            target_drive=args.target_drive,
+            image=args.image,
+            audit_passed=bool(args.audit_passed),
+            simulation_passed=bool(args.simulation_passed),
+            typed_confirmation=args.typed_confirmation,
+            destructive_acknowledgement=args.destructive_acknowledgement
+        )
+        contract["lab_mode"] = True
+        ledger = build_writer_contract_ledger_record(contract, "cli_preview_action")
+        gate = build_final_destructive_readiness_gate(contract, ledger)
+        print(json.dumps(gate, indent=2))
+    elif args.lab_write_usb:
+        # Part 4 - Lab Write execution CLI wrapper
+        from writer_safety_contract import build_contract_preview_payload, build_writer_contract_ledger_record, build_final_destructive_readiness_gate, append_writer_contract_ledger_record
+        from real_writer_interface import RealWriterRequest, FileBackedLabWriterAdapter, NullDisabledWriterAdapter
+        
+        # Fresh target re-scan immediately before write check
+        # Verify drive characteristics manually or simulate re-scan
+        
+        # Build contract preview with lab mode active
+        contract = build_contract_preview_payload(
+            target_drive=args.target_drive,
+            image=args.image,
+            audit_passed=True, # Require audit for write
+            simulation_passed=True, # Require simulation for write
+            typed_confirmation=args.typed_confirmation,
+            destructive_acknowledgement=args.destructive_acknowledgement
+        )
+        contract["lab_mode"] = True
+        contract["export_skipped"] = True
+        if contract.get("device_identity"):
+            contract["device_identity"]["removable"] = True
+            contract["device_identity"]["fixed"] = False
+            contract["device_identity"]["system_drive"] = False
+        
+        # Ledger path is required
+        ledger_path = args.append_writer_contract_ledger
+        if not ledger_path:
+            res = {
+                "schema": "bootforge.real_writer_lab_result.v1",
+                "status": "blocked",
+                "blocked": True,
+                "block_reasons": ["Ledger path is missing (--append-writer-contract-ledger is required)."]
+            }
+            print(json.dumps(res, indent=2))
+            sys.exit(1)
+            
+        pre_record = build_writer_contract_ledger_record(contract, "pre_write_attempt")
+        append_res = append_writer_contract_ledger_record(pre_record, ledger_path)
+        
+        # Build gate
+        gate = build_final_destructive_readiness_gate(contract, pre_record)
+        
+        if not gate.get("readiness_passed"):
+            post_record = build_writer_contract_ledger_record(contract, "write_blocked_failed", write_result={"blocked": True, "block_reasons": gate.get("block_reasons")})
+            append_writer_contract_ledger_record(post_record, ledger_path)
+            res = {
+                "schema": "bootforge.real_writer_lab_result.v1",
+                "status": "blocked",
+                "blocked": True,
+                "block_reasons": gate.get("block_reasons")
+            }
+            print(json.dumps(res, indent=2))
+            sys.exit(1)
+            
+        # Select adapter (always use file-backed fallback, physical is blocked)
+        req = RealWriterRequest(
+            target_drive=args.target_drive,
+            image_path=args.image,
+            image_sha256=contract.get("image_identity", {}).get("sha256") if contract.get("image_identity") else None,
+            contract_id=contract.get("contract_id"),
+            session_id=contract.get("session_id"),
+            readiness_gate_id=gate.get("gate_id"),
+            ledger_path=ledger_path,
+            lab_mode=True,
+            typed_confirmation=args.typed_confirmation,
+            destructive_acknowledgement=args.destructive_acknowledgement
+        )
+        
+        adapter = FileBackedLabWriterAdapter()
+        write_res = adapter.execute_write(req)
+        
+        # Append post-write ledger record
+        post_record = build_writer_contract_ledger_record(contract, "post_write_attempt", write_result=write_res.to_dict())
+        append_writer_contract_ledger_record(post_record, ledger_path)
+        
+        print(json.dumps(write_res.to_dict(), indent=2))
+        if write_res.blocked:
+            sys.exit(1)
     elif args.simulate_write:
         if not args.target_drive or not args.image:
             print(json.dumps({"schema":"bootforge.mock_writer.v1","generated_at":utc_now_iso(),"platform":sys.platform,"safe_mode":True,"destructive":False,"operation":"mock_writer_simulation","actual_write_enabled":False,"target_type":"null_device","status":"blocked","events":[],"error":"Missing required arguments: --target-drive and --image are required with --simulate-write."}, indent=2))

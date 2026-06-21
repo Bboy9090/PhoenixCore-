@@ -489,6 +489,38 @@ function usbCreatorBridgePlugin() {
           })
           return
         }
+        if (requestUrl.pathname === '/api/write/contract/readiness') {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          const drivePath = requestUrl.searchParams.get('drive')
+          const imagePath = requestUrl.searchParams.get('image')
+          const auditPassed = requestUrl.searchParams.get('auditPassed') === 'true'
+          const simulationPassed = requestUrl.searchParams.get('simulationPassed') === 'true'
+          const typedConfirmation = requestUrl.searchParams.get('typedConfirmation') || ''
+          const destructiveAcknowledgement = requestUrl.searchParams.get('destructiveAcknowledgement') || ''
+
+          const args = ['--final-writer-readiness-gate']
+          if (drivePath) args.push('--target-drive', drivePath)
+          if (imagePath) args.push('--image', imagePath)
+          if (auditPassed) args.push('--audit-passed')
+          if (simulationPassed) args.push('--simulation-passed')
+          if (typedConfirmation) args.push('--typed-confirmation', typedConfirmation)
+          if (destructiveAcknowledgement) args.push('--destructive-acknowledgement', destructiveAcknowledgement)
+
+          runUsbCreator(
+            args,
+            {
+              schema: 'bootforge.final_destructive_readiness_gate.v1',
+              status: 'failed',
+              error: 'contract readiness preview dev bridge failure — safe fallback',
+            },
+            res
+          )
+          return
+        }
 
         next()
       })

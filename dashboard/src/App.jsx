@@ -2101,6 +2101,19 @@ ${warningsStr}
                     </div>
                   )}
                 </div>
+
+                {/* Final Destructive Readiness Gate & Real Writer Status preview */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', marginTop: '4px' }}>
+                  <h3 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-tech)' }}>
+                    Final Destructive Readiness Gate Preview
+                  </h3>
+                  <div style={{ padding: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', fontSize: '0.8rem', color: '#fca5a5' }}>
+                    <strong>Lab Writer Status:</strong> Locked. The dashboard cannot start a real USB write.
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Lab write mode is CLI-only and locked. The dashboard cannot start a real USB write.
+                  </div>
+                </div>
               </div>
             )}
           </div>
