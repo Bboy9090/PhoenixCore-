@@ -365,6 +365,63 @@ function usbCreatorBridgePlugin() {
           return
         }
 
+        if (requestUrl.pathname === '/api/write/contract/ledger') {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          let body = ''
+          req.on('data', (chunk) => {
+            body += chunk
+          })
+          req.on('end', () => {
+            try {
+              const payload = JSON.parse(body || '{}')
+              const drivePath = payload.drive
+              const imagePath = payload.image
+              const auditPassed = payload.auditPassed
+              const simulationPassed = payload.simulationPassed
+              const ledgerPath = payload.ledgerPath
+              const eventType = payload.eventType || 'dashboard_preview_action'
+
+              if (!ledgerPath) {
+                sendJson(res, 400, {
+                  schema: 'bootforge.writer_safety_contract_ledger_append.v1',
+                  status: 'failed',
+                  error: 'Missing required parameter: ledgerPath is required in POST body.',
+                })
+                return
+              }
+
+              // Run usb_creator.py with contract validation and append ledger parameters
+              const args = ['--validate-writer-contract']
+              if (drivePath) args.push('--target-drive', drivePath)
+              if (imagePath) args.push('--image', imagePath)
+              if (auditPassed) args.push('--audit-passed')
+              if (simulationPassed) args.push('--simulation-passed')
+              args.push('--append-writer-contract-ledger', ledgerPath)
+
+              runUsbCreator(
+                args,
+                {
+                  schema: 'bootforge.writer_safety_contract_ledger_append.v1',
+                  status: 'failed',
+                  error: 'contract ledger append dev bridge failure — safe fallback',
+                },
+                res
+              )
+            } catch (err) {
+              sendJson(res, 400, {
+                schema: 'bootforge.writer_safety_contract_ledger_append.v1',
+                status: 'failed',
+                error: `Failed to parse POST body: ${err.message}`,
+              })
+            }
+          })
+          return
+        }
+
         if (requestUrl.pathname === '/api/write/contract/export') {
           if (req.method !== 'POST') {
             sendJson(res, 405, { error: 'Method not allowed' })
@@ -430,6 +487,38 @@ function usbCreatorBridgePlugin() {
               })
             }
           })
+          return
+        }
+        if (requestUrl.pathname === '/api/write/contract/readiness') {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          const drivePath = requestUrl.searchParams.get('drive')
+          const imagePath = requestUrl.searchParams.get('image')
+          const auditPassed = requestUrl.searchParams.get('auditPassed') === 'true'
+          const simulationPassed = requestUrl.searchParams.get('simulationPassed') === 'true'
+          const typedConfirmation = requestUrl.searchParams.get('typedConfirmation') || ''
+          const destructiveAcknowledgement = requestUrl.searchParams.get('destructiveAcknowledgement') || ''
+
+          const args = ['--final-writer-readiness-gate']
+          if (drivePath) args.push('--target-drive', drivePath)
+          if (imagePath) args.push('--image', imagePath)
+          if (auditPassed) args.push('--audit-passed')
+          if (simulationPassed) args.push('--simulation-passed')
+          if (typedConfirmation) args.push('--typed-confirmation', typedConfirmation)
+          if (destructiveAcknowledgement) args.push('--destructive-acknowledgement', destructiveAcknowledgement)
+
+          runUsbCreator(
+            args,
+            {
+              schema: 'bootforge.final_destructive_readiness_gate.v1',
+              status: 'failed',
+              error: 'contract readiness preview dev bridge failure — safe fallback',
+            },
+            res
+          )
           return
         }
 
