@@ -463,6 +463,7 @@ def build_contract_preview_payload(
         image_identity=img_id,
         gate_results=gate_results,
     )
+    contract["session_id"] = build_writer_contract_session_id(contract)
     return contract
 
 
@@ -491,18 +492,27 @@ def _cli_validate_writer_contract(args):
         destructive_acknowledgement=getattr(args, "destructive_acknowledgement", None),
     )
     
-    # Check if CLI requested contract export
+    # Check if CLI requested contract export or ledger append
     export_json_path = getattr(args, "export_writer_contract_json", None)
     export_md_path = getattr(args, "export_writer_contract_markdown", None)
+    ledger_path = getattr(args, "append_writer_contract_ledger", None)
     
+    export_res = None
     if export_json_path:
-        res = export_writer_contract_json(contract, export_json_path)
-        print(json.dumps(res, indent=2))
+        export_res = export_writer_contract_json(contract, export_json_path)
     elif export_md_path:
-        res = export_writer_contract_markdown(contract, export_md_path)
+        export_res = export_writer_contract_markdown(contract, export_md_path)
+        
+    if ledger_path:
+        # Build ledger record with optional export_res if it occurred
+        record = build_writer_contract_ledger_record(contract, "cli_preview_action", export_result=export_res)
+        res = append_writer_contract_ledger_record(record, ledger_path)
         print(json.dumps(res, indent=2))
     else:
-        print(json.dumps(contract, indent=2))
+        if export_res:
+            print(json.dumps(export_res, indent=2))
+        else:
+            print(json.dumps(contract, indent=2))
 
 
 # ---------------------------------------------------------------------------
@@ -737,6 +747,176 @@ def export_writer_contract_markdown(contract_payload: dict, output_path: str) ->
 # This assertion makes it impossible to accidentally import this module in a
 # context where real_writer_implemented or destructive_operations_enabled have
 # been patched to True at the module level.
+
+
+# ---------------------------------------------------------------------------
+# Contract History Ledger & Session ID Helpers (Phase 4C-4)
+# ---------------------------------------------------------------------------
+
+def build_writer_contract_session_id(contract_payload: dict) -> str:
+    """
+    Builds a deterministic, JSON-safe session ID based on stable fields of
+    the writer safety contract payload. Does not include volatile timestamps.
+    """
+    import hashlib
+    import json
+    
+    # Extract stable trace details
+    schema = contract_payload.get("schema", "")
+    contract_id = contract_payload.get("contract_id", "")
+    target_drive = contract_payload.get("target_drive") or "placeholder_drive"
+    image = contract_payload.get("image") or "placeholder_image"
+    
+    dev_id = contract_payload.get("device_identity") or {}
+    device_identity_hash = dev_id.get("identity_hash") or "no_device_hash"
+    
+    img_id = contract_payload.get("image_identity") or {}
+    image_identity_hash = img_id.get("identity_hash") or "no_image_hash"
+    
+    real_writer = contract_payload.get("real_writer_implemented", False)
+    destructive = contract_payload.get("destructive_operations_enabled", False)
+    blocked = contract_payload.get("blocked", True)
+    
+    reasons = sorted(contract_payload.get("block_reasons") or [])
+    reasons_str = "|".join(reasons)
+    
+    trace_data = {
+        "schema": schema,
+        "contract_id": contract_id,
+        "target_drive": target_drive,
+        "image": image,
+        "device_identity_hash": device_identity_hash,
+        "image_identity_hash": image_identity_hash,
+        "real_writer_implemented": real_writer,
+        "destructive_operations_enabled": destructive,
+        "blocked": blocked,
+        "block_reasons": reasons_str
+    }
+    
+    canonical = json.dumps(trace_data, sort_keys=True, separators=(",", ":"))
+    h = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"session_{h[:32]}"
+
+
+def build_writer_contract_ledger_record(contract_payload: dict, event_type: str, export_result: dict = None) -> dict:
+    """
+    Builds a structured ledger record for the writer safety contract.
+    Schema: bootforge.writer_safety_contract_ledger.v1
+    """
+    import hashlib
+    import json
+    
+    session_id = build_writer_contract_session_id(contract_payload)
+    
+    dev_id = contract_payload.get("device_identity") or {}
+    img_id = contract_payload.get("image_identity") or {}
+    
+    record = {
+        "schema": "bootforge.writer_safety_contract_ledger.v1",
+        "session_id": session_id,
+        "ledger_record_id": None,
+        "event_type": event_type,
+        "created_at": contract_payload.get("created_at") or _utc_now_iso(),
+        "contract_schema": contract_payload.get("schema"),
+        "contract_id": contract_payload.get("contract_id"),
+        "blocked": contract_payload.get("blocked", True),
+        "real_writer_implemented": contract_payload.get("real_writer_implemented", False),
+        "destructive_operations_enabled": contract_payload.get("destructive_operations_enabled", False),
+        "target_drive": contract_payload.get("target_drive"),
+        "image_path": contract_payload.get("image"),
+        "device_identity_hash": dev_id.get("identity_hash"),
+        "image_identity_hash": img_id.get("identity_hash"),
+        "block_reasons": contract_payload.get("block_reasons", []),
+        "warnings": contract_payload.get("warnings", []),
+        "next_required_action": contract_payload.get("next_required_action"),
+    }
+    
+    if export_result is not None:
+        record["export_result"] = export_result
+        
+    # Generate ledger_record_id deterministically based on record content (excluding itself)
+    hashable = {k: v for k, v in record.items() if k != "ledger_record_id"}
+    canonical = json.dumps(hashable, sort_keys=True, separators=(",", ":"))
+    h = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    record["ledger_record_id"] = f"ledger_{h[:32]}"
+    
+    return record
+
+
+def validate_writer_contract_ledger_path(ledger_path: str):
+    """
+    Validates a ledger append path according to strict safety rules.
+    """
+    from pathlib import Path
+    
+    if not ledger_path or not str(ledger_path).strip():
+        raise ValueError("Ledger path is empty.")
+        
+    p_str = str(ledger_path).strip().lower()
+    
+    # UNC and raw device prefix checks (must be first to avoid resolve errors)
+    if "\\\\.\\" in p_str or "//./" in p_str or p_str.startswith("\\\\") or p_str.startswith("//"):
+        raise ValueError("Raw device style or UNC network paths are blocked for ledger.")
+        
+    for suspicious in ["sys32", "system32", "windows", "/etc", "/bin", "/sbin", "/var", "/usr"]:
+        if suspicious in p_str.replace("\\", "/"):
+            raise ValueError(f"Suspicious path detected: ledger path in {suspicious} folders is blocked.")
+            
+    p = Path(ledger_path).resolve()
+    
+    # Directory check
+    if p.exists() and p.is_dir():
+        raise ValueError("Ledger path is a directory.")
+        
+    # Parent directory check
+    parent = p.parent
+    if not parent.exists() or not parent.is_dir():
+        raise ValueError("Parent directory of ledger path does not exist.")
+        
+    # Extension check
+    if p.suffix.lower() != ".jsonl":
+        raise ValueError(f"Ledger path extension '{p.suffix}' must be '.jsonl'.")
+
+
+def append_writer_contract_ledger_record(record: dict, ledger_path: str) -> dict:
+    """
+    Safely appends a ledger record to the validated ledger path (JSONL format).
+    """
+    import json
+    try:
+        validate_writer_contract_ledger_path(ledger_path)
+        
+        # Verify target drive root check
+        target_drive = record.get("target_drive")
+        if target_drive:
+            from usb_creator import get_drive_root
+            from pathlib import Path
+            td_root = get_drive_root(target_drive)
+            ledger_root = get_drive_root(Path(ledger_path).resolve())
+            if td_root and ledger_root and td_root.lower().rstrip("\\") == ledger_root.lower().rstrip("\\"):
+                raise ValueError(f"Ledger path is on the target drive '{target_drive}'. Overwriting target drive is blocked.")
+                
+        # Append record
+        canonical = json.dumps(record, sort_keys=True, separators=(",", ":"))
+        with open(ledger_path, "a", encoding="utf-8") as f:
+            f.write(canonical + "\n")
+            
+        return {
+            "schema": "bootforge.writer_safety_contract_ledger_append.v1",
+            "status": "success",
+            "ledger_path": ledger_path,
+            "ledger_record_id": record.get("ledger_record_id"),
+            "error": None
+        }
+    except Exception as e:
+        return {
+            "schema": "bootforge.writer_safety_contract_ledger_append.v1",
+            "status": "failed",
+            "ledger_path": ledger_path,
+            "ledger_record_id": record.get("ledger_record_id"),
+            "error": str(e)
+        }
+
 assert SCHEMA == "bootforge.writer_safety_contract.v1", (
     "SAFETY: schema string tampered"
 )

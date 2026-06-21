@@ -140,6 +140,10 @@ export default function App() {
   const [contractExportType, setContractExportType] = useState('json');
   const [isExportingContract, setIsExportingContract] = useState(false);
   const [contractExportResult, setContractExportResult] = useState(null);
+  // Ledger History States (Phase 4C-4)
+  const [contractLedgerPath, setContractLedgerPath] = useState('');
+  const [isAppendingLedger, setIsAppendingLedger] = useState(false);
+  const [ledgerAppendResult, setLedgerAppendResult] = useState(null);
 
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
@@ -740,6 +744,51 @@ ${warningsStr}
       addLog('error', `Contract export error: ${err.message}`);
     } finally {
       setIsExportingContract(false);
+    }
+  };
+
+  // Expose Ledger History Append POST Endpoint (Phase 4C-4)
+  const appendContractLedger = async () => {
+    const trimmedPath = contractLedgerPath.trim();
+    if (!trimmedPath) {
+      setLedgerAppendResult({ status: 'failed', error: 'Please specify a local host ledger path.' });
+      return;
+    }
+
+    setIsAppendingLedger(true);
+    setLedgerAppendResult(null);
+    addLog('info', `Appending contract session ledger entry to ${trimmedPath}...`);
+
+    try {
+      const response = await fetch('/api/write/contract/ledger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          drive: selectedDrive || null,
+          image: imagePath || null,
+          auditPassed: auditData?.validation_status === 'passed',
+          simulationPassed: mockWriterData?.status === 'completed',
+          ledgerPath: trimmedPath,
+          eventType: 'dashboard_preview_action'
+        })
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || `Ledger append failed with HTTP ${response.status}`);
+      }
+
+      setLedgerAppendResult(payload);
+      if (payload.status === 'success') {
+        addLog('success', `Ledger append succeeded: record ${payload.ledger_record_id} appended to ${trimmedPath}`);
+      } else {
+        addLog('error', `Ledger append blocked: ${payload.error}`);
+      }
+    } catch (err) {
+      setLedgerAppendResult({ status: 'failed', error: err.message });
+      addLog('error', `Ledger append error: ${err.message}`);
+    } finally {
+      setIsAppendingLedger(false);
     }
   };
 
@@ -1886,6 +1935,13 @@ ${warningsStr}
                   </div>
                 )}
 
+                {/* Session ID display (Phase 4C-4) */}
+                {contractData.session_id && (
+                  <div style={{ fontFamily: 'var(--font-tech)', fontSize: '0.72rem', color: 'var(--text-muted)', background: 'rgba(139,92,246,0.1)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(139,92,246,0.15)', wordBreak: 'break-all' }}>
+                    <span style={{ color: '#a78bfa', marginRight: '8px', fontWeight: 600 }}>session:</span>{contractData.session_id}
+                  </div>
+                )}
+
                 {/* Contract ID + timestamp */}
                 <div style={{ fontSize: '0.72rem', color: 'rgba(148,163,184,0.5)', fontFamily: 'var(--font-tech)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '8px' }}>
                   {contractData.contract_id} · {contractData.created_at}
@@ -1976,6 +2032,72 @@ ${warningsStr}
                       {contractExportResult.status === 'success' 
                         ? `Evidence exported successfully.` 
                         : `Export Blocked: ${contractExportResult.error}`}
+                    </div>
+                  )}
+                </div>
+
+                {/* Contract Ledger Section (Phase 4C-4) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', marginTop: '4px' }}>
+                  <h3 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-tech)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Settings size={13} style={{ color: '#8b5cf6' }} />
+                    <span>Append Contract Ledger Record</span>
+                  </h3>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={contractLedgerPath}
+                      onChange={(e) => {
+                        setContractLedgerPath(e.target.value);
+                        setLedgerAppendResult(null);
+                      }}
+                      placeholder="Ledger path e.g. C:\Users\Bobby\history.jsonl"
+                      disabled={isAppendingLedger}
+                      style={{
+                        padding: '8px 10px',
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid var(--border-glass)',
+                        borderRadius: '6px',
+                        color: '#fff',
+                        outline: 'none',
+                        fontSize: '0.8rem'
+                      }}
+                    />
+
+                    <button
+                      className="btn-primary"
+                      onClick={appendContractLedger}
+                      disabled={isAppendingLedger || !contractLedgerPath.trim()}
+                      style={{
+                        background: 'linear-gradient(135deg, #6d28d9 0%, #8b5cf6 100%)',
+                        padding: '8px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        cursor: contractLedgerPath.trim() ? 'pointer' : 'not-allowed',
+                        opacity: (isAppendingLedger || !contractLedgerPath.trim()) ? 0.6 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <RefreshCw size={12} className={isAppendingLedger ? 'spin-anim' : ''} />
+                      <span>Append Contract Ledger Record</span>
+                    </button>
+                  </div>
+
+                  {ledgerAppendResult && (
+                    <div style={{
+                      fontSize: '0.8rem',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      background: ledgerAppendResult.status === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                      color: ledgerAppendResult.status === 'success' ? '#10b981' : '#f87171',
+                      border: `1px solid ${ledgerAppendResult.status === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+                    }}>
+                      {ledgerAppendResult.status === 'success' 
+                        ? `Ledger record appended successfully.` 
+                        : `Ledger Blocked: ${ledgerAppendResult.error}`}
                     </div>
                   )}
                 </div>
