@@ -1,7 +1,7 @@
 """
 writer_safety_contract.py
 PhoenixCore / BootForge USB Creator
-Phase 4C-1: Writer Safety Contract Schema + Validator
+Phase 4C-1/4C-2: Writer Safety Contract Schema + Validator + Preview Bridge
 
 This module builds and validates a writer safety contract
 (schema: bootforge.writer_safety_contract.v1).
@@ -10,8 +10,8 @@ It does NOT implement a real USB writer.
 It does NOT write, format, partition, mount, unmount, or access any drive.
 It does NOT call diskpart, dd, WriteFile, or any raw-device API.
 
-All destructive_operations_enabled values are permanently False in Phase 4C-1.
-All real_writer_implemented values are permanently False in Phase 4C-1.
+All destructive_operations_enabled values are permanently False.
+All real_writer_implemented values are permanently False.
 
 The contract enforces every gate defined in the Phase 4B architecture before
 any future writer would be permitted to arm. Currently all write paths remain
@@ -382,6 +382,91 @@ def validate_writer_safety_contract(contract: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Preview bridge — used by CLI and dashboard API route
+# ---------------------------------------------------------------------------
+
+def build_contract_preview_payload(
+    target_drive: str = None,
+    image: str = None,
+    audit_passed: bool = False,
+    simulation_passed: bool = False,
+    typed_confirmation: str = None,
+    destructive_acknowledgement: str = None,
+) -> dict:
+    """
+    Build a read-only writer safety contract preview payload.
+
+    This is the single entry-point used by both the CLI
+    (--validate-writer-contract) and the dashboard API route
+    (GET /api/write/contract).
+
+    It builds minimal device/image identity from path metadata only.
+    It does NOT open, read, query, mount, or write to any drive.
+    It does NOT call diskpart, dd, WriteFile, or any raw-device API.
+    Output is always blocked in Phase 4C-2 (real_writer_implemented=False).
+
+    Parameters
+    ----------
+    target_drive             : Path string of candidate target drive.
+    image                    : Path string of candidate image file.
+    audit_passed             : Whether the caller reports audit gate as passed.
+    simulation_passed        : Whether the caller reports simulation gate as passed.
+    typed_confirmation       : Typed confirmation phrase (future gate — not checked here).
+    destructive_acknowledgement : Typed acknowledgement (future gate — not checked here).
+
+    Returns
+    -------
+    JSON-serializable dict with schema bootforge.writer_safety_contract.v1.
+    Always blocked. Never enables real writing.
+    """
+    from pathlib import Path as _Path
+
+    dev_id = None
+    img_id = None
+
+    if target_drive and str(target_drive).strip():
+        dev_id = build_device_identity(root_path=str(target_drive).strip())
+
+    if image and str(image).strip():
+        p = _Path(str(image).strip())
+        img_id = build_image_identity(
+            image_path=str(p),
+            filename=p.name,
+            extension=p.suffix.lower() if p.suffix else None,
+            size_bytes=p.stat().st_size if p.exists() else None,
+        )
+
+    # Build gate_results from the caller-supplied context.
+    # Future-only gates (typed confirmation / destructive acknowledgement)
+    # are recorded but do not unlock any writer.
+    gate_results = {
+        "drive_selected": bool(target_drive and str(target_drive).strip()),
+        "image_selected": bool(image and str(image).strip()),
+        "drive_safety_scanned": bool(dev_id),
+        "image_inspected": bool(img_id),
+        "write_plan_generated": bool(audit_passed),  # plan must precede audit
+        "audit_passed": bool(audit_passed),
+        "simulation_passed": bool(simulation_passed),
+        # Future confirmation gates — present but do not affect Phase 4C-2 blocking
+        "fresh_device_rescan_required": False,
+        "typed_confirmation_required": bool(typed_confirmation and str(typed_confirmation).strip()),
+        "destructive_acknowledgement_required": bool(
+            destructive_acknowledgement and str(destructive_acknowledgement).strip()
+        ),
+        "final_confirmation_token_required": False,
+    }
+
+    contract = build_writer_safety_contract(
+        target_drive=target_drive,
+        image=image,
+        device_identity=dev_id,
+        image_identity=img_id,
+        gate_results=gate_results,
+    )
+    return contract
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point (non-destructive — prints contract JSON only)
 # ---------------------------------------------------------------------------
 
@@ -389,37 +474,21 @@ def _cli_validate_writer_contract(args):
     """
     --validate-writer-contract
 
-    Builds and prints a writer safety contract JSON for the given
-    --target-drive and --image arguments.
+    Builds and prints a writer safety contract JSON preview.
+    Accepts optional gate flags: --audit-passed, --simulation-passed,
+    --typed-confirmation, --destructive-acknowledgement.
 
     Does NOT write, read, format, partition, mount, or unmount any drive.
     Does NOT call diskpart, dd, WriteFile, or any raw-device API.
     Output is JSON only.
     """
-    drive = getattr(args, "target_drive", None)
-    image = getattr(args, "image", None)
-
-    dev_id = None
-    img_id = None
-
-    if drive:
-        dev_id = build_device_identity(root_path=drive)
-
-    if image:
-        from pathlib import Path as _Path
-        p = _Path(image)
-        img_id = build_image_identity(
-            image_path=str(p),
-            filename=p.name,
-            extension=p.suffix.lower(),
-            size_bytes=p.stat().st_size if p.exists() else None,
-        )
-
-    contract = build_writer_safety_contract(
-        target_drive=drive,
-        image=image,
-        device_identity=dev_id,
-        image_identity=img_id,
+    contract = build_contract_preview_payload(
+        target_drive=getattr(args, "target_drive", None),
+        image=getattr(args, "image", None),
+        audit_passed=bool(getattr(args, "audit_passed", False)),
+        simulation_passed=bool(getattr(args, "simulation_passed", False)),
+        typed_confirmation=getattr(args, "typed_confirmation", None),
+        destructive_acknowledgement=getattr(args, "destructive_acknowledgement", None),
     )
     print(json.dumps(contract, indent=2))
 
