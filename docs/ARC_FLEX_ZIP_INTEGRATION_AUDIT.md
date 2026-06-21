@@ -1,67 +1,103 @@
 # Arc Flex ZIP Integration Audit
 
-This audit evaluates the extracted contents of `payload.zip` against the actual PhoenixCore build tree structure at [os/phoenix-os/live-build/config/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/).
+This audit evaluates the extracted contents of the **Arcwyre Flex** scaffold from the primary source ZIP files against the actual PhoenixCore build tree.
 
-## Extracted File Inventory
+## 1. Correct Source ZIP
 
-The extracted zip structure contains two main components:
-1. **`os/phoenix-os/live-build/config/includes.chroot/opt/`**: Contains the source/packages for the flagship application **Zenith App Hub** (`native-app-hub`), which is a Tauri/React app.
-2. **`HomeAurelia-Theme-Pack/`**: Contains visual design system blueprints, wallpapers, color schemes, Kvantum configurations, Plymouth themes, icons, cursor files, sounds, and terminal themes across the 4 legacies (Aurelia, Arcwyre, Thundergod, Native).
-
----
-
-## Usable Assets & Target Paths
-
-The following visual and configuration assets are approved for integration into the PhoenixCore build system:
-
-| Source Path (Extracted) | Destination Path in PhoenixCore | Type | Description |
-| :--- | :--- | :--- | :--- |
-| `HomeAurelia-Theme-Pack/02-Wallpapers/FHD/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/backgrounds/arcwyre/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/backgrounds/arcwyre/) | Wallpaper | Desktop Wallpapers (main visual identity) |
-| `HomeAurelia-Theme-Pack/09-Icons/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/icons/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/icons/) | Icons | Home Aurelia icon index and sizes |
-| `HomeAurelia-Theme-Pack/10-Cursors/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/icons/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/icons/) | Cursors | Cursor themes |
-| `HomeAurelia-Theme-Pack/06-Color-Schemes/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/color-schemes/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/color-schemes/) | Theme | Plasma desktop color schemes |
-| `HomeAurelia-Theme-Pack/07-Kvantum/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/Kvantum/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/Kvantum/) | Theme | Kvantum widget style files |
-| `HomeAurelia-Theme-Pack/08-Window-Decorations/Aurorae/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/aurorae/themes/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/aurorae/themes/) | Theme | Aurorae window border decorations |
-| `HomeAurelia-Theme-Pack/11-SDDM-Login/HomeAurelia/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/sddm/themes/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/sddm/themes/) | Login | SDDM Login theme |
-| `HomeAurelia-Theme-Pack/12-GRUB/HomeAurelia/` | [os/phoenix-os/live-build/config/includes.binary/boot/grub/themes/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.binary/boot/grub/themes/) | GRUB | GRUB Bootloader theme |
-| `HomeAurelia-Theme-Pack/04-Plymouth/home-aurelia/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/plymouth/themes/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/plymouth/themes/) | Boot | Plymouth boot screen theme |
-| `HomeAurelia-Theme-Pack/13-Sounds/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/sounds/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/sounds/) | Sounds | Custom OS sound effects |
-| `HomeAurelia-Theme-Pack/17-Terminal/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/konsole/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/konsole/) | Terminal | Konsole terminal profiles |
-| `HomeAurelia-Theme-Pack/18-Browser-Startpage/` | [os/phoenix-os/live-build/config/includes.chroot/usr/share/browser-startpage/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/usr/share/browser-startpage/) | Browser | Offline-ready browser homepage |
+- **Outer ZIP Path**: `/Users/bj90-m1/Downloads/How to Use My GitHub Repos for Linux ISO Projects.zip`
+- **Inner Scaffold ZIP Path**: `/Users/bj90-m1/Downloads/How to Use My GitHub Repos for Linux ISO Projects/arcwyre-flex-scaffold.zip`
+- **Extracted Arc Flex Root Path**: `payload_extracted/HowToUseGithubRepos/arcwyre-flex-scaffold_extracted/arcwyre-flex/`
 
 ---
 
-## Usable App Source
+## 2. Extracted Arc Flex Inventory
 
-- **`os/phoenix-os/live-build/config/includes.chroot/opt/native-app-hub/`**: Should be integrated into the actual PhoenixCore tree under [os/phoenix-os/live-build/config/includes.chroot/opt/native-app-hub/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/opt/native-app-hub/).
+The target scaffold contains the following structural components:
+- [base/](file:///Users/bj90-m1/PhoenixCore-/payload_extracted/HowToUseGithubRepos/arcwyre-flex-scaffold_extracted/arcwyre-flex/base/)
+  - `packages/base-packages.txt`
+  - `services/disabled-services.txt`
+  - `kernel-config/`
+- [desktop/](file:///Users/bj90-m1/PhoenixCore-/payload_extracted/HowToUseGithubRepos/arcwyre-flex-scaffold_extracted/arcwyre-flex/desktop/)
+  - `xfce/config/xfce4-panel.xml`
+  - `xfce/themes/`
+  - `lxqt/config/`
+  - `kiosk/`
+- [apps/](file:///Users/bj90-m1/PhoenixCore-/payload_extracted/HowToUseGithubRepos/arcwyre-flex-scaffold_extracted/arcwyre-flex/apps/)
+  - `web-app-center/web-app-center.py`
+  - `recovery-center/recovery-center.py`
+  - `app-center/`
+  - `device-revival/`
+  - `update-system/`
+- [branding/](file:///Users/bj90-m1/PhoenixCore-/payload_extracted/HowToUseGithubRepos/arcwyre-flex-scaffold_extracted/arcwyre-flex/branding/)
+  - `icons/arcwyre-flex.svg`
+  - `wallpapers/`
+  - `themes/`
+  - `plymouth/`
+- [modes/](file:///Users/bj90-m1/PhoenixCore-/payload_extracted/HowToUseGithubRepos/arcwyre-flex-scaffold_extracted/arcwyre-flex/modes/)
+  - `simple/profile.toml`
+  - `repair/profile.toml`
+  - `power/`
+  - `kiosk/`
+  - `live-usb/`
 
 ---
 
-## Docs-Only Material
+## 3. Component Meaning
 
-These items are for designer or developer reference and should **not** be staged to the ISO build directories:
-- `HomeAurelia-Theme-Pack/00-Reference-Boards/` (design mocks)
-- `HomeAurelia-Theme-Pack/01-Style-Guide/` (brand style specs)
-- `HomeAurelia-Theme-Pack/Docs/` (implementation docs)
-- `HomeAurelia-Theme-Pack/Preview-Sheets/` (visual mock grids)
-- `HomeAurelia-Theme-Pack/20-QA-Testing/` (validation scripts/reports)
-
----
-
-## Cautions & Prohibited Scripts (NOT to Import)
-
-The following scripts are either legacy, system-destructive, or redundant/conflicting for standard builds and **must not be copied or automated**:
-- **`HomeAurelia-Theme-Pack/apply-theme.sh`**: For user local machine testing. Modifies active configuration and database values locally using DBus commands; not suitable for chroot baking.
-- **`HomeAurelia-Theme-Pack/install.sh`**: Installs files to `$HOME/.local/share` or system `/usr/share` on the host machine. The ISO build stages them directly via live-build overlays.
-- **`HomeAurelia-Theme-Pack/build-package.sh` & `19-Package-Build/`**: Legacy Debian/Arch packager logic.
-- **`HomeAurelia-Theme-Pack/generate_variant_themes.py`**: Developer color regeneration helper script.
-- **Cursed/Destructive scripts (e.g., legacy MacBook 4,1 installer logic, `diskutil partitionDisk`, `dd`)** found elsewhere: Treat strictly as offline reference.
+- **`base/`**: Lightweight package/service policy. Dictates minimal package profiles (`base-packages.txt`) and startup performance controls via disabling non-essential services (`disabled-services.txt`).
+- **`desktop/`**: XFCE/LXQt configuration candidates. Holds layout specifications and UI settings for low-resource graphical environments.
+- **`apps/`**: Lightweight utility candidates. Python-driven helpers for system actions (web application shortcuts, basic rescue tools).
+- **`branding/`**: Arc Flex icon/logo assets. Simple visual vectors defining the lightweight edition.
+- **`modes/`**: Simple, Power, Repair, Kiosk, Live USB behavior profiles. Modular configurations applied based on deployment target or system environment.
 
 ---
 
-## Conflicts & Duplications
+## 4. Proposed PhoenixCore Destination Map
 
-1. **`os/phoenix-os/live-build/config/includes.chroot/opt/native-app-hub`**:
-   The `native-app-hub` has source files, Node modules, and Tauri structures. We must verify if `zenith-app-hub` (which maps to [os/phoenix-os/live-build/config/includes.chroot/opt/zenith-apps/](file:///Users/bj90-m1/PhoenixCore-/os/phoenix-os/live-build/config/includes.chroot/opt/zenith-apps/)) or existing configurations have conflicting naming or startup logic.
-2. **`HomeAurelia-Theme-Pack/Plymouth` vs. Existing Plymouth**:
-   The theme pack contains `04-Plymouth/home-aurelia` while our existing tree already has `os/phoenix-os/branding/plymouth/phoenix`. We must ensure they do not overwrite each other but are configured cleanly.
+To avoid merging visual and desktop custom assets into the baseline OS source config, all files must map to profile-specific locations under the `profiles/arc-flex/` path:
+
+| Extracted Scaffold Source | Proposed PhoenixCore Destination Path |
+| :--- | :--- |
+| `arcwyre-flex/base/` | `os/phoenix-os/profiles/arc-flex/base/` |
+| `arcwyre-flex/base/packages/` | `os/phoenix-os/profiles/arc-flex/package-lists/` |
+| `arcwyre-flex/desktop/` | `os/phoenix-os/profiles/arc-flex/includes.chroot/etc/skel/` (desktop configs) |
+| `arcwyre-flex/apps/` | `os/phoenix-os/profiles/arc-flex/includes.chroot/opt/arc-flex/` |
+| `arcwyre-flex/branding/` | `os/phoenix-os/profiles/arc-flex/branding/` |
+| `arcwyre-flex/modes/` | `os/phoenix-os/profiles/arc-flex/modes/` |
+| `arcwyre-flex/scripts/` | `os/phoenix-os/profiles/arc-flex/hooks/` |
+
+---
+
+## 5. Explicitly Mark Previous Payload As Out Of Scope
+
+The following items from other payloads are **completely out of scope** for this Arc Flex implementation plan and will **not** be integrated:
+- `HomeAurelia-Theme-Pack/` (all subfolders: wallpapers, cursors, sounds)
+- `native-app-hub/` (Tauri React app source)
+- Zenith App Hub
+- Home Aurelia visual/branding assets (Aurelia, Arcwyre, Thundergod, Native visual themes)
+- SDDM / GRUB / Plymouth themes derived from the Aurelia package
+
+---
+
+## 6. App Readiness
+
+We audited the individual Python scripts included in the scaffold:
+
+- **`arcwyre-flex/apps/web-app-center/web-app-center.py`**: **PARTIAL**
+  - *Details*: Functionally creates local `.desktop` files using `firefox --new-window`. However, it relies on static dictionary indexes and lacks automated icon retrieval/downloading.
+- **`arcwyre-flex/apps/recovery-center/recovery-center.py`**: **PARTIAL**
+  - *Details*: Provides real system stats (`df -h`, `free -h`) and can execute `smartctl` and `ping` checks, but contains `NOT_RUN` mocks if system tools are missing. It acts as a basic diagnostic tool but is not a full-fledged automation suite.
+
+Both scripts are functional but basic command-line applications and do not present mock UIs or false success indicators.
+
+---
+
+## 7. Integration Status
+
+**`ARC_FLEX_PROFILE_AUDITED`**
+
+---
+
+## 8. Validation
+
+Verified via `git diff --check` prior to final doc check-in.
