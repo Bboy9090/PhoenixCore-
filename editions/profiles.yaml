@@ -42,3 +42,11 @@ profiles:
     firmware:
       - "chromeos-firmware"
     graphics_modeset: "modeset"
+  flex:
+    name: "Arcwyre Flex"
+    arch: "amd64"
+    bootloader: "grub-efi-x64"
+    kernel_args: "quiet splash"
+    parent_edition: "arcwyre"
+    iso_name: "bwos-arcwyre-flex.iso"
+    profile_path: "os/phoenix-os/profiles/arc-flex/"

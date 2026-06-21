@@ -175,7 +175,8 @@ function profile_value() {
     local profile="$1"
     local key="$2"
     local file="$3"
-    sed -n "/^[[:space:]]*${profile}:/,/^[[:space:]]*[a-zA-Z0-9_-]\{1,\}:/ { /^[[:space:]]*${key}:/p; }" "$file" | sed "s/^[[:space:]]*${key}:[[:space:]]*//;s/^\"//;s/\"$//" | head -n 1
+    # Match from profile entry key at 2 spaces indentation to next non-empty entry at 2 spaces indentation
+    sed -n "/^[[:space:]]\{2\}${profile}:/,/^[[:space:]]\{2\}[a-zA-Z0-9_-]\{1,\}:/ { /^[[:space:]]\{4\}${key}:/p; }" "$file" | sed "s/^[[:space:]]*${key}:[[:space:]]*//;s/^\"//;s/\"$//" | head -n 1
 }
 
 
@@ -297,6 +298,7 @@ function default_linux_flavour_for_arch() {
 
 # Parse arguments
 BUILD_PROFILE=""
+DRY_RUN=false
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --stage-only) STAGE_ONLY=true ;;
@@ -306,6 +308,8 @@ while [[ "$#" -gt 0 ]]; do
         --builder-clean=*) BUILDER_CLEAN_MODE="${1#*=}" ;;
         --builder-no-cache) BUILDER_NO_CACHE=true ;;
         --profile=*) BUILD_PROFILE="${1#*=}" ;;
+        --profile) BUILD_PROFILE="$2"; shift ;;
+        --dry-run) DRY_RUN=true ;;
         -*) echo "Unknown option: $1"; exit 1 ;;
         *) EDITION_ID="$1" ;;
     esac
@@ -404,12 +408,22 @@ if [ -n "$BUILD_PROFILE" ]; then
             echo "🚀 Applying target profile overrides: $profile_name ($BUILD_PROFILE)"
             profile_arch=$(profile_value "$BUILD_PROFILE" "arch" "$profiles_yaml")
             profile_bootloader=$(profile_value "$BUILD_PROFILE" "bootloader" "$profiles_yaml")
+            profile_iso_name=$(profile_value "$BUILD_PROFILE" "iso_name" "$profiles_yaml")
+            profile_parent_edition=$(profile_value "$BUILD_PROFILE" "parent_edition" "$profiles_yaml")
+            profile_custom_path=$(profile_value "$BUILD_PROFILE" "profile_path" "$profiles_yaml")
             
             if [ -n "$profile_arch" ]; then
                 manifest_arch="$profile_arch"
             fi
             if [ -n "$profile_bootloader" ]; then
                 manifest_bootloader="$profile_bootloader"
+            fi
+            if [ -n "$profile_iso_name" ]; then
+                iso_name="$profile_iso_name"
+            fi
+            if [ -n "$profile_parent_edition" ] && [ "$profile_parent_edition" != "$EDITION_ID" ]; then
+                echo "❌ Error: Profile '$BUILD_PROFILE' is designed for parent edition '$profile_parent_edition', but you requested '$EDITION_ID'"
+                exit 1
             fi
         else
             echo "❌ Error: Target profile '$BUILD_PROFILE' not found in $profiles_yaml"
@@ -528,14 +542,38 @@ clean_staging
 mkdir -p "$STAGING_CHROOT"
 mkdir -p "$PACKAGE_LIST_DIR"
 
-cp "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_SOURCE"
-sanitize_package_profile "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_LIST" "$STAGED_PKG_BLOCKED"
-cp "$STAGED_PKG_LIST" "$STAGED_PKG_INSTALLED"
+if [ -n "${profile_custom_path:-}" ] && [ -d "$REPO_ROOT/$profile_custom_path" ]; then
+    echo "⚙️  Detected profile overlay path: $profile_custom_path"
 
-installed_pkg_count="$(wc -l < "$STAGED_PKG_INSTALLED" | tr -d '[:space:]')"
-blocked_pkg_count="$(wc -l < "$STAGED_PKG_BLOCKED" | tr -d '[:space:]')"
+    # 1. Package lists
+    if [ -f "$REPO_ROOT/$profile_custom_path/package-lists/base-packages.txt" ]; then
+        cp "$REPO_ROOT/$profile_custom_path/package-lists/base-packages.txt" "$STAGED_PKG_SOURCE"
+        sanitize_package_profile "$REPO_ROOT/$profile_custom_path/package-lists/base-packages.txt" "$STAGED_PKG_LIST" "$STAGED_PKG_BLOCKED"
+        cp "$STAGED_PKG_LIST" "$STAGED_PKG_INSTALLED"
+    else
+        cp "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_SOURCE"
+        sanitize_package_profile "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_LIST" "$STAGED_PKG_BLOCKED"
+        cp "$STAGED_PKG_LIST" "$STAGED_PKG_INSTALLED"
+    fi
 
-cp "$EDITION_DIR/colors.css" "$STAGING_CHROOT/colors.css"
+    installed_pkg_count="$(wc -l < "$STAGED_PKG_INSTALLED" | tr -d '[:space:]')"
+    blocked_pkg_count="$(wc -l < "$STAGED_PKG_BLOCKED" | tr -d '[:space:]')"
+
+    if [ -f "$EDITION_DIR/colors.css" ]; then
+        cp "$EDITION_DIR/colors.css" "$STAGING_CHROOT/colors.css"
+    else
+        echo "body { background: $background_color; color: $text_color; }" > "$STAGING_CHROOT/colors.css"
+    fi
+else
+    cp "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_SOURCE"
+    sanitize_package_profile "$EDITION_DIR/package-profile.txt" "$STAGED_PKG_LIST" "$STAGED_PKG_BLOCKED"
+    cp "$STAGED_PKG_LIST" "$STAGED_PKG_INSTALLED"
+
+    installed_pkg_count="$(wc -l < "$STAGED_PKG_INSTALLED" | tr -d '[:space:]')"
+    blocked_pkg_count="$(wc -l < "$STAGED_PKG_BLOCKED" | tr -d '[:space:]')"
+
+    cp "$EDITION_DIR/colors.css" "$STAGING_CHROOT/colors.css"
+fi
 
 # Stage custom wallpaper if defined
 if [ -n "$wallpaper_name" ]; then
@@ -730,30 +768,57 @@ EOF
 echo "✅ Assets staged in: $STAGING_CHROOT"
 echo "✅ Package list staged: $STAGED_PKG_LIST"
 # STAGE HOMEAURELIA ASSETS DIRECTLY
-echo "🎨  Injecting HomeAurelia theme packages directly into chroot..."
-mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/"
-mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/color-schemes/"
-mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/Kvantum/"
-mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/"
-mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/aurorae/themes/"
+if [ -n "${profile_custom_path:-}" ] && [ -d "$REPO_ROOT/$profile_custom_path" ]; then
+    echo "🎨 Staging Arc Flex profile overlays directly..."
 
-cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/05-KDE-Plasma-Theme/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/" 2>/dev/null || true
-cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/06-Color-Schemes/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/color-schemes/" 2>/dev/null || true
-cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/07-Kvantum/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/Kvantum/" 2>/dev/null || true
-mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme/"
-cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/09-Icons/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme/" 2>/dev/null || true
-cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/10-Cursors/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/" 2>/dev/null || true
-cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/08-Window-Decorations/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/aurorae/themes/" 2>/dev/null || true
+    # Copy includes.chroot contents if any
+    if [ -d "$REPO_ROOT/$profile_custom_path/includes.chroot" ]; then
+        cp -R "$REPO_ROOT/$profile_custom_path/includes.chroot/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/" 2>/dev/null || true
+    fi
 
-# OVERWRITE KDE DEFAULT WALLPAPER (Breeze / Next) TO GUARANTEE ZENITH WALLPAPER
-if [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
-    echo "🖼️  Hard-overriding KDE default Next wallpaper..."
-    NEXT_WP_DIR="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/wallpapers/Next/contents/images"
-    mkdir -p "$NEXT_WP_DIR"
-    cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/1024x768.png"
-    cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/1920x1080.png"
-    cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/2560x1440.png"
-    cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/3840x2160.png"
+    # Copy branding assets
+    if [ -d "$REPO_ROOT/$profile_custom_path/branding" ]; then
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/pixmaps/"
+        cp -R "$REPO_ROOT/$profile_custom_path/branding/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/pixmaps/" 2>/dev/null || true
+    fi
+
+    # Copy disabled services policy
+    if [ -f "$REPO_ROOT/$profile_custom_path/base/disabled-services.txt" ]; then
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/systemd/system/"
+        cp "$REPO_ROOT/$profile_custom_path/base/disabled-services.txt" "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/systemd/system/disabled-services.txt"
+    fi
+
+    # Copy modes
+    if [ -d "$REPO_ROOT/$profile_custom_path/modes" ]; then
+        mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/arcwyre/modes/"
+        cp -R "$REPO_ROOT/$profile_custom_path/modes/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/etc/arcwyre/modes/" 2>/dev/null || true
+    fi
+else
+    echo "🎨  Injecting HomeAurelia theme packages directly into chroot..."
+    mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/"
+    mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/color-schemes/"
+    mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/Kvantum/"
+    mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/"
+    mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/aurorae/themes/"
+
+    cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/05-KDE-Plasma-Theme/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/plasma/look-and-feel/" 2>/dev/null || true
+    cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/06-Color-Schemes/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/color-schemes/" 2>/dev/null || true
+    cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/07-Kvantum/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/Kvantum/" 2>/dev/null || true
+    mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme/"
+    cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/09-Icons/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme/" 2>/dev/null || true
+    cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/10-Cursors/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/" 2>/dev/null || true
+    cp -R "$REPO_ROOT/HomeAurelia-Theme-Pack/08-Window-Decorations/"* "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/aurorae/themes/" 2>/dev/null || true
+
+    # OVERWRITE KDE DEFAULT WALLPAPER (Breeze / Next) TO GUARANTEE ZENITH WALLPAPER
+    if [ -n "$wallpaper_name" ] && [ -f "$EDITION_DIR/$wallpaper_name" ]; then
+        echo "🖼️  Hard-overriding KDE default Next wallpaper..."
+        NEXT_WP_DIR="$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/wallpapers/Next/contents/images"
+        mkdir -p "$NEXT_WP_DIR"
+        cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/1024x768.png"
+        cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/1920x1080.png"
+        cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/2560x1440.png"
+        cp "$EDITION_DIR/$wallpaper_name" "$NEXT_WP_DIR/3840x2160.png"
+    fi
 fi
 
 # -----------------------------------------------------------------------------
@@ -838,13 +903,15 @@ if [ -d "$EDITION_DIR/custom_icons" ]; then
         icon_name_no_ext="${icon_basename%.*}"
         
         # Find all locations of this icon in the active theme
-        find "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme" -type f -name "${icon_name_no_ext}.*" | while read -r target_file; do
-            target_dir="$(dirname "$target_file")"
-            # Remove the generic icon (svg or png)
-            rm -f "$target_file"
-            # Inject the custom PNG
-            cp "$custom_icon" "$target_dir/$icon_basename"
-        done
+        if [ -d "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme" ]; then
+            find "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/$icon_theme" -type f -name "${icon_name_no_ext}.*" | while read -r target_file; do
+                target_dir="$(dirname "$target_file")"
+                # Remove the generic icon (svg or png)
+                rm -f "$target_file"
+                # Inject the custom PNG
+                cp "$custom_icon" "$target_dir/$icon_basename"
+            done
+        fi
         
         # Fallback injection to hicolor to guarantee visibility
         mkdir -p "$STAGING_LB_CONFIG_DIR/includes.chroot/usr/share/icons/hicolor/scalable/apps"
@@ -911,6 +978,29 @@ EOF
 
 if [ "$BUILD_TELEMETRY_INITIALIZED" = true ]; then
     phoenix_build_logger_phase_start "package_resolution" "Edition package graph resolved and staged."
+fi
+
+if [ "$DRY_RUN" = true ]; then
+    echo "=== ARCWYRE FLEX DRY RUN REPORT ==="
+    echo "Edition: $EDITION_ID"
+    echo "Profile: ${BUILD_PROFILE:-none}"
+    echo "Output ISO: $iso_name"
+    echo "Target Arch: $resolved_arch"
+    echo "Linux Flavour: $resolved_linux_flavour"
+    echo "Bootloader: $resolved_bootloader"
+    echo "Package List Source: $STAGED_PKG_SOURCE"
+    echo "Active Packages Count: $installed_pkg_count"
+    echo "Staging Config Directory: $STAGING_LB_CONFIG_DIR"
+    if [ -n "${profile_custom_path:-}" ]; then
+        echo "Overlays Source Path: $profile_custom_path"
+        echo "Disabled Services Policy: $profile_custom_path/base/disabled-services.txt"
+        echo "Branding Icon: $profile_custom_path/branding/arcwyre-flex.svg"
+        echo "XFCE Configuration: $profile_custom_path/includes.chroot/etc/skel/.config/xfce4/panel/xfce4-panel.xml"
+        echo "Target Modes Staged: $(ls -m "$REPO_ROOT/$profile_custom_path/modes" 2>/dev/null || echo 'none')"
+        echo "Hooks Detected (NOT WIRED): $(ls -m "$REPO_ROOT/$profile_custom_path/hooks" 2>/dev/null || echo 'none')"
+    fi
+    echo "=== DRY RUN COMPLETE ==="
+    exit 0
 fi
 
 if [ "$STAGE_ONLY" = true ]; then
@@ -985,6 +1075,12 @@ if [ "$DOCKER_AVAILABLE" = true ]; then
 
             if [ -f "$FINAL_ISO" ]; then
                 echo "✨ Produced Edition artifact: $FINAL_ISO"
+                echo "📥 Applying surgical boot patch for Trixie..."
+                if [ -f "$REPO_ROOT/os/phoenix-os/scripts/patch_grub_trixie.sh" ]; then
+                    bash "$REPO_ROOT/os/phoenix-os/scripts/patch_grub_trixie.sh" "$FINAL_ISO" || echo "⚠️  Warning: GRUB patch failed."
+                else
+                    echo "⚠️  Warning: patch_grub_trixie.sh not found."
+                fi
             else
                 echo "⚠️  Warning: Could not resolve final artifact for $EDITION_ID."
             fi
