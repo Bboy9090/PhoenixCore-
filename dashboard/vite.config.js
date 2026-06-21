@@ -365,6 +365,74 @@ function usbCreatorBridgePlugin() {
           return
         }
 
+        if (requestUrl.pathname === '/api/write/contract/export') {
+          if (req.method !== 'POST') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          let body = ''
+          req.on('data', (chunk) => {
+            body += chunk
+          })
+          req.on('end', () => {
+            try {
+              const payload = JSON.parse(body || '{}')
+              const drivePath = payload.drive
+              const imagePath = payload.image
+              const auditPassed = payload.auditPassed
+              const simulationPassed = payload.simulationPassed
+              const exportPath = payload.exportPath
+              const exportType = payload.exportType // json | markdown
+
+              if (!exportPath || !exportType) {
+                sendJson(res, 400, {
+                  schema: 'bootforge.writer_safety_contract_export.v1',
+                  status: 'failed',
+                  error: 'Missing required parameters: exportPath and exportType are required in POST body.',
+                })
+                return
+              }
+
+              const args = ['--validate-writer-contract']
+              if (drivePath) args.push('--target-drive', drivePath)
+              if (imagePath) args.push('--image', imagePath)
+              if (auditPassed) args.push('--audit-passed')
+              if (simulationPassed) args.push('--simulation-passed')
+
+              if (exportType === 'json') {
+                args.push('--export-writer-contract-json', exportPath)
+              } else if (exportType === 'markdown') {
+                args.push('--export-writer-contract-markdown', exportPath)
+              } else {
+                sendJson(res, 400, {
+                  schema: 'bootforge.writer_safety_contract_export.v1',
+                  status: 'failed',
+                  error: `Unsupported exportType '${exportType}'.`,
+                })
+                return
+              }
+
+              runUsbCreator(
+                args,
+                {
+                  schema: 'bootforge.writer_safety_contract_export.v1',
+                  status: 'failed',
+                  error: 'contract export dev bridge failure — safe fallback',
+                },
+                res
+              )
+            } catch (err) {
+              sendJson(res, 400, {
+                schema: 'bootforge.writer_safety_contract_export.v1',
+                status: 'failed',
+                error: `Failed to parse POST body: ${err.message}`,
+              })
+            }
+          })
+          return
+        }
+
         next()
       })
     },

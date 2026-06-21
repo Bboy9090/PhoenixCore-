@@ -1419,6 +1419,8 @@ if __name__ == "__main__":
     parser.add_argument("--audit-plan", action="store_true", help="Generate a dry-run write plan audit trail payload")
     parser.add_argument("--simulate-write", action="store_true", help="Run null-device mock writer simulation. Does not write to target drives.")
     parser.add_argument("--validate-writer-contract", action="store_true", help="Preview the writer safety contract (read-only, no drive access, JSON output only)")
+    parser.add_argument("--export-writer-contract-json", type=str, help="Export writer safety contract preview as JSON to local path")
+    parser.add_argument("--export-writer-contract-markdown", type=str, help="Export writer safety contract preview as Markdown to local path")
     parser.add_argument("--audit-passed", action="store_true", help="(Contract preview) Report audit gate as passed")
     parser.add_argument("--simulation-passed", action="store_true", help="(Contract preview) Report simulation gate as passed")
     parser.add_argument("--typed-confirmation", type=str, help="(Contract preview) Typed confirmation phrase for future gate display")

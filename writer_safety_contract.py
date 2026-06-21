@@ -490,7 +490,244 @@ def _cli_validate_writer_contract(args):
         typed_confirmation=getattr(args, "typed_confirmation", None),
         destructive_acknowledgement=getattr(args, "destructive_acknowledgement", None),
     )
-    print(json.dumps(contract, indent=2))
+    
+    # Check if CLI requested contract export
+    export_json_path = getattr(args, "export_writer_contract_json", None)
+    export_md_path = getattr(args, "export_writer_contract_markdown", None)
+    
+    if export_json_path:
+        res = export_writer_contract_json(contract, export_json_path)
+        print(json.dumps(res, indent=2))
+    elif export_md_path:
+        res = export_writer_contract_markdown(contract, export_md_path)
+        print(json.dumps(res, indent=2))
+    else:
+        print(json.dumps(contract, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# Contract Evidence Export Helpers
+# ---------------------------------------------------------------------------
+
+def generate_writer_contract_markdown(contract_payload: dict) -> str:
+    """
+    Generate a human-readable Markdown summary of the writer safety contract.
+    """
+    status_emoji = "⛔ BLOCKED" if contract_payload.get("blocked") else "✓ UNBLOCKED"
+    
+    # Format gate results
+    gate_results = contract_payload.get("gate_results", {})
+    gates_list = []
+    for g in contract_payload.get("required_gates", []):
+        val = gate_results.get(g, False)
+        mark = "✓ PASS" if val else "— PENDING"
+        gates_list.append(f"- **{g}**: {mark}")
+    gates_str = "\n".join(gates_list)
+    
+    # Format block reasons
+    reasons_list = contract_payload.get("block_reasons", [])
+    reasons_str = "\n".join(f"- {r}" for r in reasons_list) if reasons_list else "None"
+    
+    # Format warnings
+    warnings_list = contract_payload.get("warnings", [])
+    warnings_str = "\n".join(f"- {w}" for w in warnings_list) if warnings_list else "None"
+    
+    # Format device/image details
+    dev = contract_payload.get("device_identity") or {}
+    img = contract_payload.get("image_identity") or {}
+    
+    device_str = (
+        f"- **Root Path**: {dev.get('root_path') or 'N/A'}\n"
+        f"- **Label**: {dev.get('label') or 'N/A'}\n"
+        f"- **Filesystem**: {dev.get('filesystem') or 'N/A'}\n"
+        f"- **Capacity**: {dev.get('capacity_bytes') or 0} bytes\n"
+        f"- **System Drive**: {dev.get('system_drive') or False}\n"
+        f"- **Stable OS ID**: {dev.get('stable_os_id') or 'N/A'}\n"
+        f"- **Identity Hash**: `{dev.get('identity_hash') or 'N/A'}`"
+    ) if dev else "N/A"
+    
+    image_str = (
+        f"- **Image Path**: {img.get('image_path') or 'N/A'}\n"
+        f"- **Filename**: {img.get('filename') or 'N/A'}\n"
+        f"- **Extension**: {img.get('extension') or 'N/A'}\n"
+        f"- **Size**: {img.get('size_bytes') or 0} bytes\n"
+        f"- **SHA256**: {img.get('sha256') or 'N/A'}\n"
+        f"- **Identity Hash**: `{img.get('identity_hash') or 'N/A'}`"
+    ) if img else "N/A"
+
+    md = f"""# PhoenixCore / BootForge Writer Safety Contract Report
+
+## General Info
+- **Contract ID**: {contract_payload.get("contract_id")}
+- **Schema**: {contract_payload.get("schema")}
+- **Phase**: {contract_payload.get("phase")}
+- **Created At**: {contract_payload.get("created_at")}
+- **Blocked State**: {status_emoji}
+- **Target Drive**: {contract_payload.get("target_drive") or "N/A"}
+- **Image File**: {contract_payload.get("image") or "N/A"}
+
+---
+
+## Immutable Safety Parameters
+- **real_writer_implemented**: {contract_payload.get("real_writer_implemented")}
+- **destructive_operations_enabled**: {contract_payload.get("destructive_operations_enabled")}
+
+---
+
+## Gate Results Checklist
+{gates_str}
+
+---
+
+## Device Identity
+{device_str}
+
+---
+
+## Image Identity
+{image_str}
+
+---
+
+## Block Reasons
+{reasons_str}
+
+---
+
+## Warnings
+{warnings_str}
+
+---
+
+## Read-Only Safety Statement
+> [!IMPORTANT]
+> **This report is evidence of a read-only safety contract preview only. It does not indicate that a write, format, partition, or mount operation was performed.**
+> All actual destructive writing engines remain completely locked and dry-run safe.
+
+---
+*Prepared by PhoenixCore BootForge Supply-Chain Safety Engine.*
+"""
+    return md
+
+
+def validate_writer_contract_export_path(output_path: str, export_type: str, target_drive: str = None):
+    """
+    Validate the export path according to strict safety rules.
+    1. Export path must not be empty.
+    2. Parent folder must already exist.
+    3. Export path must not be a directory.
+    4. Export file must not already exist (overwrite is blocked).
+    5. JSON exports must end with .json.
+    6. Markdown exports must end with .md.
+    7. Export path must not be on the target drive root.
+    8. Export path must not be a raw device path or suspicious system path.
+    """
+    from pathlib import Path
+    
+    if not output_path or not str(output_path).strip():
+        raise ValueError("Export path is empty.")
+        
+    p_str = str(output_path).strip().lower()
+    
+    # Raw device or suspicious paths checks (e.g. \\.\PhysicalDrive, NUL, CON, etc.)
+    # We check raw patterns FIRST to prevent resolve() raising permission errors on devices
+    if "\\\\.\\" in p_str or "//./" in p_str or p_str.startswith("\\\\") or p_str.startswith("//"):
+        raise ValueError("Raw device style or UNC network paths are blocked for export.")
+        
+    for suspicious in ["sys32", "system32", "windows", "/etc", "/bin", "/sbin", "/var", "/usr"]:
+        if suspicious in p_str.replace("\\", "/"):
+            raise ValueError(f"Suspicious path detected: exporting to {suspicious} folders is blocked.")
+
+    p = Path(output_path).resolve()
+    
+    # Directory check
+    if p.exists() and p.is_dir():
+        raise ValueError("Export path is a directory.")
+        
+    # Overwrite protection
+    if p.exists():
+        raise ValueError(f"Export file '{output_path}' already exists. Overwriting is blocked.")
+        
+    # Parent directory check
+    parent = p.parent
+    if not parent.exists() or not parent.is_dir():
+        raise ValueError("Parent directory of export path does not exist.")
+        
+    # Extension checks
+    ext = p.suffix.lower()
+    if export_type == "json" and ext != ".json":
+        raise ValueError(f"Export path extension '{ext}' does not match format 'json' (expected '.json').")
+    elif export_type == "markdown" and ext != ".md":
+        raise ValueError(f"Export path extension '{ext}' does not match format 'markdown' (expected '.md').")
+    elif export_type not in ("json", "markdown"):
+        raise ValueError(f"Unsupported export type '{export_type}'.")
+        
+    # Target drive root check
+    if target_drive:
+        from usb_creator import get_drive_root
+        td_root = get_drive_root(target_drive)
+        exp_root = get_drive_root(p)
+        if td_root and exp_root and td_root.lower().rstrip("\\") == exp_root.lower().rstrip("\\"):
+            raise ValueError(f"Export path is on the target drive '{target_drive}'. Overwriting target drive is blocked.")
+
+
+def export_writer_contract_json(contract_payload: dict, output_path: str) -> dict:
+    """
+    Safely writes the contract JSON to the specified path after safety validations.
+    """
+    try:
+        validate_writer_contract_export_path(output_path, "json", contract_payload.get("target_drive"))
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(contract_payload, f, indent=2)
+            
+        return {
+            "schema": "bootforge.writer_safety_contract_export.v1",
+            "status": "success",
+            "format": "json",
+            "export_path": output_path,
+            "contract_id": contract_payload.get("contract_id"),
+            "error": None
+        }
+    except Exception as e:
+        return {
+            "schema": "bootforge.writer_safety_contract_export.v1",
+            "status": "failed",
+            "format": "json",
+            "export_path": output_path,
+            "contract_id": contract_payload.get("contract_id"),
+            "error": str(e)
+        }
+
+
+def export_writer_contract_markdown(contract_payload: dict, output_path: str) -> dict:
+    """
+    Safely writes the contract Markdown summary to the specified path after safety validations.
+    """
+    try:
+        validate_writer_contract_export_path(output_path, "markdown", contract_payload.get("target_drive"))
+        
+        md_content = generate_writer_contract_markdown(contract_payload)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(md_content)
+            
+        return {
+            "schema": "bootforge.writer_safety_contract_export.v1",
+            "status": "success",
+            "format": "markdown",
+            "export_path": output_path,
+            "contract_id": contract_payload.get("contract_id"),
+            "error": None
+        }
+    except Exception as e:
+        return {
+            "schema": "bootforge.writer_safety_contract_export.v1",
+            "status": "failed",
+            "format": "markdown",
+            "export_path": output_path,
+            "contract_id": contract_payload.get("contract_id"),
+            "error": str(e)
+        }
 
 
 # ---------------------------------------------------------------------------

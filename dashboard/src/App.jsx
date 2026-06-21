@@ -135,6 +135,11 @@ export default function App() {
   const [contractData, setContractData] = useState(null);
   const [isPreviewingContract, setIsPreviewingContract] = useState(false);
   const [contractError, setContractError] = useState(null);
+  // Contract Export States (Phase 4C-3)
+  const [contractExportPath, setContractExportPath] = useState('');
+  const [contractExportType, setContractExportType] = useState('json');
+  const [isExportingContract, setIsExportingContract] = useState(false);
+  const [contractExportResult, setContractExportResult] = useState(null);
 
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
@@ -690,6 +695,51 @@ ${warningsStr}
       setContractError(err.message || 'Contract preview request failed');
     } finally {
       setIsPreviewingContract(false);
+    }
+  };
+
+  // Expose Contract Export POST Endpoint
+  const exportContractEvidence = async () => {
+    const trimmedPath = contractExportPath.trim();
+    if (!trimmedPath) {
+      setContractExportResult({ status: 'failed', error: 'Please specify a local host export path.' });
+      return;
+    }
+
+    setIsExportingContract(true);
+    setContractExportResult(null);
+    addLog('info', `Exporting writer safety contract evidence (${contractExportType.toUpperCase()}) to ${trimmedPath}...`);
+
+    try {
+      const response = await fetch('/api/write/contract/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          drive: selectedDrive || null,
+          image: imagePath || null,
+          auditPassed: auditData?.validation_status === 'passed',
+          simulationPassed: mockWriterData?.status === 'completed',
+          exportPath: trimmedPath,
+          exportType: contractExportType
+        })
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || `Contract export failed with HTTP ${response.status}`);
+      }
+
+      setContractExportResult(payload);
+      if (payload.status === 'success') {
+        addLog('success', `Contract export succeeded: evidence file created at ${trimmedPath}`);
+      } else {
+        addLog('error', `Contract export blocked: ${payload.error}`);
+      }
+    } catch (err) {
+      setContractExportResult({ status: 'failed', error: err.message });
+      addLog('error', `Contract export error: ${err.message}`);
+    } finally {
+      setIsExportingContract(false);
     }
   };
 
@@ -1839,6 +1889,95 @@ ${warningsStr}
                 {/* Contract ID + timestamp */}
                 <div style={{ fontSize: '0.72rem', color: 'rgba(148,163,184,0.5)', fontFamily: 'var(--font-tech)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '8px' }}>
                   {contractData.contract_id} · {contractData.created_at}
+                </div>
+
+                {/* Contract Export Section (Phase 4C-3) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', marginTop: '4px' }}>
+                  <h3 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-tech)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Settings size={13} style={{ color: '#8b5cf6' }} />
+                    <span>Export Contract Evidence</span>
+                  </h3>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <input
+                        type="text"
+                        value={contractExportPath}
+                        onChange={(e) => {
+                          setContractExportPath(e.target.value);
+                          setContractExportResult(null);
+                        }}
+                        placeholder="Save path e.g. C:\Users\Bobby\contract.md (or .json)"
+                        disabled={isExportingContract}
+                        style={{
+                          padding: '8px 10px',
+                          background: 'rgba(0,0,0,0.3)',
+                          border: '1px solid var(--border-glass)',
+                          borderRadius: '6px',
+                          color: '#fff',
+                          outline: 'none',
+                          flex: 1,
+                          fontSize: '0.8rem'
+                        }}
+                      />
+                      <select
+                        value={contractExportType}
+                        onChange={(e) => {
+                          setContractExportType(e.target.value);
+                          setContractExportResult(null);
+                        }}
+                        disabled={isExportingContract}
+                        style={{
+                          padding: '8px 10px',
+                          background: 'rgba(0,0,0,0.3)',
+                          border: '1px solid var(--border-glass)',
+                          borderRadius: '6px',
+                          color: '#fff',
+                          outline: 'none',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        <option value="json">JSON</option>
+                        <option value="markdown">Markdown</option>
+                      </select>
+                    </div>
+
+                    <button
+                      className="btn-primary"
+                      onClick={exportContractEvidence}
+                      disabled={isExportingContract || !contractExportPath.trim()}
+                      style={{
+                        background: 'linear-gradient(135deg, #6d28d9 0%, #8b5cf6 100%)',
+                        padding: '8px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        cursor: contractExportPath.trim() ? 'pointer' : 'not-allowed',
+                        opacity: (isExportingContract || !contractExportPath.trim()) ? 0.6 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <RefreshCw size={12} className={isExportingContract ? 'spin-anim' : ''} />
+                      <span>Export Contract Evidence</span>
+                    </button>
+                  </div>
+
+                  {contractExportResult && (
+                    <div style={{
+                      fontSize: '0.8rem',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      background: contractExportResult.status === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                      color: contractExportResult.status === 'success' ? '#10b981' : '#f87171',
+                      border: `1px solid ${contractExportResult.status === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+                    }}>
+                      {contractExportResult.status === 'success' 
+                        ? `Evidence exported successfully.` 
+                        : `Export Blocked: ${contractExportResult.error}`}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
