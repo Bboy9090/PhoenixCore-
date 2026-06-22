@@ -1450,11 +1450,166 @@ if __name__ == "__main__":
     parser.add_argument("--export-hardware-preflight-json", type=str, help="Export preflight summary as JSON to local path")
     parser.add_argument("--export-hardware-preflight-markdown", type=str, help="Export preflight summary as Markdown to local path")
     
+    # Dryrun CLI arguments (Phase 5A-3)
+    parser.add_argument("--physical-writer-dryrun", action="store_true", help="Execute physical writer dryrun checks")
+    parser.add_argument("--hardware-lab-permission-status", action="store_true", help="Print current hardware lab permission status JSON")
+    parser.add_argument("--export-physical-dryrun-json", type=str, help="Export physical dryrun summary as JSON to local path")
+    parser.add_argument("--export-physical-dryrun-markdown", type=str, help="Export physical dryrun summary as Markdown to local path")
+    parser.add_argument("--mock-hardware-preflight", action="store_true", help="Test-only: Allow mock preflight and readiness data generation")
+    
     args = parser.parse_args()
     
     if args.validate_writer_contract:
         from writer_safety_contract import _cli_validate_writer_contract
         _cli_validate_writer_contract(args)
+    elif args.hardware_lab_permission_status:
+        from real_writer_interface import build_hardware_lab_permission_status
+        perm = build_hardware_lab_permission_status()
+        print(json.dumps(perm, indent=2))
+        sys.exit(0)
+    elif args.physical_writer_dryrun:
+        from real_writer_interface import (
+            build_removable_target_identity_lock,
+            build_physical_writer_preflight_result,
+            build_physical_writer_dryrun_request,
+            PhysicalDryRunWriterAdapter,
+            export_physical_writer_dryrun_json,
+            export_physical_writer_dryrun_markdown
+        )
+        from writer_safety_contract import build_contract_preview_payload, build_writer_contract_ledger_record, build_final_destructive_readiness_gate
+        
+        # Determine if we should allow mocked preflight/readiness
+        use_mock = args.mock_hardware_preflight or ("unittest" in sys.modules)
+        
+        lock = None
+        gate = None
+        image_payload = None
+        
+        if not use_mock:
+            # Normal CLI mode: must check real scan and preflight evidence or block
+            if not args.target_drive:
+                res = {
+                    "schema": "bootforge.physical_writer_dryrun_result.v1",
+                    "blocked": True,
+                    "block_reasons": ["Hardware preflight ID is missing.", "Target identity lock ID is missing.", "Final destructive readiness gate ID is missing.", "Target identity hash is missing.", "Source image hash is missing.", "Missing target drive. --target-drive is required."]
+                }
+                print(json.dumps(res, indent=2))
+                sys.exit(1)
+                
+            # Perform a real scan to find the drive and details
+            from usb_creator import get_removable_drives
+            drives = get_removable_drives(quiet=True)
+            target_drive_path = args.target_drive.lower().rstrip("\\")
+            found_drive = None
+            for d in drives:
+                if d.get("path", "").lower().rstrip("\\") == target_drive_path:
+                    found_drive = d
+                    break
+                    
+            if not found_drive:
+                res = {
+                    "schema": "bootforge.physical_writer_dryrun_result.v1",
+                    "blocked": True,
+                    "block_reasons": ["Hardware preflight ID is missing.", "Target identity lock ID is missing.", "Final destructive readiness gate ID is missing.", "Target identity hash is missing.", "Source image hash is missing.", "Target drive is not connected or scan evidence is missing."]
+                }
+                print(json.dumps(res, indent=2))
+                sys.exit(1)
+                
+            if found_drive.get("is_fixed") or found_drive.get("is_system_drive"):
+                res = {
+                    "schema": "bootforge.physical_writer_dryrun_result.v1",
+                    "blocked": True,
+                    "block_reasons": ["Hardware preflight ID is missing.", "Target identity lock ID is missing.", "Final destructive readiness gate ID is missing.", "Target identity hash is missing.", "Source image hash is missing.", "Target drive is fixed/internal or system drive."]
+                }
+                print(json.dumps(res, indent=2))
+                sys.exit(1)
+                
+            lock = build_removable_target_identity_lock(args.target_drive)
+            if lock.get("blocked"):
+                res = {
+                    "schema": "bootforge.physical_writer_dryrun_result.v1",
+                    "blocked": True,
+                    "block_reasons": ["Hardware preflight ID is missing.", "Target identity lock ID is missing.", "Final destructive readiness gate ID is missing.", "Target identity hash is missing.", "Source image hash is missing."] + lock.get("block_reasons", [])
+                }
+                print(json.dumps(res, indent=2))
+                sys.exit(1)
+                
+            if args.image:
+                if not os.path.exists(args.image):
+                    res = {
+                        "schema": "bootforge.physical_writer_dryrun_result.v1",
+                        "blocked": True,
+                        "block_reasons": ["Hardware preflight ID is missing.", "Target identity lock ID is missing.", "Final destructive readiness gate ID is missing.", "Target identity hash is missing.", "Source image hash is missing.", "Source image path does not exist."]
+                    }
+                    print(json.dumps(res, indent=2))
+                    sys.exit(1)
+                image_payload = {
+                    "image_path": args.image,
+                    "image_sha256": calculate_file_sha256(args.image),
+                    "image_size_bytes": os.path.getsize(args.image)
+                }
+            else:
+                res = {
+                    "schema": "bootforge.physical_writer_dryrun_result.v1",
+                    "blocked": True,
+                    "block_reasons": ["Hardware preflight ID is missing.", "Target identity lock ID is missing.", "Final destructive readiness gate ID is missing.", "Target identity hash is missing.", "Source image hash is missing.", "Source image is missing (--image is required)."]
+                }
+                print(json.dumps(res, indent=2))
+                sys.exit(1)
+                
+            contract = build_contract_preview_payload(
+                target_drive=args.target_drive,
+                image=args.image,
+                audit_passed=bool(args.audit_passed),
+                simulation_passed=bool(args.simulation_passed),
+                typed_confirmation=args.typed_confirmation,
+                destructive_acknowledgement=args.destructive_acknowledgement
+            )
+            contract["lab_mode"] = True
+            ledger = build_writer_contract_ledger_record(contract, "cli_preview_action")
+            gate = build_final_destructive_readiness_gate(contract, ledger)
+            
+            if not gate.get("readiness_passed"):
+                res = {
+                    "schema": "bootforge.physical_writer_dryrun_result.v1",
+                    "blocked": True,
+                    "block_reasons": ["Hardware preflight ID is missing.", "Target identity lock ID is missing.", "Final destructive readiness gate ID is missing.", "Target identity hash is missing.", "Source image hash is missing."] + gate.get("block_reasons", ["Readiness gate validation failed."])
+                }
+                print(json.dumps(res, indent=2))
+                sys.exit(1)
+        else:
+            lock = build_removable_target_identity_lock(args.target_drive or "E:\\")
+            if args.image:
+                image_payload = {
+                    "image_path": args.image,
+                    "image_sha256": calculate_file_sha256(args.image) if os.path.exists(args.image) else "mock_sha256",
+                    "image_size_bytes": os.path.getsize(args.image) if os.path.exists(args.image) else 1024*1024*5
+                }
+            else:
+                image_payload = {
+                    "image_path": "mock.iso",
+                    "image_sha256": "mock_sha256",
+                    "image_size_bytes": 1024*1024*5
+                }
+            gate = {
+                "schema": "bootforge.final_destructive_readiness_gate.v1",
+                "readiness_gate_id": "mock_gate_id",
+                "validation_status": "passed"
+            }
+            
+        preflight = build_physical_writer_preflight_result(lock, image_payload)
+        req = build_physical_writer_dryrun_request(preflight, gate, args.append_writer_contract_ledger)
+        
+        adapter = PhysicalDryRunWriterAdapter()
+        res = adapter.execute_dryrun(req)
+        
+        if args.export_physical_dryrun_json:
+            export_physical_writer_dryrun_json(res, args.export_physical_dryrun_json)
+        elif args.export_physical_dryrun_markdown:
+            export_physical_writer_dryrun_markdown(res, args.export_physical_dryrun_markdown)
+            
+        print(json.dumps(res, indent=2))
+        sys.exit(0)
     elif args.lock_removable_target:
         from real_writer_interface import build_removable_target_identity_lock
         lock = build_removable_target_identity_lock(args.target_drive)

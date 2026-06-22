@@ -636,3 +636,397 @@ def export_hardware_preflight_markdown(preflight_payload: dict, output_path: str
         return {"status": "success", "export_path": output_path, "error": None}
     except Exception as e:
         return {"status": "failed", "export_path": output_path, "error": str(e)}
+
+
+# ===========================================================================
+# PART 6 — PHYSICAL WRITER DRY-RUN HARNESS (Phase 5A-3)
+# ===========================================================================
+
+def build_hardware_lab_permission_status(platform_name=None) -> dict:
+    """
+    Checks if current user has admin/root privileges across Windows, macOS, and Linux.
+    Schema: bootforge.hardware_lab_permission_status.v1
+    """
+    import sys
+    import ctypes
+    import os
+    
+    plat = platform_name or sys.platform
+    is_win = (plat == "win32")
+    is_mac = (plat == "darwin")
+    is_lin = plat.startswith("linux")
+    
+    # Check admin status
+    running_as_admin = False
+    if is_win:
+        try:
+            running_as_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except Exception:
+            running_as_admin = False
+    else:
+        try:
+            running_as_admin = (os.getuid() == 0)
+        except Exception:
+            running_as_admin = False
+            
+    permission_passed = running_as_admin
+    blocked = not permission_passed
+    block_reasons = []
+    if blocked:
+        block_reasons.append("Administrative/root privileges are required to access physical drives.")
+        
+    return {
+        "schema": "bootforge.hardware_lab_permission_status.v1",
+        "platform": plat,
+        "is_windows": is_win,
+        "is_macos": is_mac,
+        "is_linux": is_lin,
+        "running_as_admin_or_root": running_as_admin,
+        "permission_check_supported": True,
+        "permission_required": True,
+        "permission_passed": permission_passed,
+        "blocked": blocked,
+        "block_reasons": block_reasons,
+        "warnings": [],
+        "next_required_action": "request_elevation" if blocked else "none"
+    }
+
+
+def build_physical_writer_dryrun_request(preflight_payload: dict, readiness_gate: dict = None, ledger_path: str = None) -> dict:
+    """
+    Builds a dry-run physical writer request payload.
+    Schema: bootforge.physical_writer_dryrun_request.v1
+    """
+    import uuid
+    from datetime import datetime, timezone
+    
+    req_id = f"dryreq_{str(uuid.uuid4())[:32].replace('-', '')}"
+    created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+    # Safely get target fields from preflight_payload
+    target_drive = preflight_payload.get("target_drive") if preflight_payload else None
+    target_stable_id = preflight_payload.get("target_stable_id") if preflight_payload else None
+    target_identity_hash = preflight_payload.get("target_identity_hash") if preflight_payload else None
+    image_path = preflight_payload.get("image_path") if preflight_payload else None
+    image_sha256 = preflight_payload.get("image_sha256") if preflight_payload else None
+    image_size_bytes = preflight_payload.get("image_size_bytes") if preflight_payload else 0
+    preflight_id = preflight_payload.get("preflight_id") if preflight_payload else None
+    identity_lock_id = preflight_payload.get("identity_lock_id") if preflight_payload else None
+    
+    readiness_gate_id = readiness_gate.get("readiness_gate_id") if readiness_gate else None
+    session_id = ((preflight_payload.get("session_id") if preflight_payload else None) or 
+                  (readiness_gate.get("session_id") if readiness_gate else None) or 
+                  f"session_{str(uuid.uuid4())[:32].replace('-', '')}")
+                  
+    return {
+        "schema": "bootforge.physical_writer_dryrun_request.v1",
+        "request_id": req_id,
+        "created_at": created_at,
+        "target_drive": target_drive,
+        "target_stable_id": target_stable_id,
+        "target_identity_hash": target_identity_hash,
+        "image_path": image_path,
+        "image_sha256": image_sha256,
+        "image_size_bytes": image_size_bytes,
+        "preflight_id": preflight_id,
+        "identity_lock_id": identity_lock_id,
+        "readiness_gate_id": readiness_gate_id,
+        "session_id": session_id,
+        "ledger_path": ledger_path,
+        "lab_mode": True,
+        "dry_run_only": True,
+        "physical_write_requested": False,
+        "physical_write_allowed": False
+    }
+
+
+def validate_physical_writer_dryrun_request(request_payload: dict) -> tuple:
+    """
+    Validates a dry-run physical writer request payload against all safety constraints.
+    Returns (is_valid, list of block_reasons).
+    """
+    block_reasons = []
+    
+    if not request_payload:
+        return False, ["Missing request payload."]
+        
+    if request_payload.get("schema") != "bootforge.physical_writer_dryrun_request.v1":
+        block_reasons.append("Invalid request schema. Must be bootforge.physical_writer_dryrun_request.v1.")
+        
+    # Check locks/preflight presence
+    if not request_payload.get("preflight_id"):
+        block_reasons.append("Hardware preflight ID is missing.")
+    if not request_payload.get("identity_lock_id"):
+        block_reasons.append("Target identity lock ID is missing.")
+    if not request_payload.get("readiness_gate_id"):
+        block_reasons.append("Final destructive readiness gate ID is missing.")
+    if not request_payload.get("target_identity_hash"):
+        block_reasons.append("Target identity hash is missing.")
+    if not request_payload.get("image_sha256"):
+        block_reasons.append("Source image hash is missing.")
+        
+    # Check permissions
+    perm = build_hardware_lab_permission_status()
+    if perm.get("blocked"):
+        block_reasons.extend(perm.get("block_reasons", []))
+        
+    # Check environment unlock
+    unlock = os.environ.get("BOOTFORGE_ENABLE_LAB_WRITE")
+    if unlock != "I_ACCEPT_REAL_USB_WRITE_RISK":
+        block_reasons.append("Environment variable unlock 'BOOTFORGE_ENABLE_LAB_WRITE=I_ACCEPT_REAL_USB_WRITE_RISK' is missing.")
+        
+    # Check requested writes
+    if request_payload.get("physical_write_requested") or request_payload.get("physical_write_allowed"):
+        block_reasons.append("Physical USB writing is not allowed in this phase.")
+        
+    is_valid = len(block_reasons) == 0
+    return is_valid, block_reasons
+
+
+def build_physical_writer_dryrun_result(request_payload: dict, validation_result: tuple = None) -> dict:
+    """
+    Builds a dry-run physical writer result payload.
+    Schema: bootforge.physical_writer_dryrun_result.v1
+    """
+    import uuid
+    from datetime import datetime, timezone
+    
+    res_id = f"dryres_{str(uuid.uuid4())[:32].replace('-', '')}"
+    created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+    is_valid = True
+    block_reasons = []
+    if validation_result:
+        is_valid, block_reasons = validation_result
+    else:
+        is_valid, block_reasons = validate_physical_writer_dryrun_request(request_payload)
+        
+    perm = build_hardware_lab_permission_status()
+    
+    # Calculate chunk plan (simulated 1MB chunks)
+    image_size = request_payload.get("image_size_bytes") or 0
+    chunk_size = 1048576 # 1MB
+    chunks_planned = 0
+    if image_size > 0:
+        chunks_planned = (image_size + chunk_size - 1) // chunk_size
+        
+    # Physical OS adapters must remain blocked
+    # Even if permission passed, blocked remains True, physical_write_allowed remains False.
+    blocked = not is_valid or len(block_reasons) > 0
+    
+    # Double ensure we are blocked and write remains false
+    blocked = True
+    if "Physical USB writing is not allowed in this phase." not in block_reasons:
+        block_reasons.append("Physical USB writing is not allowed in this phase.")
+        
+    return {
+        "schema": "bootforge.physical_writer_dryrun_result.v1",
+        "request_id": request_payload.get("request_id"),
+        "result_id": res_id,
+        "created_at": created_at,
+        "platform": sys.platform,
+        "adapter": "physical-dryrun-writer",
+        "dry_run_only": True,
+        "physical_write_requested": False,
+        "physical_write_allowed": False,
+        "physical_write_attempted": False,
+        "bytes_written": 0,
+        "chunks_planned": chunks_planned,
+        "chunk_size_bytes": chunk_size,
+        "image_size_bytes": image_size,
+        "target_identity_hash": request_payload.get("target_identity_hash"),
+        "latest_identity_hash": request_payload.get("target_identity_hash"), # matches in dry-run
+        "identity_drift_detected": False,
+        "permission_passed": perm.get("permission_passed", False),
+        "blocked": blocked,
+        "block_reasons": block_reasons,
+        "warnings": ["Physical USB write is mock dry-run only. No bytes written."],
+        "next_required_action": "await_physical_writer_implementation"
+    }
+
+
+class PhysicalDryRunWriterAdapter:
+    """
+    Adapter that executes the dry-run simulation for physical writing.
+    Does not write bytes or open raw device paths.
+    """
+    def __init__(self):
+        self.name = "physical-dryrun-writer"
+        
+    def execute_dryrun(self, request_payload: dict) -> dict:
+        is_valid, block_reasons = validate_physical_writer_dryrun_request(request_payload)
+        
+        target_drive = request_payload.get("target_drive")
+        if target_drive:
+            from usb_creator import get_removable_drives
+            drives = get_removable_drives(quiet=True)
+            details = None
+            for d in drives:
+                d_path = d.get("drive") or d.get("path")
+                if d_path and d_path.lower().rstrip("\\") == target_drive.lower().rstrip("\\"):
+                    details = d
+                    break
+            if details:
+                is_fixed = details.get("is_fixed") or details.get("fixed")
+                is_system_drive = details.get("is_system_drive") or details.get("system_drive")
+                if is_fixed or is_system_drive:
+                    is_valid = False
+                    if "Target drive is fixed/internal or system." not in block_reasons:
+                        block_reasons.append("Target drive is fixed/internal or system.")
+                        
+        result = build_physical_writer_dryrun_result(request_payload, (is_valid, block_reasons))
+        return result
+
+
+class WindowsPhysicalWriterAdapter:
+    def __init__(self):
+        self.name = "windows-physical-writer"
+    def execute_write(self, request):
+        return {"blocked": True, "block_reasons": ["Windows physical writer is blocked."]}
+
+
+class MacPhysicalWriterAdapter:
+    def __init__(self):
+        self.name = "macos-physical-writer"
+    def execute_write(self, request):
+        return {"blocked": True, "block_reasons": ["macOS physical writer is blocked."]}
+
+
+class LinuxPhysicalWriterAdapter:
+    def __init__(self):
+        self.name = "linux-physical-writer"
+    def execute_write(self, request):
+        return {"blocked": True, "block_reasons": ["Linux physical writer is blocked."]}
+
+
+def validate_physical_writer_dryrun_export_path(output_path: str, export_type: str, target_drive: str = None):
+    """
+    Validates export path safety according to physical writer dryrun rules.
+    """
+    from pathlib import Path
+    
+    if not output_path or not str(output_path).strip():
+        raise ValueError("Export path is empty.")
+        
+    p_str = str(output_path).strip().lower()
+    
+    if "\\\\.\\" in p_str or "//./" in p_str or p_str.startswith("\\\\") or p_str.startswith("//"):
+        raise ValueError("Raw device style or UNC network paths are blocked for export.")
+        
+    for suspicious in ["sys32", "system32", "windows", "/etc", "/bin", "/sbin", "/var", "/usr"]:
+        if suspicious in p_str.replace("\\", "/"):
+            raise ValueError(f"Suspicious path detected: export path in {suspicious} folders is blocked.")
+            
+    p = Path(output_path)
+    p_resolved = p.resolve()
+    
+    if p_resolved.exists() and p_resolved.is_dir():
+        raise ValueError("Export path is a directory.")
+        
+    if p_resolved.exists():
+        raise ValueError(f"Export file '{output_path}' already exists. Overwriting is blocked.")
+        
+    parent = p_resolved.parent
+    if not parent.exists() or not parent.is_dir():
+        raise ValueError("Parent directory of export path does not exist.")
+        
+    if export_type == "json" and p_resolved.suffix.lower() != ".json":
+        raise ValueError(f"Export path extension '{p_resolved.suffix}' must be '.json'.")
+    elif export_type == "markdown" and p_resolved.suffix.lower() != ".md":
+        raise ValueError(f"Export path extension '{p_resolved.suffix}' must be '.md'.")
+        
+    if target_drive:
+        from usb_creator import get_drive_root
+        td_root = get_drive_root(target_drive)
+        if td_root:
+            td_path = Path(td_root).resolve()
+            if p_resolved == td_path:
+                raise ValueError("Export path cannot be the target drive root itself.")
+
+
+def generate_physical_writer_dryrun_markdown(dryrun_payload: dict) -> str:
+    """
+    Generates a beautifully layouted human-readable Markdown summary of dry-run results.
+    """
+    status = "⛔ BLOCKED" if dryrun_payload.get("blocked") else "✓ ALLOWED"
+    reasons_list = dryrun_payload.get("block_reasons", [])
+    reasons_str = "\n".join(f"- {r}" for r in reasons_list) if reasons_list else "None"
+    
+    warnings_list = dryrun_payload.get("warnings", [])
+    warnings_str = "\n".join(f"- {w}" for w in warnings_list) if warnings_list else "None"
+    
+    md = f"""# PhoenixCore / BootForge Physical USB Writer Dry-Run Report
+    
+## General Info
+- **Result ID**: {dryrun_payload.get("result_id")}
+- **Request ID**: {dryrun_payload.get("request_id")}
+- **Platform**: {dryrun_payload.get("platform")}
+- **Adapter**: {dryrun_payload.get("adapter")}
+- **Created At**: {dryrun_payload.get("created_at")}
+- **Status**: {status}
+
+---
+
+## Dry-Run Configuration
+- **Dry-Run Only**: {dryrun_payload.get("dry_run_only")}
+- **Physical Write Requested**: {dryrun_payload.get("physical_write_requested")}
+- **Physical Write Allowed**: {dryrun_payload.get("physical_write_allowed")}
+- **Physical Write Attempted**: {dryrun_payload.get("physical_write_attempted")}
+
+---
+
+## Drive & Image Details
+- **Target Identity Hash**: `{dryrun_payload.get("target_identity_hash")}`
+- **Latest Identity Hash**: `{dryrun_payload.get("latest_identity_hash")}`
+- **Identity Drift Detected**: {dryrun_payload.get("identity_drift_detected")}
+- **Permission Passed**: {dryrun_payload.get("permission_passed")}
+- **Bytes Written**: {dryrun_payload.get("bytes_written")} bytes
+- **Chunks Planned**: {dryrun_payload.get("chunks_planned")} ({dryrun_payload.get("chunk_size_bytes")} bytes each)
+- **Image Size**: {dryrun_payload.get("image_size_bytes")} bytes
+
+---
+
+## Block Reasons
+{reasons_str}
+
+---
+
+## Warnings
+{warnings_str}
+
+---
+
+## Safety Assertion
+> [!IMPORTANT]
+> **This report is evidence of a physical writer dry-run simulation only. No physical USB bytes are written, and physical USB writing remains locked.**
+"""
+    return md
+
+
+def export_physical_writer_dryrun_json(dryrun_payload: dict, output_path: str) -> dict:
+    """
+    Safely exports the dryrun result JSON to a file path.
+    """
+    import json
+    try:
+        validate_physical_writer_dryrun_export_path(output_path, "json", dryrun_payload.get("target_drive"))
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(dryrun_payload, f, indent=2)
+        return {"status": "success", "export_path": output_path, "error": None}
+    except Exception as e:
+        return {"status": "failed", "export_path": output_path, "error": str(e)}
+
+
+def export_physical_writer_dryrun_markdown(dryrun_payload: dict, output_path: str) -> dict:
+    """
+    Safely exports the dryrun result Markdown summary to a file path.
+    """
+    try:
+        validate_physical_writer_dryrun_export_path(output_path, "markdown", dryrun_payload.get("target_drive"))
+        md = generate_physical_writer_dryrun_markdown(dryrun_payload)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(md)
+        return {"status": "success", "export_path": output_path, "error": None}
+    except Exception as e:
+        return {"status": "failed", "export_path": output_path, "error": str(e)}
+
