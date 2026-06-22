@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+"""
+Arcwyre Flex OS — Web App Center
+Status: STUBBED — Phase 4 implementation placeholder
+
+Installs websites as native-feeling app shortcuts.
+Creates .desktop files and icons for web apps.
+
+No fake install buttons. Every install either works or fails honestly.
+"""
+
+import os
+import json
+import shutil
+import subprocess
+import sys
+
+# Default web apps catalog
+WEB_APPS = {
+    "chatgpt": {
+        "name": "ChatGPT",
+        "url": "https://chat.openai.com",
+        "icon": "chatgpt",
+        "category": "Productivity",
+        "description": "AI assistant by OpenAI"
+    },
+    "gmail": {
+        "name": "Gmail",
+        "url": "https://mail.google.com",
+        "icon": "gmail",
+        "category": "Communication",
+        "description": "Google Mail"
+    },
+    "youtube": {
+        "name": "YouTube",
+        "url": "https://youtube.com",
+        "icon": "youtube",
+        "category": "Media",
+        "description": "Video streaming"
+    },
+    "canva": {
+        "name": "Canva",
+        "url": "https://canva.com",
+        "icon": "canva",
+        "category": "Creator",
+        "description": "Design tool"
+    },
+    "github": {
+        "name": "GitHub",
+        "url": "https://github.com",
+        "icon": "github",
+        "category": "Developer",
+        "description": "Code hosting"
+    },
+    "discord": {
+        "name": "Discord",
+        "url": "https://discord.com/app",
+        "icon": "discord",
+        "category": "Communication",
+        "description": "Chat and voice"
+    },
+    "figma": {
+        "name": "Figma",
+        "url": "https://figma.com",
+        "icon": "figma",
+        "category": "Creator",
+        "description": "Design and prototyping"
+    },
+    "docs": {
+        "name": "Google Docs",
+        "url": "https://docs.google.com",
+        "icon": "google-docs",
+        "category": "Productivity",
+        "description": "Online document editor"
+    },
+}
+
+APPS_DIR = os.path.expanduser("~/.local/share/applications")
+INSTALLED_DB = os.path.expanduser("~/.config/arcwyre/web-apps.json")
+
+def load_installed():
+    if os.path.exists(INSTALLED_DB):
+        with open(INSTALLED_DB) as f:
+            return json.load(f)
+    return {}
+
+def save_installed(installed):
+    os.makedirs(os.path.dirname(INSTALLED_DB), exist_ok=True)
+    with open(INSTALLED_DB, 'w') as f:
+        json.dump(installed, f, indent=2)
+
+def install_web_app(app_id):
+    if app_id not in WEB_APPS:
+        print(f"ERROR: Unknown app '{app_id}'. Use 'list' to see available apps.")
+        return False
+    app = WEB_APPS[app_id]
+    os.makedirs(APPS_DIR, exist_ok=True)
+    desktop_content = f"""[Desktop Entry]
+Version=1.0
+Name={app['name']}
+Comment={app['description']}
+Exec=firefox --new-window {app['url']}
+Icon={app['icon']}
+Terminal=false
+Type=Application
+Categories={app['category']};WebApp;
+StartupNotify=true
+"""
+    desktop_path = os.path.join(APPS_DIR, f"arcwyre-webapp-{app_id}.desktop")
+    with open(desktop_path, 'w') as f:
+        f.write(desktop_content)
+    os.chmod(desktop_path, 0o755)
+    installed = load_installed()
+    installed[app_id] = {"name": app['name'], "url": app['url'], "desktop": desktop_path}
+    save_installed(installed)
+    print(f"INSTALLED: {app['name']} → {desktop_path}")
+    return True
+
+def remove_web_app(app_id):
+    installed = load_installed()
+    if app_id not in installed:
+        print(f"ERROR: '{app_id}' is not installed.")
+        return False
+    desktop_path = installed[app_id].get('desktop', '')
+    if os.path.exists(desktop_path):
+        os.remove(desktop_path)
+    del installed[app_id]
+    save_installed(installed)
+    print(f"REMOVED: {app_id}")
+    return True
+
+def list_apps():
+    print("Available Web Apps:")
+    for app_id, app in WEB_APPS.items():
+        print(f"  {app_id:<12} {app['name']:<20} {app['category']:<15} {app['url']}")
+
+def list_installed():
+    installed = load_installed()
+    if not installed:
+        print("No web apps installed.")
+        return
+    print("Installed Web Apps:")
+    for app_id, info in installed.items():
+        print(f"  {app_id:<12} {info['name']:<20} {info['url']}")
+
+def main():
+    if len(sys.argv) < 2:
+        print("Arcwyre Flex — Web App Center")
+        print("Usage: web-app-center.py <command> [app-id]")
+        print("Commands:")
+        print("  list              — List available web apps")
+        print("  installed         — List installed web apps")
+        print("  install <app-id>  — Install a web app")
+        print("  remove <app-id>   — Remove a web app")
+        return
+
+    cmd = sys.argv[1]
+    if cmd == 'list':
+        list_apps()
+    elif cmd == 'installed':
+        list_installed()
+    elif cmd == 'install' and len(sys.argv) > 2:
+        install_web_app(sys.argv[2])
+    elif cmd == 'remove' and len(sys.argv) > 2:
+        remove_web_app(sys.argv[2])
+    else:
+        print(f"Unknown command: {cmd}")
+
+if __name__ == '__main__':
+    main()
