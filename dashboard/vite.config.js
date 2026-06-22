@@ -585,6 +585,95 @@ function usbCreatorBridgePlugin() {
           return
         }
 
+        if (requestUrl.pathname === '/api/write/hardware-lab-permissions') {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+          runUsbCreator(
+            ['--hardware-lab-permission-status'],
+            {
+              schema: 'bootforge.hardware_lab_permission_status.v1',
+              status: 'failed',
+              error: 'hardware lab permissions dev bridge failure — safe fallback',
+            },
+            res
+          )
+          return
+        }
+
+        if (requestUrl.pathname === '/api/write/physical-dryrun') {
+          const method = req.method
+          if (method !== 'POST' && method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+
+          if (method === 'GET') {
+            const drivePath = requestUrl.searchParams.get('drive')
+            const imagePath = requestUrl.searchParams.get('image')
+            const args = ['--physical-writer-dryrun']
+            if (drivePath) args.push('--target-drive', drivePath)
+            if (imagePath) args.push('--image', imagePath)
+            if (requestUrl.searchParams.get('mock') === 'true') {
+              args.push('--mock-hardware-preflight')
+            }
+            runUsbCreator(
+              args,
+              {
+                schema: 'bootforge.physical_writer_dryrun_result.v1',
+                status: 'failed',
+                error: 'physical writer dryrun dev bridge failure — safe fallback',
+              },
+              res
+            )
+            return
+          }
+
+          let body = ''
+          req.on('data', (chunk) => {
+            body += chunk
+          })
+          req.on('end', () => {
+            try {
+              const payload = JSON.parse(body || '{}')
+              const drivePath = payload.drive
+              const imagePath = payload.image
+              const auditPassed = payload.auditPassed
+              const simulationPassed = payload.simulationPassed
+              const typedConfirmation = payload.typedConfirmation
+              const destructiveAcknowledgement = payload.destructiveAcknowledgement
+              const mock = payload.mock
+
+              const args = ['--physical-writer-dryrun']
+              if (drivePath) args.push('--target-drive', drivePath)
+              if (imagePath) args.push('--image', imagePath)
+              if (auditPassed) args.push('--audit-passed')
+              if (simulationPassed) args.push('--simulation-passed')
+              if (typedConfirmation) args.push('--typed-confirmation', typedConfirmation)
+              if (destructiveAcknowledgement) args.push('--destructive-acknowledgement', destructiveAcknowledgement)
+              if (mock || payload.mockHardwarePreflight) args.push('--mock-hardware-preflight')
+
+              runUsbCreator(
+                args,
+                {
+                  schema: 'bootforge.physical_writer_dryrun_result.v1',
+                  status: 'failed',
+                  error: 'physical writer dryrun dev bridge failure — safe fallback',
+                },
+                res
+              )
+            } catch (err) {
+              sendJson(res, 400, {
+                schema: 'bootforge.physical_writer_dryrun_result.v1',
+                status: 'failed',
+                error: `Failed to parse POST body: ${err.message}`,
+              })
+            }
+          })
+          return
+        }
+
         next()
       })
     },

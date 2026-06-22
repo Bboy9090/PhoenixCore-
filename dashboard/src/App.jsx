@@ -153,6 +153,14 @@ export default function App() {
   const [isLockingIdentity, setIsLockingIdentity] = useState(false);
   const [lockIdentityError, setLockIdentityError] = useState(null);
 
+  // Physical Dryrun States (Phase 5A-3)
+  const [dryrunData, setDryrunData] = useState(null);
+  const [isDryrunning, setIsDryrunning] = useState(false);
+  const [dryrunError, setDryrunError] = useState(null);
+  const [permissionStatus, setPermissionStatus] = useState(null);
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
+  const [permissionsError, setPermissionsError] = useState(null);
+
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
   const [includeBootcamp, setIncludeBootcamp] = useState(true);
@@ -842,6 +850,60 @@ ${warningsStr}
       addLog('error', `Identity locking failed: ${err.message}`);
     } finally {
       setIsLockingIdentity(false);
+    }
+  };
+
+  const checkHardwareLabPermissions = async () => {
+    setIsCheckingPermissions(true);
+    setPermissionsError(null);
+    setPermissionStatus(null);
+    addLog('info', 'Checking hardware lab administrative/root permissions...');
+    try {
+      const res = await fetch('/api/write/hardware-lab-permissions');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Permissions check failed');
+      setPermissionStatus(data);
+      if (data.permission_passed) {
+        addLog('success', 'Hardware lab elevation check passed.');
+      } else {
+        addLog('warning', `Hardware lab elevation check failed: ${data.block_reasons?.join('; ')}`);
+      }
+    } catch (err) {
+      setPermissionsError(err.message);
+      addLog('error', `Permissions check error: ${err.message}`);
+    } finally {
+      setIsCheckingPermissions(false);
+    }
+  };
+
+  const runPhysicalWriterDryrun = async () => {
+    setIsDryrunning(true);
+    setDryrunError(null);
+    setDryrunData(null);
+    addLog('info', 'Running physical writer dry-run validation...');
+    try {
+      const res = await fetch('/api/write/physical-dryrun', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          drive: selectedDrive || null,
+          image: imagePath || null,
+          auditPassed: auditData?.validation_status === 'passed',
+          simulationPassed: mockWriterData?.status === 'completed',
+          typedConfirmation: typedConfirmation || '',
+          destructiveAcknowledgement: destructiveAcknowledgement || '',
+          mock: true // Default to mock in development bridge if no real device
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Dry-run failed');
+      setDryrunData(data);
+      addLog('success', 'Physical writer dryrun completed (Zero bytes written).');
+    } catch (err) {
+      setDryrunError(err.message);
+      addLog('error', `Physical writer dryrun failed: ${err.message}`);
+    } finally {
+      setIsDryrunning(false);
     }
   };
 
@@ -2216,6 +2278,70 @@ ${warningsStr}
 
                   <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', borderTop: '1px dashed rgba(255,255,255,0.05)', paddingTop: '6px' }}>
                     Hardware writer preflight only. Physical USB writing is still locked and cannot be started from the dashboard.
+                  </div>
+                </div>
+
+                {/* Physical Writer Dry-Run Harness Panel */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', marginTop: '4px' }}>
+                  <h3 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-tech)' }}>
+                    Physical Writer Dry-Run Harness
+                  </h3>
+
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      className="glass-panel"
+                      onClick={checkHardwareLabPermissions}
+                      disabled={isCheckingPermissions}
+                      style={{ padding: '8px 12px', borderRadius: '6px', fontSize: '0.78rem', cursor: 'pointer', color: '#fff', border: '1px solid var(--border-glass)' }}
+                    >
+                      {isCheckingPermissions ? 'Checking...' : 'View Hardware Lab Permissions'}
+                    </button>
+                    <button
+                      className="glass-panel"
+                      onClick={runPhysicalWriterDryrun}
+                      disabled={isDryrunning}
+                      style={{ padding: '8px 12px', borderRadius: '6px', fontSize: '0.78rem', cursor: 'pointer', color: '#fff', border: '1px solid var(--border-glass)' }}
+                    >
+                      {isDryrunning ? 'Running...' : 'Run Physical Writer Dry-Run'}
+                    </button>
+                  </div>
+
+                  {permissionStatus && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.78rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.15)', padding: '8px 10px', borderRadius: '6px' }}>
+                      <div><strong>Platform:</strong> {permissionStatus.platform}</div>
+                      <div><strong>Admin/Root Access:</strong> {String(permissionStatus.running_as_admin_or_root)}</div>
+                      <div><strong>Elevation Status:</strong> {permissionStatus.permission_passed ? '✓ PASSED' : '⛔ BLOCKED'}</div>
+                    </div>
+                  )}
+
+                  {dryrunData && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '6px' }}>
+                      <div><strong>Request ID:</strong> {dryrunData.request_id || 'N/A'}</div>
+                      <div><strong>Result ID:</strong> {dryrunData.result_id || 'N/A'}</div>
+                      <div><strong>Dry-Run Only:</strong> {String(dryrunData.dry_run_only)}</div>
+                      <div><strong>Physical Write Allowed:</strong> {String(dryrunData.physical_write_allowed)}</div>
+                      <div><strong>Physical Write Attempted:</strong> {String(dryrunData.physical_write_attempted)}</div>
+                      <div><strong>Bytes Written:</strong> {dryrunData.bytes_written || 0} bytes</div>
+                      <div><strong>Chunks Planned:</strong> {dryrunData.chunks_planned || 0} ({dryrunData.chunk_size_bytes} bytes each)</div>
+                      <div><strong>Target Identity Hash:</strong> <code style={{ wordBreak: 'break-all' }}>{dryrunData.target_identity_hash || 'N/A'}</code></div>
+                      <div><strong>Latest Identity Hash:</strong> <code style={{ wordBreak: 'break-all' }}>{dryrunData.latest_identity_hash || 'N/A'}</code></div>
+                      <div><strong>Identity Drift Detected:</strong> {String(dryrunData.identity_drift_detected)}</div>
+                      <div><strong>Next Action Required:</strong> <code>{dryrunData.next_required_action}</code></div>
+                      {dryrunData.block_reasons?.length > 0 && (
+                        <div style={{ color: '#f87171', marginTop: '4px' }}>
+                          <strong>Block Reasons:</strong> {dryrunData.block_reasons.join('; ')}
+                        </div>
+                      )}
+                      {dryrunData.warnings?.length > 0 && (
+                        <div style={{ color: '#fbbf24', marginTop: '4px' }}>
+                          <strong>Warnings:</strong> {dryrunData.warnings.join('; ')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', borderTop: '1px dashed rgba(255,255,255,0.05)', paddingTop: '6px' }}>
+                    Physical writer dry-run only. No physical USB bytes are written, and the dashboard cannot start a real USB write.
                   </div>
                 </div>
               </div>
