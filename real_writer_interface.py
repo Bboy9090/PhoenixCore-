@@ -1030,3 +1030,418 @@ def export_physical_writer_dryrun_markdown(dryrun_payload: dict, output_path: st
     except Exception as e:
         return {"status": "failed", "export_path": output_path, "error": str(e)}
 
+
+# ===========================================================================
+# PART 7 — PHYSICAL USB WRITE LAB (Phase 5A-4)
+# ===========================================================================
+
+PHYSICAL_USB_WRITE_ENV_VAR = "BOOTFORGE_ENABLE_PHYSICAL_USB_WRITE"
+PHYSICAL_USB_WRITE_ENV_VALUE = "I_ACCEPT_SACRIFICIAL_USB_WRITE_RISK"
+
+PHYSICAL_TYPED_CONFIRMATION = "I UNDERSTAND THIS WILL OVERWRITE THE SELECTED PHYSICAL USB DRIVE"
+PHYSICAL_DESTRUCTIVE_ACKNOWLEDGEMENT = "I CONFIRM THIS IS A SACRIFICIAL REMOVABLE TEST USB DRIVE"
+PHYSICAL_FINAL_IRREVERSIBLE = "I ACCEPT FULL RESPONSIBILITY FOR THIS TEST USB WRITE"
+
+
+def build_physical_usb_write_lab_request(**kwargs) -> dict:
+    req_id = kwargs.get("request_id") or f"phyreq_{str(uuid.uuid4())[:32].replace('-', '')}"
+    created_at = kwargs.get("created_at") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    image_size = kwargs.get("image_size_bytes") or 0
+    chunk_size = kwargs.get("chunk_size_bytes") or 1048576
+    expected_chunks = (image_size + chunk_size - 1) // chunk_size if image_size > 0 else 0
+
+    return {
+        "schema": "bootforge.physical_usb_write_lab_request.v1",
+        "request_id": req_id,
+        "created_at": created_at,
+        "platform": kwargs.get("platform") or sys.platform,
+        "target_drive": kwargs.get("target_drive"),
+        "target_stable_id": kwargs.get("target_stable_id"),
+        "target_identity_hash": kwargs.get("target_identity_hash"),
+        "latest_identity_hash": kwargs.get("latest_identity_hash"),
+        "identity_lock_id": kwargs.get("identity_lock_id"),
+        "preflight_id": kwargs.get("preflight_id"),
+        "dryrun_result_id": kwargs.get("dryrun_result_id"),
+        "readiness_gate_id": kwargs.get("readiness_gate_id"),
+        "session_id": kwargs.get("session_id"),
+        "ledger_path": kwargs.get("ledger_path"),
+        "image_path": kwargs.get("image_path"),
+        "image_sha256": kwargs.get("image_sha256"),
+        "image_size_bytes": image_size,
+        "chunk_size_bytes": chunk_size,
+        "expected_chunk_count": expected_chunks,
+        "lab_mode": kwargs.get("lab_mode", False),
+        "sacrificial_drive_confirmed": kwargs.get("sacrificial_drive_confirmed", False),
+        "typed_confirmation": kwargs.get("typed_confirmation"),
+        "destructive_acknowledgement": kwargs.get("destructive_acknowledgement"),
+        "final_irreversible_acknowledgement": kwargs.get("final_irreversible_acknowledgement"),
+        "environment_unlock_present": kwargs.get("environment_unlock_present", False),
+        "running_as_admin_or_root": kwargs.get("running_as_admin_or_root", False),
+        "verify_after_write": kwargs.get("verify_after_write", False),
+        "physical_write_requested": kwargs.get("physical_write_requested", False),
+        "physical_write_allowed": kwargs.get("physical_write_allowed", False),
+    }
+
+
+def build_physical_usb_write_lab_result(**kwargs) -> dict:
+    res_id = kwargs.get("result_id") or f"phyres_{str(uuid.uuid4())[:32].replace('-', '')}"
+    created_at = kwargs.get("created_at") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    return {
+        "schema": "bootforge.physical_usb_write_lab_result.v1",
+        "request_id": kwargs.get("request_id"),
+        "result_id": res_id,
+        "created_at": created_at,
+        "platform": kwargs.get("platform") or sys.platform,
+        "adapter": kwargs.get("adapter"),
+        "lab_mode": kwargs.get("lab_mode", False),
+        "physical_write_allowed": kwargs.get("physical_write_allowed", False),
+        "physical_write_attempted": kwargs.get("physical_write_attempted", False),
+        "physical_write_started_at": kwargs.get("physical_write_started_at"),
+        "physical_write_completed_at": kwargs.get("physical_write_completed_at"),
+        "target_drive": kwargs.get("target_drive"),
+        "target_stable_id": kwargs.get("target_stable_id"),
+        "target_identity_hash": kwargs.get("target_identity_hash"),
+        "latest_identity_hash": kwargs.get("latest_identity_hash"),
+        "identity_drift_detected": kwargs.get("identity_drift_detected", False),
+        "image_path": kwargs.get("image_path"),
+        "image_sha256_expected": kwargs.get("image_sha256_expected"),
+        "image_size_bytes": kwargs.get("image_size_bytes", 0),
+        "chunk_size_bytes": kwargs.get("chunk_size_bytes", 1048576),
+        "chunks_expected": kwargs.get("chunks_expected", 0),
+        "chunks_written": kwargs.get("chunks_written", 0),
+        "bytes_expected": kwargs.get("bytes_expected", 0),
+        "bytes_written": kwargs.get("bytes_written", 0),
+        "verification_requested": kwargs.get("verification_requested", False),
+        "verification_sha256": kwargs.get("verification_sha256"),
+        "verification_passed": kwargs.get("verification_passed", False),
+        "cancelled": kwargs.get("cancelled", False),
+        "blocked": kwargs.get("blocked", True),
+        "block_reasons": kwargs.get("block_reasons") or [],
+        "warnings": kwargs.get("warnings") or [],
+        "next_required_action": kwargs.get("next_required_action"),
+        "ledger_record_ids": kwargs.get("ledger_record_ids") or [],
+        "evidence_paths": kwargs.get("evidence_paths") or [],
+    }
+
+
+def build_physical_usb_write_lab_verification(**kwargs) -> dict:
+    ver_id = kwargs.get("verification_id") or f"phyver_{str(uuid.uuid4())[:32].replace('-', '')}"
+    created_at = kwargs.get("created_at") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    return {
+        "schema": "bootforge.physical_usb_write_lab_verification.v1",
+        "verification_id": ver_id,
+        "created_at": created_at,
+        "target_drive": kwargs.get("target_drive"),
+        "bytes_verified": kwargs.get("bytes_verified", 0),
+        "expected_sha256": kwargs.get("expected_sha256"),
+        "actual_sha256": kwargs.get("actual_sha256"),
+        "verification_passed": kwargs.get("verification_passed", False),
+        "verification_blocked": kwargs.get("verification_blocked", False),
+        "block_reasons": kwargs.get("block_reasons") or [],
+        "warnings": kwargs.get("warnings") or [],
+    }
+
+
+def validate_physical_usb_write_lab_gates(request: dict) -> tuple:
+    block_reasons = []
+
+    if not request:
+        return False, ["Missing request payload."]
+
+    if request.get("schema") != "bootforge.physical_usb_write_lab_request.v1":
+        block_reasons.append("Invalid request schema.")
+
+    env_val = os.environ.get(PHYSICAL_USB_WRITE_ENV_VAR)
+    if env_val != PHYSICAL_USB_WRITE_ENV_VALUE:
+        block_reasons.append("Environment variable BOOTFORGE_ENABLE_PHYSICAL_USB_WRITE is missing or wrong.")
+
+    if not request.get("running_as_admin_or_root"):
+        block_reasons.append("Not running as admin/root.")
+
+    if not request.get("target_drive"):
+        block_reasons.append("Target drive is missing.")
+    if not request.get("target_stable_id"):
+        block_reasons.append("Target stable ID is missing.")
+    if not request.get("target_identity_hash"):
+        block_reasons.append("Target identity hash is missing.")
+
+    if not request.get("identity_lock_id"):
+        block_reasons.append("Identity lock ID is missing.")
+
+    if not request.get("latest_identity_hash"):
+        block_reasons.append("Latest re-scan identity hash is missing.")
+    elif request.get("target_identity_hash") != request.get("latest_identity_hash"):
+        block_reasons.append("Identity drift detected: target hash does not match latest re-scan hash.")
+
+    if not request.get("image_path"):
+        block_reasons.append("Image path is missing.")
+    if not request.get("image_sha256"):
+        block_reasons.append("Image SHA256 is missing.")
+    if not request.get("image_size_bytes") or request["image_size_bytes"] <= 0:
+        block_reasons.append("Image size is missing or zero.")
+
+    if not request.get("preflight_id"):
+        block_reasons.append("Hardware preflight ID is missing.")
+
+    if not request.get("dryrun_result_id"):
+        block_reasons.append("Physical dry-run result ID is missing.")
+
+    if not request.get("readiness_gate_id"):
+        block_reasons.append("Readiness gate ID is missing.")
+
+    if not request.get("ledger_path"):
+        block_reasons.append("Ledger path is missing.")
+    else:
+        ledger_path = request["ledger_path"]
+        lp_str = str(ledger_path).strip().lower()
+        for suspicious in ["sys32", "system32", "windows", "/etc", "/bin", "/sbin", "/var", "/usr"]:
+            if suspicious in lp_str.replace("\\", "/"):
+                block_reasons.append(f"Ledger path in {suspicious} folders is blocked.")
+
+    tc = request.get("typed_confirmation") or ""
+    if tc.strip() != PHYSICAL_TYPED_CONFIRMATION:
+        block_reasons.append("Typed confirmation phrase mismatch.")
+
+    da = request.get("destructive_acknowledgement") or ""
+    if da.strip() != PHYSICAL_DESTRUCTIVE_ACKNOWLEDGEMENT:
+        block_reasons.append("Destructive acknowledgement phrase mismatch.")
+
+    fi = request.get("final_irreversible_acknowledgement") or ""
+    if fi.strip() != PHYSICAL_FINAL_IRREVERSIBLE:
+        block_reasons.append("Final irreversible acknowledgement phrase mismatch.")
+
+    if not request.get("physical_write_requested"):
+        block_reasons.append("Physical write was not explicitly requested.")
+    if not request.get("lab_mode"):
+        block_reasons.append("Lab mode is not enabled.")
+
+    plat = request.get("platform") or sys.platform
+    if plat not in ("win32",):
+        block_reasons.append(f"Physical USB writing is not implemented for platform '{plat}'.")
+
+    is_valid = len(block_reasons) == 0
+    return is_valid, block_reasons
+
+
+class PhysicalUSBWriteLabAdapter:
+    def __init__(self):
+        self.name = "physical-usb-write-lab"
+
+    def execute_write(self, request: dict) -> dict:
+        is_valid, block_reasons = validate_physical_usb_write_lab_gates(request)
+
+        if not is_valid:
+            return build_physical_usb_write_lab_result(
+                request_id=request.get("request_id"),
+                adapter=self.name,
+                lab_mode=request.get("lab_mode", False),
+                physical_write_allowed=False,
+                physical_write_attempted=False,
+                target_drive=request.get("target_drive"),
+                target_stable_id=request.get("target_stable_id"),
+                target_identity_hash=request.get("target_identity_hash"),
+                latest_identity_hash=request.get("latest_identity_hash"),
+                image_path=request.get("image_path"),
+                image_sha256_expected=request.get("image_sha256"),
+                image_size_bytes=request.get("image_size_bytes", 0),
+                blocked=True,
+                block_reasons=block_reasons,
+                next_required_action="resolve_physical_write_blockers",
+            )
+
+        block_reasons.append("physical_writer_not_safely_implemented")
+        return build_physical_usb_write_lab_result(
+            request_id=request.get("request_id"),
+            adapter=self.name,
+            lab_mode=request.get("lab_mode", False),
+            physical_write_allowed=False,
+            physical_write_attempted=False,
+            target_drive=request.get("target_drive"),
+            target_stable_id=request.get("target_stable_id"),
+            target_identity_hash=request.get("target_identity_hash"),
+            latest_identity_hash=request.get("latest_identity_hash"),
+            image_path=request.get("image_path"),
+            image_sha256_expected=request.get("image_sha256"),
+            image_size_bytes=request.get("image_size_bytes", 0),
+            blocked=True,
+            block_reasons=block_reasons,
+            warnings=["Physical USB write adapter exists but raw device I/O is not safely implemented yet. All gates passed but write was not attempted."],
+            next_required_action="implement_safe_physical_writer",
+        )
+
+
+def build_physical_usb_write_lab_status() -> dict:
+    plat = sys.platform
+    perm = build_hardware_lab_permission_status()
+    env_present = os.environ.get(PHYSICAL_USB_WRITE_ENV_VAR) == PHYSICAL_USB_WRITE_ENV_VALUE
+    lab_env_present = os.environ.get("BOOTFORGE_ENABLE_LAB_WRITE") == "I_ACCEPT_REAL_USB_WRITE_RISK"
+
+    return {
+        "schema": "bootforge.physical_usb_write_lab_status.v1",
+        "platform": plat,
+        "physical_write_implemented": False,
+        "physical_write_allowed": False,
+        "physical_write_cli_only": True,
+        "dashboard_write_blocked": True,
+        "dashboard_write_message": "Physical USB write lab mode is CLI-only. The dashboard cannot start a physical USB write.",
+        "environment_unlock_present": env_present,
+        "lab_environment_unlock_present": lab_env_present,
+        "running_as_admin_or_root": perm.get("running_as_admin_or_root", False),
+        "required_gates": [
+            "environment_unlock",
+            "admin_or_root",
+            "target_from_scan_evidence",
+            "target_has_stable_id",
+            "target_has_identity_hash",
+            "target_is_removable_external",
+            "target_is_not_fixed_internal",
+            "target_is_not_system_drive",
+            "identity_lock_exists",
+            "latest_rescan_matches_lock",
+            "no_identity_drift",
+            "image_exists",
+            "image_sha256_exists",
+            "image_size_exists",
+            "write_plan_exists",
+            "audit_passed",
+            "mock_simulation_passed",
+            "hardware_preflight_passed",
+            "physical_dryrun_exists",
+            "physical_dryrun_wrote_zero_bytes",
+            "readiness_gate_passed",
+            "ledger_path_exists_and_safe",
+            "evidence_export_path_safe",
+            "typed_confirmations_match",
+            "user_requested_physical_usb_write_lab",
+            "adapter_supports_platform",
+            "target_path_maps_to_scanned_locked_target",
+        ],
+        "blocked": True,
+        "block_reasons": ["Physical USB write adapter is not safely implemented yet."],
+        "warnings": [],
+        "next_required_action": "implement_safe_physical_writer",
+    }
+
+
+def validate_physical_usb_write_lab_export_path(output_path: str, export_type: str, target_drive: str = None):
+    from pathlib import Path
+
+    if not output_path or not str(output_path).strip():
+        raise ValueError("Export path is empty.")
+
+    p_str = str(output_path).strip().lower()
+
+    if "\\\\.\\" in p_str or "//./" in p_str or p_str.startswith("\\\\") or p_str.startswith("//"):
+        raise ValueError("Raw device style or UNC network paths are blocked for export.")
+
+    for suspicious in ["sys32", "system32", "windows", "/etc", "/bin", "/sbin", "/var", "/usr"]:
+        if suspicious in p_str.replace("\\", "/"):
+            raise ValueError(f"Suspicious path detected: export path in {suspicious} folders is blocked.")
+
+    p = Path(output_path)
+    p_resolved = p.resolve()
+
+    if p_resolved.exists() and p_resolved.is_dir():
+        raise ValueError("Export path is a directory.")
+
+    if p_resolved.exists():
+        raise ValueError(f"Export file '{output_path}' already exists. Overwriting is blocked.")
+
+    parent = p_resolved.parent
+    if not parent.exists() or not parent.is_dir():
+        raise ValueError("Parent directory of export path does not exist.")
+
+    if export_type == "json" and p_resolved.suffix.lower() != ".json":
+        raise ValueError(f"Export path extension '{p_resolved.suffix}' must be '.json'.")
+    elif export_type == "markdown" and p_resolved.suffix.lower() != ".md":
+        raise ValueError(f"Export path extension '{p_resolved.suffix}' must be '.md'.")
+
+    if target_drive:
+        from usb_creator import get_drive_root
+        td_root = get_drive_root(target_drive)
+        if td_root:
+            td_path = Path(td_root).resolve()
+            if p_resolved == td_path:
+                raise ValueError("Export path cannot be the target drive root itself.")
+
+
+def export_physical_usb_write_lab_json(result_payload: dict, output_path: str) -> dict:
+    import json
+    try:
+        validate_physical_usb_write_lab_export_path(output_path, "json", result_payload.get("target_drive"))
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(result_payload, f, indent=2)
+        return {"status": "success", "export_path": output_path, "error": None}
+    except Exception as e:
+        return {"status": "failed", "export_path": output_path, "error": str(e)}
+
+
+def generate_physical_usb_write_lab_markdown(result_payload: dict) -> str:
+    status = "BLOCKED" if result_payload.get("blocked") else "ALLOWED"
+    reasons_list = result_payload.get("block_reasons", [])
+    reasons_str = "\n".join(f"- {r}" for r in reasons_list) if reasons_list else "None"
+    warnings_list = result_payload.get("warnings", [])
+    warnings_str = "\n".join(f"- {w}" for w in warnings_list) if warnings_list else "None"
+
+    md = f"""# PhoenixCore / BootForge Physical USB Write Lab Report
+
+## General Info
+- **Result ID**: {result_payload.get("result_id")}
+- **Request ID**: {result_payload.get("request_id")}
+- **Platform**: {result_payload.get("platform")}
+- **Adapter**: {result_payload.get("adapter")}
+- **Created At**: {result_payload.get("created_at")}
+- **Status**: {status}
+
+---
+
+## Physical Write Status
+- **Lab Mode**: {result_payload.get("lab_mode")}
+- **Physical Write Allowed**: {result_payload.get("physical_write_allowed")}
+- **Physical Write Attempted**: {result_payload.get("physical_write_attempted")}
+- **Bytes Written**: {result_payload.get("bytes_written", 0)}
+- **Chunks Written**: {result_payload.get("chunks_written", 0)}
+- **Verification Requested**: {result_payload.get("verification_requested")}
+- **Verification Passed**: {result_payload.get("verification_passed")}
+
+---
+
+## Target Details
+- **Target Drive**: {result_payload.get("target_drive")}
+- **Target Identity Hash**: `{result_payload.get("target_identity_hash")}`
+- **Latest Identity Hash**: `{result_payload.get("latest_identity_hash")}`
+- **Identity Drift Detected**: {result_payload.get("identity_drift_detected")}
+
+---
+
+## Block Reasons
+{reasons_str}
+
+---
+
+## Warnings
+{warnings_str}
+
+---
+
+## Safety Assertion
+> [!IMPORTANT]
+> **Physical USB write lab mode is CLI-only. The dashboard cannot start a physical USB write.**
+> **Fixed, internal, and system drives are permanently blocked.**
+> **No disk-wiping, partitioning, or drive-altering operations exist in this path.**
+"""
+    return md
+
+
+def export_physical_usb_write_lab_markdown(result_payload: dict, output_path: str) -> dict:
+    try:
+        validate_physical_usb_write_lab_export_path(output_path, "markdown", result_payload.get("target_drive"))
+        md = generate_physical_usb_write_lab_markdown(result_payload)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(md)
+        return {"status": "success", "export_path": output_path, "error": None}
+    except Exception as e:
+        return {"status": "failed", "export_path": output_path, "error": str(e)}
+

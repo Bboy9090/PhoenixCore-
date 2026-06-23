@@ -1456,10 +1456,109 @@ if __name__ == "__main__":
     parser.add_argument("--export-physical-dryrun-json", type=str, help="Export physical dryrun summary as JSON to local path")
     parser.add_argument("--export-physical-dryrun-markdown", type=str, help="Export physical dryrun summary as Markdown to local path")
     parser.add_argument("--mock-hardware-preflight", action="store_true", help="Test-only: Allow mock preflight and readiness data generation")
-    
+
+    # Physical USB Write Lab CLI arguments (Phase 5A-4)
+    parser.add_argument("--physical-usb-write-lab", action="store_true", help="Execute CLI-only physical USB write lab mode on a sacrificial removable test USB drive")
+    parser.add_argument("--export-physical-write-json", type=str, help="Export physical write lab result as JSON to local path")
+    parser.add_argument("--export-physical-write-markdown", type=str, help="Export physical write lab result as Markdown to local path")
+    parser.add_argument("--final-irreversible-acknowledgement", type=str, help="Final irreversible acknowledgement phrase for physical USB write lab")
+    parser.add_argument("--physical-write-chunk-size", type=int, help="Chunk size in bytes for physical USB write lab (default: 1MB)")
+    parser.add_argument("--physical-write-max-bytes", type=int, help="Maximum bytes to write in physical USB write lab")
+    parser.add_argument("--require-dryrun-result", type=str, help="Path to JSON dry-run result required for physical write lab")
+    parser.add_argument("--require-preflight-result", type=str, help="Path to JSON preflight result required for physical write lab")
+    parser.add_argument("--require-identity-lock", type=str, help="Path to JSON identity lock required for physical write lab")
+    parser.add_argument("--physical-usb-write-lab-status", action="store_true", help="Print physical USB write lab status JSON (read-only)")
+
     args = parser.parse_args()
     
-    if args.validate_writer_contract:
+    if args.physical_usb_write_lab_status:
+        from real_writer_interface import build_physical_usb_write_lab_status
+        status = build_physical_usb_write_lab_status()
+        print(json.dumps(status, indent=2))
+        sys.exit(0)
+    elif args.physical_usb_write_lab:
+        from real_writer_interface import (
+            build_physical_usb_write_lab_request,
+            PhysicalUSBWriteLabAdapter,
+            build_hardware_lab_permission_status,
+            export_physical_usb_write_lab_json,
+            export_physical_usb_write_lab_markdown,
+            PHYSICAL_USB_WRITE_ENV_VAR,
+            PHYSICAL_USB_WRITE_ENV_VALUE,
+        )
+
+        if not args.target_drive:
+            print(json.dumps({"schema": "bootforge.physical_usb_write_lab_result.v1", "blocked": True, "block_reasons": ["Missing --target-drive."]}, indent=2))
+            sys.exit(1)
+        if not args.image:
+            print(json.dumps({"schema": "bootforge.physical_usb_write_lab_result.v1", "blocked": True, "block_reasons": ["Missing --image."]}, indent=2))
+            sys.exit(1)
+        if not args.append_writer_contract_ledger:
+            print(json.dumps({"schema": "bootforge.physical_usb_write_lab_result.v1", "blocked": True, "block_reasons": ["Missing --append-writer-contract-ledger (ledger path is required)."]}, indent=2))
+            sys.exit(1)
+
+        perm = build_hardware_lab_permission_status()
+        env_present = os.environ.get(PHYSICAL_USB_WRITE_ENV_VAR) == PHYSICAL_USB_WRITE_ENV_VALUE
+
+        lock_data = None
+        preflight_data = None
+        dryrun_data = None
+
+        if args.require_identity_lock and os.path.exists(args.require_identity_lock):
+            with open(args.require_identity_lock, "r") as f:
+                lock_data = json.load(f)
+        if args.require_preflight_result and os.path.exists(args.require_preflight_result):
+            with open(args.require_preflight_result, "r") as f:
+                preflight_data = json.load(f)
+        if args.require_dryrun_result and os.path.exists(args.require_dryrun_result):
+            with open(args.require_dryrun_result, "r") as f:
+                dryrun_data = json.load(f)
+
+        image_sha = None
+        image_size = 0
+        if os.path.exists(args.image):
+            image_sha = calculate_file_sha256(args.image)
+            image_size = os.path.getsize(args.image)
+
+        req = build_physical_usb_write_lab_request(
+            platform=sys.platform,
+            target_drive=args.target_drive,
+            target_stable_id=lock_data.get("stable_id") if lock_data else None,
+            target_identity_hash=lock_data.get("device_identity_hash") if lock_data else None,
+            latest_identity_hash=lock_data.get("device_identity_hash") if lock_data else None,
+            identity_lock_id=lock_data.get("identity_lock_id") if lock_data else None,
+            preflight_id=preflight_data.get("preflight_id") if preflight_data else None,
+            dryrun_result_id=dryrun_data.get("result_id") if dryrun_data else None,
+            readiness_gate_id=dryrun_data.get("request_id") if dryrun_data else None,
+            session_id=lock_data.get("identity_lock_id") if lock_data else None,
+            ledger_path=args.append_writer_contract_ledger,
+            image_path=args.image,
+            image_sha256=image_sha,
+            image_size_bytes=image_size,
+            chunk_size_bytes=args.physical_write_chunk_size or 1048576,
+            lab_mode=True,
+            sacrificial_drive_confirmed=True,
+            typed_confirmation=args.typed_confirmation,
+            destructive_acknowledgement=args.destructive_acknowledgement,
+            final_irreversible_acknowledgement=args.final_irreversible_acknowledgement,
+            environment_unlock_present=env_present,
+            running_as_admin_or_root=perm.get("running_as_admin_or_root", False),
+            verify_after_write=args.verify_after_write,
+            physical_write_requested=True,
+            physical_write_allowed=False,
+        )
+
+        adapter = PhysicalUSBWriteLabAdapter()
+        result = adapter.execute_write(req)
+
+        if args.export_physical_write_json:
+            export_physical_usb_write_lab_json(result, args.export_physical_write_json)
+        elif args.export_physical_write_markdown:
+            export_physical_usb_write_lab_markdown(result, args.export_physical_write_markdown)
+
+        print(json.dumps(result, indent=2))
+        sys.exit(0 if not result.get("blocked") else 1)
+    elif args.validate_writer_contract:
         from writer_safety_contract import _cli_validate_writer_contract
         _cli_validate_writer_contract(args)
     elif args.hardware_lab_permission_status:

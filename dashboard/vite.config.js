@@ -674,6 +674,23 @@ function usbCreatorBridgePlugin() {
           return
         }
 
+        if (requestUrl.pathname === '/api/write/physical-usb-write-lab-status') {
+          if (req.method !== 'GET') {
+            sendJson(res, 405, { error: 'Method not allowed' })
+            return
+          }
+          runUsbCreator(
+            ['--physical-usb-write-lab-status'],
+            {
+              schema: 'bootforge.physical_usb_write_lab_status.v1',
+              status: 'failed',
+              error: 'physical usb write lab status dev bridge failure — safe fallback',
+            },
+            res
+          )
+          return
+        }
+
         next()
       })
     },

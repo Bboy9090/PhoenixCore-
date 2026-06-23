@@ -161,6 +161,11 @@ export default function App() {
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
   const [permissionsError, setPermissionsError] = useState(null);
 
+  // Physical USB Write Lab Status States (Phase 5A-4)
+  const [physicalWriteLabStatus, setPhysicalWriteLabStatus] = useState(null);
+  const [isFetchingPhysicalWriteLabStatus, setIsFetchingPhysicalWriteLabStatus] = useState(false);
+  const [physicalWriteLabStatusError, setPhysicalWriteLabStatusError] = useState(null);
+
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
   const [includeBootcamp, setIncludeBootcamp] = useState(true);
@@ -904,6 +909,25 @@ ${warningsStr}
       addLog('error', `Physical writer dryrun failed: ${err.message}`);
     } finally {
       setIsDryrunning(false);
+    }
+  };
+
+  const fetchPhysicalWriteLabStatus = async () => {
+    setIsFetchingPhysicalWriteLabStatus(true);
+    setPhysicalWriteLabStatusError(null);
+    setPhysicalWriteLabStatus(null);
+    addLog('info', 'Fetching physical USB write lab status (read-only)...');
+    try {
+      const res = await fetch('/api/write/physical-usb-write-lab-status');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Status fetch failed');
+      setPhysicalWriteLabStatus(data);
+      addLog('success', 'Physical USB write lab status fetched (read-only).');
+    } catch (err) {
+      setPhysicalWriteLabStatusError(err.message);
+      addLog('error', `Physical USB write lab status error: ${err.message}`);
+    } finally {
+      setIsFetchingPhysicalWriteLabStatus(false);
     }
   };
 
@@ -2342,6 +2366,45 @@ ${warningsStr}
 
                   <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', borderTop: '1px dashed rgba(255,255,255,0.05)', paddingTop: '6px' }}>
                     Physical writer dry-run only. No physical USB bytes are written, and the dashboard cannot start a real USB write.
+                  </div>
+                </div>
+
+                {/* Physical USB Write Lab Status Panel (Phase 5A-4) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', marginTop: '4px' }}>
+                  <h3 style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-tech)' }}>
+                    Physical USB Write Lab Status: Locked
+                  </h3>
+
+                  <button
+                    className="glass-panel"
+                    onClick={fetchPhysicalWriteLabStatus}
+                    disabled={isFetchingPhysicalWriteLabStatus}
+                    style={{ padding: '8px 12px', borderRadius: '6px', fontSize: '0.78rem', cursor: 'pointer', color: '#fff', border: '1px solid var(--border-glass)', alignSelf: 'flex-start' }}
+                  >
+                    {isFetchingPhysicalWriteLabStatus ? 'Fetching...' : 'View Physical USB Write Lab Status'}
+                  </button>
+
+                  {physicalWriteLabStatus && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '6px' }}>
+                      <div><strong>Platform:</strong> {physicalWriteLabStatus.platform}</div>
+                      <div><strong>Physical Write Implemented:</strong> {String(physicalWriteLabStatus.physical_write_implemented)}</div>
+                      <div><strong>Physical Write Allowed:</strong> {String(physicalWriteLabStatus.physical_write_allowed)}</div>
+                      <div><strong>CLI-Only:</strong> {String(physicalWriteLabStatus.physical_write_cli_only)}</div>
+                      <div><strong>Dashboard Write Blocked:</strong> {String(physicalWriteLabStatus.dashboard_write_blocked)}</div>
+                      <div><strong>Env Unlock Present:</strong> {String(physicalWriteLabStatus.environment_unlock_present)}</div>
+                      <div><strong>Lab Env Unlock Present:</strong> {String(physicalWriteLabStatus.lab_environment_unlock_present)}</div>
+                      <div><strong>Admin/Root:</strong> {String(physicalWriteLabStatus.running_as_admin_or_root)}</div>
+                      <div><strong>Next Action:</strong> <code>{physicalWriteLabStatus.next_required_action}</code></div>
+                      {physicalWriteLabStatus.block_reasons?.length > 0 && (
+                        <div style={{ color: '#f87171', marginTop: '4px' }}>
+                          <strong>Block Reasons:</strong> {physicalWriteLabStatus.block_reasons.join('; ')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', borderTop: '1px dashed rgba(255,255,255,0.05)', paddingTop: '6px' }}>
+                    Physical USB write lab mode is CLI-only. The dashboard cannot start a physical USB write.
                   </div>
                 </div>
               </div>
