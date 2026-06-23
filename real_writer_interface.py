@@ -1430,7 +1430,7 @@ def generate_physical_usb_write_lab_markdown(result_payload: dict) -> str:
 > [!IMPORTANT]
 > **Physical USB write lab mode is CLI-only. The dashboard cannot start a physical USB write.**
 > **Fixed, internal, and system drives are permanently blocked.**
-> **No formatting, partitioning, or mounting operations exist in this path.**
+> **No disk-wiping, partitioning, or drive-altering operations exist in this path.**
 """
     return md
 
