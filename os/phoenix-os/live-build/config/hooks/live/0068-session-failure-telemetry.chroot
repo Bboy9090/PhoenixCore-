@@ -19,6 +19,9 @@ cat > /usr/local/bin/bwos-session-profile-apply <<'EOF2'
 set -eu
 
 LIVE_USER="phoenix"
+if id -u arc >/dev/null 2>&1; then
+    LIVE_USER="arc"
+fi
 LIVE_HOME="/home/${LIVE_USER}"
 PROFILE="x11"
 CMDLINE="$(cat /proc/cmdline 2>/dev/null || true)"
@@ -110,6 +113,22 @@ cat > /etc/sddm.conf.d/default-session.conf <<EOF_CONF
 DefaultSession=${SELECTED_SESSION_NAME}
 EOF_CONF
 
+# /etc/sddm.conf is read LAST by SDDM and overrides conf.d values.
+# Write here to guarantee the runtime session selection takes effect.
+SDDM_THEME="$(awk -F= '/^Current=/ {print $2; exit}' /etc/sddm.conf.d/phoenix.conf 2>/dev/null || echo phoenix)"
+cat > /etc/sddm.conf <<EOF_CONF
+[Autologin]
+User=${LIVE_USER}
+Session=${SELECTED_SESSION_NAME}
+Relogin=true
+
+[General]
+DefaultSession=${SELECTED_SESSION_NAME}
+
+[Theme]
+Current=${SDDM_THEME}
+EOF_CONF
+
 printf '%s\n' "$PROFILE" > /run/bwos-session-profile
 printf '%s\n' "$SELECTED_SESSION_NAME" > /run/bwos-selected-session
 
@@ -152,6 +171,9 @@ cat > /usr/local/bin/bwos-session-diagnostics-dump <<'EOF2'
 set -eu
 
 LIVE_USER="phoenix"
+if id -u arc >/dev/null 2>&1; then
+    LIVE_USER="arc"
+fi
 
 log() {
     /usr/local/bin/bwos-session-log "$@"
@@ -234,8 +256,8 @@ log "BWOS_SESSION_DIAGNOSTICS_BEGIN"
 systemctl --no-pager --full status sddm.service > /dev/ttyS0 2>&1 || true
 dump_file "sddm-log" /var/log/sddm.log
 dump_file "xorg-log" /var/log/Xorg.0.log
-dump_file "xsession-errors" /home/phoenix/.xsession-errors
-for path in /home/phoenix/.local/share/sddm/*; do
+dump_file "xsession-errors" /home/${LIVE_USER}/.xsession-errors
+for path in /home/${LIVE_USER}/.local/share/sddm/*; do
     [ -f "$path" ] && dump_file "sddm-user" "$path"
 done
 log "BWOS_SESSION_DIAGNOSTICS_END"

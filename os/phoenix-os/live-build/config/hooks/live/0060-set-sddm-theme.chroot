@@ -38,6 +38,10 @@ do
 done
 
 if [ -z "$WAYLAND_SESSION" ]; then
+    if [ -f /usr/share/xsessions/xfce.desktop ] || [ -f /usr/share/xsessions/lightdm-xsession.desktop ]; then
+        echo "Info: XFCE/LightDM layout detected. Skipping SDDM configuration."
+        exit 0
+    fi
     echo "ERROR: No Plasma Wayland session file found for SDDM autologin" >&2
     exit 1
 fi
@@ -57,15 +61,10 @@ cat > /etc/sddm.conf.d/default-session.conf << EOF2
 DefaultSession=$WAYLAND_SESSION_NAME
 EOF2
 
+# Only set theme in /etc/sddm.conf at build time.
+# Autologin is configured at boot by bwos-session-profile-apply,
+# which writes /etc/sddm.conf with the correct user and session.
 cat > /etc/sddm.conf << EOF2
-[Autologin]
-User=phoenix
-Session=$WAYLAND_SESSION_NAME
-Relogin=true
-
-[General]
-DefaultSession=$WAYLAND_SESSION_NAME
-
 [Theme]
 Current=phoenix
 EOF2
