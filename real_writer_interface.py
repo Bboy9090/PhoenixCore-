@@ -280,14 +280,64 @@ class FileBackedLabWriterAdapter(PlatformWriterAdapter):
 # PART 1 & 2 — HARDWARE PREFLIGHT & REMOVABLE TARGET IDENTITY LOCK
 # ===========================================================================
 
+def _resolve_scanner_device(target_drive: str, scan_payload: dict = None):
+    """
+    Resolves a target drive path to a device_scanner.v2 device record.
+    Checks the scan_payload first (if v2 devices are present), then falls
+    back to running a fresh scan via usb_creator.get_normalized_scan().
+    Returns the matched device dict, or None.
+    """
+    norm_target = target_drive.lower().rstrip("\\/")
+
+    if scan_payload:
+        for d in scan_payload.get("devices", []):
+            if d.get("drive_path", "").lower().rstrip("\\/") == norm_target:
+                return d
+        for d in scan_payload.get("drives", []):
+            dp = d.get("drive_path") or d.get("path") or d.get("drive") or ""
+            if dp.lower().rstrip("\\/") == norm_target:
+                return d
+
+    try:
+        from usb_creator import get_normalized_scan
+        fresh = get_normalized_scan(quiet=True)
+        for d in fresh.get("devices", []):
+            if d.get("drive_path", "").lower().rstrip("\\/") == norm_target:
+                return d
+    except Exception:
+        pass
+
+    return None
+
+
+def _build_scanner_identity_hash(device: dict) -> str:
+    """
+    Builds a deterministic identity hash from scanner v2 evidence fields:
+    stable_id, serial, size_bytes, platform, drive_path, detection_source, bus_protocol.
+    """
+    import json as _json
+    fields = {
+        "stable_id": device.get("stable_id"),
+        "serial": device.get("serial"),
+        "size_bytes": device.get("size_bytes"),
+        "platform": device.get("platform"),
+        "drive_path": device.get("drive_path"),
+        "detection_source": device.get("detection_source"),
+        "bus_protocol": device.get("bus_protocol"),
+    }
+    canonical = _json.dumps(fields, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
 def build_removable_target_identity_lock(target_drive: str, scan_payload: dict = None) -> dict:
     """
     Builds a deterministic removable target identity lock payload.
+    Uses device_scanner.v2 evidence when available.
     Schema: bootforge.removable_target_identity_lock.v1
     """
     import json
     import hashlib
-    
+
     if not target_drive:
         return {
             "schema": "bootforge.removable_target_identity_lock.v1",
@@ -296,9 +346,8 @@ def build_removable_target_identity_lock(target_drive: str, scan_payload: dict =
             "block_reasons": ["Target drive is missing or empty."],
             "next_required_action": "specify_target_drive"
         }
-        
+
     p_str = str(target_drive).strip().lower()
-    # Block raw PhysicalDrive access style checks unless scanned
     if "\\\\.\\" in p_str or "//./" in p_str or p_str.startswith("\\\\") or p_str.startswith("//"):
         if not scan_payload:
             return {
@@ -308,74 +357,88 @@ def build_removable_target_identity_lock(target_drive: str, scan_payload: dict =
                 "block_reasons": ["Direct raw device paths are blocked without scanned target context."],
                 "next_required_action": "rescan_and_match_target"
             }
-            
-    # Resolve drive info from scan payload
-    drive_info = None
-    if scan_payload and "drives" in scan_payload:
-        for d in scan_payload["drives"]:
-            if d.get("path", "").lower().rstrip("\\") == target_drive.lower().rstrip("\\"):
-                drive_info = d
-                break
-                
-    if not drive_info and target_drive:
-        # Build basic fallback drive properties for validation
-        drive_info = {
-            "path": target_drive,
-            "label": "Removable USB",
-            "size_bytes": 16000000000, # Mock size if missing
-            "bus_type": "USB",
-            "is_removable": True,
-            "is_external": True,
-            "is_fixed": False,
-            "is_system_drive": False,
-            "device_identity_hash": "mock_hash_" + hashlib.sha256(target_drive.encode()).hexdigest()[:16]
-        }
-        
-    # Ensure validation properties
-    is_removable = drive_info.get("is_removable") or drive_info.get("removable")
-    is_external = drive_info.get("is_external") or drive_info.get("external")
-    is_fixed = drive_info.get("is_fixed") or drive_info.get("fixed")
-    is_system_drive = drive_info.get("is_system_drive") or drive_info.get("system_drive")
-    size_bytes = drive_info.get("size_bytes") or drive_info.get("capacity_bytes")
-    dev_hash = drive_info.get("device_identity_hash") or drive_info.get("identity_hash")
-    
-    block_reasons = []
+
+    scanner_device = _resolve_scanner_device(target_drive, scan_payload)
+    device_path = (scanner_device.get("drive_path") or scanner_device.get("path") or scanner_device.get("drive") or "") if scanner_device else ""
+
+    if scanner_device and device_path:
+        stable_id = scanner_device.get("stable_id")
+        serial = scanner_device.get("serial")
+        is_removable = scanner_device.get("is_removable") or scanner_device.get("removable") or False
+        is_external = scanner_device.get("is_external") or scanner_device.get("external") or False
+        is_fixed = scanner_device.get("is_fixed") or scanner_device.get("fixed") or False
+        is_system = scanner_device.get("is_system") or scanner_device.get("is_system_drive") or False
+        size_bytes = scanner_device.get("size_bytes") or scanner_device.get("capacity_bytes") or 0
+        confidence = scanner_device.get("confidence", "low")
+        detection_source = scanner_device.get("detection_source")
+        bus_protocol = scanner_device.get("bus_protocol") or scanner_device.get("bus_type")
+        block_reasons_from_scanner = list(scanner_device.get("block_reasons", []))
+        warnings_from_scanner = list(scanner_device.get("warnings", []))
+        is_v2_device = "drive_path" in scanner_device
+        if is_v2_device:
+            dev_hash = _build_scanner_identity_hash(scanner_device)
+        else:
+            dev_hash = scanner_device.get("device_identity_hash") or scanner_device.get("identity_hash")
+        volume_label = scanner_device.get("volume_label") or scanner_device.get("display_name") or scanner_device.get("label")
+    else:
+        stable_id = None
+        serial = None
+        is_removable = True
+        is_external = True
+        is_fixed = False
+        is_system = False
+        size_bytes = 16000000000
+        confidence = "low"
+        detection_source = "fallback"
+        bus_protocol = "USB"
+        block_reasons_from_scanner = []
+        warnings_from_scanner = ["No scanner v2 device matched; using fallback identity."]
+        dev_hash = "mock_hash_" + hashlib.sha256(target_drive.encode()).hexdigest()[:16]
+        volume_label = "Removable USB"
+
+    block_reasons = list(block_reasons_from_scanner)
+    warnings = list(warnings_from_scanner)
+
     if is_fixed is True:
-        block_reasons.append("Target drive is fixed/internal.")
-    if is_system_drive is True:
-        block_reasons.append("Target drive is flagged as system drive.")
+        if "Target drive is fixed/internal." not in block_reasons and "Drive is fixed/internal, not removable." not in block_reasons:
+            block_reasons.append("Target drive is fixed/internal.")
+    if is_system is True:
+        if "Target drive is flagged as system drive." not in block_reasons and "Drive is a system/boot drive." not in block_reasons:
+            block_reasons.append("Target drive is flagged as system drive.")
     if not is_removable and not is_external:
         block_reasons.append("Target drive is not removable or external.")
     if not dev_hash:
         block_reasons.append("Target identity hash is missing.")
     if not size_bytes or size_bytes <= 0:
         block_reasons.append("Target size is unknown or invalid.")
-        
+
     blocked = len(block_reasons) > 0
-    
+
     lock_record = {
         "schema": "bootforge.removable_target_identity_lock.v1",
         "identity_lock_id": None,
         "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "target_drive": target_drive,
-        "stable_id": drive_info.get("stable_id") or drive_info.get("stable_os_id") or "stable_usb_device",
+        "stable_id": stable_id or "stable_usb_device",
+        "serial": serial,
         "device_identity_hash": dev_hash,
-        "volume_label": drive_info.get("label"),
+        "volume_label": volume_label,
         "size_bytes": size_bytes,
-        "bus_type": drive_info.get("bus_type") or "USB",
+        "bus_type": bus_protocol or "USB",
+        "detection_source": detection_source,
+        "confidence": confidence,
         "is_removable": bool(is_removable),
         "is_external": bool(is_external),
         "is_fixed": bool(is_fixed),
-        "is_system_drive": bool(is_system_drive),
-        "scan_source": drive_info.get("scan_timestamp") or "initial_scan",
+        "is_system_drive": bool(is_system),
+        "scan_source": detection_source or "initial_scan",
         "lock_reasons": [],
-        "warnings": [],
+        "warnings": warnings,
         "blocked": blocked,
         "block_reasons": block_reasons,
         "next_required_action": "verify_target_identity" if not blocked else "resolve_preflight_blockers"
     }
-    
-    # Deterministic lock ID (stable fields, no created_at)
+
     stable_data = {
         "target_drive": lock_record["target_drive"],
         "stable_id": lock_record["stable_id"],
@@ -384,7 +447,7 @@ def build_removable_target_identity_lock(target_drive: str, scan_payload: dict =
     }
     h = hashlib.sha256(json.dumps(stable_data, sort_keys=True).encode()).hexdigest()
     lock_record["identity_lock_id"] = f"lock_{h[:32]}"
-    
+
     return lock_record
 
 
@@ -402,28 +465,33 @@ def validate_removable_target_identity_lock(identity_lock: dict) -> bool:
 def rescan_and_compare_target_identity(identity_lock: dict, latest_scan_payload: dict = None) -> dict:
     """
     Compares latest scan parameters against identity lock to detect target identity drift.
+    Uses scanner v2 identity hash when devices are present.
     """
     if not identity_lock or identity_lock.get("blocked"):
         return {"match": False, "drift_detected": True, "error": "Invalid or blocked identity lock payload."}
-        
-    latest_drive = None
+
     target_drive = identity_lock.get("target_drive")
-    
-    if latest_scan_payload and "drives" in latest_scan_payload:
-        for d in latest_scan_payload["drives"]:
-            if d.get("path", "").lower().rstrip("\\") == target_drive.lower().rstrip("\\"):
-                latest_drive = d
-                break
-                
-    if not latest_drive:
-        return {"match": False, "drift_detected": True, "error": "Target drive was not found during re-scan."}
-        
+
+    scanner_device = _resolve_scanner_device(target_drive, latest_scan_payload)
+
+    if scanner_device and scanner_device.get("drive_path"):
+        latest_hash = _build_scanner_identity_hash(scanner_device)
+    else:
+        latest_drive = None
+        if latest_scan_payload and "drives" in latest_scan_payload:
+            for d in latest_scan_payload["drives"]:
+                dp = d.get("path") or d.get("drive") or ""
+                if dp.lower().rstrip("\\/") == target_drive.lower().rstrip("\\/"):
+                    latest_drive = d
+                    break
+        if not latest_drive:
+            return {"match": False, "drift_detected": True, "error": "Target drive was not found during re-scan."}
+        latest_hash = latest_drive.get("device_identity_hash") or latest_drive.get("identity_hash")
+
     lock_hash = identity_lock.get("device_identity_hash")
-    latest_hash = latest_drive.get("device_identity_hash") or latest_drive.get("identity_hash")
-    
     match = (lock_hash == latest_hash)
     drift = not match
-    
+
     return {
         "match": match,
         "drift_detected": drift,
@@ -435,25 +503,24 @@ def rescan_and_compare_target_identity(identity_lock: dict, latest_scan_payload:
 def build_physical_writer_preflight_result(identity_lock: dict, image_payload: dict = None, readiness_gate: dict = None) -> dict:
     """
     Combines identity lock, image metadata, and readiness status into a hardware preflight summary.
+    Includes scanner v2 evidence fields for downstream consumers.
     Schema: bootforge.hardware_writer_preflight.v1
     """
     import uuid
-    
+
     preflight_id = f"preflight_{str(uuid.uuid4())[:32].replace('-', '')}"
     created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    
+
     block_reasons = []
     warnings = []
-    
-    # physical_writer_allowed must remain False in Phase 5A-2 preflight mode.
+
     physical_writer_allowed = False
     physical_write_attempted = False
-    
+
     lock_ok = validate_removable_target_identity_lock(identity_lock)
     if not lock_ok:
         block_reasons.extend(identity_lock.get("block_reasons", ["Identity lock failed verification."]))
-        
-    # Validation if image supplied
+
     image_path = None
     image_sha256 = None
     image_size_bytes = 0
@@ -463,10 +530,19 @@ def build_physical_writer_preflight_result(identity_lock: dict, image_payload: d
         image_size_bytes = image_payload.get("image_size_bytes") or image_payload.get("size_bytes") or 0
         if not image_sha256:
             block_reasons.append("Source image hash is missing.")
-            
-    # Always append physical lock blocked warning for this phase
+
+    scanner_confidence = identity_lock.get("confidence", "low") if identity_lock else "low"
+    scanner_detection_source = identity_lock.get("detection_source") if identity_lock else None
+    scanner_stable_id = identity_lock.get("stable_id") if identity_lock else None
+    scanner_serial = identity_lock.get("serial") if identity_lock else None
+    scanner_block_reasons = list(identity_lock.get("block_reasons", [])) if identity_lock else []
+    scanner_warnings = list(identity_lock.get("warnings", [])) if identity_lock else []
+
+    if scanner_confidence == "low":
+        block_reasons.append("Scanner confidence is low; identity lock is unreliable for lab write eligibility.")
+
     block_reasons.append("Physical USB writing remains locked. Phase 5A-2 preflight mode only.")
-    
+
     preflight = {
         "schema": "bootforge.hardware_writer_preflight.v1",
         "preflight_id": preflight_id,
@@ -482,6 +558,13 @@ def build_physical_writer_preflight_result(identity_lock: dict, image_payload: d
         "target_is_fixed": identity_lock.get("is_fixed") if identity_lock else False,
         "target_is_system_drive": identity_lock.get("is_system_drive") if identity_lock else False,
         "target_scan_source": identity_lock.get("scan_source") if identity_lock else None,
+        "scanner_schema": "bootforge.device_scan.v2",
+        "scanner_confidence": scanner_confidence,
+        "scanner_detection_source": scanner_detection_source,
+        "scanner_stable_id": scanner_stable_id,
+        "scanner_serial": scanner_serial,
+        "scanner_block_reasons": scanner_block_reasons,
+        "scanner_warnings": scanner_warnings,
         "image_path": image_path,
         "image_sha256": image_sha256,
         "image_size_bytes": image_size_bytes,
@@ -496,7 +579,7 @@ def build_physical_writer_preflight_result(identity_lock: dict, image_payload: d
         "warnings": warnings,
         "next_required_action": "await_hardware_writer_release"
     }
-    
+
     return preflight
 
 

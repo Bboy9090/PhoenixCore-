@@ -1,0 +1,23 @@
+FROM debian:trixie-slim
+
+# Install QEMU and utilities for ISO boot testing
+RUN apt-get update && apt-get install -y \
+    qemu-system-x86 \
+    qemu-utils \
+    systemd \
+    systemd-container \
+    dbus \
+    curl \
+    wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create validation script
+RUN mkdir -p /validation
+COPY validate-flex-sddm-boot.sh /validation/
+RUN chmod +x /validation/validate-flex-sddm-boot.sh
+
+WORKDIR /validation
+
+# Default: show usage
+CMD ["bash", "-c", "echo 'Usage: docker run -v /path/to/iso:/iso flex-test /validation/validate-flex-sddm-boot.sh /iso/bwos-arcwyre-flex.iso'"]
