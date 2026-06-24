@@ -238,116 +238,84 @@ def validate_tool_against_registry(tool_id, download_url=None, file_path=None):
         
     return True
 
+def get_normalized_scan(quiet=False):
+    """
+    Runs the v2 cross-platform device scanner and returns the full normalized result.
+    Schema: bootforge.device_scan.v2
+    Read-only. No destructive operations.
+    """
+    from device_scanner import scan_devices
+    def scan_log(level, message):
+        if not quiet:
+            _log(level, message)
+    scan_log("info", "Starting normalized device scan (bootforge.device_scan.v2)...")
+    result = scan_devices()
+    scan_log("success", f"Normalized scan complete. Detected {result.get('device_count', 0)} devices.")
+    return result
+
+
 def get_removable_drives(quiet=False):
     """
     Scans the system for removable and external storage devices.
+    Compatibility wrapper: delegates to device_scanner.scan_devices() and
+    derives the legacy output shape from normalized v2 evidence.
     Strictly non-destructive, read-only scanning logic.
 
     Args:
         quiet: Suppresses human log lines so callers can build clean JSON bridge payloads.
     """
-    def scan_log(level, message):
-        if not quiet:
-            _log(level, message)
-
-    scan_log("info", "Starting removable drives detection scan...")
+    scan_result = get_normalized_scan(quiet=quiet)
     drives = []
-    
-    if sys.platform == "win32":
-        scan_log("info", "Platform: Windows (Win32 API detection active)")
-        bitmask = ctypes.windll.kernel32.GetLogicalDrives()
-        for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
-            if bitmask & 1:
-                drive_path = f"{letter}:\\"
-                drive_type = ctypes.windll.kernel32.GetDriveTypeW(drive_path)
-                # DRIVE_REMOVABLE = 2, DRIVE_CDROM = 5
-                if drive_type in (2, 5):
-                    free_bytes = ctypes.c_ulonglong(0)
-                    total_bytes = ctypes.c_ulonglong(0)
-                    ctypes.windll.kernel32.GetDiskFreeSpaceExW(
-                        drive_path, None, ctypes.byref(total_bytes), ctypes.byref(free_bytes)
-                    )
-                    volume_name_buf = ctypes.create_unicode_buffer(1024)
-                    ctypes.windll.kernel32.GetVolumeInformationW(
-                        drive_path, volume_name_buf, 1024, None, None, None, None, 0
-                    )
-                    drives.append({
-                        "drive": drive_path,
-                        "label": volume_name_buf.value or "Removable Disk",
-                        "total_size_gb": round(total_bytes.value / (1024**3), 2),
-                        "free_size_gb": round(free_bytes.value / (1024**3), 2),
-                        "type": "Removable" if drive_type == 2 else "CD-ROM"
-                    })
-            bitmask >>= 1
-            
-    elif sys.platform == "darwin":
-        scan_log("info", "Platform: macOS (diskutil plist parsing active)")
-        try:
-            import plistlib
-            # Run diskutil list -plist to get all disks
-            list_out = subprocess.check_output(["diskutil", "list", "-plist"])
-            list_data = plistlib.loads(list_out)
-            all_disks = list_data.get("AllDisks", [])
-            for disk in all_disks:
-                # Target primary disks only (e.g. disk1, disk2 - avoiding partition sub-keys like disk1s1)
-                if not disk.startswith("disk") or "s" in disk:
-                    continue
-                try:
-                    info_out = subprocess.check_output(["diskutil", "info", "-plist", disk])
-                    info_data = plistlib.loads(info_out)
-                    is_removable = info_data.get("Removable", False) or info_data.get("RemovableMedia", False)
-                    is_external = info_data.get("External", False) or info_data.get("ParentWholeDisk", False)
-                    
-                    if is_removable or is_external:
-                        size_bytes = info_data.get("TotalSize", 0)
-                        free_bytes = info_data.get("FreeSpace", 0)
-                        volume_name = info_data.get("VolumeName", "") or info_data.get("MediaName", "External Disk")
-                        drives.append({
-                            "drive": f"/dev/{disk}",
-                            "label": volume_name,
-                            "total_size_gb": round(size_bytes / (1024**3), 2) if size_bytes else 0.0,
-                            "free_size_gb": round(free_bytes / (1024**3), 2) if free_bytes else 0.0,
-                            "type": "External" if is_external else "Removable"
-                        })
-                except Exception:
-                    pass
-        except Exception as e:
-            scan_log("error", f"macOS diskutil scanning failed: {e}")
-            
-    else:
-        scan_log("info", "Platform: Linux (lsblk JSON API active)")
-        try:
-            out = subprocess.check_output(["lsblk", "-J", "-o", "NAME,SIZE,MOUNTPOINT,RM,LABEL"]).decode("utf-8")
-            data = json.loads(out)
-            for device in data.get("blockdevices", []):
-                if device.get("rm") == "1" or device.get("rm") is True:
-                    drives.append({
-                        "drive": f"/dev/{device['name']}",
-                        "label": device.get("label") or "Removable Drive",
-                        "total_size_gb": device.get("size", "0"),
-                        "free_size_gb": device.get("size", "0"),
-                        "type": "Removable"
-                    })
-        except Exception as e:
-            scan_log("error", f"Linux lsblk scanning failed: {e}")
-            
-    scan_log("success", f"Scanning complete. Detected drives count: {len(drives)}")
+    for dev in scan_result.get("devices", []):
+        if not dev.get("is_removable") and not dev.get("is_external"):
+            continue
+        drive_type = "Removable"
+        if dev.get("is_external") and not dev.get("is_removable"):
+            drive_type = "External"
+        drives.append({
+            "drive": dev.get("drive_path"),
+            "label": dev.get("volume_label") or dev.get("display_name") or "Removable Disk",
+            "total_size_gb": dev.get("size_gb", 0.0),
+            "free_size_gb": dev.get("size_gb", 0.0),
+            "type": drive_type,
+        })
     return drives
 
 def build_drive_scan_payload():
     """
     Builds a clean, machine-readable USB scan payload for dashboard/desktop bridges.
-    This function is read-only and intentionally performs no mount, format, partition,
-    write, or privilege-elevation operations.
+    Uses the normalized v2 scanner and includes both v2 devices and legacy drives.
+    Read-only. No destructive operations.
     """
+    scan_result = get_normalized_scan(quiet=True)
+    legacy_drives = []
+    for dev in scan_result.get("devices", []):
+        if not dev.get("is_removable") and not dev.get("is_external"):
+            continue
+        drive_type = "Removable"
+        if dev.get("is_external") and not dev.get("is_removable"):
+            drive_type = "External"
+        legacy_drives.append({
+            "drive": dev.get("drive_path"),
+            "label": dev.get("volume_label") or dev.get("display_name") or "Removable Disk",
+            "total_size_gb": dev.get("size_gb", 0.0),
+            "free_size_gb": dev.get("size_gb", 0.0),
+            "type": drive_type,
+        })
     return {
-        "schema": "bootforge.drive_scan.v1",
+        "schema": "bootforge.drive_scan.v2",
         "generated_at": utc_now_iso(),
         "platform": sys.platform,
         "safe_mode": True,
         "destructive": False,
         "operation": "read_only_drive_scan",
-        "drives": get_removable_drives(quiet=True)
+        "scanner_schema": scan_result.get("schema"),
+        "scan_id": scan_result.get("scan_id"),
+        "detection_source": scan_result.get("detection_source"),
+        "device_count": scan_result.get("device_count", 0),
+        "devices": scan_result.get("devices", []),
+        "drives": legacy_drives,
+        "scan_warnings": scan_result.get("scan_warnings", []),
     }
 
 def print_drive_scan_json():
