@@ -1317,16 +1317,79 @@ def download_latest_oclp(dest_dir=None, dry_run=False):
         _log("error", f"Error retrieving OCLP from GitHub: {e}")
     return None
 
+def validate_rescue_target_with_scanner(drive_letter, dry_run=False):
+    """
+    Validates a rescue USB target against the v2 device scanner.
+    Returns (is_valid, scanner_device, warnings) tuple.
+    Blocks fixed/internal/system targets. Read-only check.
+    """
+    try:
+        scan_result = get_normalized_scan(quiet=True)
+    except Exception as e:
+        _log("warning", f"Scanner unavailable ({e}), falling back to path-only validation.")
+        return True, None, ["Scanner unavailable; target not verified against device inventory."]
+
+    devices = scan_result.get("devices", [])
+    matched = None
+    for dev in devices:
+        dev_path = dev.get("drive_path") or dev.get("path") or dev.get("drive")
+        if dev_path and dev_path.rstrip("/\\") == drive_letter.rstrip("/\\"):
+            matched = dev
+            break
+
+    if matched is None:
+        if dry_run:
+            return True, None, ["Target not found in scanner inventory (dry-run allowed)."]
+        _log("error", f"Target {drive_letter} not found in scanner device inventory.")
+        return False, None, [f"Target {drive_letter} not present in scanner results."]
+
+    warnings = list(matched.get("warnings", []))
+    block_reasons = list(matched.get("block_reasons", []))
+
+    if matched.get("is_fixed") or matched.get("is_system") or matched.get("is_boot_drive"):
+        reason = "Target is a fixed, system, or boot drive."
+        _log("error", f"BLOCKED: {reason}")
+        return False, matched, [reason]
+
+    if not matched.get("is_removable") and not matched.get("is_external"):
+        reason = "Target is not removable or external."
+        _log("error", f"BLOCKED: {reason}")
+        return False, matched, [reason]
+
+    if matched.get("confidence") == "low":
+        warnings.append("Scanner confidence is low for this device.")
+
+    if block_reasons:
+        _log("error", f"Scanner block reasons: {block_reasons}")
+        return False, matched, block_reasons
+
+    return True, matched, warnings
+
+
 def create_rescue_usb_structure(drive_letter, enable_oclp=True, enable_bootcamp=True, dry_run=False):
     """
     Builds the standard BootForge folder structures on the target device.
+    Validates target against scanner v2 before creating directories.
     Strictly non-destructive directories creation only.
     """
     if dry_run:
         _log("warning", f"[DRY-RUN SIMULATION] Initiating folder creation sequence on drive {drive_letter}...")
     else:
         _log("info", f"Preparing Rescue USB structure on target drive {drive_letter}...")
-        
+
+    is_valid, scanner_device, scan_warnings = validate_rescue_target_with_scanner(drive_letter, dry_run=dry_run)
+    if scan_warnings:
+        for w in scan_warnings:
+            _log("warning", f"Scanner: {w}")
+    if not is_valid:
+        _log("error", f"Target {drive_letter} blocked by scanner validation.")
+        return False
+    if scanner_device:
+        _log("info", f"Scanner confirmed target: {scanner_device.get('display_name', drive_letter)} "
+             f"[confidence={scanner_device.get('confidence', 'unknown')}, "
+             f"removable={scanner_device.get('is_removable')}, "
+             f"stable_id={scanner_device.get('stable_id', 'none')}]")
+
     drive_path = Path(drive_letter)
     if not dry_run and not drive_path.exists():
         _log("error", f"Target drive {drive_letter} is not mounted or available.")

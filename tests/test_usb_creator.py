@@ -37,48 +37,82 @@ class TestUSBCreator(unittest.TestCase):
             if tmp_path.exists():
                 tmp_path.unlink()
 
-    def test_create_rescue_usb_structure(self):
+    @patch("usb_creator.get_normalized_scan")
+    def test_create_rescue_usb_structure(self, mock_scan):
         """Verify directories and README.txt are safely and non-destructively created."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
-            
-            # Execute directories setup
+            mock_scan.return_value = {
+                "schema": "bootforge.device_scan.v2",
+                "devices": [{
+                    "drive_path": str(tmpdir_path),
+                    "display_name": "TestUSB",
+                    "is_removable": True, "is_external": False,
+                    "is_fixed": False, "is_system": False,
+                    "confidence": "high", "stable_id": "test-stable",
+                    "warnings": [], "block_reasons": [],
+                }],
+            }
+
             result = usb_creator.create_rescue_usb_structure(str(tmpdir_path))
-            
-            # Assert successful execution return code
             self.assertTrue(result)
-            
-            # Assert all 4 required directories were created
+
             expected_dirs = ["RescueTools", "BootCamp_Drivers", "OCLP_Patcher", "macOS_Installers"]
             for folder in expected_dirs:
                 self.assertTrue((tmpdir_path / folder).is_dir())
-                
-            # Assert README instructions file is created and has correct contents
+
             readme = tmpdir_path / "README.txt"
             self.assertTrue(readme.is_file())
             content = readme.read_text(encoding="utf-8")
             self.assertIn("PhoenixCore Rescue USB System", content)
             self.assertIn("BootCamp_Drivers/", content)
 
-    def test_create_rescue_usb_structure_dry_run(self):
+    @patch("usb_creator.get_normalized_scan")
+    def test_create_rescue_usb_structure_dry_run(self, mock_scan):
         """Verify dry-run mode creates absolutely ZERO files or directories on disk."""
-        # Target a path that does not exist and should not be created
         simulated_path = "/nonexistent/dry/run/target/path"
-        
-        # Run in dry-run mode
+        mock_scan.return_value = {
+            "schema": "bootforge.device_scan.v2",
+            "devices": [],
+        }
+
         result = usb_creator.create_rescue_usb_structure(simulated_path, dry_run=True)
-        
-        # Assert returned True (since simulation ran successfully)
         self.assertTrue(result)
-        
-        # Verify absolutely no folders were actually written to disk
         self.assertFalse(Path(simulated_path).exists())
 
-    def test_create_rescue_usb_structure_invalid_path(self):
+    @patch("usb_creator.get_normalized_scan")
+    def test_create_rescue_usb_structure_invalid_path(self, mock_scan):
         """Verify structure creation logs failure and returns False for non-existent drives."""
-        # Non-existent target directory (without dry-run)
         invalid_path = "/nonexistent/drive/path/xyz"
+        mock_scan.return_value = {
+            "schema": "bootforge.device_scan.v2",
+            "devices": [{
+                "drive_path": invalid_path,
+                "display_name": "TestUSB",
+                "is_removable": True, "is_external": False,
+                "is_fixed": False, "is_system": False,
+                "confidence": "high", "stable_id": "test-stable",
+                "warnings": [], "block_reasons": [],
+            }],
+        }
         result = usb_creator.create_rescue_usb_structure(invalid_path, dry_run=False)
+        self.assertFalse(result)
+
+    @patch("usb_creator.get_normalized_scan")
+    def test_create_rescue_usb_structure_blocks_fixed_drive(self, mock_scan):
+        """Verify rescue structure creation blocks fixed/internal/system drives."""
+        mock_scan.return_value = {
+            "schema": "bootforge.device_scan.v2",
+            "devices": [{
+                "drive_path": "C:\\",
+                "display_name": "System",
+                "is_removable": False, "is_external": False,
+                "is_fixed": True, "is_system": True,
+                "confidence": "high", "stable_id": "sys-drive",
+                "warnings": [], "block_reasons": [],
+            }],
+        }
+        result = usb_creator.create_rescue_usb_structure("C:\\", dry_run=False)
         self.assertFalse(result)
 
     @patch("urllib.request.urlopen")
