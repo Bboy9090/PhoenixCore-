@@ -18,151 +18,117 @@ cat > /usr/local/bin/bwos-session-profile-apply <<'EOF2'
 #!/bin/sh
 set -eu
 
+LOG_FILE="/run/arcwyre-flex-session-profile.log"
+LOG_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Logging function: write to file and journal
+log_info() {
+    MSG="[${LOG_TIMESTAMP}] [INFO] $*"
+    echo "$MSG" >> "$LOG_FILE"
+    logger -t bwos-session-profile -p info "$MSG" 2>/dev/null || true
+}
+
+log_success() {
+    MSG="[${LOG_TIMESTAMP}] [SUCCESS] $*"
+    echo "$MSG" >> "$LOG_FILE"
+    logger -t bwos-session-profile -p info "$MSG" 2>/dev/null || true
+}
+
+log_fail() {
+    MSG="[${LOG_TIMESTAMP}] [FAIL] $*"
+    echo "$MSG" >> "$LOG_FILE"
+    logger -t bwos-session-profile -p err "$MSG" 2>/dev/null || true
+}
+
+# Initialize log file
+{
+    echo "[${LOG_TIMESTAMP}] ARCWYRE Flex SDDM Autologin Profile Apply - START"
+} >> "$LOG_FILE"
+
+# Detect live user
 LIVE_USER="phoenix"
 if id -u arc >/dev/null 2>&1; then
     LIVE_USER="arc"
 fi
+log_info "Detected live user: $LIVE_USER"
+
+# Get home directory
 LIVE_HOME="/home/${LIVE_USER}"
-PROFILE="x11"
-CMDLINE="$(cat /proc/cmdline 2>/dev/null || true)"
+log_info "Live home directory: $LIVE_HOME"
 
-log() {
-    /usr/local/bin/bwos-session-log "$@"
-}
-
-first_existing() {
-    for candidate in "$@"; do
-        if [ -f "$candidate" ]; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    done
-    return 1
-}
-
-session_exec() {
-    path="$1"
-    if [ -f "$path" ]; then
-        awk -F= '/^Exec=/ { print $2; exit }' "$path"
+# Find X11 session
+X11_SESSION=""
+for candidate in \
+    /usr/share/xsessions/plasmax11.desktop \
+    /usr/share/xsessions/plasma.desktop \
+    /usr/share/xsessions/xfce.desktop
+do
+    if [ -f "$candidate" ]; then
+        X11_SESSION="$(basename "$candidate")"
+        break
     fi
-}
+done
+log_info "Detected X11 session: ${X11_SESSION:-NONE}"
 
-case " $CMDLINE " in
-    *" bwos.session=wayland "*) PROFILE="wayland" ;;
-    *" bwos.session=x11 "*) PROFILE="x11" ;;
-esac
-
-log "BWOS_KERNEL_CMDLINE ${CMDLINE}"
-
-WAYLAND_SESSION="$(first_existing \
+# Find Wayland session
+WAYLAND_SESSION=""
+for candidate in \
     /usr/share/wayland-sessions/plasmawayland.desktop \
     /usr/share/wayland-sessions/plasma.desktop \
-    /usr/share/wayland-sessions/org.kde.plasma.desktop || true)"
-
-X11_SESSION="$(first_existing \
-    /usr/share/xsessions/plasmax11.desktop \
-    /usr/share/xsessions/plasma.desktop || true)"
-
-if [ -n "$X11_SESSION" ]; then
-    X11_EXEC="$(session_exec "$X11_SESSION" || true)"
-    log "BWOS_SESSION_FILE_X11_EXISTS path=${X11_SESSION} exec=${X11_EXEC}"
-    if [ -n "$X11_EXEC" ] && command -v ${X11_EXEC%% *} >/dev/null 2>&1; then
-        log "BWOS_SESSION_EXEC_X11_EXISTS command=${X11_EXEC%% *}"
-    else
-        log "BWOS_SESSION_EXEC_X11_MISSING command=${X11_EXEC%% *}"
+    /usr/share/wayland-sessions/xfce-wayland.desktop
+do
+    if [ -f "$candidate" ]; then
+        WAYLAND_SESSION="$(basename "$candidate")"
+        break
     fi
-else
-    log "BWOS_SESSION_FILE_X11_MISSING"
-fi
+done
+log_info "Detected Wayland session: ${WAYLAND_SESSION:-NONE}"
 
-if [ -n "$WAYLAND_SESSION" ]; then
-    WAYLAND_EXEC="$(session_exec "$WAYLAND_SESSION" || true)"
-    log "BWOS_SESSION_FILE_WAYLAND_EXISTS path=${WAYLAND_SESSION} exec=${WAYLAND_EXEC}"
-    if [ -n "$WAYLAND_EXEC" ] && command -v ${WAYLAND_EXEC%% *} >/dev/null 2>&1; then
-        log "BWOS_SESSION_EXEC_WAYLAND_EXISTS command=${WAYLAND_EXEC%% *}"
-    else
-        log "BWOS_SESSION_EXEC_WAYLAND_MISSING command=${WAYLAND_EXEC%% *}"
-    fi
-else
-    log "BWOS_SESSION_FILE_WAYLAND_MISSING"
-fi
+# Choose session (prefer X11)
+SELECTED_SESSION="${X11_SESSION:-${WAYLAND_SESSION:-}}"
+log_info "Chosen session: ${SELECTED_SESSION:-EMPTY}"
 
-if [ "$PROFILE" = "wayland" ]; then
-    SELECTED_SESSION="$WAYLAND_SESSION"
-else
-    SELECTED_SESSION="$X11_SESSION"
-fi
-
+# FAIL if no session found
 if [ -z "$SELECTED_SESSION" ]; then
-    log "BWOS_SESSION_CONFIG_FAIL selected_session_missing profile=${PROFILE}"
-    exit 0
+    log_fail "ARCWYRE_FLEX_SDDM_SESSION_EMPTY_FAIL - no valid session found"
+    echo "[${LOG_TIMESTAMP}] ARCWYRE Flex SDDM Profile Apply - END (FAILED)" >> "$LOG_FILE"
+    exit 1
 fi
 
-SELECTED_SESSION_NAME="$(basename "$SELECTED_SESSION")"
+# Remove stale conf.d autologin configs
+if [ -f /etc/sddm.conf.d/autologin.conf ]; then
+    log_info "Removing stale /etc/sddm.conf.d/autologin.conf"
+    rm -f /etc/sddm.conf.d/autologin.conf
+fi
+
+# Create directories
 install -d -m 0755 /etc/sddm.conf.d /run
 
-cat > /etc/sddm.conf.d/autologin.conf <<EOF_CONF
-[Autologin]
-User=${LIVE_USER}
-Session=${SELECTED_SESSION_NAME}
-Relogin=true
-EOF_CONF
-
-cat > /etc/sddm.conf.d/default-session.conf <<EOF_CONF
-[General]
-DefaultSession=${SELECTED_SESSION_NAME}
-EOF_CONF
-
-# /etc/sddm.conf is read LAST by SDDM and overrides conf.d values.
-# Write here to guarantee the runtime session selection takes effect.
-SDDM_THEME="$(awk -F= '/^Current=/ {print $2; exit}' /etc/sddm.conf.d/phoenix.conf 2>/dev/null || echo phoenix)"
+# Write final SDDM autologin config to /etc/sddm.conf (highest precedence)
 cat > /etc/sddm.conf <<EOF_CONF
 [Autologin]
-User=${LIVE_USER}
-Session=${SELECTED_SESSION_NAME}
+User=$LIVE_USER
+Session=$SELECTED_SESSION
 Relogin=true
 
 [General]
-DefaultSession=${SELECTED_SESSION_NAME}
+DefaultSession=$SELECTED_SESSION
 
 [Theme]
-Current=${SDDM_THEME}
+Current=phoenix
 EOF_CONF
 
-printf '%s\n' "$PROFILE" > /run/bwos-session-profile
-printf '%s\n' "$SELECTED_SESSION_NAME" > /run/bwos-selected-session
+log_info "Wrote /etc/sddm.conf with User=$LIVE_USER Session=$SELECTED_SESSION"
 
-log "BWOS_SDDM_SERVICE_PRESTART"
-log "BWOS_SDDM_AUTOLOGIN_CONFIGURED user=${LIVE_USER} session=${SELECTED_SESSION_NAME} profile=${PROFILE}"
-log "BWOS_SELECTED_SESSION_FILE=${SELECTED_SESSION_NAME}"
+# Log final config contents
+{
+    echo "[INFO] Final /etc/sddm.conf contents:"
+    cat /etc/sddm.conf | sed 's/^/  /'
+} >> "$LOG_FILE"
 
-if [ "$PROFILE" = "x11" ]; then
-    log "BWOS_X11_SESSION_ATTEMPTED"
-else
-    log "BWOS_WAYLAND_SESSION_ATTEMPTED"
-fi
-
-if id "$LIVE_USER" >/dev/null 2>&1 && [ -d "$LIVE_HOME" ]; then
-    owner="$(stat -c '%U:%G' "$LIVE_HOME" 2>/dev/null || stat -f '%Su:%Sg' "$LIVE_HOME" 2>/dev/null || echo unknown)"
-    mode="$(stat -c '%a' "$LIVE_HOME" 2>/dev/null || stat -f '%Lp' "$LIVE_HOME" 2>/dev/null || echo unknown)"
-    log "BWOS_USER_PROVISIONING_OK user=${LIVE_USER} home=${LIVE_HOME} owner=${owner} mode=${mode}"
-else
-    log "BWOS_USER_PROVISIONING_FAIL user=${LIVE_USER} home=${LIVE_HOME}"
-fi
-
-if [ -f "${LIVE_HOME}/.config/plasma-org.kde.plasma.desktop-appletsrc" ]; then
-    log "BWOS_PLASMA_CONFIG_READABLE"
-else
-    log "BWOS_PLASMA_CONFIG_MISSING"
-fi
-
-if [ -f "${LIVE_HOME}/.config/autostart/bwos-desktop-session-marker.desktop" ] || [ -f /etc/xdg/autostart/bwos-desktop-session-marker.desktop ]; then
-    log "BWOS_AUTOSTART_MARKER_PRESENT"
-else
-    log "BWOS_AUTOSTART_MARKER_MISSING"
-fi
-
-groups "$LIVE_USER" 2>/dev/null | sed 's/^/BWOS_USER_GROUPS /' > /dev/ttyS0 2>/dev/null || true
+# Emit success marker
+log_success "ARCWYRE_FLEX_SDDM_AUTOLOGIN_CONFIGURED user=$LIVE_USER session=$SELECTED_SESSION"
+echo "[${LOG_TIMESTAMP}] ARCWYRE Flex SDDM Profile Apply - END (SUCCESS)" >> "$LOG_FILE"
 EOF2
 chmod 0755 /usr/local/bin/bwos-session-profile-apply
 
@@ -266,16 +232,19 @@ chmod 0755 /usr/local/bin/bwos-session-diagnostics-dump
 
 cat > /etc/systemd/system/bwos-session-profile.service <<'EOF2'
 [Unit]
-Description=BWOS Session Profile Selection
-Before=sddm.service
-After=systemd-user-sessions.service local-fs.target
+Description=BWOS Session Profile Selection (SDDM Autologin)
+Before=display-manager.service sddm.service
+After=local-fs.target systemd-user-sessions.service
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/bwos-session-profile-apply
+StandardOutput=journal+console
+StandardError=journal+console
+SyslogIdentifier=bwos-session-profile
 
 [Install]
-WantedBy=graphical.target
+WantedBy=display-manager.service
 EOF2
 
 cat > /etc/systemd/system/bwos-session-diagnostics.service <<'EOF2'
