@@ -1528,3 +1528,376 @@ def export_physical_usb_write_lab_markdown(result_payload: dict, output_path: st
     except Exception as e:
         return {"status": "failed", "export_path": output_path, "error": str(e)}
 
+
+# ===========================================================================
+# PART 8 — READ-ONLY HARDWARE EVIDENCE BUNDLE (Phase 5B-3)
+# ===========================================================================
+
+def build_hardware_evidence_bundle(
+    target_drive: str = None,
+    scan_payload: dict = None,
+    label: str = None,
+    redact_serials: bool = False,
+    include_full_scan: bool = False,
+) -> dict:
+    """
+    Builds a complete read-only hardware evidence bundle that composes
+    scanner, identity-lock, preflight, and dry-run evidence into a single
+    exportable payload. No physical writing. No destructive operations.
+    Schema: bootforge.hardware_evidence_bundle.v1
+    """
+    import uuid
+    import platform as _platform
+
+    bundle_id = f"evidence_{str(uuid.uuid4())[:32].replace('-', '')}"
+    created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    if scan_payload is None:
+        try:
+            from usb_creator import get_normalized_scan
+            scan_payload = get_normalized_scan(quiet=True)
+        except Exception as e:
+            scan_payload = {
+                "schema": "bootforge.device_scan.v2",
+                "devices": [],
+                "device_count": 0,
+                "scan_warnings": [f"Scanner unavailable: {e}"],
+            }
+
+    scan_summary = {
+        "schema": scan_payload.get("schema"),
+        "scan_id": scan_payload.get("scan_id"),
+        "device_count": scan_payload.get("device_count", 0),
+        "detection_source": scan_payload.get("detection_source"),
+        "scan_warnings": scan_payload.get("scan_warnings", []),
+    }
+
+    resolved_device = None
+    resolved_count = 0
+    target_resolved = False
+    resolution_reason = "no_target_selected"
+    identity_lock_preview = None
+    rescan_preview = None
+    preflight_preview = None
+    dryrun_preview = None
+    eligible = False
+    scanner_confidence = "unknown"
+    scanner_stable_id = None
+    scanner_serial = None
+    identity_hash = None
+    scanner_warnings = []
+    scanner_block_reasons = []
+
+    if target_drive:
+        norm_target = target_drive.lower().rstrip("\\/")
+        matches = []
+        for d in scan_payload.get("devices", []):
+            dp = (d.get("drive_path") or "").lower().rstrip("\\/")
+            if dp == norm_target:
+                matches.append(d)
+        resolved_count = len(matches)
+
+        if resolved_count == 0:
+            resolution_reason = "target_not_found"
+        elif resolved_count > 1:
+            resolution_reason = "ambiguous_target"
+        else:
+            resolved_device = matches[0]
+            target_resolved = True
+            resolution_reason = "resolved"
+
+            scanner_confidence = resolved_device.get("confidence", "unknown")
+            scanner_stable_id = resolved_device.get("stable_id")
+            scanner_serial = resolved_device.get("serial")
+            scanner_warnings = list(resolved_device.get("warnings", []))
+            scanner_block_reasons = list(resolved_device.get("block_reasons", []))
+            identity_hash = _build_scanner_identity_hash(resolved_device)
+
+            is_fixed = resolved_device.get("is_fixed", False)
+            is_system = resolved_device.get("is_system", False) or resolved_device.get("is_system_drive", False) or resolved_device.get("is_boot_drive", False)
+
+            if is_fixed or is_system:
+                resolution_reason = "fixed_internal_or_system_target"
+                eligible = False
+            elif scanner_confidence == "low":
+                eligible = False
+                scanner_block_reasons.append(
+                    "Scanner confidence is low; identity lock is unreliable for lab eligibility."
+                )
+            elif scanner_block_reasons:
+                eligible = False
+            else:
+                eligible = True
+
+            identity_lock_preview = build_removable_target_identity_lock(
+                target_drive, scan_payload
+            )
+            rescan_preview = rescan_and_compare_target_identity(
+                identity_lock_preview, scan_payload
+            )
+            preflight_preview = build_physical_writer_preflight_result(
+                identity_lock_preview
+            )
+            try:
+                dryrun_preview = {
+                    "dry_run_only": True,
+                    "physical_write_allowed": False,
+                    "physical_write_attempted": False,
+                    "bytes_written": 0,
+                    "target_drive": target_drive,
+                    "target_identity_hash": identity_hash,
+                    "identity_drift_detected": rescan_preview.get("drift_detected", False) if rescan_preview else False,
+                    "blocked": not eligible or bool(scanner_block_reasons),
+                    "block_reasons": list(scanner_block_reasons) + (
+                        identity_lock_preview.get("block_reasons", []) if identity_lock_preview else []
+                    ),
+                }
+            except Exception:
+                dryrun_preview = None
+    else:
+        resolution_reason = "no_target_selected"
+
+    if redact_serials:
+        scanner_serial = "REDACTED" if scanner_serial else None
+        if scanner_stable_id:
+            scanner_stable_id = hashlib.sha256(
+                scanner_stable_id.encode()
+            ).hexdigest()[:16]
+        if identity_lock_preview and identity_lock_preview.get("serial"):
+            identity_lock_preview["serial"] = "REDACTED"
+        if identity_lock_preview and identity_lock_preview.get("stable_id"):
+            identity_lock_preview["stable_id"] = hashlib.sha256(
+                identity_lock_preview["stable_id"].encode()
+            ).hexdigest()[:16]
+        if preflight_preview and preflight_preview.get("scanner_serial"):
+            preflight_preview["scanner_serial"] = "REDACTED"
+        if preflight_preview and preflight_preview.get("scanner_stable_id"):
+            preflight_preview["scanner_stable_id"] = hashlib.sha256(
+                str(preflight_preview["scanner_stable_id"]).encode()
+            ).hexdigest()[:16]
+        if preflight_preview and preflight_preview.get("target_stable_id"):
+            preflight_preview["target_stable_id"] = hashlib.sha256(
+                str(preflight_preview["target_stable_id"]).encode()
+            ).hexdigest()[:16]
+
+    bundle = {
+        "schema": "bootforge.hardware_evidence_bundle.v1",
+        "bundle_id": bundle_id,
+        "created_at": created_at,
+        "platform": sys.platform,
+        "python_version": _platform.python_version(),
+        "project_phase": "5B-3",
+        "label": label,
+        "scanner_schema": scan_payload.get("schema", "bootforge.device_scan.v2"),
+        "scan_summary": scan_summary,
+        "target_selector": target_drive,
+        "target_resolved": target_resolved,
+        "resolved_count": resolved_count,
+        "resolution_reason": resolution_reason,
+        "stable_id": scanner_stable_id,
+        "serial": scanner_serial,
+        "identity_hash": identity_hash,
+        "scanner_confidence": scanner_confidence,
+        "scanner_warnings": scanner_warnings,
+        "scanner_block_reasons": scanner_block_reasons,
+        "eligible": eligible,
+        "identity_lock_preview": identity_lock_preview,
+        "rescan_identity_preview": rescan_preview,
+        "preflight_preview": preflight_preview,
+        "dryrun_preview": dryrun_preview,
+        "physical_write_allowed": False,
+        "physical_write_attempted": False,
+        "bytes_written": 0,
+        "dashboard_write_available": False,
+        "redacted": redact_serials,
+        "next_required_action": "await_phase_5c_windows_writer" if eligible else "resolve_block_reasons",
+    }
+
+    if include_full_scan:
+        bundle["full_scan"] = scan_payload
+
+    return bundle
+
+
+def generate_hardware_evidence_markdown(bundle: dict) -> str:
+    block_reasons = bundle.get("scanner_block_reasons", [])
+    lock_preview = bundle.get("identity_lock_preview")
+    preflight = bundle.get("preflight_preview")
+    dryrun = bundle.get("dryrun_preview")
+
+    if lock_preview:
+        block_reasons = list(set(block_reasons + lock_preview.get("block_reasons", [])))
+
+    reasons_str = "\n".join(f"- {r}" for r in block_reasons) if block_reasons else "None"
+    warnings_str = "\n".join(f"- {w}" for w in bundle.get("scanner_warnings", [])) if bundle.get("scanner_warnings") else "None"
+
+    lock_section = "Not available (no target selected)"
+    if lock_preview:
+        lock_section = (
+            f"- **Lock ID**: `{lock_preview.get('identity_lock_id')}`\n"
+            f"- **Blocked**: {lock_preview.get('blocked')}\n"
+            f"- **Hash**: `{lock_preview.get('device_identity_hash')}`"
+        )
+
+    preflight_section = "Not available"
+    if preflight:
+        preflight_section = (
+            f"- **Preflight ID**: `{preflight.get('preflight_id')}`\n"
+            f"- **Physical Writer Allowed**: {preflight.get('physical_writer_allowed')}\n"
+            f"- **Physical Write Attempted**: {preflight.get('physical_write_attempted')}\n"
+            f"- **Blocked**: {preflight.get('blocked')}"
+        )
+
+    dryrun_section = "Not available"
+    if dryrun:
+        dryrun_section = (
+            f"- **Dry Run Only**: {dryrun.get('dry_run_only')}\n"
+            f"- **Physical Write Allowed**: {dryrun.get('physical_write_allowed')}\n"
+            f"- **Physical Write Attempted**: {dryrun.get('physical_write_attempted')}\n"
+            f"- **Bytes Written**: {dryrun.get('bytes_written')}\n"
+            f"- **Identity Drift Detected**: {dryrun.get('identity_drift_detected')}\n"
+            f"- **Blocked**: {dryrun.get('blocked')}"
+        )
+
+    md = f"""# PhoenixCore / BootForge Hardware Evidence Bundle
+
+## General Info
+- **Bundle ID**: `{bundle.get('bundle_id')}`
+- **Phase**: {bundle.get('project_phase')}
+- **Created At**: {bundle.get('created_at')}
+- **Platform**: {bundle.get('platform')}
+- **Label**: {bundle.get('label') or 'None'}
+- **Redacted**: {bundle.get('redacted', False)}
+
+---
+
+## Target Resolution
+- **Target Selected**: {bundle.get('target_selector') or 'None'}
+- **Target Resolved**: {bundle.get('target_resolved')}
+- **Resolved Count**: {bundle.get('resolved_count')}
+- **Resolution Reason**: {bundle.get('resolution_reason')}
+
+---
+
+## Scanner Evidence
+- **Scanner Schema**: {bundle.get('scanner_schema')}
+- **Scanner Confidence**: {bundle.get('scanner_confidence')}
+- **Stable ID**: `{bundle.get('stable_id') or 'None'}`
+- **Serial**: `{bundle.get('serial') or 'None'}`
+- **Identity Hash**: `{bundle.get('identity_hash') or 'None'}`
+- **Eligible**: {bundle.get('eligible')}
+
+---
+
+## Block Reasons
+{reasons_str}
+
+---
+
+## Warnings
+{warnings_str}
+
+---
+
+## Identity Lock Preview
+{lock_section}
+
+---
+
+## Preflight Preview
+{preflight_section}
+
+---
+
+## Dry-Run Validation Preview
+{dryrun_section}
+
+---
+
+## Safety Contract
+- **Physical Writing Added**: no
+- **Physical Write Allowed**: {bundle.get('physical_write_allowed')}
+- **Physical Write Attempted**: {bundle.get('physical_write_attempted')}
+- **Bytes Written**: {bundle.get('bytes_written')}
+- **Dashboard Write Available**: {bundle.get('dashboard_write_available')}
+
+---
+
+> [!IMPORTANT]
+> **This evidence bundle is read-only. No physical USB writing was performed.**
+> **The dashboard cannot trigger any physical write operation.**
+> **Fixed, internal, and system drives are permanently blocked.**
+"""
+    return md
+
+
+def validate_hardware_evidence_export_path(output_path: str, export_type: str, target_drive: str = None):
+    from pathlib import Path
+
+    if not output_path or not str(output_path).strip():
+        raise ValueError("Export path is empty.")
+
+    p_str = str(output_path).strip().lower()
+
+    if "\\\\.\\" in p_str or "//./" in p_str or p_str.startswith("\\\\") or p_str.startswith("//"):
+        raise ValueError("Raw device style or UNC network paths are blocked for export.")
+
+    for suspicious in ["sys32", "system32", "windows", "/etc", "/bin", "/sbin", "/var", "/usr"]:
+        if suspicious in p_str.replace("\\", "/"):
+            raise ValueError(f"Suspicious path detected: export path in {suspicious} folders is blocked.")
+
+    p = Path(output_path)
+    p_resolved = p.resolve()
+
+    if p_resolved.exists() and p_resolved.is_dir():
+        raise ValueError("Export path is a directory.")
+
+    if p_resolved.exists():
+        raise ValueError(f"Export file '{output_path}' already exists. Overwriting is blocked.")
+
+    parent = p_resolved.parent
+    if not parent.exists() or not parent.is_dir():
+        raise ValueError("Parent directory of export path does not exist.")
+
+    if export_type == "json" and p_resolved.suffix.lower() != ".json":
+        raise ValueError(f"Export path extension '{p_resolved.suffix}' must be '.json'.")
+    elif export_type == "markdown" and p_resolved.suffix.lower() != ".md":
+        raise ValueError(f"Export path extension '{p_resolved.suffix}' must be '.md'.")
+
+    if target_drive:
+        try:
+            from usb_creator import get_drive_root
+            td_root = get_drive_root(target_drive)
+            if td_root:
+                td_path = Path(td_root).resolve()
+                if p_resolved == td_path:
+                    raise ValueError("Export path cannot be the target drive root itself.")
+        except ImportError:
+            pass
+
+
+def export_hardware_evidence_json(bundle: dict, output_path: str) -> dict:
+    import json
+    try:
+        validate_hardware_evidence_export_path(
+            output_path, "json", bundle.get("target_selector")
+        )
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(bundle, f, indent=2)
+        return {"status": "success", "export_path": output_path, "error": None}
+    except Exception as e:
+        return {"status": "failed", "export_path": output_path, "error": str(e)}
+
+
+def export_hardware_evidence_markdown(bundle: dict, output_path: str) -> dict:
+    try:
+        validate_hardware_evidence_export_path(
+            output_path, "markdown", bundle.get("target_selector")
+        )
+        md = generate_hardware_evidence_markdown(bundle)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(md)
+        return {"status": "success", "export_path": output_path, "error": None}
+    except Exception as e:
+        return {"status": "failed", "export_path": output_path, "error": str(e)}
+
