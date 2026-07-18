@@ -147,9 +147,15 @@ def _run_command_bytes(cmd, timeout=10):
 # ---------------------------------------------------------------------------
 
 WINDOWS_PS_SCRIPT = (
-    "Get-CimInstance Win32_DiskDrive | "
-    "Select-Object DeviceID, Model, SerialNumber, Size, MediaType, "
-    "InterfaceType, Partitions, Status, Caption | ConvertTo-Json"
+    "Get-CimInstance Win32_DiskDrive | ForEach-Object { "
+    "$disk = $_; "
+    "$number = [int](($disk.DeviceID -replace '[^0-9]', '')); "
+    "$storage = Get-Disk -Number $number -ErrorAction SilentlyContinue; "
+    "[PSCustomObject]@{ DeviceID=$disk.DeviceID; Model=$disk.Model; "
+    "SerialNumber=$disk.SerialNumber; Size=$disk.Size; MediaType=$disk.MediaType; "
+    "InterfaceType=$disk.InterfaceType; Partitions=$disk.Partitions; "
+    "Status=$disk.Status; Caption=$disk.Caption; IsBoot=[bool]$storage.IsBoot; "
+    "IsSystem=[bool]$storage.IsSystem } } | ConvertTo-Json"
 )
 
 
@@ -173,6 +179,7 @@ def parse_windows_scan_output(raw_json):
         model = (item.get("Model") or "").strip() or None
         interface = (item.get("InterfaceType") or "").strip()
         media_type = (item.get("MediaType") or "").strip().lower()
+        is_system = bool(item.get("IsBoot") or item.get("IsSystem"))
 
         is_removable = (
             interface in ("USB", "SD", "1394")
@@ -198,7 +205,7 @@ def parse_windows_scan_output(raw_json):
                 is_removable=is_removable,
                 is_external=is_removable,
                 is_fixed=is_fixed,
-                is_system=False,
+                is_system=is_system,
                 bus_protocol=interface or None,
                 platform="win32",
                 detection_source="powershell_win32_diskdrive",
