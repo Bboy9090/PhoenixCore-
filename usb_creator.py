@@ -1929,6 +1929,11 @@ if __name__ == "__main__":
         help="Export write plan audit as JSON to a local path",
     )
     parser.add_argument(
+        "--export-write-plan-json",
+        type=str,
+        help="Export the read-only plan receipt to a new local JSON file",
+    )
+    parser.add_argument(
         "--export-markdown",
         type=str,
         help="Export human-readable audit summary as Markdown to a local path",
@@ -1940,6 +1945,11 @@ if __name__ == "__main__":
         "--mock-cancel-at-chunk",
         type=int,
         help="Cancel mock simulation at chunk number",
+    )
+    parser.add_argument(
+        "--export-mock-write-json",
+        type=str,
+        help="Export the non-destructive mock writer receipt to a new local JSON file",
     )
     parser.add_argument(
         "--download-oclp",
@@ -1989,6 +1999,11 @@ if __name__ == "__main__":
         "--lock-removable-target",
         action="store_true",
         help="Build deterministic removable target identity lock record",
+    )
+    parser.add_argument(
+        "--export-identity-lock-json",
+        type=str,
+        help="Export the removable target identity lock to a new local JSON file",
     )
     parser.add_argument(
         "--rescan-target-identity",
@@ -2065,9 +2080,24 @@ if __name__ == "__main__":
         help="Maximum bytes to write in physical USB write lab",
     )
     parser.add_argument(
+        "--confirm-physical-target",
+        type=str,
+        help="Re-enter the exact \\\\.\\PHYSICALDRIVE<n> target immediately before physical write",
+    )
+    parser.add_argument(
         "--require-dryrun-result",
         type=str,
         help="Path to JSON dry-run result required for physical write lab",
+    )
+    parser.add_argument(
+        "--require-audit-result",
+        type=str,
+        help="Path to required passed write-plan audit JSON for physical write lab",
+    )
+    parser.add_argument(
+        "--require-simulation-result",
+        type=str,
+        help="Path to required completed mock-writer JSON for physical write lab",
     )
     parser.add_argument(
         "--require-preflight-result",
@@ -2207,6 +2237,8 @@ if __name__ == "__main__":
         lock_data = None
         preflight_data = None
         dryrun_data = None
+        audit_data = None
+        simulation_data = None
 
         if args.require_identity_lock and os.path.exists(args.require_identity_lock):
             with open(args.require_identity_lock, "r") as f:
@@ -2219,12 +2251,133 @@ if __name__ == "__main__":
         if args.require_dryrun_result and os.path.exists(args.require_dryrun_result):
             with open(args.require_dryrun_result, "r") as f:
                 dryrun_data = json.load(f)
+        if args.require_audit_result and os.path.exists(args.require_audit_result):
+            with open(args.require_audit_result, "r") as f:
+                audit_data = json.load(f)
+        if args.require_simulation_result and os.path.exists(
+            args.require_simulation_result
+        ):
+            with open(args.require_simulation_result, "r") as f:
+                simulation_data = json.load(f)
+
+        # Receipts are evidence, not authority. Re-scan the actual machine and
+        # compare the live target identity immediately before any raw handle opens.
+        fresh_scan = get_normalized_scan(quiet=True)
+        live_device = None
+        normalized_target = args.target_drive.lower().rstrip("\\/")
+        for device in fresh_scan.get("devices", []):
+            if (device.get("drive_path") or "").lower().rstrip(
+                "\\/"
+            ) == normalized_target:
+                live_device = device
+                break
+
+        rescan_result = None
+        if lock_data:
+            from real_writer_interface import rescan_and_compare_target_identity
+
+            rescan_result = rescan_and_compare_target_identity(lock_data, fresh_scan)
+
+        evidence_target_matches = bool(
+            lock_data
+            and preflight_data
+            and dryrun_data
+            and lock_data.get("schema") == "bootforge.removable_target_identity_lock.v1"
+            and lock_data.get("blocked") is False
+            and preflight_data.get("schema") == "bootforge.hardware_writer_preflight.v1"
+            and preflight_data.get("identity_lock_passed") is True
+            and (lock_data.get("target_drive") or "").lower().rstrip("\\/")
+            == normalized_target
+            and (preflight_data.get("target_drive") or "").lower().rstrip("\\/")
+            == normalized_target
+            and (dryrun_data.get("target_drive") or "").lower().rstrip("\\/")
+            == normalized_target
+            and preflight_data.get("target_identity_hash")
+            == lock_data.get("device_identity_hash")
+        )
 
         image_sha = None
         image_size = 0
         if os.path.exists(args.image):
             image_sha = calculate_file_sha256(args.image)
             image_size = os.path.getsize(args.image)
+
+        preflight_image_sha = (
+            preflight_data.get("image_sha256") if preflight_data else None
+        )
+        dryrun_image_sha = None
+        if dryrun_data:
+            dryrun_image_sha = (
+                ((dryrun_data.get("image_inspection") or {}).get("image") or {}).get(
+                    "sha256"
+                )
+                or dryrun_data.get("image_sha256")
+                or dryrun_data.get("image_sha256_expected")
+            )
+        evidence_image_matches = bool(
+            image_sha
+            and preflight_image_sha == image_sha
+            and dryrun_image_sha == image_sha
+        )
+
+        dryrun_wrote_zero_bytes = bool(
+            dryrun_data
+            and dryrun_data.get("schema") == "bootforge.write_plan.v1"
+            and dryrun_data.get("blocked") is False
+            and dryrun_data.get("bytes_written", 0) == 0
+            and dryrun_data.get("physical_write_attempted", False) is False
+            and dryrun_data.get("actual_write_enabled", False) is False
+        )
+        dryrun_receipt_id = (
+            "plan_"
+            + hashlib.sha256(
+                json.dumps(dryrun_data, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()[:32]
+            if dryrun_data
+            else None
+        )
+        audit_passed = bool(
+            audit_data
+            and audit_data.get("schema") == "bootforge.write_plan_audit.v1"
+            and audit_data.get("validation_status") == "passed"
+            and audit_data.get("blocked") is False
+            and audit_data.get("actual_write_enabled", False) is False
+            and (audit_data.get("target_drive") or "").lower().rstrip("\\/")
+            == normalized_target
+            and (
+                (
+                    (
+                        (audit_data.get("write_plan") or {}).get("image_inspection")
+                        or {}
+                    ).get("image")
+                    or {}
+                ).get("sha256")
+                == image_sha
+            )
+        )
+        simulation_passed = bool(
+            simulation_data
+            and simulation_data.get("schema") == "bootforge.mock_writer.v1"
+            and simulation_data.get("status") == "completed"
+            and simulation_data.get("blocked") is False
+            and simulation_data.get("actual_write_enabled") is False
+            and simulation_data.get("bytes_simulated")
+            == simulation_data.get("total_bytes")
+            and (simulation_data.get("target_drive") or "").lower().rstrip("\\/")
+            == normalized_target
+            and (
+                (
+                    (
+                        (
+                            (simulation_data.get("audit") or {}).get("write_plan") or {}
+                        ).get("image_inspection")
+                        or {}
+                    ).get("image")
+                    or {}
+                ).get("sha256")
+                == image_sha
+            )
+        )
 
         req = build_physical_usb_write_lab_request(
             platform=sys.platform,
@@ -2234,12 +2387,25 @@ if __name__ == "__main__":
                 lock_data.get("device_identity_hash") if lock_data else None
             ),
             latest_identity_hash=(
-                lock_data.get("device_identity_hash") if lock_data else None
+                rescan_result.get("latest_identity_hash") if rescan_result else None
             ),
             identity_lock_id=lock_data.get("identity_lock_id") if lock_data else None,
             preflight_id=preflight_data.get("preflight_id") if preflight_data else None,
-            dryrun_result_id=dryrun_data.get("result_id") if dryrun_data else None,
-            readiness_gate_id=dryrun_data.get("request_id") if dryrun_data else None,
+            dryrun_result_id=(
+                dryrun_data.get("result_id")
+                or dryrun_data.get("plan_id")
+                or dryrun_receipt_id
+                if dryrun_data
+                else None
+            ),
+            readiness_gate_id=(
+                dryrun_data.get("readiness_gate_id")
+                or dryrun_data.get("request_id")
+                or dryrun_data.get("plan_id")
+                or dryrun_receipt_id
+                if dryrun_data
+                else None
+            ),
             session_id=lock_data.get("identity_lock_id") if lock_data else None,
             ledger_path=args.append_writer_contract_ledger,
             image_path=args.image,
@@ -2256,6 +2422,30 @@ if __name__ == "__main__":
             verify_after_write=args.verify_after_write,
             physical_write_requested=True,
             physical_write_allowed=False,
+            target_confirmation=args.confirm_physical_target,
+            target_is_removable=(
+                live_device.get("is_removable", False) if live_device else False
+            ),
+            target_is_external=(
+                live_device.get("is_external", False) if live_device else False
+            ),
+            target_is_fixed=(
+                live_device.get("is_fixed", True) if live_device else True
+            ),
+            target_is_system_drive=(
+                live_device.get("is_system", True) if live_device else True
+            ),
+            target_size_bytes=(live_device.get("size_bytes", 0) if live_device else 0),
+            scanner_confidence=(live_device.get("confidence") if live_device else None),
+            fresh_rescan_match=bool(
+                rescan_result and rescan_result.get("match") is True
+            ),
+            dryrun_wrote_zero_bytes=dryrun_wrote_zero_bytes,
+            evidence_target_matches=evidence_target_matches,
+            evidence_image_matches=evidence_image_matches,
+            audit_passed=audit_passed,
+            simulation_passed=simulation_passed,
+            physical_write_max_bytes=args.physical_write_max_bytes,
         )
 
         adapter = PhysicalUSBWriteLabAdapter()
@@ -2363,7 +2553,9 @@ if __name__ == "__main__":
                 print(json.dumps(res, indent=2))
                 sys.exit(1)
 
-            lock = build_removable_target_identity_lock(args.target_drive)
+            lock = build_removable_target_identity_lock(
+                args.target_drive, get_normalized_scan(quiet=True)
+            )
             if lock.get("blocked"):
                 res = {
                     "schema": "bootforge.physical_writer_dryrun_result.v1",
@@ -2490,15 +2682,26 @@ if __name__ == "__main__":
         print(json.dumps(res, indent=2))
         sys.exit(0)
     elif args.lock_removable_target:
-        from real_writer_interface import build_removable_target_identity_lock
+        from real_writer_interface import (
+            build_removable_target_identity_lock,
+            validate_hardware_preflight_export_path,
+        )
 
-        lock = build_removable_target_identity_lock(args.target_drive)
+        lock = build_removable_target_identity_lock(
+            args.target_drive, get_normalized_scan(quiet=True)
+        )
         # Optional ledger append if requested
         ledger_path = args.append_writer_contract_ledger
         if ledger_path:
             from writer_safety_contract import append_writer_contract_ledger_record
 
             append_writer_contract_ledger_record(lock, ledger_path)
+        if args.export_identity_lock_json:
+            validate_hardware_preflight_export_path(
+                args.export_identity_lock_json, "json", args.target_drive
+            )
+            with open(args.export_identity_lock_json, "w", encoding="utf-8") as f:
+                json.dump(lock, f, indent=2)
         print(json.dumps(lock, indent=2))
         sys.exit(0)
     elif args.rescan_target_identity:
@@ -2507,10 +2710,10 @@ if __name__ == "__main__":
             rescan_and_compare_target_identity,
         )
 
-        lock = build_removable_target_identity_lock(args.target_drive)
-        # Mock scan payload
-        drives = get_removable_drives()
-        scan_payload = {"drives": drives}
+        lock = build_removable_target_identity_lock(
+            args.target_drive, get_normalized_scan(quiet=True)
+        )
+        scan_payload = get_normalized_scan(quiet=True)
         cmp_res = rescan_and_compare_target_identity(lock, scan_payload)
         print(json.dumps(cmp_res, indent=2))
         sys.exit(0)
@@ -2522,7 +2725,9 @@ if __name__ == "__main__":
             export_hardware_preflight_markdown,
         )
 
-        lock = build_removable_target_identity_lock(args.target_drive)
+        lock = build_removable_target_identity_lock(
+            args.target_drive, get_normalized_scan(quiet=True)
+        )
         image_payload = None
         if args.image:
             image_payload = {
@@ -2692,12 +2897,19 @@ if __name__ == "__main__":
                 )
             )
         else:
-            print_mock_writer_json(
+            simulation = build_mock_writer_payload(
                 args.target_drive,
                 args.image,
                 fail_at_chunk=args.mock_fail_at_chunk,
                 cancel_at_chunk=args.mock_cancel_at_chunk,
             )
+            if args.export_mock_write_json:
+                validate_export_safety(
+                    args.export_mock_write_json, args.target_drive, "json"
+                )
+                with open(args.export_mock_write_json, "w", encoding="utf-8") as f:
+                    json.dump(simulation, f, indent=2)
+            print(json.dumps(simulation, indent=2))
     elif args.audit_plan:
         if not args.target_drive or not args.image:
             print(
@@ -2756,7 +2968,14 @@ if __name__ == "__main__":
                 )
             )
         else:
-            print_write_plan_json(args.target_drive, args.image)
+            plan = build_write_plan_payload(args.target_drive, args.image)
+            if args.export_write_plan_json:
+                validate_export_safety(
+                    args.export_write_plan_json, args.target_drive, "json"
+                )
+                with open(args.export_write_plan_json, "w", encoding="utf-8") as f:
+                    json.dump(plan, f, indent=2)
+            print(json.dumps(plan, indent=2))
     elif args.inspect_image:
         print_image_inspection_json(args.inspect_image)
     elif args.inspect_drive:
