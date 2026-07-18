@@ -22,7 +22,6 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 SCANNER_SCHEMA = "bootforge.device_scan.v2"
 
 
@@ -54,7 +53,9 @@ def _build_device_record(**kwargs):
     confidence = "high"
     if not serial and not stable_id:
         confidence = "low"
-        warnings.append("No serial number or stable ID available; identity lock will be unreliable.")
+        warnings.append(
+            "No serial number or stable ID available; identity lock will be unreliable."
+        )
     elif not serial:
         confidence = "medium"
         warnings.append("No serial number available; using stable ID only.")
@@ -66,15 +67,19 @@ def _build_device_record(**kwargs):
     if size_bytes <= 0:
         block_reasons.append("Drive reports zero or unknown size.")
 
-    is_eligible = is_removable and not is_system and not is_fixed and len(block_reasons) == 0
+    is_eligible = (
+        is_removable and not is_system and not is_fixed and len(block_reasons) == 0
+    )
 
     return {
         "drive_path": kwargs.get("drive_path"),
-        "display_name": kwargs.get("display_name") or kwargs.get("drive_path") or "Unknown",
+        "display_name": kwargs.get("display_name")
+        or kwargs.get("drive_path")
+        or "Unknown",
         "stable_id": stable_id,
         "serial": serial,
         "size_bytes": size_bytes,
-        "size_gb": round(size_bytes / (1024 ** 3), 2) if size_bytes > 0 else 0.0,
+        "size_gb": round(size_bytes / (1024**3), 2) if size_bytes > 0 else 0.0,
         "size_human": _human_size(size_bytes),
         "filesystem": kwargs.get("filesystem"),
         "volume_label": kwargs.get("volume_label"),
@@ -158,26 +163,36 @@ def parse_windows_scan_output(raw_json):
         interface = (item.get("InterfaceType") or "").strip()
         media_type = (item.get("MediaType") or "").strip().lower()
 
-        is_removable = interface in ("USB", "SD", "1394") or "removable" in media_type or "external" in media_type
-        is_fixed = not is_removable and ("fixed" in media_type or interface not in ("USB", "SD", "1394"))
+        is_removable = (
+            interface in ("USB", "SD", "1394")
+            or "removable" in media_type
+            or "external" in media_type
+        )
+        is_fixed = not is_removable and (
+            "fixed" in media_type or interface not in ("USB", "SD", "1394")
+        )
 
-        disk_number = device_id.replace("\\\\.\\PHYSICALDRIVE", "").replace("\\\\.\\PhysicalDrive", "")
+        disk_number = device_id.replace("\\\\.\\PHYSICALDRIVE", "").replace(
+            "\\\\.\\PhysicalDrive", ""
+        )
         stable_id = f"win32_disk{disk_number}_{serial}" if serial else None
 
-        devices.append(_build_device_record(
-            drive_path=device_id,
-            display_name=model or f"Disk {disk_number}",
-            stable_id=stable_id,
-            serial=serial,
-            size_bytes=size_bytes,
-            is_removable=is_removable,
-            is_external=is_removable,
-            is_fixed=is_fixed,
-            is_system=False,
-            bus_protocol=interface or None,
-            platform="win32",
-            detection_source="powershell_win32_diskdrive",
-        ))
+        devices.append(
+            _build_device_record(
+                drive_path=device_id,
+                display_name=model or f"Disk {disk_number}",
+                stable_id=stable_id,
+                serial=serial,
+                size_bytes=size_bytes,
+                is_removable=is_removable,
+                is_external=is_removable,
+                is_fixed=is_fixed,
+                is_system=False,
+                bus_protocol=interface or None,
+                platform="win32",
+                detection_source="powershell_win32_diskdrive",
+            )
+        )
 
     return devices
 
@@ -198,8 +213,10 @@ def scan_windows():
 # macOS scanner — diskutil list/info -plist
 # ---------------------------------------------------------------------------
 
+
 def parse_macos_disk_list(plist_bytes):
     import plistlib
+
     try:
         data = plistlib.loads(plist_bytes)
     except Exception:
@@ -209,6 +226,7 @@ def parse_macos_disk_list(plist_bytes):
 
 def parse_macos_disk_info(plist_bytes):
     import plistlib
+
     try:
         return plistlib.loads(plist_bytes)
     except Exception:
@@ -293,6 +311,7 @@ def scan_macos():
 # Linux scanner — /sys/block + udevadm
 # ---------------------------------------------------------------------------
 
+
 def read_sysfs_file(path):
     try:
         p = Path(path)
@@ -372,26 +391,30 @@ def scan_linux_sysblock():
         display_name = f"{vendor} {model}".strip() or name
         stable_id = f"linux_{name}_{serial}" if serial else None
 
-        devices.append(_build_device_record(
-            drive_path=f"/dev/{name}",
-            display_name=display_name,
-            stable_id=stable_id,
-            serial=serial,
-            size_bytes=size_bytes,
-            is_removable=is_removable,
-            is_external=is_removable,
-            is_fixed=not is_removable,
-            is_system=is_system,
-            bus_protocol=None,
-            platform="linux",
-            detection_source="sysblock_udevadm",
-        ))
+        devices.append(
+            _build_device_record(
+                drive_path=f"/dev/{name}",
+                display_name=display_name,
+                stable_id=stable_id,
+                serial=serial,
+                size_bytes=size_bytes,
+                is_removable=is_removable,
+                is_external=is_removable,
+                is_fixed=not is_removable,
+                is_system=is_system,
+                bus_protocol=None,
+                platform="linux",
+                detection_source="sysblock_udevadm",
+            )
+        )
 
     return devices, scan_warnings
 
 
 def scan_linux_lsblk_fallback():
-    code, stdout, stderr = _run_command(["lsblk", "-J", "-o", "NAME,SIZE,RM,LABEL,FSTYPE,MOUNTPOINT"], timeout=10)
+    code, stdout, stderr = _run_command(
+        ["lsblk", "-J", "-o", "NAME,SIZE,RM,LABEL,FSTYPE,MOUNTPOINT"], timeout=10
+    )
     if code != 0:
         return [], [f"lsblk fallback failed (code {code}): {stderr}"]
 
@@ -409,21 +432,23 @@ def scan_linux_lsblk_fallback():
         rm = blk.get("rm")
         is_removable = rm in ("1", 1, True, "true")
 
-        devices.append(_build_device_record(
-            drive_path=f"/dev/{name}",
-            display_name=name,
-            stable_id=None,
-            serial=None,
-            size_bytes=0,
-            filesystem=blk.get("fstype"),
-            volume_label=blk.get("label"),
-            is_removable=is_removable,
-            is_external=is_removable,
-            is_fixed=not is_removable,
-            is_system=blk.get("mountpoint") == "/",
-            platform="linux",
-            detection_source="lsblk_fallback",
-        ))
+        devices.append(
+            _build_device_record(
+                drive_path=f"/dev/{name}",
+                display_name=name,
+                stable_id=None,
+                serial=None,
+                size_bytes=0,
+                filesystem=blk.get("fstype"),
+                volume_label=blk.get("label"),
+                is_removable=is_removable,
+                is_external=is_removable,
+                is_fixed=not is_removable,
+                is_system=blk.get("mountpoint") == "/",
+                platform="linux",
+                detection_source="lsblk_fallback",
+            )
+        )
 
     return devices, []
 
@@ -438,6 +463,7 @@ def scan_linux():
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def scan_devices(platform_override=None):
     plat = platform_override or sys.platform

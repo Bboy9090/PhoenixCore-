@@ -102,6 +102,7 @@ class TestScanPathUsesDeviceScanner(unittest.TestCase):
         usb = _mock_removable_usb()
         mock_scan.return_value = _mock_scan_result([usb])
         from usb_creator import get_removable_drives
+
         drives = get_removable_drives(quiet=True)
         mock_scan.assert_called_once()
         self.assertEqual(len(drives), 1)
@@ -112,6 +113,7 @@ class TestScanPathUsesDeviceScanner(unittest.TestCase):
         usb = _mock_removable_usb()
         mock_scan.return_value = _mock_scan_result([usb])
         from usb_creator import get_removable_drives
+
         drives = get_removable_drives(quiet=True)
         d = drives[0]
         self.assertIn("drive", d)
@@ -126,6 +128,7 @@ class TestScanPathUsesDeviceScanner(unittest.TestCase):
         usb = _mock_removable_usb()
         mock_scan.return_value = _mock_scan_result([fixed, usb])
         from usb_creator import get_removable_drives
+
         drives = get_removable_drives(quiet=True)
         paths = [d["drive"] for d in drives]
         self.assertNotIn("/dev/sda", paths)
@@ -136,6 +139,7 @@ class TestScanPathUsesDeviceScanner(unittest.TestCase):
         usb = _mock_removable_usb()
         mock_scan.return_value = _mock_scan_result([usb])
         from usb_creator import build_drive_scan_payload
+
         payload = build_drive_scan_payload()
         self.assertEqual(payload["schema"], "bootforge.drive_scan.v2")
         self.assertEqual(payload["scanner_schema"], SCANNER_SCHEMA)
@@ -156,7 +160,9 @@ class TestFixedInternalSystemBlocked(unittest.TestCase):
         scan = _mock_scan_result([_mock_fixed_drive()])
         lock = build_removable_target_identity_lock("/dev/sda", scan)
         self.assertTrue(lock["blocked"])
-        has_fixed_reason = any("fixed" in r.lower() or "system" in r.lower() for r in lock["block_reasons"])
+        has_fixed_reason = any(
+            "fixed" in r.lower() or "system" in r.lower() for r in lock["block_reasons"]
+        )
         self.assertTrue(has_fixed_reason)
 
     def test_identity_lock_blocks_system(self):
@@ -198,7 +204,9 @@ class TestStableIdAndConfidence(unittest.TestCase):
         lock = build_removable_target_identity_lock("/dev/sdc", scan)
         preflight = build_physical_writer_preflight_result(lock)
         self.assertEqual(preflight["scanner_confidence"], "low")
-        has_confidence_block = any("confidence" in r.lower() for r in preflight["block_reasons"])
+        has_confidence_block = any(
+            "confidence" in r.lower() for r in preflight["block_reasons"]
+        )
         self.assertTrue(has_confidence_block)
 
     def test_high_confidence_with_serial(self):
@@ -242,7 +250,10 @@ class TestAmbiguousTargetBlocked(unittest.TestCase):
     def test_raw_device_path_without_scan_blocks(self):
         lock = build_removable_target_identity_lock("\\\\.\\PhysicalDrive1")
         self.assertTrue(lock["blocked"])
-        self.assertIn("Direct raw device paths are blocked without scanned target context.", lock["block_reasons"])
+        self.assertIn(
+            "Direct raw device paths are blocked without scanned target context.",
+            lock["block_reasons"],
+        )
 
 
 class TestIdentityLockUsesScanner(unittest.TestCase):
@@ -339,7 +350,11 @@ class TestDryRunRefusesUnsafe(unittest.TestCase):
         self.assertTrue(lock["blocked"])
 
     def test_dryrun_preserves_zero_bytes(self):
-        from real_writer_interface import build_physical_writer_dryrun_result, validate_physical_writer_dryrun_request
+        from real_writer_interface import (
+            build_physical_writer_dryrun_result,
+            validate_physical_writer_dryrun_request,
+        )
+
         req = {
             "schema": "bootforge.physical_writer_dryrun_request.v1",
             "request_id": "test_req",
@@ -414,6 +429,7 @@ class TestScannerCommandFailureSafety(unittest.TestCase):
     def test_scanner_failure_returns_empty(self, mock_scan):
         mock_scan.return_value = _mock_scan_result([])
         from usb_creator import get_removable_drives
+
         drives = get_removable_drives(quiet=True)
         self.assertEqual(len(drives), 0)
 
@@ -427,12 +443,21 @@ class TestDashboardNoForbiddenLabels(unittest.TestCase):
             self.skipTest("Dashboard not present")
         content = dashboard_path.read_text()
         forbidden = [
-            "Write USB", "Burn USB", "Flash USB", "Start Write",
-            "Format USB", "Erase Drive", "Arm Writer", "Execute Write",
-            "Destructive Write", "Write Now",
+            "Write USB",
+            "Burn USB",
+            "Flash USB",
+            "Start Write",
+            "Format USB",
+            "Erase Drive",
+            "Arm Writer",
+            "Execute Write",
+            "Destructive Write",
+            "Write Now",
         ]
         for label in forbidden:
-            self.assertNotIn(label, content, f"Forbidden label '{label}' found in dashboard")
+            self.assertNotIn(
+                label, content, f"Forbidden label '{label}' found in dashboard"
+            )
 
 
 class TestNoDestructiveCallSitesAdded(unittest.TestCase):
@@ -441,19 +466,19 @@ class TestNoDestructiveCallSitesAdded(unittest.TestCase):
     def test_usb_creator_no_destructive_calls(self):
         src = Path(__file__).parent.parent / "usb_creator.py"
         content = src.read_text().lower()
-        for cmd in ["subprocess.run([\"dd\"", "subprocess.run(['dd'", "\"mkfs", "'mkfs"]:
+        for cmd in ['subprocess.run(["dd"', "subprocess.run(['dd'", '"mkfs', "'mkfs"]:
             self.assertNotIn(cmd, content, f"Found destructive call site: {cmd}")
 
     def test_real_writer_interface_no_destructive_calls(self):
         src = Path(__file__).parent.parent / "real_writer_interface.py"
         content = src.read_text().lower()
-        for cmd in ["subprocess.run([\"dd\"", "subprocess.run(['dd'", "\"mkfs", "'mkfs"]:
+        for cmd in ['subprocess.run(["dd"', "subprocess.run(['dd'", '"mkfs', "'mkfs"]:
             self.assertNotIn(cmd, content, f"Found destructive call site: {cmd}")
 
     def test_device_scanner_no_destructive_calls(self):
         src = Path(__file__).parent.parent / "device_scanner.py"
         content = src.read_text().lower()
-        for cmd in ["subprocess.run([\"dd\"", "subprocess.run(['dd'", "\"mkfs", "'mkfs"]:
+        for cmd in ['subprocess.run(["dd"', "subprocess.run(['dd'", '"mkfs', "'mkfs"]:
             self.assertNotIn(cmd, content, f"Found destructive call site: {cmd}")
 
 

@@ -14,8 +14,9 @@ from real_writer_interface import (
     WindowsLabWriterAdapter,
     MacOSLabWriterAdapter,
     LinuxLabWriterAdapter,
-    FileBackedLabWriterAdapter
+    FileBackedLabWriterAdapter,
 )
+
 
 class TestRealWriterInterface(unittest.TestCase):
     def setUp(self):
@@ -30,7 +31,7 @@ class TestRealWriterInterface(unittest.TestCase):
             session_id="session-id-123",
             readiness_gate_id="gate-id-123",
             ledger_path="C:\\ledger.jsonl",
-            lab_mode=True
+            lab_mode=True,
         )
 
     def test_01_default_adapter_is_disabled_null(self):
@@ -73,7 +74,11 @@ class TestRealWriterInterface(unittest.TestCase):
 
     def test_08_no_diskpart_or_dd_call_sites(self):
         """8. Verify no diskpart or dd calls in real_writer_interface.py."""
-        with open(os.path.join(Path(__file__).parent.parent, "real_writer_interface.py"), "r", encoding="utf-8") as f:
+        with open(
+            os.path.join(Path(__file__).parent.parent, "real_writer_interface.py"),
+            "r",
+            encoding="utf-8",
+        ) as f:
             content = f.read()
         self.assertNotIn("diskpart", content.lower())
         self.assertNotIn("subprocess.run", content.lower())
@@ -81,7 +86,11 @@ class TestRealWriterInterface(unittest.TestCase):
 
     def test_09_no_format_mount_unmount_mkfs_call_sites(self):
         """9. Verify no formatting or mount commands in real_writer_interface.py."""
-        with open(os.path.join(Path(__file__).parent.parent, "real_writer_interface.py"), "r", encoding="utf-8") as f:
+        with open(
+            os.path.join(Path(__file__).parent.parent, "real_writer_interface.py"),
+            "r",
+            encoding="utf-8",
+        ) as f:
             content = f.read()
         self.assertNotIn("format", content.lower())
         self.assertNotIn("mount", content.lower())
@@ -96,6 +105,7 @@ class TestRealWriterInterface(unittest.TestCase):
             self.assertIsNotNone(serialized)
         except Exception as e:
             self.fail(f"RealWriterResult serialization failed: {e}")
+
 
 if __name__ == "__main__":
     unittest.main()

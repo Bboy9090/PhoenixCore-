@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 sys.path.append(str(Path(__file__).parent.parent))
 import usb_creator
 
+
 class TestWritePlan(unittest.TestCase):
     @patch("usb_creator.build_image_inspection_payload")
     @patch("usb_creator.build_drive_safety_payload")
@@ -26,9 +27,9 @@ class TestWritePlan(unittest.TestCase):
                 "is_removable_or_external": True,
                 "eligible_for_future_write": True,
                 "risk_level": "low",
-                "warnings": []
+                "warnings": [],
             },
-            "error": None
+            "error": None,
         }
 
         mock_image_inspect.return_value = {
@@ -41,9 +42,9 @@ class TestWritePlan(unittest.TestCase):
                 "exists": True,
                 "supported": True,
                 "size_bytes": 1024 * 1024,
-                "sha256": "abc123hash"
+                "sha256": "abc123hash",
             },
-            "error": None
+            "error": None,
         }
 
         payload = usb_creator.build_write_plan_payload("E:\\", "debian.iso")
@@ -58,7 +59,9 @@ class TestWritePlan(unittest.TestCase):
 
     @patch("usb_creator.build_image_inspection_payload")
     @patch("usb_creator.build_drive_safety_payload")
-    def test_write_plan_blocked_system_drive(self, mock_drive_safety, mock_image_inspect):
+    def test_write_plan_blocked_system_drive(
+        self, mock_drive_safety, mock_image_inspect
+    ):
         """Verify plan is blocked when drive is not eligible (e.g. system boot drive)."""
         mock_drive_safety.return_value = {
             "schema": "bootforge.drive_safety.v1",
@@ -74,9 +77,9 @@ class TestWritePlan(unittest.TestCase):
                 "is_removable_or_external": False,
                 "eligible_for_future_write": False,
                 "risk_level": "high",
-                "warnings": ["Drive is the system boot volume."]
+                "warnings": ["Drive is the system boot volume."],
             },
-            "error": None
+            "error": None,
         }
 
         mock_image_inspect.return_value = {
@@ -87,9 +90,9 @@ class TestWritePlan(unittest.TestCase):
                 "filename": "debian.iso",
                 "extension": ".iso",
                 "exists": True,
-                "supported": True
+                "supported": True,
             },
-            "error": None
+            "error": None,
         }
 
         payload = usb_creator.build_write_plan_payload("C:\\", "debian.iso")
@@ -100,15 +103,14 @@ class TestWritePlan(unittest.TestCase):
 
     @patch("usb_creator.build_image_inspection_payload")
     @patch("usb_creator.build_drive_safety_payload")
-    def test_write_plan_blocked_unsupported_image(self, mock_drive_safety, mock_image_inspect):
+    def test_write_plan_blocked_unsupported_image(
+        self, mock_drive_safety, mock_image_inspect
+    ):
         """Verify plan is blocked when image is unsupported or missing."""
         mock_drive_safety.return_value = {
             "schema": "bootforge.drive_safety.v1",
-            "drive": {
-                "eligible_for_future_write": True,
-                "warnings": []
-            },
-            "error": None
+            "drive": {"eligible_for_future_write": True, "warnings": []},
+            "error": None,
         }
 
         mock_image_inspect.return_value = {
@@ -118,9 +120,9 @@ class TestWritePlan(unittest.TestCase):
                 "filename": "invalid.txt",
                 "extension": ".txt",
                 "exists": True,
-                "supported": False
+                "supported": False,
             },
-            "error": None
+            "error": None,
         }
 
         payload = usb_creator.build_write_plan_payload("E:\\", "invalid.txt")
@@ -128,6 +130,7 @@ class TestWritePlan(unittest.TestCase):
         self.assertFalse(payload["eligible"])
         self.assertTrue(payload["blocked"])
         self.assertIn("not supported", payload["block_reasons"][0])
+
 
 if __name__ == "__main__":
     unittest.main()

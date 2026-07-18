@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Cpu, 
   HardDrive, 
@@ -112,7 +112,7 @@ export default function App() {
   // Write Plan States
   const [writePlanData, setWritePlanData] = useState(null);
   const [isPlanningWrite, setIsPlanningWrite] = useState(false);
-  const [planningError, setPlanningError] = useState(null);
+  const [, setPlanningError] = useState(null);
 
   // Safety Audit States (Phase 3B)
   const [auditData, setAuditData] = useState(null);
@@ -148,23 +148,23 @@ export default function App() {
   // Hardware Preflight States (Phase 5A-2)
   const [preflightData, setPreflightData] = useState(null);
   const [isPreflighting, setIsPreflighting] = useState(false);
-  const [preflightError, setPreflightError] = useState(null);
+  const [, setPreflightError] = useState(null);
   const [identityLockData, setIdentityLockData] = useState(null);
   const [isLockingIdentity, setIsLockingIdentity] = useState(false);
-  const [lockIdentityError, setLockIdentityError] = useState(null);
+  const [, setLockIdentityError] = useState(null);
 
   // Physical Dryrun States (Phase 5A-3)
   const [dryrunData, setDryrunData] = useState(null);
   const [isDryrunning, setIsDryrunning] = useState(false);
-  const [dryrunError, setDryrunError] = useState(null);
+  const [, setDryrunError] = useState(null);
   const [permissionStatus, setPermissionStatus] = useState(null);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
-  const [permissionsError, setPermissionsError] = useState(null);
+  const [, setPermissionsError] = useState(null);
 
   // Physical USB Write Lab Status States (Phase 5A-4)
   const [physicalWriteLabStatus, setPhysicalWriteLabStatus] = useState(null);
   const [isFetchingPhysicalWriteLabStatus, setIsFetchingPhysicalWriteLabStatus] = useState(false);
-  const [physicalWriteLabStatusError, setPhysicalWriteLabStatusError] = useState(null);
+  const [, setPhysicalWriteLabStatusError] = useState(null);
 
   // Selection check states
   const [includeOclp, setIncludeOclp] = useState(true);
@@ -518,9 +518,9 @@ ${warningsStr}
   const downloadAuditInBrowser = (format) => {
     if (!auditData) return;
     
-    let content = '';
-    let filename = '';
-    let mimeType = '';
+    let content;
+    let filename;
+    let mimeType;
     
     if (format === 'json') {
       content = JSON.stringify(auditData, null, 2);
@@ -686,12 +686,6 @@ ${warningsStr}
     } finally {
       setIsInspectingImage(false);
     }
-  };
-
-  // Phase 1/2A safety lock: no writer exists yet, so do not simulate destructive work.
-  const handleCreate = () => {
-    addLog('warning', 'Creation is disabled in Phase 2A. Image inspection is read-only; USB write, format, partition, and burn operations remain locked.');
-    setProgress(0);
   };
 
   // ----- Writer Safety Contract Preview (Phase 4C-2) -----
@@ -895,8 +889,8 @@ ${warningsStr}
           image: imagePath || null,
           auditPassed: auditData?.validation_status === 'passed',
           simulationPassed: mockWriterData?.status === 'completed',
-          typedConfirmation: typedConfirmation || '',
-          destructiveAcknowledgement: destructiveAcknowledgement || '',
+          typedConfirmation: '',
+          destructiveAcknowledgement: '',
           mock: true // Default to mock in development bridge if no real device
         })
       });

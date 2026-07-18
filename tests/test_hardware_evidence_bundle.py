@@ -106,37 +106,27 @@ def _mock_low_confidence_usb():
 class TestHardwareEvidenceBundleSchema(unittest.TestCase):
     def test_schema_is_v1(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertEqual(bundle["schema"], "bootforge.hardware_evidence_bundle.v1")
 
     def test_physical_write_allowed_false(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertFalse(bundle["physical_write_allowed"])
 
     def test_physical_write_attempted_false(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertFalse(bundle["physical_write_attempted"])
 
     def test_bytes_written_zero(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertEqual(bundle["bytes_written"], 0)
 
     def test_dashboard_write_available_false(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertFalse(bundle["dashboard_write_available"])
 
 
@@ -154,39 +144,29 @@ class TestHardwareEvidenceBundleTargetResolution(unittest.TestCase):
         usb2 = _mock_removable_usb()
         usb2["serial"] = "DIFFERENT_SERIAL"
         scan = _mock_scan_result([usb1, usb2])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertFalse(bundle["target_resolved"])
         self.assertEqual(bundle["resolution_reason"], "ambiguous_target")
         self.assertFalse(bundle["physical_write_allowed"])
 
     def test_fixed_internal_system_target_blocked(self):
         scan = _mock_scan_result([_mock_fixed_drive()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="C:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="C:\\", scan_payload=scan)
         self.assertTrue(bundle["target_resolved"])
-        self.assertEqual(
-            bundle["resolution_reason"], "fixed_internal_or_system_target"
-        )
+        self.assertEqual(bundle["resolution_reason"], "fixed_internal_or_system_target")
         self.assertFalse(bundle["eligible"])
         self.assertFalse(bundle["physical_write_allowed"])
 
     def test_removable_high_confidence_eligible_not_write_allowed(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertTrue(bundle["target_resolved"])
         self.assertTrue(bundle["eligible"])
         self.assertFalse(bundle["physical_write_allowed"])
 
     def test_target_not_found(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="Z:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="Z:\\", scan_payload=scan)
         self.assertFalse(bundle["target_resolved"])
         self.assertEqual(bundle["resolution_reason"], "target_not_found")
 
@@ -194,9 +174,7 @@ class TestHardwareEvidenceBundleTargetResolution(unittest.TestCase):
 class TestHardwareEvidenceBundleConfidence(unittest.TestCase):
     def test_low_confidence_blocks_eligibility(self):
         scan = _mock_scan_result([_mock_low_confidence_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="F:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="F:\\", scan_payload=scan)
         self.assertTrue(bundle["target_resolved"])
         self.assertFalse(bundle["eligible"])
         self.assertIn(
@@ -208,12 +186,8 @@ class TestHardwareEvidenceBundleConfidence(unittest.TestCase):
 class TestHardwareEvidenceBundleIdentity(unittest.TestCase):
     def test_identity_hash_stable_for_same_evidence(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        b1 = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
-        b2 = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        b1 = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
+        b2 = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertEqual(b1["identity_hash"], b2["identity_hash"])
         self.assertIsNotNone(b1["identity_hash"])
 
@@ -259,9 +233,7 @@ class TestHardwareEvidenceBundleRedaction(unittest.TestCase):
         bundle = build_hardware_evidence_bundle(
             target_drive="E:\\", scan_payload=scan, redact_serials=True
         )
-        self.assertNotEqual(
-            bundle["stable_id"], "USB\\VID_0781&PID_5583\\20060266212F"
-        )
+        self.assertNotEqual(bundle["stable_id"], "USB\\VID_0781&PID_5583\\20060266212F")
         self.assertEqual(len(bundle["stable_id"]), 16)
 
 
@@ -273,13 +245,12 @@ class TestHardwareEvidenceBundleExport(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.test_dir)
 
     def test_json_export_valid(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         out_path = os.path.join(self.test_dir, "evidence.json")
         res = export_hardware_evidence_json(bundle, out_path)
         self.assertEqual(res["status"], "success")
@@ -289,9 +260,7 @@ class TestHardwareEvidenceBundleExport(unittest.TestCase):
 
     def test_markdown_export_includes_safety_contract(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         out_path = os.path.join(self.test_dir, "evidence.md")
         res = export_hardware_evidence_markdown(bundle, out_path)
         self.assertEqual(res["status"], "success")
@@ -316,25 +285,19 @@ class TestHardwareEvidenceBundleScannerFailure(unittest.TestCase):
 class TestHardwareEvidenceBundlePreviews(unittest.TestCase):
     def test_identity_lock_preview_present(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertIsNotNone(bundle["identity_lock_preview"])
         self.assertIn("identity_lock_id", bundle["identity_lock_preview"])
 
     def test_preflight_preview_present(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertIsNotNone(bundle["preflight_preview"])
         self.assertFalse(bundle["preflight_preview"]["physical_writer_allowed"])
 
     def test_dryrun_preview_present(self):
         scan = _mock_scan_result([_mock_removable_usb()])
-        bundle = build_hardware_evidence_bundle(
-            target_drive="E:\\", scan_payload=scan
-        )
+        bundle = build_hardware_evidence_bundle(target_drive="E:\\", scan_payload=scan)
         self.assertIsNotNone(bundle["dryrun_preview"])
         self.assertTrue(bundle["dryrun_preview"]["dry_run_only"])
         self.assertFalse(bundle["dryrun_preview"]["physical_write_allowed"])
@@ -351,9 +314,16 @@ class TestHardwareEvidenceBundleDashboard(unittest.TestCase):
             with open(app_jsx_path, "r", encoding="utf-8") as f:
                 content = f.read()
             FORBIDDEN = [
-                "Write USB", "Burn USB", "Flash USB", "Start Write",
-                "Format USB", "Erase Drive", "Arm Writer", "Execute Write",
-                "Destructive Write", "Write Now",
+                "Write USB",
+                "Burn USB",
+                "Flash USB",
+                "Start Write",
+                "Format USB",
+                "Erase Drive",
+                "Arm Writer",
+                "Execute Write",
+                "Destructive Write",
+                "Write Now",
             ]
             for phrase in FORBIDDEN:
                 self.assertNotIn(f">{phrase}<", content)
@@ -362,9 +332,19 @@ class TestHardwareEvidenceBundleDashboard(unittest.TestCase):
 class TestHardwareEvidenceBundleNoDestructive(unittest.TestCase):
     def test_no_destructive_call_sites(self):
         import inspect
+
         source = inspect.getsource(build_hardware_evidence_bundle)
-        for forbidden in ["subprocess", "os.system", "Popen", "dd ", "mkfs",
-                          "diskpart", "CreateFile", "WriteFile", "DeviceIoControl"]:
+        for forbidden in [
+            "subprocess",
+            "os.system",
+            "Popen",
+            "dd ",
+            "mkfs",
+            "diskpart",
+            "CreateFile",
+            "WriteFile",
+            "DeviceIoControl",
+        ]:
             self.assertNotIn(forbidden, source)
 
 
@@ -373,11 +353,13 @@ class TestHardwareEvidenceBundleCLI(unittest.TestCase):
     def test_cli_evidence_bundle_returns_json(self, mock_scan):
         mock_scan.return_value = _mock_scan_result([_mock_removable_usb()])
         import subprocess
+
         cmd = [
             sys.executable,
             os.path.join(Path(__file__).parent.parent, "usb_creator.py"),
             "--export-hardware-evidence-bundle",
-            "--hardware-evidence-target", "E:\\",
+            "--hardware-evidence-target",
+            "E:\\",
         ]
         res = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual(res.returncode, 0)

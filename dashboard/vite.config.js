@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { execFile } from 'node:child_process'
+import process from 'node:process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -383,8 +384,6 @@ function usbCreatorBridgePlugin() {
               const auditPassed = payload.auditPassed
               const simulationPassed = payload.simulationPassed
               const ledgerPath = payload.ledgerPath
-              const eventType = payload.eventType || 'dashboard_preview_action'
-
               if (!ledgerPath) {
                 sendJson(res, 400, {
                   schema: 'bootforge.writer_safety_contract_ledger_append.v1',

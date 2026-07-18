@@ -7,6 +7,7 @@ from unittest.mock import patch, MagicMock
 sys.path.append(str(Path(__file__).parent.parent))
 import usb_creator
 
+
 class TestPlanAudit(unittest.TestCase):
     @patch("usb_creator.build_image_inspection_payload")
     @patch("usb_creator.build_drive_safety_payload")
@@ -27,9 +28,9 @@ class TestPlanAudit(unittest.TestCase):
                 "is_removable_or_external": True,
                 "eligible_for_future_write": True,
                 "risk_level": "low",
-                "warnings": []
+                "warnings": [],
             },
-            "error": None
+            "error": None,
         }
 
         mock_image_inspect.return_value = {
@@ -42,9 +43,9 @@ class TestPlanAudit(unittest.TestCase):
                 "exists": True,
                 "supported": True,
                 "size_bytes": 5000000000,
-                "sha256": "439ea89255a8286a117b38d3883a9925e0892a09c256037a39d82bfdf16a908a"
+                "sha256": "439ea89255a8286a117b38d3883a9925e0892a09c256037a39d82bfdf16a908a",
             },
-            "error": None
+            "error": None,
         }
 
         payload = usb_creator.build_write_plan_audit_payload("E:\\", "test.iso")
@@ -60,7 +61,9 @@ class TestPlanAudit(unittest.TestCase):
 
         # Verify all safety checklist checks passed
         for check in payload["checks"]:
-            self.assertTrue(check["passed"], f"Check {check['id']} failed but should have passed")
+            self.assertTrue(
+                check["passed"], f"Check {check['id']} failed but should have passed"
+            )
 
     @patch("usb_creator.build_write_plan_payload")
     def test_audit_fails_if_step_is_destructive(self, mock_write_plan):
@@ -79,27 +82,19 @@ class TestPlanAudit(unittest.TestCase):
             "eligible": True,
             "blocked": False,
             "block_reasons": [],
-            "drive_safety": {
-                "drive": {
-                    "eligible_for_future_write": True
-                }
-            },
+            "drive_safety": {"drive": {"eligible_for_future_write": True}},
             "image_inspection": {
-                "image": {
-                    "exists": True,
-                    "supported": True,
-                    "sha256": "mocksha"
-                }
+                "image": {"exists": True, "supported": True, "sha256": "mocksha"}
             },
             "steps": [
                 {
                     "id": "unsafe_nuke",
                     "label": "Accidental format",
                     "status": "planned",
-                    "destructive": True
+                    "destructive": True,
                 }
             ],
-            "error": None
+            "error": None,
         }
 
         payload = usb_creator.build_write_plan_audit_payload("E:\\", "test.iso")
@@ -107,14 +102,21 @@ class TestPlanAudit(unittest.TestCase):
         self.assertEqual("failed", payload["validation_status"])
         self.assertFalse(payload["eligible"])
         self.assertTrue(payload["blocked"])
-        
+
         # Verify no_destructive_steps check failed
-        destructive_check = next((c for c in payload["checks"] if c["id"] == "no_destructive_steps"), None)
+        destructive_check = next(
+            (c for c in payload["checks"] if c["id"] == "no_destructive_steps"), None
+        )
         self.assertIsNotNone(destructive_check)
         self.assertFalse(destructive_check["passed"])
-        
+
         # Verify block reason list contains the safety failure
-        self.assertTrue(any("Safety Check Failed: All plan steps are non-destructive" in r for r in payload["block_reasons"]))
+        self.assertTrue(
+            any(
+                "Safety Check Failed: All plan steps are non-destructive" in r
+                for r in payload["block_reasons"]
+            )
+        )
 
     @patch("usb_creator.build_image_inspection_payload")
     @patch("usb_creator.build_drive_safety_payload")
@@ -135,9 +137,9 @@ class TestPlanAudit(unittest.TestCase):
                 "is_removable_or_external": True,
                 "eligible_for_future_write": True,
                 "risk_level": "low",
-                "warnings": []
+                "warnings": [],
             },
-            "error": None
+            "error": None,
         }
 
         image_data = {
@@ -150,9 +152,9 @@ class TestPlanAudit(unittest.TestCase):
                 "exists": True,
                 "supported": True,
                 "size_bytes": 5000000000,
-                "sha256": "439ea89255a8286a117b38d3883a9925e0892a09c256037a39d82bfdf16a908a"
+                "sha256": "439ea89255a8286a117b38d3883a9925e0892a09c256037a39d82bfdf16a908a",
             },
-            "error": None
+            "error": None,
         }
 
         mock_drive_safety.return_value = drive_data
@@ -164,12 +166,12 @@ class TestPlanAudit(unittest.TestCase):
         # E.g. simulated utc_now_iso will change generated_at timestamp.
         # The underlying code strips generated_at when doing hashing, so altering generated_at in
         # our simulated payload must NOT change the resulting hash.
-        
+
         # We patch utc_now_iso to return different timestamps
         with patch("usb_creator.utc_now_iso") as mock_time:
             mock_time.return_value = "2026-06-19T20:15:00Z"
             payload_2 = usb_creator.build_write_plan_audit_payload("E:\\", "test.iso")
-            
+
             mock_time.return_value = "2026-06-19T21:30:00Z"
             payload_3 = usb_creator.build_write_plan_audit_payload("E:\\", "test.iso")
 
@@ -180,7 +182,9 @@ class TestPlanAudit(unittest.TestCase):
 
     @patch("usb_creator.build_image_inspection_payload")
     @patch("usb_creator.build_drive_safety_payload")
-    def test_audit_blocked_for_unsafe_targets(self, mock_drive_safety, mock_image_inspect):
+    def test_audit_blocked_for_unsafe_targets(
+        self, mock_drive_safety, mock_image_inspect
+    ):
         """Verify audit still produces a full payload even when target drive is blocked or image is invalid."""
         mock_drive_safety.return_value = {
             "schema": "bootforge.drive_safety.v1",
@@ -197,9 +201,11 @@ class TestPlanAudit(unittest.TestCase):
                 "is_removable_or_external": False,
                 "eligible_for_future_write": False,
                 "risk_level": "high",
-                "warnings": ["Drive is the system boot volume. Writing is strictly blocked for safety."]
+                "warnings": [
+                    "Drive is the system boot volume. Writing is strictly blocked for safety."
+                ],
             },
-            "error": None
+            "error": None,
         }
 
         mock_image_inspect.return_value = {
@@ -212,9 +218,9 @@ class TestPlanAudit(unittest.TestCase):
                 "exists": False,
                 "supported": True,
                 "size_bytes": 0,
-                "sha256": None
+                "sha256": None,
             },
-            "error": "Image path does not exist."
+            "error": "Image path does not exist.",
         }
 
         payload = usb_creator.build_write_plan_audit_payload("C:\\", "nonexistent.iso")
@@ -224,13 +230,18 @@ class TestPlanAudit(unittest.TestCase):
         self.assertFalse(payload["eligible"])
         self.assertTrue(payload["blocked"])
         self.assertTrue(len(payload["block_reasons"]) > 0)
-        
+
         # Verify check flags
-        safety_check = next(c for c in payload["checks"] if c["id"] == "drive_safety_eligible")
-        image_check = next(c for c in payload["checks"] if c["id"] == "image_inspection_valid")
-        
+        safety_check = next(
+            c for c in payload["checks"] if c["id"] == "drive_safety_eligible"
+        )
+        image_check = next(
+            c for c in payload["checks"] if c["id"] == "image_inspection_valid"
+        )
+
         self.assertFalse(safety_check["passed"])
         self.assertFalse(image_check["passed"])
+
 
 if __name__ == "__main__":
     unittest.main()
