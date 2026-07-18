@@ -10,6 +10,125 @@ import usb_creator
 
 class TestDriveSafety(unittest.TestCase):
     @patch("sys.platform", "win32")
+    @patch("usb_creator.get_normalized_scan")
+    @patch("os.path.exists")
+    def test_windows_physical_drive_resolves_from_trusted_scanner(
+        self, mock_exists, mock_scan
+    ):
+        mock_scan.return_value = {
+            "devices": [
+                {
+                    "drive_path": "\\\\.\\PHYSICALDRIVE1",
+                    "display_name": "Kingston USB",
+                    "volume_label": None,
+                    "filesystem": None,
+                    "size_gb": 32.0,
+                    "is_removable": True,
+                    "is_external": True,
+                    "is_fixed": False,
+                    "is_system": False,
+                    "is_eligible": True,
+                    "block_reasons": [],
+                    "confidence": "high",
+                    "stable_id": "win32_disk1_SN",
+                    "detection_source": "powershell_win32_diskdrive",
+                }
+            ]
+        }
+
+        payload = usb_creator.build_drive_safety_payload("\\\\.\\PHYSICALDRIVE1")
+
+        mock_exists.assert_not_called()
+        self.assertIsNone(payload["error"])
+        self.assertEqual("\\\\.\\PHYSICALDRIVE1", payload["drive"]["root"])
+        self.assertTrue(payload["drive"]["eligible_for_future_write"])
+        self.assertEqual("high", payload["drive"]["confidence"])
+
+    @patch("sys.platform", "win32")
+    @patch("usb_creator.get_normalized_scan")
+    def test_windows_physical_drive_missing_from_scanner_fails_closed(self, mock_scan):
+        mock_scan.return_value = {"devices": []}
+
+        payload = usb_creator.build_drive_safety_payload("\\\\.\\PHYSICALDRIVE7")
+
+        self.assertIsNone(payload["drive"])
+        self.assertIn("trusted Windows scanner evidence", payload["error"])
+
+    @patch("sys.platform", "win32")
+    @patch("usb_creator.get_normalized_scan")
+    def test_windows_large_physical_drive_preserves_capacity_block(self, mock_scan):
+        mock_scan.return_value = {
+            "devices": [
+                {
+                    "drive_path": "\\\\.\\PHYSICALDRIVE1",
+                    "display_name": "JMicron Tech SCSI Disk Device",
+                    "size_gb": 931.5,
+                    "is_removable": True,
+                    "is_external": True,
+                    "is_fixed": False,
+                    "is_system": False,
+                    "is_eligible": False,
+                    "block_reasons": [
+                        "Drive capacity exceeds the 256.0 GB safety limit for removable media."
+                    ],
+                    "confidence": "high",
+                    "stable_id": "win32_disk1_SN",
+                    "detection_source": "powershell_win32_diskdrive",
+                }
+            ]
+        }
+
+        payload = usb_creator.build_drive_safety_payload("\\\\.\\PHYSICALDRIVE1")
+
+        self.assertIsNone(payload["error"])
+        self.assertFalse(payload["drive"]["eligible_for_future_write"])
+        self.assertTrue(
+            any("256.0 GB" in warning for warning in payload["drive"]["warnings"])
+        )
+
+    @patch("sys.platform", "win32")
+    @patch("usb_creator.build_image_inspection_payload")
+    @patch("usb_creator.get_normalized_scan")
+    def test_write_plan_accepts_scanner_proven_physical_drive(
+        self, mock_scan, mock_image
+    ):
+        mock_scan.return_value = {
+            "devices": [
+                {
+                    "drive_path": "\\\\.\\PHYSICALDRIVE1",
+                    "display_name": "SanDisk USB",
+                    "size_gb": 32.0,
+                    "is_removable": True,
+                    "is_external": True,
+                    "is_fixed": False,
+                    "is_system": False,
+                    "is_eligible": True,
+                    "block_reasons": [],
+                    "confidence": "high",
+                    "stable_id": "win32_disk1_SN",
+                    "detection_source": "powershell_win32_diskdrive",
+                }
+            ]
+        }
+        mock_image.return_value = {
+            "error": None,
+            "image": {
+                "exists": True,
+                "supported": True,
+                "extension": ".iso",
+            },
+        }
+
+        payload = usb_creator.build_write_plan_payload(
+            "\\\\.\\PHYSICALDRIVE1", "C:\\images\\phoenix.iso"
+        )
+
+        self.assertTrue(payload["eligible"])
+        self.assertFalse(payload["blocked"])
+        self.assertEqual([], payload["block_reasons"])
+        self.assertFalse(payload["actual_write_enabled"])
+
+    @patch("sys.platform", "win32")
     @patch("os.path.exists")
     @patch("ctypes.windll.kernel32.GetDriveTypeW")
     @patch("ctypes.windll.kernel32.GetVolumeInformationW")
