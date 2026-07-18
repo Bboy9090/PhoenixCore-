@@ -68,6 +68,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _full_preview(**kwargs):
     """Build a preview with all non-destructive gates maximally satisfied."""
     return build_contract_preview_payload(
@@ -275,11 +276,14 @@ class TestForbiddenDestructiveWords(unittest.TestCase):
             if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
                 pair = (func.value.id, func.attr)
                 if pair in forbidden_pairs:
-                    ln = getattr(node, 'lineno', '?')
+                    ln = getattr(node, "lineno", "?")
                     self.fail(
                         "Forbidden invocation found: "
-                        + func.value.id + "." + func.attr
-                        + "() in writer_safety_contract.py line " + str(ln)
+                        + func.value.id
+                        + "."
+                        + func.attr
+                        + "() in writer_safety_contract.py line "
+                        + str(ln)
                     )
 
 

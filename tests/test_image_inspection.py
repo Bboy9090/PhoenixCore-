@@ -31,7 +31,9 @@ class TestImageInspection(unittest.TestCase):
             self.assertTrue(payload["image"]["supported"])
             self.assertEqual(".iso", payload["image"]["extension"])
             self.assertEqual(len(expected_bytes), payload["image"]["size_bytes"])
-            self.assertEqual(usb_creator.calculate_file_sha256(tmp_path), payload["image"]["sha256"])
+            self.assertEqual(
+                usb_creator.calculate_file_sha256(tmp_path), payload["image"]["sha256"]
+            )
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()

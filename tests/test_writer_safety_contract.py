@@ -37,10 +37,10 @@ from writer_safety_contract import (
     validate_writer_safety_contract,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers to build fully-populated mock inputs
 # ---------------------------------------------------------------------------
+
 
 def _mock_device_identity(**overrides):
     """Return a device identity dict representing a safe removable USB."""
@@ -48,7 +48,7 @@ def _mock_device_identity(**overrides):
         root_path="E:\\",
         label="MY_USB",
         filesystem="FAT32",
-        capacity_bytes=32 * 1024 ** 3,
+        capacity_bytes=32 * 1024**3,
         removable=True,
         external=True,
         system_drive=False,
@@ -111,6 +111,7 @@ def _build_minimal_valid_contract():
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestWriterSafetyContractSchema(unittest.TestCase):
     """Test 1 & 2 & 3 — schema, real_writer_implemented, destructive flag."""
@@ -213,7 +214,7 @@ class TestWriterSafetyContractBlocking(unittest.TestCase):
     def test_08_missing_device_identity_hash_blocks(self):
         """Test 8: Device identity with no identity_hash must block."""
         dev_id = _mock_device_identity()
-        dev_id["identity_hash"] = None   # forcibly remove the hash
+        dev_id["identity_hash"] = None  # forcibly remove the hash
         contract = build_writer_safety_contract(
             target_drive="E:\\",
             image="ubuntu.iso",
@@ -239,7 +240,7 @@ class TestWriterSafetyContractBlocking(unittest.TestCase):
     def test_09_missing_image_identity_hash_blocks(self):
         """Test 9: Image identity with no identity_hash must block."""
         img_id = _mock_image_identity()
-        img_id["identity_hash"] = None   # forcibly remove the hash
+        img_id["identity_hash"] = None  # forcibly remove the hash
         contract = build_writer_safety_contract(
             target_drive="E:\\",
             image="ubuntu.iso",
@@ -354,7 +355,7 @@ class TestWriterSafetyContractFullyValidStillBlocked(unittest.TestCase):
         result = validate_writer_safety_contract(contract)
         self.assertFalse(result["valid"])
         self.assertTrue(result["real_writer_implemented_ok"])  # correctly False
-        self.assertTrue(result["destructive_disabled_ok"])     # correctly False
+        self.assertTrue(result["destructive_disabled_ok"])  # correctly False
         self.assertTrue(result["blocked"])
 
 

@@ -35,6 +35,7 @@ SUPPORTED_IMAGE_EXTENSIONS = {".iso", ".img", ".dmg", ".bin", ".raw"}
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -50,6 +51,7 @@ def _canonical_json(obj) -> str:
 # ---------------------------------------------------------------------------
 # Device identity builder
 # ---------------------------------------------------------------------------
+
 
 def build_device_identity(
     root_path: str = None,
@@ -98,6 +100,7 @@ def build_device_identity(
 # ---------------------------------------------------------------------------
 # Image identity builder
 # ---------------------------------------------------------------------------
+
 
 def build_image_identity(
     image_path: str = None,
@@ -161,6 +164,7 @@ FUTURE_ONLY_GATES = {
 # ---------------------------------------------------------------------------
 # Contract builder
 # ---------------------------------------------------------------------------
+
 
 def build_writer_safety_contract(
     target_drive: str = None,
@@ -241,9 +245,7 @@ def build_writer_safety_contract(
             # Only block if both removable and external are explicitly False/None
             # (if both fields are missing we already blocked on missing identity)
             if dev_id.get("removable") is False and dev_id.get("external") is False:
-                block_reasons.append(
-                    "target drive is not removable or external"
-                )
+                block_reasons.append("target drive is not removable or external")
 
     # -----------------------------------------------------------------------
     # Gate evaluation — required gates
@@ -338,6 +340,7 @@ def build_writer_safety_contract(
 # Validator (thin wrapper — contract is self-describing)
 # ---------------------------------------------------------------------------
 
+
 def validate_writer_safety_contract(contract: dict) -> dict:
     """
     Validate a pre-built contract dict and return a validation result.
@@ -359,15 +362,10 @@ def validate_writer_safety_contract(contract: dict) -> dict:
 
     # real_writer_implemented must be False — if it is True, that is a
     # validation failure in Phase 4C-1.
-    real_writer_ok = (real_writer_implemented is False)
-    destructive_ok = (destructive_enabled is False)
+    real_writer_ok = real_writer_implemented is False
+    destructive_ok = destructive_enabled is False
 
-    valid = (
-        schema_ok
-        and real_writer_ok
-        and destructive_ok
-        and not blocked
-    )
+    valid = schema_ok and real_writer_ok and destructive_ok and not blocked
 
     # In Phase 4C-1 valid will always be False because blocked is always True.
     return {
@@ -384,6 +382,7 @@ def validate_writer_safety_contract(contract: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Preview bridge — used by CLI and dashboard API route
 # ---------------------------------------------------------------------------
+
 
 def build_contract_preview_payload(
     target_drive: str = None,
@@ -449,7 +448,9 @@ def build_contract_preview_payload(
         "simulation_passed": bool(simulation_passed),
         # Future confirmation gates — present but do not affect Phase 4C-2 blocking
         "fresh_device_rescan_required": False,
-        "typed_confirmation_required": bool(typed_confirmation and str(typed_confirmation).strip()),
+        "typed_confirmation_required": bool(
+            typed_confirmation and str(typed_confirmation).strip()
+        ),
         "destructive_acknowledgement_required": bool(
             destructive_acknowledgement and str(destructive_acknowledgement).strip()
         ),
@@ -473,6 +474,7 @@ def build_contract_preview_payload(
 # CLI entry point (non-destructive — prints contract JSON only)
 # ---------------------------------------------------------------------------
 
+
 def _cli_validate_writer_contract(args):
     """
     --validate-writer-contract
@@ -493,21 +495,23 @@ def _cli_validate_writer_contract(args):
         typed_confirmation=getattr(args, "typed_confirmation", None),
         destructive_acknowledgement=getattr(args, "destructive_acknowledgement", None),
     )
-    
+
     # Check if CLI requested contract export or ledger append
     export_json_path = getattr(args, "export_writer_contract_json", None)
     export_md_path = getattr(args, "export_writer_contract_markdown", None)
     ledger_path = getattr(args, "append_writer_contract_ledger", None)
-    
+
     export_res = None
     if export_json_path:
         export_res = export_writer_contract_json(contract, export_json_path)
     elif export_md_path:
         export_res = export_writer_contract_markdown(contract, export_md_path)
-        
+
     if ledger_path:
         # Build ledger record with optional export_res if it occurred
-        record = build_writer_contract_ledger_record(contract, "cli_preview_action", export_result=export_res)
+        record = build_writer_contract_ledger_record(
+            contract, "cli_preview_action", export_result=export_res
+        )
         res = append_writer_contract_ledger_record(record, ledger_path)
         print(json.dumps(res, indent=2))
     else:
@@ -521,12 +525,13 @@ def _cli_validate_writer_contract(args):
 # Contract Evidence Export Helpers
 # ---------------------------------------------------------------------------
 
+
 def generate_writer_contract_markdown(contract_payload: dict) -> str:
     """
     Generate a human-readable Markdown summary of the writer safety contract.
     """
     status_emoji = "⛔ BLOCKED" if contract_payload.get("blocked") else "✓ UNBLOCKED"
-    
+
     # Format gate results
     gate_results = contract_payload.get("gate_results", {})
     gates_list = []
@@ -535,37 +540,47 @@ def generate_writer_contract_markdown(contract_payload: dict) -> str:
         mark = "✓ PASS" if val else "— PENDING"
         gates_list.append(f"- **{g}**: {mark}")
     gates_str = "\n".join(gates_list)
-    
+
     # Format block reasons
     reasons_list = contract_payload.get("block_reasons", [])
     reasons_str = "\n".join(f"- {r}" for r in reasons_list) if reasons_list else "None"
-    
+
     # Format warnings
     warnings_list = contract_payload.get("warnings", [])
-    warnings_str = "\n".join(f"- {w}" for w in warnings_list) if warnings_list else "None"
-    
+    warnings_str = (
+        "\n".join(f"- {w}" for w in warnings_list) if warnings_list else "None"
+    )
+
     # Format device/image details
     dev = contract_payload.get("device_identity") or {}
     img = contract_payload.get("image_identity") or {}
-    
+
     device_str = (
-        f"- **Root Path**: {dev.get('root_path') or 'N/A'}\n"
-        f"- **Label**: {dev.get('label') or 'N/A'}\n"
-        f"- **Filesystem**: {dev.get('filesystem') or 'N/A'}\n"
-        f"- **Capacity**: {dev.get('capacity_bytes') or 0} bytes\n"
-        f"- **System Drive**: {dev.get('system_drive') or False}\n"
-        f"- **Stable OS ID**: {dev.get('stable_os_id') or 'N/A'}\n"
-        f"- **Identity Hash**: `{dev.get('identity_hash') or 'N/A'}`"
-    ) if dev else "N/A"
-    
+        (
+            f"- **Root Path**: {dev.get('root_path') or 'N/A'}\n"
+            f"- **Label**: {dev.get('label') or 'N/A'}\n"
+            f"- **Filesystem**: {dev.get('filesystem') or 'N/A'}\n"
+            f"- **Capacity**: {dev.get('capacity_bytes') or 0} bytes\n"
+            f"- **System Drive**: {dev.get('system_drive') or False}\n"
+            f"- **Stable OS ID**: {dev.get('stable_os_id') or 'N/A'}\n"
+            f"- **Identity Hash**: `{dev.get('identity_hash') or 'N/A'}`"
+        )
+        if dev
+        else "N/A"
+    )
+
     image_str = (
-        f"- **Image Path**: {img.get('image_path') or 'N/A'}\n"
-        f"- **Filename**: {img.get('filename') or 'N/A'}\n"
-        f"- **Extension**: {img.get('extension') or 'N/A'}\n"
-        f"- **Size**: {img.get('size_bytes') or 0} bytes\n"
-        f"- **SHA256**: {img.get('sha256') or 'N/A'}\n"
-        f"- **Identity Hash**: `{img.get('identity_hash') or 'N/A'}`"
-    ) if img else "N/A"
+        (
+            f"- **Image Path**: {img.get('image_path') or 'N/A'}\n"
+            f"- **Filename**: {img.get('filename') or 'N/A'}\n"
+            f"- **Extension**: {img.get('extension') or 'N/A'}\n"
+            f"- **Size**: {img.get('size_bytes') or 0} bytes\n"
+            f"- **SHA256**: {img.get('sha256') or 'N/A'}\n"
+            f"- **Identity Hash**: `{img.get('identity_hash') or 'N/A'}`"
+        )
+        if img
+        else "N/A"
+    )
 
     md = f"""# PhoenixCore / BootForge Writer Safety Contract Report
 
@@ -622,7 +637,9 @@ def generate_writer_contract_markdown(contract_payload: dict) -> str:
     return md
 
 
-def validate_writer_contract_export_path(output_path: str, export_type: str, target_drive: str = None):
+def validate_writer_contract_export_path(
+    output_path: str, export_type: str, target_drive: str = None
+):
     """
     Validate the export path according to strict safety rules.
     1. Export path must not be empty.
@@ -635,52 +652,83 @@ def validate_writer_contract_export_path(output_path: str, export_type: str, tar
     8. Export path must not be a raw device path or suspicious system path.
     """
     from pathlib import Path
-    
+
     if not output_path or not str(output_path).strip():
         raise ValueError("Export path is empty.")
-        
+
     p_str = str(output_path).strip().lower()
-    
+
     # Raw device or suspicious paths checks (e.g. \\.\PhysicalDrive, NUL, CON, etc.)
     # We check raw patterns FIRST to prevent resolve() raising permission errors on devices
-    if "\\\\.\\" in p_str or "//./" in p_str or p_str.startswith("\\\\") or p_str.startswith("//"):
-        raise ValueError("Raw device style or UNC network paths are blocked for export.")
-        
-    for suspicious in ["sys32", "system32", "windows", "/etc", "/bin", "/sbin", "/var", "/usr"]:
+    if (
+        "\\\\.\\" in p_str
+        or "//./" in p_str
+        or p_str.startswith("\\\\")
+        or p_str.startswith("//")
+    ):
+        raise ValueError(
+            "Raw device style or UNC network paths are blocked for export."
+        )
+
+    for suspicious in [
+        "sys32",
+        "system32",
+        "windows",
+        "/etc",
+        "/bin",
+        "/sbin",
+        "/var",
+        "/usr",
+    ]:
         if suspicious in p_str.replace("\\", "/"):
-            raise ValueError(f"Suspicious path detected: exporting to {suspicious} folders is blocked.")
+            raise ValueError(
+                f"Suspicious path detected: exporting to {suspicious} folders is blocked."
+            )
 
     p = Path(output_path).resolve()
-    
+
     # Directory check
     if p.exists() and p.is_dir():
         raise ValueError("Export path is a directory.")
-        
+
     # Overwrite protection
     if p.exists():
-        raise ValueError(f"Export file '{output_path}' already exists. Overwriting is blocked.")
-        
+        raise ValueError(
+            f"Export file '{output_path}' already exists. Overwriting is blocked."
+        )
+
     # Parent directory check
     parent = p.parent
     if not parent.exists() or not parent.is_dir():
         raise ValueError("Parent directory of export path does not exist.")
-        
+
     # Extension checks
     ext = p.suffix.lower()
     if export_type == "json" and ext != ".json":
-        raise ValueError(f"Export path extension '{ext}' does not match format 'json' (expected '.json').")
+        raise ValueError(
+            f"Export path extension '{ext}' does not match format 'json' (expected '.json')."
+        )
     elif export_type == "markdown" and ext != ".md":
-        raise ValueError(f"Export path extension '{ext}' does not match format 'markdown' (expected '.md').")
+        raise ValueError(
+            f"Export path extension '{ext}' does not match format 'markdown' (expected '.md')."
+        )
     elif export_type not in ("json", "markdown"):
         raise ValueError(f"Unsupported export type '{export_type}'.")
-        
+
     # Target drive root check
     if target_drive:
         from usb_creator import get_drive_root
+
         td_root = get_drive_root(target_drive)
         exp_root = get_drive_root(p)
-        if td_root and exp_root and td_root.lower().rstrip("\\") == exp_root.lower().rstrip("\\"):
-            raise ValueError(f"Export path is on the target drive '{target_drive}'. Overwriting target drive is blocked.")
+        if (
+            td_root
+            and exp_root
+            and td_root.lower().rstrip("\\") == exp_root.lower().rstrip("\\")
+        ):
+            raise ValueError(
+                f"Export path is on the target drive '{target_drive}'. Overwriting target drive is blocked."
+            )
 
 
 def export_writer_contract_json(contract_payload: dict, output_path: str) -> dict:
@@ -688,18 +736,20 @@ def export_writer_contract_json(contract_payload: dict, output_path: str) -> dic
     Safely writes the contract JSON to the specified path after safety validations.
     """
     try:
-        validate_writer_contract_export_path(output_path, "json", contract_payload.get("target_drive"))
-        
+        validate_writer_contract_export_path(
+            output_path, "json", contract_payload.get("target_drive")
+        )
+
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(contract_payload, f, indent=2)
-            
+
         return {
             "schema": "bootforge.writer_safety_contract_export.v1",
             "status": "success",
             "format": "json",
             "export_path": output_path,
             "contract_id": contract_payload.get("contract_id"),
-            "error": None
+            "error": None,
         }
     except Exception as e:
         return {
@@ -708,7 +758,7 @@ def export_writer_contract_json(contract_payload: dict, output_path: str) -> dic
             "format": "json",
             "export_path": output_path,
             "contract_id": contract_payload.get("contract_id"),
-            "error": str(e)
+            "error": str(e),
         }
 
 
@@ -717,19 +767,21 @@ def export_writer_contract_markdown(contract_payload: dict, output_path: str) ->
     Safely writes the contract Markdown summary to the specified path after safety validations.
     """
     try:
-        validate_writer_contract_export_path(output_path, "markdown", contract_payload.get("target_drive"))
-        
+        validate_writer_contract_export_path(
+            output_path, "markdown", contract_payload.get("target_drive")
+        )
+
         md_content = generate_writer_contract_markdown(contract_payload)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(md_content)
-            
+
         return {
             "schema": "bootforge.writer_safety_contract_export.v1",
             "status": "success",
             "format": "markdown",
             "export_path": output_path,
             "contract_id": contract_payload.get("contract_id"),
-            "error": None
+            "error": None,
         }
     except Exception as e:
         return {
@@ -738,7 +790,7 @@ def export_writer_contract_markdown(contract_payload: dict, output_path: str) ->
             "format": "markdown",
             "export_path": output_path,
             "contract_id": contract_payload.get("contract_id"),
-            "error": str(e)
+            "error": str(e),
         }
 
 
@@ -755,6 +807,7 @@ def export_writer_contract_markdown(contract_payload: dict, output_path: str) ->
 # Contract History Ledger & Session ID Helpers (Phase 4C-4)
 # ---------------------------------------------------------------------------
 
+
 def build_writer_contract_session_id(contract_payload: dict) -> str:
     """
     Builds a deterministic, JSON-safe session ID based on stable fields of
@@ -762,26 +815,26 @@ def build_writer_contract_session_id(contract_payload: dict) -> str:
     """
     import hashlib
     import json
-    
+
     # Extract stable trace details
     schema = contract_payload.get("schema", "")
     contract_id = contract_payload.get("contract_id", "")
     target_drive = contract_payload.get("target_drive") or "placeholder_drive"
     image = contract_payload.get("image") or "placeholder_image"
-    
+
     dev_id = contract_payload.get("device_identity") or {}
     device_identity_hash = dev_id.get("identity_hash") or "no_device_hash"
-    
+
     img_id = contract_payload.get("image_identity") or {}
     image_identity_hash = img_id.get("identity_hash") or "no_image_hash"
-    
+
     real_writer = contract_payload.get("real_writer_implemented", False)
     destructive = contract_payload.get("destructive_operations_enabled", False)
     blocked = contract_payload.get("blocked", True)
-    
+
     reasons = sorted(contract_payload.get("block_reasons") or [])
     reasons_str = "|".join(reasons)
-    
+
     trace_data = {
         "schema": schema,
         "contract_id": contract_id,
@@ -792,27 +845,32 @@ def build_writer_contract_session_id(contract_payload: dict) -> str:
         "real_writer_implemented": real_writer,
         "destructive_operations_enabled": destructive,
         "blocked": blocked,
-        "block_reasons": reasons_str
+        "block_reasons": reasons_str,
     }
-    
+
     canonical = json.dumps(trace_data, sort_keys=True, separators=(",", ":"))
     h = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return f"session_{h[:32]}"
 
 
-def build_writer_contract_ledger_record(contract_payload: dict, event_type: str, export_result: dict = None, write_result: dict = None) -> dict:
+def build_writer_contract_ledger_record(
+    contract_payload: dict,
+    event_type: str,
+    export_result: dict = None,
+    write_result: dict = None,
+) -> dict:
     """
     Builds a structured ledger record for the writer safety contract.
     Schema: bootforge.writer_safety_contract_ledger.v1
     """
     import hashlib
     import json
-    
+
     session_id = build_writer_contract_session_id(contract_payload)
-    
+
     dev_id = contract_payload.get("device_identity") or {}
     img_id = contract_payload.get("image_identity") or {}
-    
+
     record = {
         "schema": "bootforge.writer_safety_contract_ledger.v1",
         "session_id": session_id,
@@ -822,8 +880,12 @@ def build_writer_contract_ledger_record(contract_payload: dict, event_type: str,
         "contract_schema": contract_payload.get("schema"),
         "contract_id": contract_payload.get("contract_id"),
         "blocked": contract_payload.get("blocked", True),
-        "real_writer_implemented": contract_payload.get("real_writer_implemented", False),
-        "destructive_operations_enabled": contract_payload.get("destructive_operations_enabled", False),
+        "real_writer_implemented": contract_payload.get(
+            "real_writer_implemented", False
+        ),
+        "destructive_operations_enabled": contract_payload.get(
+            "destructive_operations_enabled", False
+        ),
         "target_drive": contract_payload.get("target_drive"),
         "image_path": contract_payload.get("image"),
         "device_identity_hash": dev_id.get("identity_hash"),
@@ -832,18 +894,18 @@ def build_writer_contract_ledger_record(contract_payload: dict, event_type: str,
         "warnings": contract_payload.get("warnings", []),
         "next_required_action": contract_payload.get("next_required_action"),
     }
-    
+
     if export_result is not None:
         record["export_result"] = export_result
     if write_result is not None:
         record["write_result"] = write_result
-        
+
     # Generate ledger_record_id deterministically based on record content (excluding itself)
     hashable = {k: v for k, v in record.items() if k != "ledger_record_id"}
     canonical = json.dumps(hashable, sort_keys=True, separators=(",", ":"))
     h = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     record["ledger_record_id"] = f"ledger_{h[:32]}"
-    
+
     return record
 
 
@@ -852,44 +914,67 @@ def validate_writer_contract_ledger_path(ledger_path: str, target_drive: str = N
     Validates a ledger append path according to strict safety rules.
     """
     from pathlib import Path
-    
+
     if not ledger_path or not str(ledger_path).strip():
         raise ValueError("Ledger path is empty.")
-        
+
     p_str = str(ledger_path).strip().lower()
-    
+
     # UNC and raw device prefix checks (must be first to avoid resolve errors)
-    if "\\\\.\\" in p_str or "//./" in p_str or p_str.startswith("\\\\") or p_str.startswith("//"):
-        raise ValueError("Raw device style or UNC network paths are blocked for ledger.")
-        
-    for suspicious in ["sys32", "system32", "windows", "/etc", "/bin", "/sbin", "/var", "/usr"]:
+    if (
+        "\\\\.\\" in p_str
+        or "//./" in p_str
+        or p_str.startswith("\\\\")
+        or p_str.startswith("//")
+    ):
+        raise ValueError(
+            "Raw device style or UNC network paths are blocked for ledger."
+        )
+
+    for suspicious in [
+        "sys32",
+        "system32",
+        "windows",
+        "/etc",
+        "/bin",
+        "/sbin",
+        "/var",
+        "/usr",
+    ]:
         if suspicious in p_str.replace("\\", "/"):
-            raise ValueError(f"Suspicious path detected: ledger path in {suspicious} folders is blocked.")
-            
+            raise ValueError(
+                f"Suspicious path detected: ledger path in {suspicious} folders is blocked."
+            )
+
     # Check target drive root prior to Path.resolve() if passed
     if target_drive:
         from usb_creator import get_drive_root
+
         td_root = get_drive_root(target_drive)
         if td_root:
             td_root_clean = td_root.lower().rstrip("\\").rstrip("/")
             p_str_clean = p_str.replace("\\", "/").rstrip("/")
-            if p_str_clean == td_root_clean or p_str_clean.startswith(td_root_clean + "/"):
+            if p_str_clean == td_root_clean or p_str_clean.startswith(
+                td_root_clean + "/"
+            ):
                 # But wait, let's verify if the path is actually inside/on that drive root
                 # Rejecting target-drive root
                 if p_str_clean == td_root_clean:
-                    raise ValueError(f"Ledger path is on the target drive '{target_drive}'. Overwriting target drive is blocked.")
+                    raise ValueError(
+                        f"Ledger path is on the target drive '{target_drive}'. Overwriting target drive is blocked."
+                    )
 
     p = Path(ledger_path).resolve()
-    
+
     # Directory check
     if p.exists() and p.is_dir():
         raise ValueError("Ledger path is a directory.")
-        
+
     # Parent directory check
     parent = p.parent
     if not parent.exists() or not parent.is_dir():
         raise ValueError("Parent directory of ledger path does not exist.")
-        
+
     # Extension check
     if p.suffix.lower() != ".jsonl":
         raise ValueError(f"Ledger path extension '{p.suffix}' must be '.jsonl'.")
@@ -900,30 +985,38 @@ def append_writer_contract_ledger_record(record: dict, ledger_path: str) -> dict
     Safely appends a ledger record to the validated ledger path (JSONL format).
     """
     import json
+
     try:
         target_drive = record.get("target_drive")
         validate_writer_contract_ledger_path(ledger_path, target_drive)
-        
+
         # Verify target drive root check
         if target_drive:
             from usb_creator import get_drive_root
             from pathlib import Path
+
             td_root = get_drive_root(target_drive)
             ledger_root = get_drive_root(Path(ledger_path).resolve())
-            if td_root and ledger_root and td_root.lower().rstrip("\\") == ledger_root.lower().rstrip("\\"):
-                raise ValueError(f"Ledger path is on the target drive '{target_drive}'. Overwriting target drive is blocked.")
-                
+            if (
+                td_root
+                and ledger_root
+                and td_root.lower().rstrip("\\") == ledger_root.lower().rstrip("\\")
+            ):
+                raise ValueError(
+                    f"Ledger path is on the target drive '{target_drive}'. Overwriting target drive is blocked."
+                )
+
         # Append record
         canonical = json.dumps(record, sort_keys=True, separators=(",", ":"))
         with open(ledger_path, "a", encoding="utf-8") as f:
             f.write(canonical + "\n")
-            
+
         return {
             "schema": "bootforge.writer_safety_contract_ledger_append.v1",
             "status": "success",
             "ledger_path": ledger_path,
             "ledger_record_id": record.get("ledger_record_id"),
-            "error": None
+            "error": None,
         }
     except Exception as e:
         return {
@@ -931,7 +1024,7 @@ def append_writer_contract_ledger_record(record: dict, ledger_path: str) -> dict
             "status": "failed",
             "ledger_path": ledger_path,
             "ledger_record_id": record.get("ledger_record_id"),
-            "error": str(e)
+            "error": str(e),
         }
 
 
@@ -939,7 +1032,10 @@ def append_writer_contract_ledger_record(record: dict, ledger_path: str) -> dict
 # Final Destructive Readiness Gate (Part 2)
 # ---------------------------------------------------------------------------
 
-def build_final_destructive_readiness_gate(contract_payload: dict, ledger_record: dict = None, export_result: dict = None) -> dict:
+
+def build_final_destructive_readiness_gate(
+    contract_payload: dict, ledger_record: dict = None, export_result: dict = None
+) -> dict:
     """
     Builds the payload for the final readiness gate checking all pre-write assertions.
     Schema: bootforge.final_destructive_readiness_gate.v1
@@ -948,10 +1044,10 @@ def build_final_destructive_readiness_gate(contract_payload: dict, ledger_record
     import sys
     import uuid
     from pathlib import Path
-    
+
     gate_id = f"gate_{str(uuid.uuid4())[:32].replace('-', '')}"
     created_at = _utc_now_iso()
-    
+
     # Required checks initialization
     required_checks = [
         "contract_exists",
@@ -974,80 +1070,84 @@ def build_final_destructive_readiness_gate(contract_payload: dict, ledger_record
         "destructive_acknowledgement_matches",
         "environment_unlock_present",
         "user_requested_lab_write",
-        "real_writer_available_only_for_lab_mode"
+        "real_writer_available_only_for_lab_mode",
     ]
-    
+
     check_results = {}
     block_reasons = []
     warnings = []
-    
+
     # 1. Contract existence and schema
-    contract_exists = contract_payload is not None and isinstance(contract_payload, dict)
+    contract_exists = contract_payload is not None and isinstance(
+        contract_payload, dict
+    )
     check_results["contract_exists"] = contract_exists
     if not contract_exists:
         block_reasons.append("Safety contract is missing.")
-        
-    contract_schema_valid = contract_payload.get("schema") == SCHEMA if contract_exists else False
+
+    contract_schema_valid = (
+        contract_payload.get("schema") == SCHEMA if contract_exists else False
+    )
     check_results["contract_schema_valid"] = contract_schema_valid
     if contract_exists and not contract_schema_valid:
         block_reasons.append("Safety contract schema version mismatch.")
-        
+
     # 2. Session ID and Ledger
     session_id = contract_payload.get("session_id") if contract_exists else None
     session_id_exists = bool(session_id)
     check_results["session_id_exists"] = session_id_exists
     if not session_id_exists:
         block_reasons.append("Session ID is missing.")
-        
+
     ledger_record_exists = ledger_record is not None and isinstance(ledger_record, dict)
     check_results["ledger_record_exists"] = ledger_record_exists
     if not ledger_record_exists:
         block_reasons.append("Ledger record is missing.")
-        
+
     # 3. Hashes and Identity
     dev_id = contract_payload.get("device_identity") or {} if contract_exists else {}
     img_id = contract_payload.get("image_identity") or {} if contract_exists else {}
-    
+
     img_hash = img_id.get("identity_hash")
     image_identity_hash_exists = bool(img_hash)
     check_results["image_identity_hash_exists"] = image_identity_hash_exists
     if not image_identity_hash_exists:
         block_reasons.append("Image identity hash is missing.")
-        
+
     dev_hash = dev_id.get("identity_hash")
     device_identity_hash_exists = bool(dev_hash)
     check_results["device_identity_hash_exists"] = device_identity_hash_exists
     if not device_identity_hash_exists:
         block_reasons.append("Device identity hash is missing.")
-        
+
     # 4. Standard Pre-gates
     gate_results = contract_payload.get("gate_results") or {} if contract_exists else {}
-    
+
     drive_safety_scan_passed = gate_results.get("drive_safety_scanned", False)
     check_results["drive_safety_scan_passed"] = drive_safety_scan_passed
     if not drive_safety_scan_passed:
         block_reasons.append("Drive safety scan not completed or failed.")
-        
+
     image_inspection_passed = gate_results.get("image_inspected", False)
     check_results["image_inspection_passed"] = image_inspection_passed
     if not image_inspection_passed:
         block_reasons.append("Image inspection not completed or failed.")
-        
+
     write_plan_generated = gate_results.get("write_plan_generated", False)
     check_results["write_plan_generated"] = write_plan_generated
     if not write_plan_generated:
         block_reasons.append("Write plan generation gate pending.")
-        
+
     audit_passed = gate_results.get("audit_passed", False)
     check_results["audit_passed"] = audit_passed
     if not audit_passed:
         block_reasons.append("Safety audit gate not passed.")
-        
+
     mock_simulation_passed = gate_results.get("simulation_passed", False)
     check_results["mock_simulation_passed"] = mock_simulation_passed
     if not mock_simulation_passed:
         block_reasons.append("Mock write simulation gate pending or failed.")
-        
+
     # 5. Export Evidence Check (exists or explicitly skipped, or in export_result)
     export_evidence_present = False
     if export_result and export_result.get("status") == "success":
@@ -1057,32 +1157,36 @@ def build_final_destructive_readiness_gate(contract_payload: dict, ledger_record
     check_results["export_evidence_present"] = export_evidence_present
     if not export_evidence_present:
         block_reasons.append("Evidence export is missing or failed.")
-        
+
     # 6. Drive attributes
     # If device identity exists, check removable/external. If it's missing, we already blocked.
     target_is_removable_external = True
     if dev_id:
-        target_is_removable_external = dev_id.get("removable") is True or dev_id.get("external") is True
+        target_is_removable_external = (
+            dev_id.get("removable") is True or dev_id.get("external") is True
+        )
     check_results["target_is_removable_external"] = target_is_removable_external
     if dev_id and not target_is_removable_external:
         block_reasons.append("Target drive is not removable or external.")
-        
+
     target_is_not_fixed_internal = dev_id.get("fixed") is not True
     check_results["target_is_not_fixed_internal"] = target_is_not_fixed_internal
     if dev_id.get("fixed") is True:
         block_reasons.append("Target drive is fixed/internal.")
-        
+
     target_is_not_system_drive = dev_id.get("system_drive") is not True
     check_results["target_is_not_system_drive"] = target_is_not_system_drive
     if dev_id.get("system_drive") is True:
         block_reasons.append("Target drive is flagged as system drive.")
-        
+
     # Re-scan identity parity check (caller must provide confirmation this is evaluated, or we check if target has drifted)
-    target_identity_has_not_changed = not contract_payload.get("identity_drift_detected", False)
+    target_identity_has_not_changed = not contract_payload.get(
+        "identity_drift_detected", False
+    )
     check_results["target_identity_has_not_changed"] = target_identity_has_not_changed
     if contract_payload.get("identity_drift_detected", False):
         block_reasons.append("Target drive identity drift detected since last scan.")
-        
+
     # 7. Confirmations
     typed_conf = contract_payload.get("typed_confirmation") or ""
     expected_phrase = "I UNDERSTAND THIS WILL OVERWRITE THE SELECTED USB DRIVE"
@@ -1090,37 +1194,49 @@ def build_final_destructive_readiness_gate(contract_payload: dict, ledger_record
     check_results["typed_confirmation_matches"] = typed_confirmation_matches
     if not typed_confirmation_matches:
         block_reasons.append("Typed confirmation phrase mismatch.")
-        
+
     dest_ack = contract_payload.get("destructive_acknowledgement") or ""
     expected_ack = "I CONFIRM THIS IS A REMOVABLE TEST USB DRIVE"
     destructive_acknowledgement_matches = dest_ack.strip() == expected_ack
-    check_results["destructive_acknowledgement_matches"] = destructive_acknowledgement_matches
+    check_results["destructive_acknowledgement_matches"] = (
+        destructive_acknowledgement_matches
+    )
     if not destructive_acknowledgement_matches:
         block_reasons.append("Destructive acknowledgement phrase mismatch.")
-        
+
     # 8. Environment Unlock & Lab Write flags
-    env_unlock = os.environ.get("BOOTFORGE_ENABLE_LAB_WRITE") == "I_ACCEPT_REAL_USB_WRITE_RISK"
+    env_unlock = (
+        os.environ.get("BOOTFORGE_ENABLE_LAB_WRITE") == "I_ACCEPT_REAL_USB_WRITE_RISK"
+    )
     check_results["environment_unlock_present"] = env_unlock
     if not env_unlock:
-        block_reasons.append("Missing or invalid BOOTFORGE_ENABLE_LAB_WRITE environment variable.")
-        
+        block_reasons.append(
+            "Missing or invalid BOOTFORGE_ENABLE_LAB_WRITE environment variable."
+        )
+
     user_requested_lab_write = contract_payload.get("lab_mode", False)
     check_results["user_requested_lab_write"] = user_requested_lab_write
     if not user_requested_lab_write:
         block_reasons.append("Lab Write mode was not explicitly requested.")
-        
+
     # Real writer availability only for lab mode
     real_writer_available_only_for_lab_mode = user_requested_lab_write
-    check_results["real_writer_available_only_for_lab_mode"] = real_writer_available_only_for_lab_mode
-    
+    check_results["real_writer_available_only_for_lab_mode"] = (
+        real_writer_available_only_for_lab_mode
+    )
+
     # 9. Gate determination
     # For normal preview mode: lab_write_allowed: false, readiness_passed: false
     # For lab mode with every condition satisfied: lab_write_allowed: true, readiness_passed: true
-    readiness_passed = len(block_reasons) == 0 and env_unlock and user_requested_lab_write
+    readiness_passed = (
+        len(block_reasons) == 0 and env_unlock and user_requested_lab_write
+    )
     lab_write_allowed = readiness_passed
-    
-    next_required_action = "execute_lab_write" if readiness_passed else "resolve_readiness_blockers"
-    
+
+    next_required_action = (
+        "execute_lab_write" if readiness_passed else "resolve_readiness_blockers"
+    )
+
     gate_payload = {
         "schema": "bootforge.final_destructive_readiness_gate.v1",
         "gate_id": gate_id,
@@ -1128,9 +1244,11 @@ def build_final_destructive_readiness_gate(contract_payload: dict, ledger_record
         "contract_schema": contract_payload.get("schema") if contract_exists else None,
         "contract_id": contract_payload.get("contract_id") if contract_exists else None,
         "session_id": session_id,
-        "ledger_record_id": ledger_record.get("ledger_record_id") if ledger_record_exists else None,
-        "real_writer_implemented": readiness_passed, # True only if readiness passes
-        "destructive_operations_enabled": readiness_passed, # True only if readiness passes
+        "ledger_record_id": (
+            ledger_record.get("ledger_record_id") if ledger_record_exists else None
+        ),
+        "real_writer_implemented": readiness_passed,  # True only if readiness passes
+        "destructive_operations_enabled": readiness_passed,  # True only if readiness passes
         "future_writer_allowed": readiness_passed,
         "lab_write_allowed": lab_write_allowed,
         "readiness_passed": readiness_passed,
@@ -1138,9 +1256,9 @@ def build_final_destructive_readiness_gate(contract_payload: dict, ledger_record
         "check_results": check_results,
         "block_reasons": block_reasons,
         "warnings": warnings,
-        "next_required_action": next_required_action
+        "next_required_action": next_required_action,
     }
-    
+
     return gate_payload
 
 
@@ -1164,21 +1282,19 @@ def build_readiness_gate_summary(gate_payload: dict) -> str:
     lines.append(f"Gate ID: {gate_payload.get('gate_id')}")
     lines.append(f"Passed: {gate_payload.get('readiness_passed')}")
     lines.append(f"Session ID: {gate_payload.get('session_id')}")
-    
+
     lines.append("\nRequired Checks:")
     for check in gate_payload.get("required_checks", []):
         status = "PASS" if gate_payload.get("check_results", {}).get(check) else "FAIL"
         lines.append(f"  [{status}] {check}")
-        
+
     if gate_payload.get("block_reasons"):
         lines.append("\nBlock Reasons:")
         for reason in gate_payload.get("block_reasons"):
             lines.append(f"  - {reason}")
-            
+
     lines.append(f"\nNext Required Action: {gate_payload.get('next_required_action')}")
     return "\n".join(lines)
 
 
-assert SCHEMA == "bootforge.writer_safety_contract.v1", (
-    "SAFETY: schema string tampered"
-)
+assert SCHEMA == "bootforge.writer_safety_contract.v1", "SAFETY: schema string tampered"

@@ -14,17 +14,19 @@ from real_writer_interface import (
     build_physical_writer_preflight_result,
     validate_hardware_preflight_export_path,
     export_hardware_preflight_json,
-    export_hardware_preflight_markdown
+    export_hardware_preflight_markdown,
 )
+
 
 class TestHardwareWriterPreflight(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
-        
+
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.test_dir)
-        
+
     def test_01_hardware_preflight_schema(self):
         """1. Hardware preflight schema is bootforge.hardware_writer_preflight.v1."""
         lock = build_removable_target_identity_lock("E:\\")
@@ -52,7 +54,7 @@ class TestHardwareWriterPreflight(unittest.TestCase):
                     "is_fixed": True,
                     "is_system_drive": False,
                     "device_identity_hash": "fixed_hash",
-                    "size_bytes": 100000
+                    "size_bytes": 100000,
                 }
             ]
         }
@@ -69,7 +71,7 @@ class TestHardwareWriterPreflight(unittest.TestCase):
                     "is_fixed": False,
                     "is_removable": True,
                     "device_identity_hash": None,
-                    "size_bytes": 100000
+                    "size_bytes": 100000,
                 }
             ]
         }
@@ -86,7 +88,7 @@ class TestHardwareWriterPreflight(unittest.TestCase):
                     "is_fixed": False,
                     "is_removable": True,
                     "device_identity_hash": "some_hash",
-                    "size_bytes": 0
+                    "size_bytes": 0,
                 }
             ]
         }
@@ -103,7 +105,7 @@ class TestHardwareWriterPreflight(unittest.TestCase):
                     "is_fixed": False,
                     "is_removable": True,
                     "device_identity_hash": "valid_hash",
-                    "size_bytes": 1024000
+                    "size_bytes": 1024000,
                 }
             ]
         }
@@ -132,7 +134,7 @@ class TestHardwareWriterPreflight(unittest.TestCase):
                     "is_fixed": False,
                     "is_removable": True,
                     "device_identity_hash": "hash1",
-                    "size_bytes": 1000
+                    "size_bytes": 1000,
                 }
             ]
         }
@@ -143,7 +145,7 @@ class TestHardwareWriterPreflight(unittest.TestCase):
                     "is_fixed": False,
                     "is_removable": True,
                     "device_identity_hash": "hash2",
-                    "size_bytes": 1000
+                    "size_bytes": 1000,
                 }
             ]
         }
@@ -161,7 +163,7 @@ class TestHardwareWriterPreflight(unittest.TestCase):
                     "is_fixed": False,
                     "is_removable": True,
                     "device_identity_hash": "hash1",
-                    "size_bytes": 1000
+                    "size_bytes": 1000,
                 }
             ]
         }
@@ -192,7 +194,7 @@ class TestHardwareWriterPreflight(unittest.TestCase):
         """14. Export rejects raw UNC namespace and raw device paths before resolve."""
         bad_paths = [
             "\\\\.\\PhysicalDrive0\\preflight.json",
-            "//./PhysicalDrive0/preflight.json"
+            "//./PhysicalDrive0/preflight.json",
         ]
         for p in bad_paths:
             with self.assertRaises(ValueError):
@@ -201,16 +203,20 @@ class TestHardwareWriterPreflight(unittest.TestCase):
     def test_15_export_rejects_target_drive_root(self):
         """15. Export rejects target-drive root path."""
         with self.assertRaises(ValueError):
-            validate_hardware_preflight_export_path("E:\\preflight.json", "json", "E:\\")
+            validate_hardware_preflight_export_path(
+                "E:\\preflight.json", "json", "E:\\"
+            )
 
     def test_16_cli_preflight_returns_json(self):
         """16. CLI hardware preflight check outputs valid JSON."""
         import subprocess
+
         cmd = [
             sys.executable,
             "usb_creator.py",
             "--hardware-writer-preflight",
-            "--target-drive", "E:\\"
+            "--target-drive",
+            "E:\\",
         ]
         res = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual(res.returncode, 0)
@@ -219,19 +225,29 @@ class TestHardwareWriterPreflight(unittest.TestCase):
 
     def test_17_dashboard_source_excludes_forbidden_labels(self):
         """17. Dashboard App.jsx source must not contain forbidden UI labels."""
-        app_jsx_path = os.path.join(Path(__file__).parent.parent, "dashboard", "src", "App.jsx")
+        app_jsx_path = os.path.join(
+            Path(__file__).parent.parent, "dashboard", "src", "App.jsx"
+        )
         if os.path.exists(app_jsx_path):
             with open(app_jsx_path, "r", encoding="utf-8") as f:
                 content = f.read()
             FORBIDDEN = [
-                "Write USB", "Burn USB", "Flash USB", "Start Write",
-                "Format USB", "Erase Drive", "Arm Writer", "Execute Write",
-                "Destructive Write", "Write Now"
+                "Write USB",
+                "Burn USB",
+                "Flash USB",
+                "Start Write",
+                "Format USB",
+                "Erase Drive",
+                "Arm Writer",
+                "Execute Write",
+                "Destructive Write",
+                "Write Now",
             ]
             for phrase in FORBIDDEN:
                 # App.jsx may contain the list of forbidden phrases to test against,
                 # but it should not have them as UI button titles.
                 self.assertNotIn(f">{phrase}<", content)
+
 
 if __name__ == "__main__":
     unittest.main()

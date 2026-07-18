@@ -12,6 +12,7 @@ from unittest.mock import patch, MagicMock
 sys.path.append(str(Path(__file__).parent.parent))
 import usb_creator
 
+
 class TestUSBCreator(unittest.TestCase):
 
     def test_default_download_dir(self):
@@ -26,7 +27,7 @@ class TestUSBCreator(unittest.TestCase):
             tmp_path = Path(tmp.name)
             # Content: "PhoenixCore"
             tmp.write(b"PhoenixCore")
-            
+
         try:
             # Expected sha256 of "PhoenixCore"
             expected_hash = hashlib.sha256(b"PhoenixCore").hexdigest()
@@ -44,20 +45,31 @@ class TestUSBCreator(unittest.TestCase):
             tmpdir_path = Path(tmpdir)
             mock_scan.return_value = {
                 "schema": "bootforge.device_scan.v2",
-                "devices": [{
-                    "drive_path": str(tmpdir_path),
-                    "display_name": "TestUSB",
-                    "is_removable": True, "is_external": False,
-                    "is_fixed": False, "is_system": False,
-                    "confidence": "high", "stable_id": "test-stable",
-                    "warnings": [], "block_reasons": [],
-                }],
+                "devices": [
+                    {
+                        "drive_path": str(tmpdir_path),
+                        "display_name": "TestUSB",
+                        "is_removable": True,
+                        "is_external": False,
+                        "is_fixed": False,
+                        "is_system": False,
+                        "confidence": "high",
+                        "stable_id": "test-stable",
+                        "warnings": [],
+                        "block_reasons": [],
+                    }
+                ],
             }
 
             result = usb_creator.create_rescue_usb_structure(str(tmpdir_path))
             self.assertTrue(result)
 
-            expected_dirs = ["RescueTools", "BootCamp_Drivers", "OCLP_Patcher", "macOS_Installers"]
+            expected_dirs = [
+                "RescueTools",
+                "BootCamp_Drivers",
+                "OCLP_Patcher",
+                "macOS_Installers",
+            ]
             for folder in expected_dirs:
                 self.assertTrue((tmpdir_path / folder).is_dir())
 
@@ -86,14 +98,20 @@ class TestUSBCreator(unittest.TestCase):
         invalid_path = "/nonexistent/drive/path/xyz"
         mock_scan.return_value = {
             "schema": "bootforge.device_scan.v2",
-            "devices": [{
-                "drive_path": invalid_path,
-                "display_name": "TestUSB",
-                "is_removable": True, "is_external": False,
-                "is_fixed": False, "is_system": False,
-                "confidence": "high", "stable_id": "test-stable",
-                "warnings": [], "block_reasons": [],
-            }],
+            "devices": [
+                {
+                    "drive_path": invalid_path,
+                    "display_name": "TestUSB",
+                    "is_removable": True,
+                    "is_external": False,
+                    "is_fixed": False,
+                    "is_system": False,
+                    "confidence": "high",
+                    "stable_id": "test-stable",
+                    "warnings": [],
+                    "block_reasons": [],
+                }
+            ],
         }
         result = usb_creator.create_rescue_usb_structure(invalid_path, dry_run=False)
         self.assertFalse(result)
@@ -103,14 +121,20 @@ class TestUSBCreator(unittest.TestCase):
         """Verify rescue structure creation blocks fixed/internal/system drives."""
         mock_scan.return_value = {
             "schema": "bootforge.device_scan.v2",
-            "devices": [{
-                "drive_path": "C:\\",
-                "display_name": "System",
-                "is_removable": False, "is_external": False,
-                "is_fixed": True, "is_system": True,
-                "confidence": "high", "stable_id": "sys-drive",
-                "warnings": [], "block_reasons": [],
-            }],
+            "devices": [
+                {
+                    "drive_path": "C:\\",
+                    "display_name": "System",
+                    "is_removable": False,
+                    "is_external": False,
+                    "is_fixed": True,
+                    "is_system": True,
+                    "confidence": "high",
+                    "stable_id": "sys-drive",
+                    "warnings": [],
+                    "block_reasons": [],
+                }
+            ],
         }
         result = usb_creator.create_rescue_usb_structure("C:\\", dry_run=False)
         self.assertFalse(result)
@@ -125,11 +149,11 @@ class TestUSBCreator(unittest.TestCase):
             "assets": [
                 {
                     "name": "OpenCore-Patcher-GUI.app.zip",
-                    "browser_download_url": "https://github.com/dortania/OpenCore-Legacy-Patcher/releases/download/1.5.0/OpenCore-Patcher-GUI.app.zip"
+                    "browser_download_url": "https://github.com/dortania/OpenCore-Legacy-Patcher/releases/download/1.5.0/OpenCore-Patcher-GUI.app.zip",
                 }
-            ]
+            ],
         }
-        
+
         # Configure mocked urlopen response
         mock_response = MagicMock()
         mock_response.read.return_value = json.dumps(mock_payload).encode("utf-8")
@@ -137,35 +161,41 @@ class TestUSBCreator(unittest.TestCase):
 
         # Mock calculate_file_sha256 to prevent reading non-existent file
         with patch("usb_creator.calculate_file_sha256") as mock_sha:
-            mock_sha.return_value = "1339b694899a0aec51dd32b20f9e7b84df6be08aac56837a94d2bfaf806c155e"
-            
+            mock_sha.return_value = (
+                "1339b694899a0aec51dd32b20f9e7b84df6be08aac56837a94d2bfaf806c155e"
+            )
+
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmpdir_path = Path(tmpdir)
-                
+
                 # Call downloader
-                result_path = usb_creator.download_latest_oclp(dest_dir=str(tmpdir_path))
-                
+                result_path = usb_creator.download_latest_oclp(
+                    dest_dir=str(tmpdir_path)
+                )
+
                 # Assert downloader targeted the correct file
                 expected_dest = tmpdir_path / "OpenCore-Patcher-GUI.app.zip"
                 self.assertEqual(str(expected_dest), result_path)
-                
+
                 # Assert urllib retriever was triggered with expected parameters
                 mock_retrieve.assert_called_once_with(
                     "https://github.com/dortania/OpenCore-Legacy-Patcher/releases/download/1.5.0/OpenCore-Patcher-GUI.app.zip",
-                    str(expected_dest)
+                    str(expected_dest),
                 )
 
     def test_download_latest_oclp_dry_run(self):
         """Verify downloader dry-run skips network requests and logs expected output."""
         simulated_dir = "/mock/downloads"
-        
+
         # Run downloader in dry-run mode
-        result_path = usb_creator.download_latest_oclp(dest_dir=simulated_dir, dry_run=True)
-        
+        result_path = usb_creator.download_latest_oclp(
+            dest_dir=simulated_dir, dry_run=True
+        )
+
         # Assert path returned is mapped inside target directory
         expected_path = Path(simulated_dir) / "OpenCore-Patcher-GUI.app.zip"
         self.assertEqual(str(expected_path), result_path)
-        
+
         # Verify absolutely no directories or files were written to disk
         self.assertFalse(Path(simulated_dir).exists())
 
@@ -174,22 +204,26 @@ class TestUSBCreator(unittest.TestCase):
     @patch("ctypes.windll.kernel32.GetDriveTypeW")
     @patch("ctypes.windll.kernel32.GetDiskFreeSpaceExW")
     @patch("ctypes.windll.kernel32.GetVolumeInformationW")
-    def test_get_removable_drives_windows(self, mock_vol_info, mock_free_space, mock_drive_type, mock_drives_mask, *args):
+    def test_get_removable_drives_windows(
+        self, mock_vol_info, mock_free_space, mock_drive_type, mock_drives_mask, *args
+    ):
         """Verify Windows logical drive search parses DRIVE_REMOVABLE disks correctly."""
         # Mock bitmask for drives: bit 3 set = Drive D:\
-        mock_drives_mask.return_value = 8 
-        
+        mock_drives_mask.return_value = 8
+
         # DRIVE_REMOVABLE = 2
         mock_drive_type.return_value = 2
-        
+
         # Mock successful free space check
         mock_free_space.side_effect = lambda path, free, total, free_avail: True
-        
+
         # Mock volume name
-        mock_vol_info.side_effect = lambda path, buf, size, *args: setattr(buf, "value", "SanDiskRescue")
+        mock_vol_info.side_effect = lambda path, buf, size, *args: setattr(
+            buf, "value", "SanDiskRescue"
+        )
 
         drives = usb_creator.get_removable_drives()
-        
+
         self.assertEqual(1, len(drives))
         self.assertEqual("D:\\", drives[0]["drive"])
         self.assertEqual("SanDiskRescue", drives[0]["label"])
@@ -208,9 +242,9 @@ class TestUSBCreator(unittest.TestCase):
             <array/>
         </dict>
         </plist>"""
-        
+
         mock_subprocess.return_value = mock_plist_list
-        
+
         drives = usb_creator.get_removable_drives()
         self.assertEqual(0, len(drives))
 
@@ -268,22 +302,26 @@ class TestUSBCreator(unittest.TestCase):
 
     def test_tool_registry_manifest(self):
         """Verify the manifests/tool_registry.json exists, parses cleanly, and maps correct schemas."""
-        registry_path = Path(__file__).parent.parent / "manifests" / "tool_registry.json"
-        self.assertTrue(registry_path.is_file(), "tool_registry.json manifest file must exist!")
-        
+        registry_path = (
+            Path(__file__).parent.parent / "manifests" / "tool_registry.json"
+        )
+        self.assertTrue(
+            registry_path.is_file(), "tool_registry.json manifest file must exist!"
+        )
+
         try:
             with open(registry_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             # Assert core headers exist
             self.assertIn("name", data)
             self.assertIn("version", data)
             self.assertIn("tools", data)
-            
+
             # Assert tools list has populated entries
             tools = data["tools"]
             self.assertGreater(len(tools), 0)
-            
+
             for tool in tools:
                 self.assertIn("id", tool)
                 self.assertIn("name", tool)
@@ -296,28 +334,36 @@ class TestUSBCreator(unittest.TestCase):
 
     def test_validate_tool_against_registry_unknown_tool(self):
         """Verify registry rejects unknown/unregistered tools immediately."""
-        result = usb_creator.validate_tool_against_registry("malicious-unregistered-tool")
+        result = usb_creator.validate_tool_against_registry(
+            "malicious-unregistered-tool"
+        )
         self.assertFalse(result)
 
     def test_validate_tool_against_registry_url_mismatch(self):
         """Verify registry rejects tools with unapproved or altered download URLs."""
         tool_id = "opencore-legacy-patcher"
         bad_url = "https://untrusted-domain.com/hacked-patcher.zip"
-        result = usb_creator.validate_tool_against_registry(tool_id, download_url=bad_url)
+        result = usb_creator.validate_tool_against_registry(
+            tool_id, download_url=bad_url
+        )
         self.assertFalse(result)
 
     @patch("usb_creator.calculate_file_sha256")
     def test_validate_tool_against_registry_checksum_success(self, mock_sha):
         """Verify registry validates and approves matching cryptographic checksums."""
         tool_id = "opencore-legacy-patcher"
-        mock_sha.return_value = "1339b694899a0aec51dd32b20f9e7b84df6be08aac56837a94d2bfaf806c155e"
-        
+        mock_sha.return_value = (
+            "1339b694899a0aec51dd32b20f9e7b84df6be08aac56837a94d2bfaf806c155e"
+        )
+
         # Create a mock empty file
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp_path = Path(tmp.name)
-            
+
         try:
-            result = usb_creator.validate_tool_against_registry(tool_id, file_path=tmp_path)
+            result = usb_creator.validate_tool_against_registry(
+                tool_id, file_path=tmp_path
+            )
             self.assertTrue(result)
         finally:
             if tmp_path.exists():
@@ -326,14 +372,16 @@ class TestUSBCreator(unittest.TestCase):
     def test_validate_tool_against_registry_checksum_failure(self):
         """Verify registry throws critical failure and rejects mismatched cryptographic signatures."""
         tool_id = "opencore-legacy-patcher"
-        
+
         # Write custom content to cause checksum mismatch (expected empty file hash)
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp_path = Path(tmp.name)
             tmp.write(b"untrusted hacked content")
-            
+
         try:
-            result = usb_creator.validate_tool_against_registry(tool_id, file_path=tmp_path)
+            result = usb_creator.validate_tool_against_registry(
+                tool_id, file_path=tmp_path
+            )
             self.assertFalse(result)
         finally:
             if tmp_path.exists():
@@ -343,17 +391,25 @@ class TestUSBCreator(unittest.TestCase):
         """Verify the standard registry manifest detached signature verification is successful."""
         registry = usb_creator.load_tool_registry()
         self.assertIsNotNone(registry)
-        self.assertEqual("BootForge Trusted Recovery Tool Registry", registry.get("name"))
+        self.assertEqual(
+            "BootForge Trusted Recovery Tool Registry", registry.get("name")
+        )
 
     def test_load_tool_registry_signature_failure_on_tamper(self):
         """Verify that tampering with the tool registry JSON causes a critical security halt (SystemExit)."""
-        registry_path = Path(usb_creator.__file__).parent / "manifests" / "tool_registry.json"
+        registry_path = (
+            Path(usb_creator.__file__).parent / "manifests" / "tool_registry.json"
+        )
         if not registry_path.exists():
-            registry_path = Path(usb_creator.__file__).parent.parent / "manifests" / "tool_registry.json"
-            
+            registry_path = (
+                Path(usb_creator.__file__).parent.parent
+                / "manifests"
+                / "tool_registry.json"
+            )
+
         original_content = registry_path.read_bytes()
         tampered_content = original_content + b"\n# malicious append"
-        
+
         # Temporarily mock the file read to simulate tampering
         with patch.object(Path, "read_bytes", return_value=tampered_content):
             with self.assertRaises(SystemExit) as context:
@@ -363,7 +419,7 @@ class TestUSBCreator(unittest.TestCase):
     def test_load_tool_registry_signature_failure_on_missing_sig(self):
         """Verify that a missing detached signature file causes an immediate critical security halt."""
         call_count = 0
-        
+
         def mock_exists(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -372,11 +428,12 @@ class TestUSBCreator(unittest.TestCase):
                 return True
             # Third call is for sig_path.exists() -> simulate missing (.sig) file
             return False
-            
+
         with patch.object(Path, "exists", side_effect=mock_exists):
             with self.assertRaises(SystemExit) as context:
                 usb_creator.load_tool_registry()
             self.assertEqual(1, context.exception.code)
+
 
 if __name__ == "__main__":
     unittest.main()

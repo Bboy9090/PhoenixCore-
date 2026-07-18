@@ -29,6 +29,7 @@ FORBIDDEN_LABELS = [
     "Write Now",
 ]
 
+
 class TestWriterSafetyContractExport(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
@@ -61,7 +62,9 @@ class TestWriterSafetyContractExport(unittest.TestCase):
         self.assertTrue(os.path.exists(out_path))
         with open(out_path, "r", encoding="utf-8") as f:
             content = f.read()
-            self.assertIn("# PhoenixCore / BootForge Writer Safety Contract Report", content)
+            self.assertIn(
+                "# PhoenixCore / BootForge Writer Safety Contract Report", content
+            )
 
     def test_03_json_export_rejects_non_json_extension(self):
         """3. JSON export rejects non-.json extension."""
@@ -121,7 +124,7 @@ class TestWriterSafetyContractExport(unittest.TestCase):
         bad_paths = [
             "\\\\.\\PhysicalDrive0\\evidence.json",
             "//./PhysicalDrive0/evidence.json",
-            "\\\\server\\share\\evidence.json"
+            "\\\\server\\share\\evidence.json",
         ]
         for p in bad_paths:
             with self.assertRaises(ValueError):
@@ -151,7 +154,10 @@ class TestWriterSafetyContractExport(unittest.TestCase):
         with open(out_path, "r", encoding="utf-8") as f:
             content = f.read()
             self.assertIn("read-only safety contract preview only", content)
-            self.assertIn("All actual destructive writing engines remain completely locked", content)
+            self.assertIn(
+                "All actual destructive writing engines remain completely locked",
+                content,
+            )
 
     def test_15_export_helpers_do_not_invoke_destructive_subprocess_calls(self):
         """15. Export helpers must not invoke forbidden subprocess calls (diskpart, dd, etc.)."""
@@ -159,15 +165,21 @@ class TestWriterSafetyContractExport(unittest.TestCase):
 
     def test_16_dashboard_source_does_not_include_forbidden_ui_labels(self):
         """16. Dashboard App.jsx source must not contain forbidden destructive UI labels."""
-        app_jsx_path = os.path.join(Path(__file__).parent.parent, "dashboard", "src", "App.jsx")
+        app_jsx_path = os.path.join(
+            Path(__file__).parent.parent, "dashboard", "src", "App.jsx"
+        )
         if os.path.exists(app_jsx_path):
             with open(app_jsx_path, "r", encoding="utf-8") as f:
                 content = f.read()
             # Clean comments/literals checks:
             for forbidden in FORBIDDEN_LABELS:
                 self.assertNotIn(f">{forbidden}<", content)
-                self.assertNotIn(f"'{forbidden}'", content.replace("FORBIDDEN_LABELS = [", ""))
-                self.assertNotIn(f'"{forbidden}"', content.replace("FORBIDDEN_LABELS = [", ""))
+                self.assertNotIn(
+                    f"'{forbidden}'", content.replace("FORBIDDEN_LABELS = [", "")
+                )
+                self.assertNotIn(
+                    f'"{forbidden}"', content.replace("FORBIDDEN_LABELS = [", "")
+                )
 
     def test_17_cli_export_path_returns_blocked_safely_when_invalid(self):
         """17. CLI export validates paths and returns blocked result safely."""
@@ -175,6 +187,7 @@ class TestWriterSafetyContractExport(unittest.TestCase):
         res = export_writer_contract_json(self.contract, out_path)
         self.assertEqual(res["status"], "failed")
         self.assertIsNotNone(res["error"])
+
 
 if __name__ == "__main__":
     unittest.main()

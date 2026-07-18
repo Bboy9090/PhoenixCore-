@@ -30,6 +30,7 @@ FORBIDDEN_LABELS = [
     "Write Now",
 ]
 
+
 class TestWriterSafetyContractLedger(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
@@ -53,7 +54,7 @@ class TestWriterSafetyContractLedger(unittest.TestCase):
     def test_02_session_id_changes_when_image_hash_changes(self):
         """2. Session ID changes when image identity hash changes."""
         s1 = build_writer_contract_session_id(self.contract)
-        
+
         # Modify the image hash in contract copy
         contract_modified = self.contract.copy()
         contract_modified["image_identity"] = {
@@ -85,7 +86,7 @@ class TestWriterSafetyContractLedger(unittest.TestCase):
         ledger_path = os.path.join(self.test_dir, "ledger.jsonl")
         res = append_writer_contract_ledger_record(rec, ledger_path)
         self.assertEqual(res["status"], "success")
-        
+
         with open(ledger_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
         self.assertEqual(len(lines), 1)
@@ -95,13 +96,13 @@ class TestWriterSafetyContractLedger(unittest.TestCase):
     def test_07_ledger_append_appends_instead_of_overwriting(self):
         """7. Ledger append appends instead of overwriting."""
         ledger_path = os.path.join(self.test_dir, "ledger.jsonl")
-        
+
         rec1 = build_writer_contract_ledger_record(self.contract, "event_1")
         append_writer_contract_ledger_record(rec1, ledger_path)
-        
+
         rec2 = build_writer_contract_ledger_record(self.contract, "event_2")
         append_writer_contract_ledger_record(rec2, ledger_path)
-        
+
         with open(ledger_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
         self.assertEqual(len(lines), 2)
@@ -144,7 +145,7 @@ class TestWriterSafetyContractLedger(unittest.TestCase):
         """12. Ledger append rejects raw device paths before resolve."""
         bad_paths = [
             "\\\\.\\PhysicalDrive0\\ledger.jsonl",
-            "//./PhysicalDrive0/ledger.jsonl"
+            "//./PhysicalDrive0/ledger.jsonl",
         ]
         for p in bad_paths:
             with self.assertRaises(ValueError):
@@ -158,10 +159,7 @@ class TestWriterSafetyContractLedger(unittest.TestCase):
 
     def test_14_ledger_append_rejects_suspicious_system_paths(self):
         """14. Ledger append rejects suspicious system paths."""
-        bad_paths = [
-            "/etc/ledger.jsonl",
-            "C:\\Windows\\system32\\ledger.jsonl"
-        ]
+        bad_paths = ["/etc/ledger.jsonl", "C:\\Windows\\system32\\ledger.jsonl"]
         for p in bad_paths:
             with self.assertRaises(ValueError):
                 validate_writer_contract_ledger_path(p)
@@ -186,14 +184,20 @@ class TestWriterSafetyContractLedger(unittest.TestCase):
 
     def test_17_dashboard_source_does_not_include_forbidden_ui_labels(self):
         """17. Dashboard App.jsx source must not contain active forbidden UI labels."""
-        app_jsx_path = os.path.join(Path(__file__).parent.parent, "dashboard", "src", "App.jsx")
+        app_jsx_path = os.path.join(
+            Path(__file__).parent.parent, "dashboard", "src", "App.jsx"
+        )
         if os.path.exists(app_jsx_path):
             with open(app_jsx_path, "r", encoding="utf-8") as f:
                 content = f.read()
             for forbidden in FORBIDDEN_LABELS:
                 self.assertNotIn(f">{forbidden}<", content)
-                self.assertNotIn(f"'{forbidden}'", content.replace("FORBIDDEN_LABELS = [", ""))
-                self.assertNotIn(f'"{forbidden}"', content.replace("FORBIDDEN_LABELS = [", ""))
+                self.assertNotIn(
+                    f"'{forbidden}'", content.replace("FORBIDDEN_LABELS = [", "")
+                )
+                self.assertNotIn(
+                    f'"{forbidden}"', content.replace("FORBIDDEN_LABELS = [", "")
+                )
 
     def test_18_ledger_helpers_do_not_invoke_destructive_subprocess_calls(self):
         """18. Ledger helpers must not invoke forbidden subprocess calls."""
@@ -202,18 +206,21 @@ class TestWriterSafetyContractLedger(unittest.TestCase):
     def test_19_ledger_record_includes_export_result(self):
         """19. Ledger record includes export_result when supplied."""
         exp_res = {"status": "success", "export_path": "audit.json"}
-        rec = build_writer_contract_ledger_record(self.contract, "event", export_result=exp_res)
+        rec = build_writer_contract_ledger_record(
+            self.contract, "event", export_result=exp_res
+        )
         self.assertEqual(rec["export_result"], exp_res)
 
     def test_20_repeated_ledger_record_construction_is_deterministic(self):
         """20. Repeated ledger record construction is deterministic (except created_at/ledger_record_id)."""
         r1 = build_writer_contract_ledger_record(self.contract, "event")
         r2 = build_writer_contract_ledger_record(self.contract, "event")
-        
+
         # Override volatile timestamp for equivalence check
         r2["created_at"] = r1["created_at"]
         r2["ledger_record_id"] = r1["ledger_record_id"]
         self.assertEqual(r1, r2)
+
 
 if __name__ == "__main__":
     unittest.main()

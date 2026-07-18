@@ -29,7 +29,9 @@ from real_writer_interface import (
 
 class TestPhysicalUSBWriteLabSchemas(unittest.TestCase):
     def test_request_schema_v1(self):
-        req = build_physical_usb_write_lab_request(target_drive="E:\\", platform="win32")
+        req = build_physical_usb_write_lab_request(
+            target_drive="E:\\", platform="win32"
+        )
         self.assertEqual(req["schema"], "bootforge.physical_usb_write_lab_request.v1")
         self.assertTrue(req["request_id"].startswith("phyreq_"))
         self.assertEqual(req["target_drive"], "E:\\")
@@ -42,31 +44,48 @@ class TestPhysicalUSBWriteLabSchemas(unittest.TestCase):
 
     def test_verification_schema_v1(self):
         ver = build_physical_usb_write_lab_verification(target_drive="E:\\")
-        self.assertEqual(ver["schema"], "bootforge.physical_usb_write_lab_verification.v1")
+        self.assertEqual(
+            ver["schema"], "bootforge.physical_usb_write_lab_verification.v1"
+        )
         self.assertTrue(ver["verification_id"].startswith("phyver_"))
         self.assertEqual(ver["target_drive"], "E:\\")
 
 
 class TestPhysicalUSBWriteLabConstants(unittest.TestCase):
     def test_env_var_name(self):
-        self.assertEqual(PHYSICAL_USB_WRITE_ENV_VAR, "BOOTFORGE_ENABLE_PHYSICAL_USB_WRITE")
+        self.assertEqual(
+            PHYSICAL_USB_WRITE_ENV_VAR, "BOOTFORGE_ENABLE_PHYSICAL_USB_WRITE"
+        )
 
     def test_env_var_value(self):
-        self.assertEqual(PHYSICAL_USB_WRITE_ENV_VALUE, "I_ACCEPT_SACRIFICIAL_USB_WRITE_RISK")
+        self.assertEqual(
+            PHYSICAL_USB_WRITE_ENV_VALUE, "I_ACCEPT_SACRIFICIAL_USB_WRITE_RISK"
+        )
 
     def test_typed_confirmation(self):
-        self.assertEqual(PHYSICAL_TYPED_CONFIRMATION, "I UNDERSTAND THIS WILL OVERWRITE THE SELECTED PHYSICAL USB DRIVE")
+        self.assertEqual(
+            PHYSICAL_TYPED_CONFIRMATION,
+            "I UNDERSTAND THIS WILL OVERWRITE THE SELECTED PHYSICAL USB DRIVE",
+        )
 
     def test_destructive_acknowledgement(self):
-        self.assertEqual(PHYSICAL_DESTRUCTIVE_ACKNOWLEDGEMENT, "I CONFIRM THIS IS A SACRIFICIAL REMOVABLE TEST USB DRIVE")
+        self.assertEqual(
+            PHYSICAL_DESTRUCTIVE_ACKNOWLEDGEMENT,
+            "I CONFIRM THIS IS A SACRIFICIAL REMOVABLE TEST USB DRIVE",
+        )
 
     def test_final_irreversible(self):
-        self.assertEqual(PHYSICAL_FINAL_IRREVERSIBLE, "I ACCEPT FULL RESPONSIBILITY FOR THIS TEST USB WRITE")
+        self.assertEqual(
+            PHYSICAL_FINAL_IRREVERSIBLE,
+            "I ACCEPT FULL RESPONSIBILITY FOR THIS TEST USB WRITE",
+        )
 
 
 class TestPhysicalUSBWriteLabGates(unittest.TestCase):
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp(dir=os.path.join(os.path.dirname(__file__), ".."))
+        self.test_dir = tempfile.mkdtemp(
+            dir=os.path.join(os.path.dirname(__file__), "..")
+        )
         self.old_env = os.environ.get(PHYSICAL_USB_WRITE_ENV_VAR)
         os.environ[PHYSICAL_USB_WRITE_ENV_VAR] = PHYSICAL_USB_WRITE_ENV_VALUE
 
@@ -98,6 +117,7 @@ class TestPhysicalUSBWriteLabGates(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.test_dir, ignore_errors=True)
         if self.old_env is not None:
             os.environ[PHYSICAL_USB_WRITE_ENV_VAR] = self.old_env
@@ -231,13 +251,16 @@ class TestPhysicalUSBWriteLabGates(unittest.TestCase):
 
 class TestPhysicalUSBWriteLabAdapter(unittest.TestCase):
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp(dir=os.path.join(os.path.dirname(__file__), ".."))
+        self.test_dir = tempfile.mkdtemp(
+            dir=os.path.join(os.path.dirname(__file__), "..")
+        )
         self.old_env = os.environ.get(PHYSICAL_USB_WRITE_ENV_VAR)
         os.environ[PHYSICAL_USB_WRITE_ENV_VAR] = PHYSICAL_USB_WRITE_ENV_VALUE
         self.adapter = PhysicalUSBWriteLabAdapter()
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.test_dir, ignore_errors=True)
         if self.old_env is not None:
             os.environ[PHYSICAL_USB_WRITE_ENV_VAR] = self.old_env
@@ -278,7 +301,9 @@ class TestPhysicalUSBWriteLabAdapter(unittest.TestCase):
         result = self.adapter.execute_write(req)
         self.assertTrue(result["blocked"])
         self.assertFalse(result["physical_write_attempted"])
-        self.assertEqual(result["next_required_action"], "resolve_physical_write_blockers")
+        self.assertEqual(
+            result["next_required_action"], "resolve_physical_write_blockers"
+        )
 
     def test_adapter_returns_not_safely_implemented(self):
         req = self._build_valid_request()
@@ -286,7 +311,9 @@ class TestPhysicalUSBWriteLabAdapter(unittest.TestCase):
         self.assertTrue(result["blocked"])
         self.assertFalse(result["physical_write_attempted"])
         self.assertIn("physical_writer_not_safely_implemented", result["block_reasons"])
-        self.assertEqual(result["next_required_action"], "implement_safe_physical_writer")
+        self.assertEqual(
+            result["next_required_action"], "implement_safe_physical_writer"
+        )
 
     def test_adapter_never_sets_write_attempted_true(self):
         req = self._build_valid_request()
@@ -333,15 +360,20 @@ class TestPhysicalUSBWriteLabStatus(unittest.TestCase):
 
     def test_status_next_action(self):
         status = build_physical_usb_write_lab_status()
-        self.assertEqual(status["next_required_action"], "implement_safe_physical_writer")
+        self.assertEqual(
+            status["next_required_action"], "implement_safe_physical_writer"
+        )
 
 
 class TestPhysicalUSBWriteLabExportPath(unittest.TestCase):
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp(dir=os.path.join(os.path.dirname(__file__), ".."))
+        self.test_dir = tempfile.mkdtemp(
+            dir=os.path.join(os.path.dirname(__file__), "..")
+        )
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_empty_path_raises(self):
@@ -350,11 +382,15 @@ class TestPhysicalUSBWriteLabExportPath(unittest.TestCase):
 
     def test_unc_path_raises(self):
         with self.assertRaises(ValueError):
-            validate_physical_usb_write_lab_export_path("\\\\server\\share\\out.json", "json")
+            validate_physical_usb_write_lab_export_path(
+                "\\\\server\\share\\out.json", "json"
+            )
 
     def test_system32_path_raises(self):
         with self.assertRaises(ValueError):
-            validate_physical_usb_write_lab_export_path("C:\\Windows\\System32\\out.json", "json")
+            validate_physical_usb_write_lab_export_path(
+                "C:\\Windows\\System32\\out.json", "json"
+            )
 
     def test_etc_path_raises(self):
         with self.assertRaises(ValueError):
@@ -392,7 +428,9 @@ class TestPhysicalUSBWriteLabExportPath(unittest.TestCase):
 
 class TestPhysicalUSBWriteLabExportJSON(unittest.TestCase):
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp(dir=os.path.join(os.path.dirname(__file__), ".."))
+        self.test_dir = tempfile.mkdtemp(
+            dir=os.path.join(os.path.dirname(__file__), "..")
+        )
         self.sample_result = build_physical_usb_write_lab_result(
             adapter="physical-usb-write-lab",
             target_drive="E:\\",
@@ -402,6 +440,7 @@ class TestPhysicalUSBWriteLabExportJSON(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_export_json_success(self):
@@ -421,7 +460,9 @@ class TestPhysicalUSBWriteLabExportJSON(unittest.TestCase):
 
 class TestPhysicalUSBWriteLabExportMarkdown(unittest.TestCase):
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp(dir=os.path.join(os.path.dirname(__file__), ".."))
+        self.test_dir = tempfile.mkdtemp(
+            dir=os.path.join(os.path.dirname(__file__), "..")
+        )
         self.sample_result = build_physical_usb_write_lab_result(
             adapter="physical-usb-write-lab",
             target_drive="E:\\",
@@ -431,6 +472,7 @@ class TestPhysicalUSBWriteLabExportMarkdown(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_generate_markdown_contains_safety_assertion(self):

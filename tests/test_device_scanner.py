@@ -23,43 +23,46 @@ from device_scanner import (
     get_eligible_devices,
 )
 
+MOCK_WINDOWS_PS_OUTPUT = json.dumps(
+    [
+        {
+            "DeviceID": "\\\\.\\PHYSICALDRIVE1",
+            "Model": "Kingston DataTraveler 3.0 USB Device",
+            "SerialNumber": "KT123456789",
+            "Size": 15728640000,
+            "MediaType": "Removable Media",
+            "InterfaceType": "USB",
+            "Partitions": 1,
+            "Status": "OK",
+            "Caption": "Kingston DataTraveler 3.0 USB Device",
+        },
+        {
+            "DeviceID": "\\\\.\\PHYSICALDRIVE0",
+            "Model": "Samsung SSD 970 EVO",
+            "SerialNumber": "S4EVNG0123456",
+            "Size": 500107862016,
+            "MediaType": "Fixed hard disk media",
+            "InterfaceType": "SCSI",
+            "Partitions": 4,
+            "Status": "OK",
+            "Caption": "Samsung SSD 970 EVO",
+        },
+    ]
+)
 
-MOCK_WINDOWS_PS_OUTPUT = json.dumps([
+MOCK_WINDOWS_SINGLE = json.dumps(
     {
-        "DeviceID": "\\\\.\\PHYSICALDRIVE1",
-        "Model": "Kingston DataTraveler 3.0 USB Device",
-        "SerialNumber": "KT123456789",
-        "Size": 15728640000,
+        "DeviceID": "\\\\.\\PHYSICALDRIVE2",
+        "Model": "SanDisk Ultra USB",
+        "SerialNumber": "SD9876",
+        "Size": 32000000000,
         "MediaType": "Removable Media",
         "InterfaceType": "USB",
         "Partitions": 1,
         "Status": "OK",
-        "Caption": "Kingston DataTraveler 3.0 USB Device",
-    },
-    {
-        "DeviceID": "\\\\.\\PHYSICALDRIVE0",
-        "Model": "Samsung SSD 970 EVO",
-        "SerialNumber": "S4EVNG0123456",
-        "Size": 500107862016,
-        "MediaType": "Fixed hard disk media",
-        "InterfaceType": "SCSI",
-        "Partitions": 4,
-        "Status": "OK",
-        "Caption": "Samsung SSD 970 EVO",
-    },
-])
-
-MOCK_WINDOWS_SINGLE = json.dumps({
-    "DeviceID": "\\\\.\\PHYSICALDRIVE2",
-    "Model": "SanDisk Ultra USB",
-    "SerialNumber": "SD9876",
-    "Size": 32000000000,
-    "MediaType": "Removable Media",
-    "InterfaceType": "USB",
-    "Partitions": 1,
-    "Status": "OK",
-    "Caption": "SanDisk Ultra USB",
-})
+        "Caption": "SanDisk Ultra USB",
+    }
+)
 
 MOCK_MACOS_LIST_PLIST = b"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -245,11 +248,26 @@ class TestBuildDeviceRecord(unittest.TestCase):
             detection_source="test",
         )
         for field in [
-            "drive_path", "display_name", "stable_id", "serial",
-            "size_bytes", "size_gb", "size_human", "filesystem",
-            "volume_label", "is_removable", "is_external", "is_fixed",
-            "is_system", "bus_protocol", "platform", "detection_source",
-            "confidence", "is_eligible", "warnings", "block_reasons",
+            "drive_path",
+            "display_name",
+            "stable_id",
+            "serial",
+            "size_bytes",
+            "size_gb",
+            "size_human",
+            "filesystem",
+            "volume_label",
+            "is_removable",
+            "is_external",
+            "is_fixed",
+            "is_system",
+            "bus_protocol",
+            "platform",
+            "detection_source",
+            "confidence",
+            "is_eligible",
+            "warnings",
+            "block_reasons",
         ]:
             self.assertIn(field, rec, f"Missing field: {field}")
 
@@ -333,26 +351,30 @@ class TestLinuxScanner(unittest.TestCase):
         self.assertEqual(parse_udevadm_output(None), {})
 
     def test_read_sysfs_nonexistent(self):
-        self.assertIsNone(read_sysfs_file("/sys/block/definitely_not_a_device/removable"))
+        self.assertIsNone(
+            read_sysfs_file("/sys/block/definitely_not_a_device/removable")
+        )
 
 
 class TestScanDevicesAPI(unittest.TestCase):
     @patch("device_scanner.scan_windows")
     def test_scan_windows_platform(self, mock_scan):
         mock_scan.return_value = (
-            [_build_device_record(
-                drive_path="\\\\.\\PHYSICALDRIVE1",
-                display_name="USB Drive",
-                stable_id="win_1_SN",
-                serial="SN",
-                size_bytes=16000000000,
-                is_removable=True,
-                is_external=True,
-                is_fixed=False,
-                is_system=False,
-                platform="win32",
-                detection_source="powershell_win32_diskdrive",
-            )],
+            [
+                _build_device_record(
+                    drive_path="\\\\.\\PHYSICALDRIVE1",
+                    display_name="USB Drive",
+                    stable_id="win_1_SN",
+                    serial="SN",
+                    size_bytes=16000000000,
+                    is_removable=True,
+                    is_external=True,
+                    is_fixed=False,
+                    is_system=False,
+                    platform="win32",
+                    detection_source="powershell_win32_diskdrive",
+                )
+            ],
             [],
         )
         result = scan_devices(platform_override="win32")
@@ -393,10 +415,12 @@ class TestScanDevicesAPI(unittest.TestCase):
 
 class TestGetDeviceByPath(unittest.TestCase):
     def test_find_existing_device(self):
-        scan = {"devices": [
-            {"drive_path": "/dev/sda", "display_name": "SSD"},
-            {"drive_path": "/dev/sdb", "display_name": "USB"},
-        ]}
+        scan = {
+            "devices": [
+                {"drive_path": "/dev/sda", "display_name": "SSD"},
+                {"drive_path": "/dev/sdb", "display_name": "USB"},
+            ]
+        }
         device = get_device_by_path(scan, "/dev/sdb")
         self.assertEqual(device["display_name"], "USB")
 
@@ -407,20 +431,24 @@ class TestGetDeviceByPath(unittest.TestCase):
 
 class TestGetEligibleDevices(unittest.TestCase):
     def test_filters_eligible_only(self):
-        scan = {"devices": [
-            {"drive_path": "/dev/sda", "is_eligible": False},
-            {"drive_path": "/dev/sdb", "is_eligible": True},
-            {"drive_path": "/dev/sdc", "is_eligible": True},
-        ]}
+        scan = {
+            "devices": [
+                {"drive_path": "/dev/sda", "is_eligible": False},
+                {"drive_path": "/dev/sdb", "is_eligible": True},
+                {"drive_path": "/dev/sdc", "is_eligible": True},
+            ]
+        }
         eligible = get_eligible_devices(scan)
         self.assertEqual(len(eligible), 2)
 
 
 class TestAmbiguousTarget(unittest.TestCase):
     def test_plain_path_not_in_scan_returns_none(self):
-        scan = {"devices": [
-            {"drive_path": "/dev/sdb", "is_eligible": True},
-        ]}
+        scan = {
+            "devices": [
+                {"drive_path": "/dev/sdb", "is_eligible": True},
+            ]
+        }
         self.assertIsNone(get_device_by_path(scan, "E:\\"))
         self.assertIsNone(get_device_by_path(scan, "/dev/disk2"))
 
@@ -446,9 +474,16 @@ class TestDashboardNoForbiddenLabels(unittest.TestCase):
         with open(dashboard_path, "r", encoding="utf-8") as f:
             content = f.read()
         forbidden = [
-            "Write USB", "Burn USB", "Flash USB", "Start Write",
-            "Format USB", "Erase Drive", "Arm Writer", "Execute Write",
-            "Destructive Write", "Write Now",
+            "Write USB",
+            "Burn USB",
+            "Flash USB",
+            "Start Write",
+            "Format USB",
+            "Erase Drive",
+            "Arm Writer",
+            "Execute Write",
+            "Destructive Write",
+            "Write Now",
         ]
         for label in forbidden:
             self.assertNotIn(label, content, f"Forbidden label found: {label}")
