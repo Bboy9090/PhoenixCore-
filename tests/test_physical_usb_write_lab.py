@@ -1,6 +1,7 @@
 import unittest
 import os
 import json
+import io
 import tempfile
 import sys
 from pathlib import Path
@@ -24,6 +25,8 @@ from real_writer_interface import (
     export_physical_usb_write_lab_json,
     export_physical_usb_write_lab_markdown,
     generate_physical_usb_write_lab_markdown,
+    _write_image_to_seekable_target,
+    RawWriteError,
 )
 
 
@@ -91,7 +94,7 @@ class TestPhysicalUSBWriteLabGates(unittest.TestCase):
 
         self.valid_request = build_physical_usb_write_lab_request(
             platform="win32",
-            target_drive="E:\\",
+            target_drive=r"\\.\PHYSICALDRIVE1",
             target_stable_id="usb_stable_001",
             target_identity_hash="hash_abc",
             latest_identity_hash="hash_abc",
@@ -113,6 +116,21 @@ class TestPhysicalUSBWriteLabGates(unittest.TestCase):
             running_as_admin_or_root=True,
             physical_write_requested=True,
             physical_write_allowed=False,
+            verify_after_write=True,
+            target_confirmation=r"\\.\PHYSICALDRIVE1",
+            target_is_removable=True,
+            target_is_external=True,
+            target_is_fixed=False,
+            target_is_system_drive=False,
+            target_size_bytes=1000000000,
+            scanner_confidence="high",
+            fresh_rescan_match=True,
+            dryrun_wrote_zero_bytes=True,
+            evidence_target_matches=True,
+            evidence_image_matches=True,
+            audit_passed=True,
+            simulation_passed=True,
+            physical_write_max_bytes=5242880,
         )
 
     def tearDown(self):
@@ -225,6 +243,25 @@ class TestPhysicalUSBWriteLabGates(unittest.TestCase):
         self.assertFalse(is_valid)
         self.assertTrue(any("not implemented" in r.lower() for r in reasons))
 
+    def test_raw_device_path_required(self):
+        self.valid_request["target_drive"] = "E:\\"
+        self.valid_request["target_confirmation"] = "E:\\"
+        is_valid, reasons = validate_physical_usb_write_lab_gates(self.valid_request)
+        self.assertFalse(is_valid)
+        self.assertTrue(any("raw disk path" in r for r in reasons))
+
+    def test_exact_target_confirmation_required(self):
+        self.valid_request["target_confirmation"] = r"\\.\PHYSICALDRIVE2"
+        is_valid, reasons = validate_physical_usb_write_lab_gates(self.valid_request)
+        self.assertFalse(is_valid)
+        self.assertTrue(any("confirmation mismatch" in r for r in reasons))
+
+    def test_fresh_rescan_match_required(self):
+        self.valid_request["fresh_rescan_match"] = False
+        is_valid, reasons = validate_physical_usb_write_lab_gates(self.valid_request)
+        self.assertFalse(is_valid)
+        self.assertTrue(any("Fresh target re-scan" in r for r in reasons))
+
     def test_linux_platform_blocks(self):
         self.valid_request["platform"] = "linux"
         is_valid, reasons = validate_physical_usb_write_lab_gates(self.valid_request)
@@ -270,7 +307,7 @@ class TestPhysicalUSBWriteLabAdapter(unittest.TestCase):
     def _build_valid_request(self):
         return build_physical_usb_write_lab_request(
             platform="win32",
-            target_drive="E:\\",
+            target_drive=r"\\.\PHYSICALDRIVE1",
             target_stable_id="usb_stable_001",
             target_identity_hash="hash_abc",
             latest_identity_hash="hash_abc",
@@ -291,6 +328,21 @@ class TestPhysicalUSBWriteLabAdapter(unittest.TestCase):
             environment_unlock_present=True,
             running_as_admin_or_root=True,
             physical_write_requested=True,
+            verify_after_write=True,
+            target_confirmation=r"\\.\PHYSICALDRIVE1",
+            target_is_removable=True,
+            target_is_external=True,
+            target_is_fixed=False,
+            target_is_system_drive=False,
+            target_size_bytes=1000000000,
+            scanner_confidence="high",
+            fresh_rescan_match=True,
+            dryrun_wrote_zero_bytes=True,
+            evidence_target_matches=True,
+            evidence_image_matches=True,
+            audit_passed=True,
+            simulation_passed=True,
+            physical_write_max_bytes=5242880,
         )
 
     def test_adapter_name(self):
@@ -305,28 +357,33 @@ class TestPhysicalUSBWriteLabAdapter(unittest.TestCase):
             result["next_required_action"], "resolve_physical_write_blockers"
         )
 
-    def test_adapter_returns_not_safely_implemented(self):
+    @patch("real_writer_interface._execute_windows_physical_usb_write")
+    def test_adapter_invokes_windows_writer_after_all_gates(self, mock_execute):
+        mock_execute.return_value = {"blocked": False, "bytes_written": 5242880}
         req = self._build_valid_request()
         result = self.adapter.execute_write(req)
-        self.assertTrue(result["blocked"])
-        self.assertFalse(result["physical_write_attempted"])
-        self.assertIn("physical_writer_not_safely_implemented", result["block_reasons"])
-        self.assertEqual(
-            result["next_required_action"], "implement_safe_physical_writer"
-        )
+        self.assertFalse(result["blocked"])
+        mock_execute.assert_called_once()
 
-    def test_adapter_never_sets_write_attempted_true(self):
+    def test_adapter_does_not_write_when_gates_fail(self):
         req = self._build_valid_request()
+        req["fresh_rescan_match"] = False
         result = self.adapter.execute_write(req)
         self.assertFalse(result["physical_write_attempted"])
         self.assertFalse(result["physical_write_allowed"])
         self.assertEqual(result["bytes_written"], 0)
         self.assertEqual(result["chunks_written"], 0)
 
-    def test_adapter_preserves_target_info(self):
+    @patch("real_writer_interface._execute_windows_physical_usb_write")
+    def test_adapter_preserves_target_info(self, mock_execute):
+        mock_execute.return_value = {
+            "target_drive": r"\\.\PHYSICALDRIVE1",
+            "target_stable_id": "usb_stable_001",
+            "adapter": "physical-usb-write-lab",
+        }
         req = self._build_valid_request()
         result = self.adapter.execute_write(req)
-        self.assertEqual(result["target_drive"], "E:\\")
+        self.assertEqual(result["target_drive"], r"\\.\PHYSICALDRIVE1")
         self.assertEqual(result["target_stable_id"], "usb_stable_001")
         self.assertEqual(result["adapter"], "physical-usb-write-lab")
 
@@ -336,10 +393,10 @@ class TestPhysicalUSBWriteLabStatus(unittest.TestCase):
         status = build_physical_usb_write_lab_status()
         self.assertEqual(status["schema"], "bootforge.physical_usb_write_lab_status.v1")
 
-    def test_status_always_blocked(self):
+    def test_status_unarmed_by_default(self):
         status = build_physical_usb_write_lab_status()
         self.assertTrue(status["blocked"])
-        self.assertFalse(status["physical_write_implemented"])
+        self.assertTrue(status["physical_write_implemented"])
         self.assertFalse(status["physical_write_allowed"])
 
     def test_status_dashboard_write_blocked(self):
@@ -361,8 +418,37 @@ class TestPhysicalUSBWriteLabStatus(unittest.TestCase):
     def test_status_next_action(self):
         status = build_physical_usb_write_lab_status()
         self.assertEqual(
-            status["next_required_action"], "implement_safe_physical_writer"
+            status["next_required_action"], "satisfy_cli_physical_write_gates"
         )
+
+
+class TestPhysicalUSBWriteEngine(unittest.TestCase):
+    def test_copy_engine_writes_exact_image_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = os.path.join(tmp, "image.bin")
+            target_path = os.path.join(tmp, "target.bin")
+            payload = (b"phoenix-key" * 1000) + b"!"
+            with open(image_path, "wb") as image:
+                image.write(payload)
+            with open(target_path, "w+b") as target:
+                written = _write_image_to_seekable_target(image_path, target, 257)
+                target.seek(0)
+                self.assertEqual(target.read(), payload)
+            self.assertEqual(written, len(payload))
+
+    def test_short_write_reports_partial_byte_count(self):
+        class ShortTarget(io.BytesIO):
+            def write(self, data):
+                super().write(data[:3])
+                return 3
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = os.path.join(tmp, "image.bin")
+            with open(image_path, "wb") as image:
+                image.write(b"0123456789")
+            with self.assertRaises(RawWriteError) as raised:
+                _write_image_to_seekable_target(image_path, ShortTarget(), 10)
+            self.assertEqual(raised.exception.bytes_written, 3)
 
 
 class TestPhysicalUSBWriteLabExportPath(unittest.TestCase):
