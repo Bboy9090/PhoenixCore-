@@ -56,7 +56,9 @@ class TestDriveSafety(unittest.TestCase):
 
     @patch("sys.platform", "win32")
     @patch("usb_creator.get_normalized_scan")
-    def test_windows_large_physical_drive_preserves_capacity_block(self, mock_scan):
+    def test_windows_large_physical_drive_allows_dry_run_but_not_future_write(
+        self, mock_scan
+    ):
         mock_scan.return_value = {
             "devices": [
                 {
@@ -67,9 +69,10 @@ class TestDriveSafety(unittest.TestCase):
                     "is_external": True,
                     "is_fixed": False,
                     "is_system": False,
-                    "is_eligible": False,
-                    "block_reasons": [
-                        "Drive capacity exceeds the 256.0 GB safety limit for removable media."
+                    "is_eligible": True,
+                    "block_reasons": [],
+                    "warnings": [
+                        "Large-capacity external target detected; physical writing remains locked."
                     ],
                     "confidence": "high",
                     "stable_id": "win32_disk1_SN",
@@ -81,10 +84,30 @@ class TestDriveSafety(unittest.TestCase):
         payload = usb_creator.build_drive_safety_payload("\\\\.\\PHYSICALDRIVE1")
 
         self.assertIsNone(payload["error"])
+        self.assertTrue(payload["drive"]["eligible_for_dry_run"])
         self.assertFalse(payload["drive"]["eligible_for_future_write"])
         self.assertTrue(
-            any("256.0 GB" in warning for warning in payload["drive"]["warnings"])
+            any(
+                "Dry-run planning is allowed" in warning
+                for warning in payload["drive"]["warnings"]
+            )
         )
+
+        mock_image = {
+            "error": None,
+            "image": {"exists": True, "supported": True, "extension": ".iso"},
+        }
+        with patch(
+            "usb_creator.build_image_inspection_payload", return_value=mock_image
+        ):
+            plan = usb_creator.build_write_plan_payload(
+                "\\\\.\\PHYSICALDRIVE1", "C:\\images\\phoenix.iso"
+            )
+
+        self.assertTrue(plan["eligible"])
+        self.assertFalse(plan["blocked"])
+        self.assertFalse(plan["actual_write_enabled"])
+        self.assertFalse(plan["drive_safety"]["drive"]["eligible_for_future_write"])
 
     @patch("sys.platform", "win32")
     @patch("usb_creator.build_image_inspection_payload")
