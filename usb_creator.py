@@ -1500,9 +1500,36 @@ if __name__ == "__main__":
     parser.add_argument("--require-identity-lock", type=str, help="Path to JSON identity lock required for physical write lab")
     parser.add_argument("--physical-usb-write-lab-status", action="store_true", help="Print physical USB write lab status JSON (read-only)")
 
+    # Hardware Evidence Bundle CLI arguments (Phase 5B-3)
+    parser.add_argument("--export-hardware-evidence-bundle", action="store_true", help="Export read-only hardware evidence bundle (JSON to stdout)")
+    parser.add_argument("--hardware-evidence-target", type=str, help="Target drive path for evidence bundle")
+    parser.add_argument("--hardware-evidence-label", type=str, help="Human label for the evidence bundle")
+    parser.add_argument("--hardware-evidence-redact-serials", action="store_true", help="Redact device serials in evidence output")
+    parser.add_argument("--hardware-evidence-include-full-scan", action="store_true", help="Include full scan payload in evidence bundle")
+    parser.add_argument("--hardware-evidence-json", type=str, help="Export evidence bundle as JSON to local path")
+    parser.add_argument("--hardware-evidence-markdown", type=str, help="Export evidence bundle as Markdown to local path")
+
     args = parser.parse_args()
     
-    if args.physical_usb_write_lab_status:
+    if args.export_hardware_evidence_bundle:
+        from real_writer_interface import (
+            build_hardware_evidence_bundle,
+            export_hardware_evidence_json,
+            export_hardware_evidence_markdown,
+        )
+        bundle = build_hardware_evidence_bundle(
+            target_drive=args.hardware_evidence_target,
+            label=args.hardware_evidence_label,
+            redact_serials=args.hardware_evidence_redact_serials,
+            include_full_scan=args.hardware_evidence_include_full_scan,
+        )
+        if args.hardware_evidence_json:
+            export_hardware_evidence_json(bundle, args.hardware_evidence_json)
+        if args.hardware_evidence_markdown:
+            export_hardware_evidence_markdown(bundle, args.hardware_evidence_markdown)
+        print(json.dumps(bundle, indent=2))
+        sys.exit(0)
+    elif args.physical_usb_write_lab_status:
         from real_writer_interface import build_physical_usb_write_lab_status
         status = build_physical_usb_write_lab_status()
         print(json.dumps(status, indent=2))
