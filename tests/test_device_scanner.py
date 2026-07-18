@@ -320,6 +320,14 @@ class TestWindowsScanner(unittest.TestCase):
         devices = parse_windows_scan_output(MOCK_WINDOWS_SINGLE)
         self.assertIn("SD9876", devices[0]["stable_id"])
 
+    def test_windows_boot_disk_is_blocked_even_when_usb(self):
+        boot_usb = json.loads(MOCK_WINDOWS_SINGLE)
+        boot_usb["IsBoot"] = True
+        devices = parse_windows_scan_output(json.dumps(boot_usb))
+        self.assertTrue(devices[0]["is_system"])
+        self.assertFalse(devices[0]["is_eligible"])
+        self.assertIn("Drive is a system/boot drive.", devices[0]["block_reasons"])
+
 
 class TestMacOSScanner(unittest.TestCase):
     def test_parse_disk_list(self):
