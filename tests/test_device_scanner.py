@@ -230,7 +230,7 @@ class TestBuildDeviceRecord(unittest.TestCase):
         self.assertFalse(rec["is_eligible"])
         self.assertTrue(any("zero" in r.lower() for r in rec["block_reasons"]))
 
-    def test_large_external_drive_blocked_by_capacity_policy(self):
+    def test_large_external_drive_allowed_for_read_only_planning(self):
         rec = _build_device_record(
             drive_path="\\\\.\\PHYSICALDRIVE1",
             display_name="External Backup Drive",
@@ -242,9 +242,9 @@ class TestBuildDeviceRecord(unittest.TestCase):
             is_fixed=False,
             is_system=False,
         )
-        self.assertFalse(rec["is_eligible"])
+        self.assertTrue(rec["is_eligible"])
         self.assertTrue(
-            any("256.0 gb" in reason.lower() for reason in rec["block_reasons"])
+            any("large-capacity" in warning.lower() for warning in rec["warnings"])
         )
 
     def test_all_normalized_fields_present(self):

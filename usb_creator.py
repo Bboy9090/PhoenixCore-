@@ -533,6 +533,7 @@ def _build_windows_physical_drive_safety_payload(drive_path):
         device.get("is_removable") or device.get("is_external")
     )
     warnings = list(device.get("block_reasons") or [])
+    scanner_warnings = list(device.get("warnings") or [])
 
     if not is_removable_or_external and not any(
         "removable" in warning.lower() or "external" in warning.lower()
@@ -547,9 +548,18 @@ def _build_windows_physical_drive_safety_payload(drive_path):
             "Drive is the system boot volume. Writing is strictly blocked for safety."
         )
 
-    eligible_for_future_write = bool(device.get("is_eligible")) and not warnings
+    eligible_for_dry_run = bool(device.get("is_eligible")) and not warnings
+    eligible_for_future_write = eligible_for_dry_run
+    if total_size_gb > 256.0:
+        eligible_for_future_write = False
+        warnings.append(
+            "Large capacity drive detected. Dry-run planning is allowed, but future physical writing remains blocked."
+        )
+
     if eligible_for_future_write:
         risk_level = "medium" if total_size_gb > 64.0 else "low"
+    elif eligible_for_dry_run:
+        risk_level = "medium"
     else:
         risk_level = "high"
 
@@ -573,9 +583,11 @@ def _build_windows_physical_drive_safety_payload(drive_path):
         "free_size_gb": 0.0,
         "is_system_drive": is_system_drive,
         "is_removable_or_external": is_removable_or_external,
+        "eligible_for_dry_run": eligible_for_dry_run,
         "eligible_for_future_write": eligible_for_future_write,
         "risk_level": risk_level,
         "warnings": warnings,
+        "scanner_warnings": scanner_warnings,
         "confidence": device.get("confidence"),
         "stable_id": device.get("stable_id"),
         "detection_source": device.get("detection_source"),
@@ -896,7 +908,8 @@ def build_write_plan_payload(drive_path, image_path):
     if drive_safety.get("error"):
         drive_err = drive_safety["error"]
     elif drive_safety.get("drive") and not drive_safety["drive"].get(
-        "eligible_for_future_write"
+        "eligible_for_dry_run",
+        drive_safety["drive"].get("eligible_for_future_write", False),
     ):
         drive_warnings = drive_safety["drive"].get("warnings", [])
         if drive_warnings:

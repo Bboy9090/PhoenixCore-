@@ -24,7 +24,6 @@ from pathlib import Path
 
 SCANNER_SCHEMA = "bootforge.device_scan.v2"
 MIN_ELIGIBLE_TARGET_BYTES = 2 * 1024**3
-MAX_ELIGIBLE_TARGET_BYTES = 256 * 1024**3
 
 
 def _utc_now():
@@ -72,11 +71,11 @@ def _build_device_record(**kwargs):
         size_bytes < MIN_ELIGIBLE_TARGET_BYTES
     ):
         block_reasons.append("Drive capacity is below the minimum required 2.0 GB.")
-    elif (is_removable or kwargs.get("is_external", False)) and (
-        size_bytes > MAX_ELIGIBLE_TARGET_BYTES
+    elif (is_removable or kwargs.get("is_external", False)) and size_bytes > (
+        256 * 1024**3
     ):
-        block_reasons.append(
-            "Drive capacity exceeds the 256.0 GB safety limit for removable media."
+        warnings.append(
+            "Large-capacity external target detected; physical writing remains locked."
         )
 
     is_eligible = (
