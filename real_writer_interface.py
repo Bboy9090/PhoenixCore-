@@ -7,6 +7,7 @@ Defines standard request, result, and adapter interface models for lab-only raw 
 """
 
 import os
+import re
 import sys
 import uuid
 import hashlib
@@ -1383,6 +1384,7 @@ PHYSICAL_DESTRUCTIVE_ACKNOWLEDGEMENT = (
     "I CONFIRM THIS IS A SACRIFICIAL REMOVABLE TEST USB DRIVE"
 )
 PHYSICAL_FINAL_IRREVERSIBLE = "I ACCEPT FULL RESPONSIBILITY FOR THIS TEST USB WRITE"
+WINDOWS_RAW_DEVICE_RE = re.compile(r"^\\\\\.\\PHYSICALDRIVE([0-9]+)$", re.IGNORECASE)
 
 
 def build_physical_usb_write_lab_request(**kwargs) -> dict:
@@ -1430,6 +1432,20 @@ def build_physical_usb_write_lab_request(**kwargs) -> dict:
         "verify_after_write": kwargs.get("verify_after_write", False),
         "physical_write_requested": kwargs.get("physical_write_requested", False),
         "physical_write_allowed": kwargs.get("physical_write_allowed", False),
+        "target_confirmation": kwargs.get("target_confirmation"),
+        "target_is_removable": kwargs.get("target_is_removable", False),
+        "target_is_external": kwargs.get("target_is_external", False),
+        "target_is_fixed": kwargs.get("target_is_fixed", True),
+        "target_is_system_drive": kwargs.get("target_is_system_drive", True),
+        "target_size_bytes": kwargs.get("target_size_bytes", 0),
+        "scanner_confidence": kwargs.get("scanner_confidence"),
+        "fresh_rescan_match": kwargs.get("fresh_rescan_match", False),
+        "dryrun_wrote_zero_bytes": kwargs.get("dryrun_wrote_zero_bytes", False),
+        "evidence_target_matches": kwargs.get("evidence_target_matches", False),
+        "evidence_image_matches": kwargs.get("evidence_image_matches", False),
+        "audit_passed": kwargs.get("audit_passed", False),
+        "simulation_passed": kwargs.get("simulation_passed", False),
+        "physical_write_max_bytes": kwargs.get("physical_write_max_bytes"),
     }
 
 
@@ -1523,10 +1539,43 @@ def validate_physical_usb_write_lab_gates(request: dict) -> tuple:
 
     if not request.get("target_drive"):
         block_reasons.append("Target drive is missing.")
+    elif not WINDOWS_RAW_DEVICE_RE.fullmatch(str(request.get("target_drive"))):
+        block_reasons.append(
+            "Target must be an exact Windows raw disk path such as \\\\.\\PHYSICALDRIVE1."
+        )
     if not request.get("target_stable_id"):
         block_reasons.append("Target stable ID is missing.")
     if not request.get("target_identity_hash"):
         block_reasons.append("Target identity hash is missing.")
+
+    if request.get("target_confirmation") != request.get("target_drive"):
+        block_reasons.append("Exact target-drive confirmation mismatch.")
+    if not (request.get("target_is_removable") or request.get("target_is_external")):
+        block_reasons.append("Target is not proven removable/external by the scanner.")
+    if request.get("target_is_fixed"):
+        block_reasons.append("Target is fixed/internal and cannot be written.")
+    if request.get("target_is_system_drive"):
+        block_reasons.append("Target is a system/boot drive and cannot be written.")
+    if not request.get("target_size_bytes") or request.get("target_size_bytes", 0) <= 0:
+        block_reasons.append("Target capacity is missing or invalid.")
+    if request.get("scanner_confidence") not in ("high", "medium"):
+        block_reasons.append("Scanner confidence is too low for physical writing.")
+    if not request.get("fresh_rescan_match"):
+        block_reasons.append("Fresh target re-scan does not match the identity lock.")
+    if not request.get("dryrun_wrote_zero_bytes"):
+        block_reasons.append(
+            "Required dry-run evidence does not prove zero bytes written."
+        )
+    if not request.get("evidence_target_matches"):
+        block_reasons.append("Receipt target does not match the requested raw disk.")
+    if not request.get("evidence_image_matches"):
+        block_reasons.append("Receipt image does not match the current image hash.")
+    if not request.get("audit_passed"):
+        block_reasons.append("Write-plan audit receipt did not pass.")
+    if not request.get("simulation_passed"):
+        block_reasons.append("Mock-writer simulation receipt did not pass.")
+    if not request.get("verify_after_write"):
+        block_reasons.append("Post-write read-back SHA256 verification is required.")
 
     if not request.get("identity_lock_id"):
         block_reasons.append("Identity lock ID is missing.")
@@ -1544,6 +1593,15 @@ def validate_physical_usb_write_lab_gates(request: dict) -> tuple:
         block_reasons.append("Image SHA256 is missing.")
     if not request.get("image_size_bytes") or request["image_size_bytes"] <= 0:
         block_reasons.append("Image size is missing or zero.")
+    elif request.get("target_size_bytes", 0) < request.get("image_size_bytes", 0):
+        block_reasons.append("Verified image is larger than the selected target disk.")
+    max_bytes = request.get("physical_write_max_bytes")
+    if max_bytes is None:
+        block_reasons.append("Explicit physical write byte cap is missing.")
+    elif max_bytes != request.get("image_size_bytes"):
+        block_reasons.append(
+            "Physical write byte cap must exactly equal the verified image size."
+        )
 
     if not request.get("preflight_id"):
         block_reasons.append("Hardware preflight ID is missing.")
@@ -1557,6 +1615,8 @@ def validate_physical_usb_write_lab_gates(request: dict) -> tuple:
     if not request.get("ledger_path"):
         block_reasons.append("Ledger path is missing.")
     else:
+        from pathlib import Path
+
         ledger_path = request["ledger_path"]
         lp_str = str(ledger_path).strip().lower()
         for suspicious in [
@@ -1571,6 +1631,9 @@ def validate_physical_usb_write_lab_gates(request: dict) -> tuple:
         ]:
             if suspicious in lp_str.replace("\\", "/"):
                 block_reasons.append(f"Ledger path in {suspicious} folders is blocked.")
+        ledger_parent = Path(ledger_path).resolve().parent
+        if not ledger_parent.exists() or not ledger_parent.is_dir():
+            block_reasons.append("Ledger parent directory does not exist.")
 
     tc = request.get("typed_confirmation") or ""
     if tc.strip() != PHYSICAL_TYPED_CONFIRMATION:
@@ -1586,6 +1649,8 @@ def validate_physical_usb_write_lab_gates(request: dict) -> tuple:
 
     if not request.get("physical_write_requested"):
         block_reasons.append("Physical write was not explicitly requested.")
+    if not request.get("sacrificial_drive_confirmed"):
+        block_reasons.append("Sacrificial-drive confirmation is missing.")
     if not request.get("lab_mode"):
         block_reasons.append("Lab mode is not enabled.")
 
@@ -1597,6 +1662,268 @@ def validate_physical_usb_write_lab_gates(request: dict) -> tuple:
 
     is_valid = len(block_reasons) == 0
     return is_valid, block_reasons
+
+
+def _hash_file(path: str, byte_limit: int = None) -> str:
+    digest = hashlib.sha256()
+    remaining = byte_limit
+    with open(path, "rb") as stream:
+        while remaining is None or remaining > 0:
+            read_size = 1024 * 1024
+            if remaining is not None:
+                read_size = min(read_size, remaining)
+            chunk = stream.read(read_size)
+            if not chunk:
+                break
+            digest.update(chunk)
+            if remaining is not None:
+                remaining -= len(chunk)
+    return digest.hexdigest()
+
+
+class RawWriteError(OSError):
+    def __init__(self, message: str, bytes_written: int):
+        super().__init__(message)
+        self.bytes_written = bytes_written
+
+
+def _write_image_to_seekable_target(image_path: str, target, chunk_size: int) -> int:
+    """Byte-copy engine kept separate so it can be tested without raw hardware."""
+    bytes_written = 0
+    target.seek(0)
+    with open(image_path, "rb") as source:
+        while True:
+            chunk = source.read(chunk_size)
+            if not chunk:
+                break
+            try:
+                written = target.write(chunk)
+            except Exception as exc:
+                raise RawWriteError(
+                    f"Raw-device write failed after {bytes_written} bytes: {exc}",
+                    bytes_written,
+                ) from exc
+            if written != len(chunk):
+                partial_total = bytes_written + max(int(written or 0), 0)
+                raise RawWriteError(
+                    f"Short raw-device write: expected {len(chunk)} bytes, wrote {written}.",
+                    partial_total,
+                )
+            bytes_written += written
+    target.flush()
+    try:
+        os.fsync(target.fileno())
+    except (AttributeError, OSError):
+        pass
+    return bytes_written
+
+
+def _open_windows_raw_device_exclusive(target_path: str):
+    """Return an unbuffered file object backed by an exclusive Win32 disk handle."""
+    if sys.platform != "win32":
+        raise OSError("Windows raw-device handles are only available on win32.")
+
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    create_file.restype = wintypes.HANDLE
+
+    generic_read = 0x80000000
+    generic_write = 0x40000000
+    open_existing = 3
+    file_attribute_normal = 0x80
+    file_flag_write_through = 0x80000000
+    invalid_handle_value = wintypes.HANDLE(-1).value
+
+    handle = create_file(
+        target_path,
+        generic_read | generic_write,
+        0,  # no sharing: any mounted/in-use target fails closed
+        None,
+        open_existing,
+        file_attribute_normal | file_flag_write_through,
+        None,
+    )
+    if handle == invalid_handle_value:
+        raise ctypes.WinError(ctypes.get_last_error())
+
+    try:
+        fd = msvcrt.open_osfhandle(handle, os.O_RDWR | os.O_BINARY)
+    except Exception:
+        kernel32.CloseHandle(handle)
+        raise
+    return os.fdopen(fd, "r+b", buffering=0)
+
+
+def _execute_windows_physical_usb_write(request: dict, adapter_name: str) -> dict:
+    """Perform one fully gated, CLI-only Windows raw-disk image write."""
+    started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    target_path = request.get("target_drive")
+    image_path = request.get("image_path")
+    expected_hash = request.get("image_sha256")
+    image_size = request.get("image_size_bytes") or 0
+    chunk_size = request.get("chunk_size_bytes") or 1024 * 1024
+
+    if not image_path or not os.path.isfile(image_path):
+        return build_physical_usb_write_lab_result(
+            request_id=request.get("request_id"),
+            adapter=adapter_name,
+            lab_mode=True,
+            target_drive=target_path,
+            blocked=True,
+            block_reasons=["Source image file disappeared before physical write."],
+            next_required_action="restore_and_reverify_source_image",
+        )
+
+    actual_size = os.path.getsize(image_path)
+    actual_hash = _hash_file(image_path)
+    if actual_size != image_size or actual_hash != expected_hash:
+        return build_physical_usb_write_lab_result(
+            request_id=request.get("request_id"),
+            adapter=adapter_name,
+            lab_mode=True,
+            target_drive=target_path,
+            image_path=image_path,
+            image_sha256_expected=expected_hash,
+            image_size_bytes=image_size,
+            blocked=True,
+            block_reasons=[
+                "Source image changed after the safety evidence was created."
+            ],
+            next_required_action="regenerate_all_write_evidence",
+        )
+
+    bytes_written = 0
+    chunks_written = 0
+    verification_hash = None
+    try:
+        # Exclusive open is deliberate: if Windows or another program is using any
+        # target volume, this fails closed instead of forcing a dismount behind the
+        # operator's back.
+        with _open_windows_raw_device_exclusive(target_path) as raw_target:
+            bytes_written = _write_image_to_seekable_target(
+                image_path, raw_target, chunk_size
+            )
+            chunks_written = (bytes_written + chunk_size - 1) // chunk_size
+            raw_target.seek(0)
+            digest = hashlib.sha256()
+            remaining = image_size
+            while remaining > 0:
+                chunk = raw_target.read(min(chunk_size, remaining))
+                if not chunk:
+                    raise OSError("Raw-device verification ended before image size.")
+                digest.update(chunk)
+                remaining -= len(chunk)
+            verification_hash = digest.hexdigest()
+
+        verification_passed = (
+            bytes_written == image_size and verification_hash == expected_hash
+        )
+        completed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return build_physical_usb_write_lab_result(
+            request_id=request.get("request_id"),
+            adapter=adapter_name,
+            lab_mode=True,
+            physical_write_allowed=True,
+            physical_write_attempted=True,
+            physical_write_started_at=started_at,
+            physical_write_completed_at=completed_at,
+            target_drive=target_path,
+            target_stable_id=request.get("target_stable_id"),
+            target_identity_hash=request.get("target_identity_hash"),
+            latest_identity_hash=request.get("latest_identity_hash"),
+            image_path=image_path,
+            image_sha256_expected=expected_hash,
+            image_size_bytes=image_size,
+            chunk_size_bytes=chunk_size,
+            chunks_expected=request.get("expected_chunk_count", 0),
+            chunks_written=chunks_written,
+            bytes_expected=image_size,
+            bytes_written=bytes_written,
+            verification_requested=True,
+            verification_sha256=verification_hash,
+            verification_passed=verification_passed,
+            blocked=not verification_passed,
+            block_reasons=(
+                []
+                if verification_passed
+                else ["Post-write SHA256 verification failed."]
+            ),
+            warnings=[
+                "The selected physical disk was overwritten from byte zero. Partition metadata previously on that disk is no longer authoritative."
+            ],
+            next_required_action=(
+                "safely_eject_and_boot_test"
+                if verification_passed
+                else "stop_and_preserve_write_evidence"
+            ),
+        )
+    except Exception as exc:
+        if isinstance(exc, RawWriteError):
+            bytes_written = exc.bytes_written
+            chunks_written = (bytes_written + chunk_size - 1) // chunk_size
+        completed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return build_physical_usb_write_lab_result(
+            request_id=request.get("request_id"),
+            adapter=adapter_name,
+            lab_mode=True,
+            physical_write_allowed=True,
+            physical_write_attempted=bytes_written > 0,
+            physical_write_started_at=started_at,
+            physical_write_completed_at=completed_at,
+            target_drive=target_path,
+            target_stable_id=request.get("target_stable_id"),
+            target_identity_hash=request.get("target_identity_hash"),
+            latest_identity_hash=request.get("latest_identity_hash"),
+            image_path=image_path,
+            image_sha256_expected=expected_hash,
+            image_size_bytes=image_size,
+            chunk_size_bytes=chunk_size,
+            chunks_expected=request.get("expected_chunk_count", 0),
+            chunks_written=chunks_written,
+            bytes_expected=image_size,
+            bytes_written=bytes_written,
+            verification_requested=True,
+            verification_sha256=verification_hash,
+            verification_passed=False,
+            blocked=True,
+            block_reasons=[f"Windows raw-device write failed closed: {exc}"],
+            next_required_action="close_target_volume_users_and_recreate_evidence",
+        )
+
+
+def _append_physical_write_ledger(path: str, event: str, payload: dict) -> None:
+    import json
+
+    record = {
+        "schema": "bootforge.physical_usb_write_ledger.v1",
+        "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "event": event,
+        "request_id": payload.get("request_id"),
+        "target_drive": payload.get("target_drive"),
+        "target_identity_hash": payload.get("target_identity_hash"),
+        "image_sha256": payload.get("image_sha256")
+        or payload.get("image_sha256_expected"),
+        "bytes_written": payload.get("bytes_written", 0),
+        "blocked": payload.get("blocked"),
+        "verification_passed": payload.get("verification_passed", False),
+    }
+    with open(path, "a", encoding="utf-8") as ledger:
+        ledger.write(json.dumps(record, sort_keys=True) + "\n")
+        ledger.flush()
+        os.fsync(ledger.fileno())
 
 
 class PhysicalUSBWriteLabAdapter:
@@ -1625,27 +1952,33 @@ class PhysicalUSBWriteLabAdapter:
                 next_required_action="resolve_physical_write_blockers",
             )
 
-        block_reasons.append("physical_writer_not_safely_implemented")
-        return build_physical_usb_write_lab_result(
-            request_id=request.get("request_id"),
-            adapter=self.name,
-            lab_mode=request.get("lab_mode", False),
-            physical_write_allowed=False,
-            physical_write_attempted=False,
-            target_drive=request.get("target_drive"),
-            target_stable_id=request.get("target_stable_id"),
-            target_identity_hash=request.get("target_identity_hash"),
-            latest_identity_hash=request.get("latest_identity_hash"),
-            image_path=request.get("image_path"),
-            image_sha256_expected=request.get("image_sha256"),
-            image_size_bytes=request.get("image_size_bytes", 0),
-            blocked=True,
-            block_reasons=block_reasons,
-            warnings=[
-                "Physical USB write adapter exists but raw device I/O is not safely implemented yet. All gates passed but write was not attempted."
-            ],
-            next_required_action="implement_safe_physical_writer",
-        )
+        try:
+            _append_physical_write_ledger(
+                request["ledger_path"], "physical_write_armed", request
+            )
+        except Exception as exc:
+            return build_physical_usb_write_lab_result(
+                request_id=request.get("request_id"),
+                adapter=self.name,
+                lab_mode=True,
+                target_drive=request.get("target_drive"),
+                target_stable_id=request.get("target_stable_id"),
+                target_identity_hash=request.get("target_identity_hash"),
+                blocked=True,
+                block_reasons=[f"Could not persist pre-write ledger receipt: {exc}"],
+                next_required_action="repair_ledger_path_before_retry",
+            )
+
+        result = _execute_windows_physical_usb_write(request, adapter_name=self.name)
+        try:
+            _append_physical_write_ledger(
+                request["ledger_path"], "physical_write_finished", result
+            )
+        except Exception as exc:
+            result.setdefault("warnings", []).append(
+                f"Post-write ledger receipt could not be persisted: {exc}"
+            )
+        return result
 
 
 def build_physical_usb_write_lab_status() -> dict:
@@ -1661,7 +1994,8 @@ def build_physical_usb_write_lab_status() -> dict:
     return {
         "schema": "bootforge.physical_usb_write_lab_status.v1",
         "platform": plat,
-        "physical_write_implemented": False,
+        "physical_write_implemented": True,
+        "platform_supported": plat == "win32",
         "physical_write_allowed": False,
         "physical_write_cli_only": True,
         "dashboard_write_blocked": True,
@@ -1699,9 +2033,11 @@ def build_physical_usb_write_lab_status() -> dict:
             "target_path_maps_to_scanned_locked_target",
         ],
         "blocked": True,
-        "block_reasons": ["Physical USB write adapter is not safely implemented yet."],
+        "block_reasons": [
+            "Physical writing is not armed; all CLI evidence and confirmation gates are required."
+        ],
         "warnings": [],
-        "next_required_action": "implement_safe_physical_writer",
+        "next_required_action": "satisfy_cli_physical_write_gates",
     }
 
 
