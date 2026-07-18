@@ -23,6 +23,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCANNER_SCHEMA = "bootforge.device_scan.v2"
+MIN_ELIGIBLE_TARGET_BYTES = 2 * 1024**3
+MAX_ELIGIBLE_TARGET_BYTES = 256 * 1024**3
 
 
 def _utc_now():
@@ -66,6 +68,16 @@ def _build_device_record(**kwargs):
         block_reasons.append("Drive is fixed/internal, not removable.")
     if size_bytes <= 0:
         block_reasons.append("Drive reports zero or unknown size.")
+    elif (is_removable or kwargs.get("is_external", False)) and (
+        size_bytes < MIN_ELIGIBLE_TARGET_BYTES
+    ):
+        block_reasons.append("Drive capacity is below the minimum required 2.0 GB.")
+    elif (is_removable or kwargs.get("is_external", False)) and (
+        size_bytes > MAX_ELIGIBLE_TARGET_BYTES
+    ):
+        block_reasons.append(
+            "Drive capacity exceeds the 256.0 GB safety limit for removable media."
+        )
 
     is_eligible = (
         is_removable and not is_system and not is_fixed and len(block_reasons) == 0

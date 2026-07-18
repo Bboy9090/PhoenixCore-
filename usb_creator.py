@@ -6,6 +6,7 @@ import hashlib
 import urllib.request
 import subprocess
 import argparse
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -483,13 +484,118 @@ def get_drive_root(path):
         return "/"
 
 
+def _build_windows_physical_drive_safety_payload(drive_path):
+    r"""
+    Resolves a Windows ``\\.\PHYSICALDRIVE<n>`` identifier against the trusted,
+    read-only Win32_DiskDrive scanner evidence.
+
+    Raw device identifiers are not filesystem paths, so ``os.path.exists`` and
+    volume-root APIs are intentionally not used here. The function never opens
+    the raw device and fails closed when the scanner cannot prove the target.
+    """
+    requested_path = str(drive_path).strip().replace("/", "\\")
+    match = re.fullmatch(r"\\\\\.\\PHYSICALDRIVE(\d+)", requested_path, re.IGNORECASE)
+    if not match:
+        return None
+
+    canonical_path = f"\\\\.\\PHYSICALDRIVE{match.group(1)}"
+    payload = {
+        "schema": "bootforge.drive_safety.v1",
+        "generated_at": utc_now_iso(),
+        "platform": sys.platform,
+        "safe_mode": True,
+        "destructive": False,
+        "operation": "read_only_drive_safety_check",
+        "drive": None,
+        "error": None,
+    }
+
+    scan_result = get_normalized_scan(quiet=True)
+    device = next(
+        (
+            candidate
+            for candidate in scan_result.get("devices", [])
+            if str(candidate.get("drive_path") or "").casefold()
+            == canonical_path.casefold()
+        ),
+        None,
+    )
+
+    if device is None:
+        payload["error"] = (
+            "Raw device was not found in trusted Windows scanner evidence."
+        )
+        return payload
+
+    total_size_gb = float(device.get("size_gb") or 0.0)
+    is_system_drive = bool(device.get("is_system"))
+    is_removable_or_external = bool(
+        device.get("is_removable") or device.get("is_external")
+    )
+    warnings = list(device.get("block_reasons") or [])
+
+    if not is_removable_or_external and not any(
+        "removable" in warning.lower() or "external" in warning.lower()
+        for warning in warnings
+    ):
+        warnings.append(
+            "Drive was not classified as removable or external by the trusted scanner."
+        )
+
+    if is_system_drive and not any("system" in warning.lower() for warning in warnings):
+        warnings.append(
+            "Drive is the system boot volume. Writing is strictly blocked for safety."
+        )
+
+    eligible_for_future_write = bool(device.get("is_eligible")) and not warnings
+    if eligible_for_future_write:
+        risk_level = "medium" if total_size_gb > 64.0 else "low"
+    else:
+        risk_level = "high"
+
+    drive_type = "Unknown"
+    if device.get("is_external"):
+        drive_type = "External"
+    elif device.get("is_removable"):
+        drive_type = "Removable"
+    elif device.get("is_fixed"):
+        drive_type = "Fixed"
+
+    payload["drive"] = {
+        "requested_path": drive_path,
+        "root": canonical_path,
+        "label": device.get("volume_label")
+        or device.get("display_name")
+        or "Windows Physical Drive",
+        "type": drive_type,
+        "filesystem": device.get("filesystem") or "Unknown",
+        "total_size_gb": total_size_gb,
+        "free_size_gb": 0.0,
+        "is_system_drive": is_system_drive,
+        "is_removable_or_external": is_removable_or_external,
+        "eligible_for_future_write": eligible_for_future_write,
+        "risk_level": risk_level,
+        "warnings": warnings,
+        "confidence": device.get("confidence"),
+        "stable_id": device.get("stable_id"),
+        "detection_source": device.get("detection_source"),
+    }
+    return payload
+
+
 def build_drive_safety_payload(drive_path):
     """
     Builds a clean, machine-readable drive safety and eligibility verification payload.
     Strictly read-only: performs no write, partition, or format operations.
     """
     import shutil
-    import re
+
+    if sys.platform == "win32":
+        physical_drive_payload = _build_windows_physical_drive_safety_payload(
+            drive_path
+        )
+        if physical_drive_payload is not None:
+            return physical_drive_payload
 
     root_path = get_drive_root(drive_path)
 
