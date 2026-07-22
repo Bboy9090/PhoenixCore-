@@ -1,0 +1,18 @@
+[package]
+name = "phoenix-key"
+version = "3.1.0"
+edition = "2021"
+description = "Phoenix Key desktop recovery and media planning interface"
+license = "MIT OR Apache-2.0"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+libbootforge = { git = "https://github.com/Bboy9090/Bootforge-usb", rev = "7b4b4dded69945df78b50933f052046a093d8a89" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = { version = "1.5", features = [] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
