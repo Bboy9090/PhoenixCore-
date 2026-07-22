@@ -30,50 +30,77 @@ jobs:
           python-version: "3.11"
 
       - name: Compile Python sources
-        run: python -m compileall -q usb_creator.py tests
+        id: compile
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m compileall -q usb_creator.py tests 2>&1 | tee python-compile.log
 
       - name: Run Python unit tests
-        run: python -m unittest discover -s tests -p "test_*.py" -v
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest discover -s tests -p "test_*.py" -v 2>&1 | tee python-tests.log
 
       - name: Detect known fail-open registry blocker
+        if: always()
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
 
           source = Path("usb_creator.py").read_text(encoding="utf-8")
-          marker = 'Registry unavailable. Standard validation bypassed'
-          fail_open = marker in source and "return True" in source[source.index(marker):source.index(marker) + 300]
+          marker = "Registry unavailable. Standard validation bypassed"
+          start = source.find(marker)
+          fail_open = start >= 0 and "return True" in source[start:start + 300]
           if fail_open:
               print("::warning file=usb_creator.py::Known blocker: missing registry can still return approval. Issue #125 blocks release promotion until this fails closed and has a regression test.")
-              Path("phoenixcore-security-blockers.txt").write_text(
-                  "FAIL_OPEN_REGISTRY_VALIDATION=present\n"
-                  "TRACKING_ISSUE=https://github.com/Bboy9090/PhoenixCore-/issues/125\n",
-                  encoding="utf-8",
-              )
+              state = "present"
           else:
-              Path("phoenixcore-security-blockers.txt").write_text(
-                  "FAIL_OPEN_REGISTRY_VALIDATION=not_detected\n",
-                  encoding="utf-8",
-              )
+              state = "not_detected"
+          Path("phoenixcore-security-blockers.txt").write_text(
+              f"FAIL_OPEN_REGISTRY_VALIDATION={state}\n"
+              "TRACKING_ISSUE=https://github.com/Bboy9090/PhoenixCore-/issues/125\n",
+              encoding="utf-8",
+          )
           PY
 
+      - name: Record Python step outcomes
+        if: always()
+        shell: bash
+        run: |
+          printf '%s\n' \
+            "compile_outcome=${{ steps.compile.outcome }}" \
+            "tests_outcome=${{ steps.tests.outcome }}" \
+            > python-step-outcomes.txt
+
       - name: Upload Python foundation evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phoenixcore-python-foundation
-          path: phoenixcore-security-blockers.txt
+          path: |
+            python-compile.log
+            python-tests.log
+            python-step-outcomes.txt
+            phoenixcore-security-blockers.txt
           if-no-files-found: error
           retention-days: 14
+
+      - name: Enforce Python foundation gate
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.compile.outcome }}" = "success"
+          test "${{ steps.tests.outcome }}" = "success"
 
   dashboard-foundation:
     name: Dashboard lint and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
-    defaults:
-      run:
-        working-directory: dashboard
 
     steps:
       - name: Check out source
@@ -87,18 +114,62 @@ jobs:
           cache-dependency-path: dashboard/package-lock.json
 
       - name: Install locked dependencies
-        run: npm ci
+        id: install
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          cd dashboard
+          npm ci 2>&1 | tee ../dashboard-install.log
 
       - name: Lint dashboard
-        run: npm run lint
+        id: lint
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          cd dashboard
+          npm run lint 2>&1 | tee ../dashboard-lint.log
 
       - name: Build dashboard
-        run: npm run build
+        id: build
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          cd dashboard
+          npm run build 2>&1 | tee ../dashboard-build.log
 
-      - name: Upload dashboard build
+      - name: Record dashboard step outcomes
+        if: always()
+        shell: bash
+        run: |
+          printf '%s\n' \
+            "install_outcome=${{ steps.install.outcome }}" \
+            "lint_outcome=${{ steps.lint.outcome }}" \
+            "build_outcome=${{ steps.build.outcome }}" \
+            > dashboard-step-outcomes.txt
+
+      - name: Upload dashboard evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phoenixcore-dashboard-build
-          path: dashboard/dist
-          if-no-files-found: error
+          name: phoenixcore-dashboard-foundation
+          path: |
+            dashboard-install.log
+            dashboard-lint.log
+            dashboard-build.log
+            dashboard-step-outcomes.txt
+            dashboard/dist
+          if-no-files-found: warn
           retention-days: 14
+
+      - name: Enforce dashboard foundation gate
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.install.outcome }}" = "success"
+          test "${{ steps.lint.outcome }}" = "success"
+          test "${{ steps.build.outcome }}" = "success"
