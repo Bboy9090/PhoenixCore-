@@ -1,0 +1,104 @@
+name: Fan-Favorite Foundation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - polish/fan-favorite-foundation
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phoenixcore-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-foundation:
+    name: Python foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile Python sources
+        run: python -m compileall -q usb_creator.py tests
+
+      - name: Run Python unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Detect known fail-open registry blocker
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("usb_creator.py").read_text(encoding="utf-8")
+          marker = 'Registry unavailable. Standard validation bypassed'
+          fail_open = marker in source and "return True" in source[source.index(marker):source.index(marker) + 300]
+          if fail_open:
+              print("::warning file=usb_creator.py::Known blocker: missing registry can still return approval. Issue #125 blocks release promotion until this fails closed and has a regression test.")
+              Path("phoenixcore-security-blockers.txt").write_text(
+                  "FAIL_OPEN_REGISTRY_VALIDATION=present\n"
+                  "TRACKING_ISSUE=https://github.com/Bboy9090/PhoenixCore-/issues/125\n",
+                  encoding="utf-8",
+              )
+          else:
+              Path("phoenixcore-security-blockers.txt").write_text(
+                  "FAIL_OPEN_REGISTRY_VALIDATION=not_detected\n",
+                  encoding="utf-8",
+              )
+          PY
+
+      - name: Upload Python foundation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenixcore-python-foundation
+          path: phoenixcore-security-blockers.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  dashboard-foundation:
+    name: Dashboard lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: dashboard
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Lint dashboard
+        run: npm run lint
+
+      - name: Build dashboard
+        run: npm run build
+
+      - name: Upload dashboard build
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenixcore-dashboard-build
+          path: dashboard/dist
+          if-no-files-found: error
+          retention-days: 14
