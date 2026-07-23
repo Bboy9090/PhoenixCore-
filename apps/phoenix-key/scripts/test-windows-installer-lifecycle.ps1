@@ -175,7 +175,7 @@ $InstalledExecutable = $null
 $InstalledEntries = @()
 
 try {
-    $PreInstallEntries = Get-PhoenixKeyUninstallEntries
+    $PreInstallEntries = @(Get-PhoenixKeyUninstallEntries)
     if ($PreInstallEntries.Count -ne 0) {
         throw "Runner is not clean: Phoenix Key is already registered before installation."
     }
@@ -197,7 +197,7 @@ try {
     $Installed = $true
 
     Start-Sleep -Seconds 3
-    $InstalledEntries = Get-PhoenixKeyUninstallEntries
+    $InstalledEntries = @(Get-PhoenixKeyUninstallEntries)
     if ($InstalledEntries.Count -lt 1) {
         throw "Phoenix Key did not create an uninstall registration after $InstallerKind installation."
     }
@@ -261,7 +261,7 @@ try {
     $Installed = $false
 
     Start-Sleep -Seconds 4
-    $RemainingEntries = Get-PhoenixKeyUninstallEntries
+    $RemainingEntries = @(Get-PhoenixKeyUninstallEntries)
     $ExecutableRemains = Test-Path -LiteralPath $InstalledExecutable -PathType Leaf
     if ($RemainingEntries.Count -ne 0) {
         throw "Phoenix Key uninstall registration remains after uninstall."
@@ -351,7 +351,7 @@ finally {
                 Start-Process -FilePath "msiexec.exe" -ArgumentList "/x `"$InstallerPath`" /qn /norestart" -Wait | Out-Null
             }
             else {
-                $CleanupEntries = Get-PhoenixKeyUninstallEntries
+                $CleanupEntries = @(Get-PhoenixKeyUninstallEntries)
                 $CleanupUninstaller = Find-NsisUninstaller -ExecutablePath $InstalledExecutable -UninstallEntries $CleanupEntries
                 Start-Process -FilePath $CleanupUninstaller -ArgumentList "/S" -Wait | Out-Null
             }
