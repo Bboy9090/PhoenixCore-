@@ -28,6 +28,7 @@ jobs:
           cache-dependency-path: apps/phoenix-key/package-lock.json
       - run: npm ci
       - run: npm run check:boundaries
+      - run: npm run test:artifact-receipt
       - run: npm run build
 
   windows-installer:
