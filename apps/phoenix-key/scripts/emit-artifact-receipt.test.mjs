@@ -15,6 +15,8 @@ const msiPath = resolve(fixtureRoot, "msi", "Phoenix Key_3.1.0_x64_en-US.msi");
 const nsisPath = resolve(fixtureRoot, "nsis", "Phoenix Key_3.1.0_x64-setup.exe");
 const observationPath = resolve(fixtureRoot, "phoenix-key.signature-observation.json");
 const commit = "1".repeat(40);
+const workflow = "Phoenix Key Windows Lifecycle";
+const buildCommand = "npm run desktop:build -- lifecycle-input";
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -54,6 +56,8 @@ try {
       ...process.env,
       SOURCE_COMMIT: commit,
       PHOENIX_KEY_BUNDLE_ROOT: fixtureRoot,
+      PHOENIX_KEY_BUILD_WORKFLOW: workflow,
+      PHOENIX_KEY_BUILD_COMMAND: buildCommand,
       GITHUB_RUN_ID: "12345",
       GITHUB_RUN_NUMBER: "9",
       GITHUB_SERVER_URL: "https://github.com",
@@ -64,6 +68,7 @@ try {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const output = JSON.parse(result.stdout);
   assert.equal(output.status, "PHOENIX_KEY_ARTIFACT_RECEIPT_WRITTEN");
+  assert.equal(output.workflow, workflow);
   assert.equal(output.artifacts.length, 2);
 
   const receiptPath = resolve(fixtureRoot, "phoenix-key.source-artifact.json");
@@ -74,6 +79,8 @@ try {
   assert.equal(receipt.app_id, "phoenix-usb-creator");
   assert.equal(receipt.source.commit, commit);
   assert.equal(receipt.source.version, "3.1.0");
+  assert.equal(receipt.build.workflow, workflow);
+  assert.equal(receipt.build.command, buildCommand);
   assert.equal(receipt.status, "verified-build-output-not-packaged");
   assert.equal(receipt.release_eligible, false);
   assert.equal(receipt.build.signature_observation, "phoenix-key.signature-observation.json");
