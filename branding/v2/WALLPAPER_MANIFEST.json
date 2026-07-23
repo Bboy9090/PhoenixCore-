@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "canvas": {"width": 1920, "height": 1080, "format": "svg"},
+  "wallpapers": [
+    {"product": "PhoenixCore Mobile", "path": "branding/v2/wallpapers/phoenixcore-mobile-hero.svg"},
+    {"product": "PhoenixCore Desktop", "path": "branding/v2/wallpapers/phoenixcore-desktop-hero.svg"},
+    {"product": "Phoenix USB Creator", "path": "branding/v2/wallpapers/phoenix-usb-creator-hero.svg"},
+    {"product": "Device Diagnosis Engine", "path": "branding/v2/wallpapers/device-diagnosis-engine-hero.svg"},
+    {"product": "Repair Planning Engine", "path": "branding/v2/wallpapers/repair-planning-engine-hero.svg"},
+    {"product": "OS Compatibility Engine", "path": "branding/v2/wallpapers/os-compatibility-engine-hero.svg"},
+    {"product": "Boot Media Builder", "path": "branding/v2/wallpapers/boot-media-builder-hero.svg"},
+    {"product": "Repair Session Manager", "path": "branding/v2/wallpapers/repair-session-manager-hero.svg"},
+    {"product": "Device Identity Service", "path": "branding/v2/wallpapers/device-identity-service-hero.svg"},
+    {"product": "Technician Workspace", "path": "branding/v2/wallpapers/technician-workspace-hero.svg"},
+    {"product": "Installer and Deployment Manager", "path": "branding/v2/wallpapers/installer-and-deployment-manager-hero.svg"},
+    {"product": "Recovery Vault", "path": "branding/v2/wallpapers/recovery-vault-hero.svg"}
+  ]
+}
