@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: phoenix-key-windows-lifecycle-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-lifecycle-input:
     runs-on: windows-latest
@@ -29,6 +33,12 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/phoenix-key/src-tauri -> target
+          shared-key: phoenix-key-windows-lifecycle
 
       - name: Install frontend dependencies
         run: npm ci
