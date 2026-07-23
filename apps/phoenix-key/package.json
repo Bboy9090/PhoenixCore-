@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "check:boundaries": "node scripts/check-boundaries.mjs",
+    "test:artifact-receipt": "node scripts/emit-artifact-receipt.test.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build"
   },
