@@ -43,6 +43,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Test source artifact receipt generator
+        run: npm run test:artifact-receipt
+
       - name: Test installed smoke receipt contract
         env:
           PHOENIX_KEY_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -53,15 +56,67 @@ jobs:
           PHOENIX_KEY_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run desktop:build
 
-      - name: Upload lifecycle installer inputs
+      - name: Inspect and confirm unsigned lifecycle input state
+        shell: pwsh
+        run: |
+          $files = @()
+          $files += Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi"
+          $files += Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe"
+          if ($files.Count -ne 2) {
+            throw "Expected exactly one MSI and one NSIS installer output; found $($files.Count)."
+          }
+
+          $allowedUnsignedProbeStates = @("NotSigned", "UnknownError")
+          $observations = @()
+          foreach ($file in $files) {
+            if ($file.Length -le 0) {
+              throw "Installer is empty: $($file.FullName)"
+            }
+
+            $signature = Get-AuthenticodeSignature -FilePath $file.FullName
+            $signerPresent = $null -ne $signature.SignerCertificate
+            $timestampPresent = $null -ne $signature.TimeStamperCertificate
+            Write-Host "SIGNATURE_PROBE file=$($file.Name) status=$($signature.Status) signer_present=$signerPresent timestamp_present=$timestampPresent message=$($signature.StatusMessage)"
+
+            if ($signerPresent -or $timestampPresent) {
+              throw "Lifecycle input unexpectedly carries a signer or timestamp certificate: $($file.Name)"
+            }
+            if ($allowedUnsignedProbeStates -notcontains [string]$signature.Status) {
+              throw "Lifecycle input signing state is neither unsigned nor format-unavailable for $($file.Name): $($signature.Status)"
+            }
+
+            $observations += [PSCustomObject]@{
+              filename = $file.Name
+              probe_status = [string]$signature.Status
+              probe_message = [string]$signature.StatusMessage
+              signer_present = $signerPresent
+              timestamp_present = $timestampPresent
+            }
+          }
+
+          $observationPath = "src-tauri/target/release/bundle/phoenix-key.signature-observation.json"
+          $observations | ConvertTo-Json -Depth 4 | Set-Content -Path $observationPath -Encoding utf8
+          Get-Content $observationPath
+
+      - name: Emit same-commit source artifact receipt
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          PHOENIX_KEY_BUILD_WORKFLOW: Phoenix Key Windows Lifecycle
+          PHOENIX_KEY_BUILD_COMMAND: npm run desktop:build
+        run: node scripts/emit-artifact-receipt.mjs
+
+      - name: Upload lifecycle inputs and source receipt
         uses: actions/upload-artifact@v4
         with:
           name: phoenix-key-windows-lifecycle-inputs
           path: |
             apps/phoenix-key/src-tauri/target/release/bundle/msi/*.msi
             apps/phoenix-key/src-tauri/target/release/bundle/nsis/*.exe
+            apps/phoenix-key/src-tauri/target/release/bundle/phoenix-key.signature-observation.json
+            apps/phoenix-key/src-tauri/target/release/bundle/phoenix-key.source-artifact.json
+            apps/phoenix-key/src-tauri/target/release/bundle/phoenix-key.source-artifact.json.sha256
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
 
   installer-lifecycle:
     needs: build-lifecycle-input
