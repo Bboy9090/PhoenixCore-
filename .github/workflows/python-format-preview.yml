@@ -1,0 +1,84 @@
+name: Python Format Preview
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/python-format-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format-preview:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Black
+        run: python -m pip install black
+
+      - name: Format only post-foundation Python additions
+        run: |
+          black \
+            apps/android_diagnostics/android_diag.py \
+            apps/computer_repair/pc_repair.py \
+            apps/iphone_diagnostics/iphone_diag.py \
+            ecosystem/bootforge_builder.py \
+            ecosystem/compatibility_matrix.py \
+            ecosystem/flash_validator.py \
+            ecosystem/multiboot_engine.py \
+            ecosystem/power_management.py \
+            ecosystem/raw_writer.py \
+            ecosystem/session_sync.py \
+            ecosystem/telemetry.py \
+            scripts/branding/generate_brand_v21.py \
+            scripts/branding/validate_brand_v2.py
+
+      - name: Capture formatting patch and normalized files
+        run: |
+          mkdir -p format-preview
+          git diff --binary -- \
+            apps/android_diagnostics/android_diag.py \
+            apps/computer_repair/pc_repair.py \
+            apps/iphone_diagnostics/iphone_diag.py \
+            ecosystem/bootforge_builder.py \
+            ecosystem/compatibility_matrix.py \
+            ecosystem/flash_validator.py \
+            ecosystem/multiboot_engine.py \
+            ecosystem/power_management.py \
+            ecosystem/raw_writer.py \
+            ecosystem/session_sync.py \
+            ecosystem/telemetry.py \
+            scripts/branding/generate_brand_v21.py \
+            scripts/branding/validate_brand_v2.py \
+            > format-preview/black-format.patch
+          cp --parents \
+            apps/android_diagnostics/android_diag.py \
+            apps/computer_repair/pc_repair.py \
+            apps/iphone_diagnostics/iphone_diag.py \
+            ecosystem/bootforge_builder.py \
+            ecosystem/compatibility_matrix.py \
+            ecosystem/flash_validator.py \
+            ecosystem/multiboot_engine.py \
+            ecosystem/power_management.py \
+            ecosystem/raw_writer.py \
+            ecosystem/session_sync.py \
+            ecosystem/telemetry.py \
+            scripts/branding/generate_brand_v21.py \
+            scripts/branding/validate_brand_v2.py \
+            format-preview/
+
+      - name: Upload formatting preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-black-format-preview
+          path: format-preview/
+          if-no-files-found: error
+          retention-days: 7
