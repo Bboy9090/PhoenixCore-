@@ -105,7 +105,10 @@ function Find-PhoenixKeyExecutable {
     $Candidates = [System.Collections.Generic.List[string]]::new()
     foreach ($Entry in $UninstallEntries) {
         if ($Entry.PSObject.Properties.Name -contains "InstallLocation") {
-            Add-CandidatePath -Candidates $Candidates -Path (Join-Path ([string]$Entry.InstallLocation) "Phoenix Key.exe")
+            $InstallLocation = [string]$Entry.InstallLocation
+            if (-not [string]::IsNullOrWhiteSpace($InstallLocation)) {
+                Add-CandidatePath -Candidates $Candidates -Path (Join-Path $InstallLocation "Phoenix Key.exe")
+            }
         }
         if ($Entry.PSObject.Properties.Name -contains "DisplayIcon") {
             Add-CandidatePath -Candidates $Candidates -Path ([string]$Entry.DisplayIcon)
