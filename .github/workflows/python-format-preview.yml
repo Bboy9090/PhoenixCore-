@@ -1,4 +1,4 @@
-name: Python Format Preview
+name: Scoped Python Format Repair
 
 on:
   pull_request:
@@ -7,14 +7,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  format-preview:
+  apply-format-repair:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout
+      - name: Checkout source branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -24,7 +28,7 @@ jobs:
       - name: Install Black
         run: python -m pip install black
 
-      - name: Format only post-foundation Python additions
+      - name: Apply scoped formatting repair
         run: |
           black \
             apps/android_diagnostics/android_diag.py \
@@ -40,11 +44,11 @@ jobs:
             ecosystem/telemetry.py \
             scripts/branding/generate_brand_v21.py \
             scripts/branding/validate_brand_v2.py
+          rm .github/workflows/python-format-preview.yml
 
-      - name: Capture formatting patch and normalized files
+      - name: Verify scoped files are Black-clean
         run: |
-          mkdir -p format-preview
-          git diff --binary -- \
+          black --check \
             apps/android_diagnostics/android_diag.py \
             apps/computer_repair/pc_repair.py \
             apps/iphone_diagnostics/iphone_diag.py \
@@ -57,28 +61,29 @@ jobs:
             ecosystem/session_sync.py \
             ecosystem/telemetry.py \
             scripts/branding/generate_brand_v21.py \
-            scripts/branding/validate_brand_v2.py \
-            > format-preview/black-format.patch
-          cp --parents \
-            apps/android_diagnostics/android_diag.py \
-            apps/computer_repair/pc_repair.py \
-            apps/iphone_diagnostics/iphone_diag.py \
-            ecosystem/bootforge_builder.py \
-            ecosystem/compatibility_matrix.py \
-            ecosystem/flash_validator.py \
-            ecosystem/multiboot_engine.py \
-            ecosystem/power_management.py \
-            ecosystem/raw_writer.py \
-            ecosystem/session_sync.py \
-            ecosystem/telemetry.py \
-            scripts/branding/generate_brand_v21.py \
-            scripts/branding/validate_brand_v2.py \
-            format-preview/
+            scripts/branding/validate_brand_v2.py
 
-      - name: Upload formatting preview
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-black-format-preview
-          path: format-preview/
-          if-no-files-found: error
-          retention-days: 7
+      - name: Commit repair and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/android_diagnostics/android_diag.py \
+            apps/computer_repair/pc_repair.py \
+            apps/iphone_diagnostics/iphone_diag.py \
+            ecosystem/bootforge_builder.py \
+            ecosystem/compatibility_matrix.py \
+            ecosystem/flash_validator.py \
+            ecosystem/multiboot_engine.py \
+            ecosystem/power_management.py \
+            ecosystem/raw_writer.py \
+            ecosystem/session_sync.py \
+            ecosystem/telemetry.py \
+            scripts/branding/generate_brand_v21.py \
+            scripts/branding/validate_brand_v2.py \
+            .github/workflows/python-format-preview.yml
+          git diff --cached --quiet && { echo "No formatting repair required."; exit 0; }
+          git commit -m "style: repair post-foundation Python formatting"
+          git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
