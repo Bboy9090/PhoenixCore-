@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="pt_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#071525"/>
+      <stop offset="100%" stop-color="#020912"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#pt_bg)"/>
+  <!-- Interlocking Isometric Modules -->
+  <polygon points="256,100 360,160 256,220 152,160" fill="#00BFD8"/>
+  <polygon points="152,175 246,230 246,360 152,300" fill="#176BFF"/>
+  <polygon points="266,230 360,175 360,300 266,360" fill="#7C4DFF"/>
+  <circle cx="256" cy="220" r="16" fill="#FFFFFF"/>
+</svg>

@@ -1,0 +1,116 @@
+{
+  "organization": "Bobby's Workshop",
+  "established": 2026,
+  "brand_palette_law": {
+    "shared_structural_colors": {
+      "deep_navy": "#071426",
+      "phoenix_blue": "#176BFF",
+      "electric_cyan": "#00C8F0",
+      "steel_white": "#E9EDF2"
+    },
+    "identifying_accents": {
+      "kernel": "Sovereign Gold (#D8A63C)",
+      "native": "Signal Mint (#53E0B5)",
+      "eternum": "Imperial Violet (#4B1F8C / #7A35D0)",
+      "live": "Emergency Red (#EF3340)",
+      "usb_creator": "Phoenix Orange (#FF6A00)",
+      "diagnosis": "Scan Blue (#126BFF)",
+      "planning": "Decision Amber (#F3A712)",
+      "compatibility": "Compatibility Green (#29D391)",
+      "truthlog": "Audit Gold (#D7A845)",
+      "continuity": "Soft Cyan (#80D8FF)"
+    }
+  },
+  "product_family": [
+    {
+      "name": "Phoenix Prime Kernel",
+      "accent": "Sovereign Gold",
+      "icon": "branding/icons/phoenix-prime-kernel.svg"
+    },
+    {
+      "name": "ARCWYRE Native",
+      "accent": "Signal Mint",
+      "icon": "branding/icons/arcwyre-native.svg"
+    },
+    {
+      "name": "ARCWYRE Eternum",
+      "accent": "Imperial Violet",
+      "icon": "branding/icons/arcwyre-eternum.svg"
+    },
+    {
+      "name": "ARCWYRE Live",
+      "accent": "Emergency Red",
+      "icon": "branding/icons/arcwyre-live.svg"
+    },
+    {
+      "name": "PhoenixCore Mobile",
+      "accent": "Command Cyan / Status Green",
+      "icon": "branding/icons/phoenixcore-mobile.svg"
+    },
+    {
+      "name": "PhoenixCore Desktop",
+      "accent": "Systems Cyan",
+      "icon": "branding/icons/phoenixcore-desktop.svg"
+    },
+    {
+      "name": "Phoenix USB Creator",
+      "accent": "Phoenix Orange",
+      "icon": "branding/icons/phoenix-usb-creator.svg"
+    },
+    {
+      "name": "Boot Media Builder",
+      "accent": "Hot Amber",
+      "icon": "branding/icons/boot-media-builder.svg"
+    },
+    {
+      "name": "Device Diagnosis Engine",
+      "accent": "Scan Blue",
+      "icon": "branding/icons/device-diagnosis-engine.svg"
+    },
+    {
+      "name": "Repair Planning Engine",
+      "accent": "Decision Amber",
+      "icon": "branding/icons/repair-planning-engine.svg"
+    },
+    {
+      "name": "OS Compatibility Engine",
+      "accent": "Compatibility Green",
+      "icon": "branding/icons/os-compatibility-engine.svg"
+    },
+    {
+      "name": "TruthLog",
+      "accent": "Audit Gold",
+      "icon": "branding/icons/truthlog.svg"
+    },
+    {
+      "name": "Continuity",
+      "accent": "Soft Cyan",
+      "icon": "branding/icons/continuity.svg"
+    },
+    {
+      "name": "Repair Session Manager",
+      "accent": "Subsystem Mark",
+      "icon": "branding/icons/repair-session-manager.svg"
+    },
+    {
+      "name": "Device Identity Service",
+      "accent": "Subsystem Mark",
+      "icon": "branding/icons/device-identity-service.svg"
+    },
+    {
+      "name": "Technician Workspace",
+      "accent": "Subsystem Mark",
+      "icon": "branding/icons/technician-workspace.svg"
+    },
+    {
+      "name": "Installer and Deployment Manager",
+      "accent": "Subsystem Mark",
+      "icon": "branding/icons/installer-and-deployment-manager.svg"
+    },
+    {
+      "name": "Recovery Vault",
+      "accent": "Subsystem Mark",
+      "icon": "branding/icons/recovery-vault.svg"
+    }
+  ]
+}

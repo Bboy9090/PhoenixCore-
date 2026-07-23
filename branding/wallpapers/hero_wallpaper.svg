@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <radialGradient id="studio_bg" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#071426"/>
+      <stop offset="60%" stop-color="#07111F"/>
+      <stop offset="100%" stop-color="#080B10"/>
+    </radialGradient>
+    <linearGradient id="gold_accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D7A845"/>
+      <stop offset="100%" stop-color="#D8A63C"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#studio_bg)"/>
+  <!-- Structural Lines in Phoenix Blue & Electric Cyan -->
+  <circle cx="960" cy="540" r="420" fill="none" stroke="#176BFF" stroke-width="2" stroke-opacity="0.4"/>
+  <circle cx="960" cy="540" r="300" fill="none" stroke="#00C8F0" stroke-width="1.5" stroke-dasharray="16 12" stroke-opacity="0.6"/>
+  <!-- Sovereign Core Emblem in Gold -->
+  <path d="M960 220 L1140 540 L960 860 L780 540 Z" fill="none" stroke="url(#gold_accent)" stroke-width="4"/>
+  <text x="960" y="950" text-anchor="middle" fill="#E9EDF2" font-family="sans-serif" font-size="30" font-weight="bold" letter-spacing="10">BOBBY'S WORKSHOP :: BLUE PHOENIX STUDIOS</text>
+  <text x="960" y="990" text-anchor="middle" fill="#00C8F0" font-family="sans-serif" font-size="18" letter-spacing="6">PHOENIX PRIME KERNEL • ARCWYRE NATIVE • ARCWYRE ETERNUM</text>
+</svg>

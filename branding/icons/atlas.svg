@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="atlas_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#101A26"/>
+      <stop offset="100%" stop-color="#080D14"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#atlas_bg)"/>
+  <!-- Global Compass Grid -->
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#1976D2" stroke-width="12"/>
+  <ellipse cx="256" cy="256" rx="160" ry="70" fill="none" stroke="#00E5FF" stroke-width="8"/>
+  <ellipse cx="256" cy="256" rx="70" ry="160" fill="none" stroke="#00E5FF" stroke-width="8"/>
+  <!-- Reverse Lookup Target Pin -->
+  <path d="M256 150 C220 150, 190 180, 190 216 C190 270, 256 340, 256 340 C256 340, 322 270, 322 216 C322 180, 292 150, 256 150 Z" fill="#00E5FF"/>
+  <circle cx="256" cy="216" r="24" fill="#101A26"/>
+</svg>

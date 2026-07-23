@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="soul_bg" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#121820"/>
+      <stop offset="100%" stop-color="#070A0F"/>
+    </radialGradient>
+    <linearGradient id="gold_core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD54F"/>
+      <stop offset="100%" stop-color="#D7A845"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#soul_bg)"/>
+  <!-- Orbital Rings -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#D7A845" stroke-width="6" stroke-opacity="0.4"/>
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#303F9F" stroke-width="12" stroke-dasharray="20 12"/>
+  <circle cx="256" cy="256" r="100" fill="none" stroke="#00C8F0" stroke-width="8"/>
+  <!-- Crystalline Soul Starburst -->
+  <polygon points="256,90 286,226 422,256 286,286 256,422 226,286 90,256 226,226" fill="url(#gold_core)"/>
+  <circle cx="256" cy="256" r="32" fill="#FFFFFF"/>
+</svg>

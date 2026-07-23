@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="saga_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0A1128"/>
+      <stop offset="100%" stop-color="#1C0A35"/>
+    </linearGradient>
+    <linearGradient id="gold_pages" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F2D17B"/>
+      <stop offset="100%" stop-color="#D8A63C"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#saga_bg)"/>
+  <!-- Open Book Wings -->
+  <path d="M256 360 C180 300, 100 320, 80 340 L80 140 C100 120, 180 100, 256 160 C332 100, 412 120, 432 140 L432 340 C412 320, 332 300, 256 360 Z" fill="url(#gold_pages)"/>
+  <path d="M256 160 L256 360" stroke="#4A148C" stroke-width="12" stroke-linecap="round"/>
+  <!-- Motion Comic Panel Crown -->
+  <polygon points="256,80 280,120 330,120 290,150 305,200 256,170 207,200 222,150 182,120 232,120" fill="#2979FF"/>
+</svg>

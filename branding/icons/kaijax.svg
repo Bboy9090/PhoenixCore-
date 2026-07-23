@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="kaijax_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090812"/>
+      <stop offset="100%" stop-color="#1E0C30"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#kaijax_bg)"/>
+  <!-- Crossed Energy Blades -->
+  <path d="M120 120 L392 392 M392 120 L120 392" stroke="#2979FF" stroke-width="24" stroke-linecap="round"/>
+  <!-- Memory Hero Crest -->
+  <polygon points="256,120 330,256 256,392 182,256" fill="#D946EF"/>
+  <circle cx="256" cy="256" r="32" fill="#FFFFFF"/>
+</svg>

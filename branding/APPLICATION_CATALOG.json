@@ -1,0 +1,205 @@
+{
+  "organization": "Bobby's Workshop",
+  "established": 2026,
+  "github_owner": "bboy9090",
+  "divisions": {
+    "Blue Phoenix Studios (Native OS Division)": [
+      {
+        "id": "phoenix-prime-kernel",
+        "name": "Phoenix Prime Kernel",
+        "role": "Shared Sovereign Native Kernel Foundation",
+        "icon": "branding/icons/phoenix-prime-kernel.svg"
+      },
+      {
+        "id": "arcwyre-native",
+        "name": "ARCWYRE Native",
+        "role": "Lightweight Repair-First Native OS",
+        "icon": "branding/icons/arcwyre-native.svg"
+      },
+      {
+        "id": "arcwyre-eternum",
+        "name": "ARCWYRE Eternum",
+        "role": "High-Performance Flagship Native OS",
+        "icon": "branding/icons/arcwyre-eternum.svg"
+      },
+      {
+        "id": "arcwyre-live",
+        "name": "ARCWYRE Live",
+        "role": "Universal Live Repair & Boot Environment",
+        "icon": "branding/icons/arcwyre-live.svg"
+      }
+    ],
+    "PhoenixCore Ecosystem & Tooling": [
+      {
+        "id": "phoenixcore-mobile",
+        "name": "PhoenixCore Mobile",
+        "role": "Mobile Command Center & Diagnostic Suite",
+        "icon": "branding/icons/phoenixcore-mobile.svg"
+      },
+      {
+        "id": "phoenixcore-desktop",
+        "name": "PhoenixCore Desktop",
+        "role": "Desktop Hardware Operations & Media Station",
+        "icon": "branding/icons/phoenixcore-desktop.svg"
+      },
+      {
+        "id": "phoenix-usb-creator",
+        "name": "Phoenix USB Creator",
+        "role": "Multi-boot & Installer Deployment Engine",
+        "icon": "branding/icons/phoenix-usb-creator.svg"
+      },
+      {
+        "id": "boot-forge-usb",
+        "name": "BootForge USB",
+        "role": "Low-Level USB Reader & Device Detection Utility",
+        "repo": "github.com/bboy9090/bootforge-usb",
+        "icon": "branding/icons/installer-and-deployment-manager.svg"
+      },
+      {
+        "id": "compatibility-engine",
+        "name": "Compatibility Engine",
+        "role": "Hardware & OS Matrix Diagnostics",
+        "icon": "branding/icons/os-compatibility-engine.svg"
+      },
+      {
+        "id": "repair-planning-engine",
+        "name": "Repair Planning Engine",
+        "role": "Step-by-Step Signed Manifest Generator",
+        "icon": "branding/icons/repair-planning-engine.svg"
+      }
+    ],
+    "Native Userland & Creator Suite (bboy9090 Repositories)": [
+      {
+        "id": "phoenixcreation-studios",
+        "name": "PhoenixCreation Studios",
+        "former_name": "Saga Architect",
+        "role": "Motion Comic Storyboard & Narrative Preproduction Engine",
+        "repo": "github.com/bboy9090/phoenixcreation-studios",
+        "category": "Creator"
+      },
+      {
+        "id": "sonic-codex",
+        "name": "Sonic Codex",
+        "role": "Audio/Video Transcription, Low-Volume Audio Enhancement & Multilingual Translation Engine",
+        "repo": "github.com/bboy9090/soniccodex",
+        "category": "Audio / AI Speech"
+      },
+      {
+        "id": "ghostwriter",
+        "name": "Ghostwriter",
+        "role": "Creative Writing & Long-Form Manuscript Expansion",
+        "repo": "github.com/bboy9090/ghostwriter",
+        "category": "Productivity"
+      },
+      {
+        "id": "atlas",
+        "name": "Atlas App",
+        "role": "Reverse Phone Number Lookup & Contact Verification",
+        "repo": "github.com/bboy9090/atlas",
+        "category": "Directory & Search"
+      },
+      {
+        "id": "kaijax-game",
+        "name": "Legends of Kai-Jax",
+        "role": "Platform Fighter & Web RPG",
+        "repo": "github.com/bboy9090/kaijax",
+        "category": "Gaming"
+      },
+      {
+        "id": "universal-cart-shopper",
+        "name": "Universal Cart Shopper",
+        "role": "Multi-Retailer E-Commerce Inventory & Cart Aggregator",
+        "repo": "github.com/bboy9090/universal-cart-shopper",
+        "category": "E-Commerce"
+      },
+      {
+        "id": "rainstorms",
+        "name": "Rainstorms",
+        "role": "AI Children's Storybook Generator & Illustrator",
+        "repo": "github.com/bboy9090/rainstorms",
+        "category": "AI Media & Education"
+      },
+      {
+        "id": "put-together",
+        "name": "Put Together",
+        "role": "Multi-Module Project Assembly Workspace",
+        "repo": "github.com/bboy9090/put-together",
+        "category": "Developer Tools"
+      }
+    ],
+    "Essential OS Utilities (Standard Desktop Suite)": [
+      {
+        "id": "arcwyre-calendar",
+        "name": "ARCWYRE Calendar",
+        "role": "System Schedule & Event Organizer",
+        "icon": "branding/icons/continuity.svg",
+        "category": "Essential Utilities"
+      },
+      {
+        "id": "arcwyre-calc",
+        "name": "ARCWYRE Calculator",
+        "role": "Scientific & System Unit Calculator",
+        "icon": "branding/icons/repair-planning-engine.svg",
+        "category": "Essential Utilities"
+      },
+      {
+        "id": "arcwyre-clock",
+        "name": "ARCWYRE Clock & Timer",
+        "role": "World Clock, Alarm & Precision Stopwatch",
+        "icon": "branding/icons/repair-session-manager.svg",
+        "category": "Essential Utilities"
+      },
+      {
+        "id": "arcwyre-edit",
+        "name": "ARCWYRE Text Editor",
+        "role": "Lightweight Code & Plain Text Editor",
+        "icon": "branding/icons/ghostwriter.svg",
+        "category": "Essential Utilities"
+      },
+      {
+        "id": "arcwyre-files",
+        "name": "ARCWYRE File Manager",
+        "role": "Native VFS File Explorer & Disk Navigator",
+        "icon": "branding/icons/technician-workspace.svg",
+        "category": "Essential Utilities"
+      },
+      {
+        "id": "arcwyre-monitor",
+        "name": "ARCWYRE System Monitor",
+        "role": "Real-Time Hardware, CPU & RAM Monitor",
+        "icon": "branding/icons/device-diagnosis-engine.svg",
+        "category": "Essential Utilities"
+      },
+      {
+        "id": "arcwyre-terminal",
+        "name": "ARCWYRE Terminal",
+        "role": "Native Command Line Shell Terminal",
+        "icon": "branding/icons/phoenix-prime-kernel.svg",
+        "category": "Essential Utilities"
+      }
+    ],
+    "Hardware Repair & Mobile Diagnostics Suite": [
+      {
+        "id": "arcwyre-pc-repair",
+        "name": "ARCWYRE Computer Repair Station",
+        "role": "S.M.A.R.T. Disk Health, RAM Stress Test & EFI Boot Repair Engine",
+        "icon": "branding/icons/technician-workspace.svg",
+        "category": "Hardware Repair"
+      },
+      {
+        "id": "phoenix-iphone-diag",
+        "name": "PhoenixCore iPhone Diagnostics",
+        "role": "iOS USB Mux Hardware Diagnostics, Battery Cycle & Charging IC Tester",
+        "icon": "branding/icons/device-diagnosis-engine.svg",
+        "category": "Mobile Repair"
+      },
+      {
+        "id": "phoenix-android-diag",
+        "name": "PhoenixCore Android Diagnostics",
+        "role": "Android ADB Hardware Diagnostic Companion & Battery Health Inspector",
+        "icon": "branding/icons/device-identity-service.svg",
+        "category": "Mobile Repair"
+      }
+    ]
+  }
+}

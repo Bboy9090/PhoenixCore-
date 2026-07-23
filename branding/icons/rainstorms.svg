@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="rain_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#073B45"/>
+      <stop offset="100%" stop-color="#021E24"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#rain_bg)"/>
+  <!-- Storybook Cloud -->
+  <path d="M170 240 C140 240, 120 210, 140 180 C150 140, 200 120, 230 140 C250 100, 310 100, 340 140 C380 140, 400 180, 380 220 C400 260, 370 290, 330 290 L170 290 Z" fill="#53E0B5"/>
+  <!-- Story Raindrops / Stars -->
+  <polygon points="180,330 186,350 205,350 190,362 195,380 180,368 165,380 170,362 155,350 174,350" fill="#FFF176"/>
+  <polygon points="256,340 262,360 281,360 266,372 271,390 256,378 241,390 246,372 231,360 250,360" fill="#FFF176"/>
+  <polygon points="330,330 336,350 355,350 340,362 345,380 330,368 315,380 320,362 305,350 324,350" fill="#FFF176"/>
+</svg>

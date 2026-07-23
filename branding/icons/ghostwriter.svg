@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="gw_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#081725"/>
+      <stop offset="100%" stop-color="#030B12"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#gw_bg)"/>
+  <!-- Quill Nib -->
+  <path d="M380 90 L230 240 L210 320 L290 300 L420 150 Z" fill="#F3A712"/>
+  <path d="M210 320 L120 410" stroke="#1677C8" stroke-width="16" stroke-linecap="round"/>
+  <path d="M120 410 C160 410, 200 370, 256 370 C312 370, 360 410, 410 410" fill="none" stroke="#FFD166" stroke-width="10" stroke-dasharray="12 8"/>
+</svg>

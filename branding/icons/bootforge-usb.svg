@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bf_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0D12"/>
+      <stop offset="100%" stop-color="#1A1F2B"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bf_bg)"/>
+  <!-- Anvil USB Connector -->
+  <rect x="180" y="70" width="152" height="100" rx="12" fill="#78909C" stroke="#29B6F6" stroke-width="8"/>
+  <rect x="140" y="170" width="232" height="260" rx="28" fill="#1A1F2B" stroke="#FF6D00" stroke-width="16"/>
+  <!-- Lightning Anvil Bolt -->
+  <polygon points="270,200 210,310 260,310 240,400 310,290 260,290" fill="#FF6D00"/>
+</svg>

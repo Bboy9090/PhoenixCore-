@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#071629"/>
+  <rect x="140" y="70" width="232" height="372" rx="36" fill="none" stroke="#126BFF" stroke-width="18"/>
+  <line x1="210" y1="105" x2="302" y2="105" stroke="#00C8F0" stroke-width="12" stroke-linecap="round"/>
+  <path d="M200 240 L240 280 L312 190" fill="none" stroke="#00C8F0" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Status Green indicator dot -->
+  <circle cx="320" cy="390" r="14" fill="#27D17F"/>
+</svg>

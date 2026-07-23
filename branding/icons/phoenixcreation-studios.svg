@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="pcs_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#071426"/>
+      <stop offset="100%" stop-color="#030A14"/>
+    </linearGradient>
+    <linearGradient id="phoenix_flame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#176BFF"/>
+      <stop offset="50%" stop-color="#00C8F0"/>
+      <stop offset="100%" stop-color="#D8A63C"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#pcs_bg)"/>
+  <!-- Storyboard Frame Matrix -->
+  <rect x="90" y="90" width="332" height="332" rx="24" fill="none" stroke="#176BFF" stroke-width="8" stroke-dasharray="16 12"/>
+  <!-- Rising Phoenix Silhouette -->
+  <path d="M256 100 C300 160 400 180 410 280 C410 360, 330 400, 256 400 C182 400, 102 360, 102 280 C112 180 212 160 256 100 Z" fill="url(#phoenix_flame)"/>
+  <circle cx="256" cy="256" r="40" fill="#FFFFFF"/>
+</svg>

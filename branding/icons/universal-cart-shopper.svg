@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="cart_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0D12"/>
+      <stop offset="100%" stop-color="#1B1E28"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#cart_bg)"/>
+  <!-- Cart Body -->
+  <path d="M110 140 L160 140 L210 320 L370 320 L410 180 L180 180" fill="none" stroke="#FF6A00" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Cart Wheels -->
+  <circle cx="230" cy="380" r="28" fill="#147DFF"/>
+  <circle cx="350" cy="380" r="28" fill="#147DFF"/>
+  <circle cx="290" cy="230" r="20" fill="#FFC107"/>
+</svg>
