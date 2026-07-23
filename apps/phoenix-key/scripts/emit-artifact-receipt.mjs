@@ -14,6 +14,8 @@ const packageJson = JSON.parse(readFileSync(resolve(appRoot, "package.json"), "u
 const signatureObservations = JSON.parse(
   readFileSync(join(bundleRoot, "phoenix-key.signature-observation.json"), "utf8")
 );
+const buildWorkflow = process.env.PHOENIX_KEY_BUILD_WORKFLOW ?? "Phoenix Key Desktop";
+const buildCommand = process.env.PHOENIX_KEY_BUILD_COMMAND ?? "npm run desktop:build";
 
 function requireValue(condition, message) {
   if (!condition) {
@@ -26,6 +28,9 @@ function sha256(path) {
 }
 
 requireValue(Array.isArray(signatureObservations), "signature observation root must be an array");
+requireValue(typeof buildWorkflow === "string" && buildWorkflow.trim(), "build workflow identity is required");
+requireValue(typeof buildCommand === "string" && buildCommand.trim(), "build command identity is required");
+
 const signatureByFilename = new Map();
 for (const observation of signatureObservations) {
   requireValue(observation && typeof observation === "object", "signature observation must be an object");
@@ -94,7 +99,7 @@ const receipt = {
     package_formats: ["msi", "nsis"]
   },
   build: {
-    workflow: "Phoenix Key Desktop",
+    workflow: buildWorkflow.trim(),
     workflow_run_id: process.env.GITHUB_RUN_ID ?? "local",
     workflow_run_number: process.env.GITHUB_RUN_NUMBER ?? "local",
     workflow_url: process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
@@ -102,7 +107,7 @@ const receipt = {
       : null,
     node: "22",
     rust: "stable",
-    command: "npm run desktop:build",
+    command: buildCommand.trim(),
     boundary_check: "pass",
     compilation: "pass",
     signature_observation: "phoenix-key.signature-observation.json"
@@ -137,6 +142,7 @@ writeFileSync(`${outputPath}.sha256`, `${sha256(outputPath)}  ${basename(outputP
 console.log(JSON.stringify({
   status: "PHOENIX_KEY_ARTIFACT_RECEIPT_WRITTEN",
   output: relative(appRoot, outputPath).replaceAll("\\", "/"),
+  workflow: receipt.build.workflow,
   artifacts: artifacts.map(({ kind, filename, size_bytes, sha256: digest, signature }) => ({
     kind,
     filename,
