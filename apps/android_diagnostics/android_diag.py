@@ -5,6 +5,7 @@ PhoenixCore Android Diagnostic Companion (ADB / Fastboot Telemetry)
 
 import json
 
+
 class AndroidDiagnosticCompanion:
     def __init__(self):
         self.adb_port = 5037
@@ -16,8 +17,9 @@ class AndroidDiagnosticCompanion:
             "usb_data_signaling": "ENABLED",
             "storage_health": "PASSED (Good)",
             "battery_wear": "89.5%",
-            "diagnostic_status": "VERIFIED"
+            "diagnostic_status": "VERIFIED",
         }
+
 
 if __name__ == "__main__":
     diag = AndroidDiagnosticCompanion()

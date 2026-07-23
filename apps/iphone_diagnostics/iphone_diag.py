@@ -5,6 +5,7 @@ PhoenixCore iPhone Diagnostic Companion (USB Mux / Hardware Telemetry)
 
 import json
 
+
 class IPhoneDiagnosticCompanion:
     def __init__(self):
         self.usbmuxd_port = 27015
@@ -17,8 +18,9 @@ class IPhoneDiagnosticCompanion:
             "design_capacity_mah": 3200,
             "current_capacity_mah": 2980,
             "battery_health_percentage": 93.1,
-            "tristar_ic_status": "STABLE"
+            "tristar_ic_status": "STABLE",
         }
+
 
 if __name__ == "__main__":
     diag = IPhoneDiagnosticCompanion()
