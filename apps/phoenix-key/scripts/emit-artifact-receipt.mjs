@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const appRoot = resolve(scriptDir, "..");
-const bundleRoot = resolve(appRoot, "src-tauri", "target", "release", "bundle");
+const bundleRoot = process.env.PHOENIX_KEY_BUNDLE_ROOT
+  ? resolve(process.env.PHOENIX_KEY_BUNDLE_ROOT)
+  : resolve(appRoot, "src-tauri", "target", "release", "bundle");
 const packageJson = JSON.parse(readFileSync(resolve(appRoot, "package.json"), "utf8"));
 
 function requireValue(condition, message) {
@@ -43,7 +45,7 @@ function findArtifacts(directory, extension, kind) {
 
 const sourceCommit = process.env.SOURCE_COMMIT ?? "";
 requireValue(/^[0-9a-f]{40}$/.test(sourceCommit), "SOURCE_COMMIT must be a 40-character lowercase Git commit");
-requireValue(packageJson.version === "3.1.0", "unexpected Phoenix Key package version");
+requireValue(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(packageJson.version), "Phoenix Key package version must be semantic");
 
 const artifacts = [
   ...findArtifacts("msi", ".msi", "windows-msi"),
