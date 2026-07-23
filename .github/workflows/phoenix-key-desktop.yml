@@ -10,6 +10,9 @@ on:
       - "device_scanner.py"
       - ".github/workflows/phoenix-key-desktop.yml"
 
+permissions:
+  contents: read
+
 jobs:
   frontend:
     runs-on: ubuntu-latest
@@ -44,12 +47,37 @@ jobs:
       - run: npm ci
       - name: Build Phoenix Key installers
         run: npm run desktop:build
-      - name: Upload unsigned preview installers
+      - name: Confirm installers are unsigned previews
+        shell: pwsh
+        run: |
+          $files = @(
+            Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi",
+            Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe"
+          )
+          if ($files.Count -lt 2) {
+            throw "Expected MSI and NSIS installer outputs."
+          }
+          foreach ($file in $files) {
+            if ($file.Length -le 0) {
+              throw "Installer is empty: $($file.FullName)"
+            }
+            $signature = Get-AuthenticodeSignature -FilePath $file.FullName
+            if ($signature.Status -ne "NotSigned") {
+              throw "Preview signing state changed unexpectedly for $($file.Name): $($signature.Status)"
+            }
+          }
+      - name: Emit deterministic artifact receipt
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/emit-artifact-receipt.mjs
+      - name: Upload unsigned preview installers and receipt
         uses: actions/upload-artifact@v4
         with:
           name: phoenix-key-windows-unsigned-preview
           path: |
             apps/phoenix-key/src-tauri/target/release/bundle/msi/*.msi
             apps/phoenix-key/src-tauri/target/release/bundle/nsis/*.exe
+            apps/phoenix-key/src-tauri/target/release/bundle/phoenix-key.source-artifact.json
+            apps/phoenix-key/src-tauri/target/release/bundle/phoenix-key.source-artifact.json.sha256
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
