@@ -1,0 +1,64 @@
+name: Brand V2.1 Cinematic QA
+
+on:
+  push:
+    branches:
+      - design/brand-system-v2-1
+    paths:
+      - "branding/v2.1/**"
+      - "scripts/branding/generate_brand_v21.py"
+      - ".github/workflows/brand-v21-qa.yml"
+  pull_request:
+    branches:
+      - design/brand-system-v2
+    paths:
+      - "branding/v2.1/**"
+      - "scripts/branding/generate_brand_v21.py"
+      - ".github/workflows/brand-v21-qa.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  generate-render-audit:
+    name: Generate cinematic masters and review package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install renderer dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "cairosvg==2.7.1" "Pillow==11.3.0"
+
+      - name: Generate Brand V2.1 SVG masters
+        run: |
+          rm -rf branding/v2.1/generated brand-v21-qa-output
+          python scripts/branding/generate_brand_v21.py \
+            --manifest branding/v2.1/PRODUCTS.json \
+            --output branding/v2.1/generated
+
+      - name: Validate and render Brand V2.1
+        run: |
+          python scripts/branding/validate_brand_v2.py \
+            --root branding/v2.1/generated \
+            --output brand-v21-qa-output
+
+      - name: Upload cinematic review package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenixcore-brand-v21-cinematic-qa
+          path: |
+            branding/v2.1/generated/
+            brand-v21-qa-output/
+          if-no-files-found: error
+          retention-days: 21
