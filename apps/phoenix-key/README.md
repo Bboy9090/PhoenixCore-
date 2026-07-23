@@ -40,3 +40,5 @@ release_eligible: false
 ```
 
 A successful compiler run does not promote an installer to production. Promotion requires retained passing receipts for installation, launch, update, rollback, and uninstall, followed by code signing and signature verification. ARCWYRE packaging must consume the machine-readable receipt rather than infer status from an installer filename or a commit title.
+
+A producer receipt is accepted only when the focused receipt test, frontend boundary check, installer build, unsigned-state check, repository verification, governance, artifact, application-reality, boot-matrix, and release gates all pass on the same source head.
