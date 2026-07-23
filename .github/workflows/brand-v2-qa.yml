@@ -1,0 +1,56 @@
+name: Brand V2 QA
+
+on:
+  push:
+    branches:
+      - design/brand-system-v2
+    paths:
+      - "branding/v2/**"
+      - "scripts/branding/**"
+      - ".github/workflows/brand-v2-qa.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "branding/v2/**"
+      - "scripts/branding/**"
+      - ".github/workflows/brand-v2-qa.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  render-and-audit:
+    name: Render icons and wallpapers
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install renderer dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "cairosvg==2.7.1" "Pillow==11.3.0"
+
+      - name: Validate and render Brand V2 masters
+        run: |
+          python scripts/branding/validate_brand_v2.py \
+            --root branding/v2 \
+            --output brand-qa-output
+
+      - name: Upload rendered review package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenixcore-brand-v2-qa
+          path: brand-qa-output/
+          if-no-files-found: error
+          retention-days: 14
