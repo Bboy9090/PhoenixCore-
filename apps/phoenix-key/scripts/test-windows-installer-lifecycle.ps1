@@ -71,7 +71,10 @@ function Get-PhoenixKeyUninstallEntries {
     $Entries = @()
     foreach ($RegistryPath in $RegistryPaths) {
         $Entries += Get-ItemProperty -Path $RegistryPath -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -eq $ProductName }
+            Where-Object {
+                $_.PSObject.Properties.Name -contains "DisplayName" -and
+                $_.DisplayName -eq $ProductName
+            }
     }
     return @($Entries)
 }
