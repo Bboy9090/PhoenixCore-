@@ -11,6 +11,9 @@ const bundleRoot = process.env.PHOENIX_KEY_BUNDLE_ROOT
   ? resolve(process.env.PHOENIX_KEY_BUNDLE_ROOT)
   : resolve(appRoot, "src-tauri", "target", "release", "bundle");
 const packageJson = JSON.parse(readFileSync(resolve(appRoot, "package.json"), "utf8"));
+const signatureObservations = JSON.parse(
+  readFileSync(join(bundleRoot, "phoenix-key.signature-observation.json"), "utf8")
+);
 
 function requireValue(condition, message) {
   if (!condition) {
@@ -22,6 +25,18 @@ function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+requireValue(Array.isArray(signatureObservations), "signature observation root must be an array");
+const signatureByFilename = new Map();
+for (const observation of signatureObservations) {
+  requireValue(observation && typeof observation === "object", "signature observation must be an object");
+  requireValue(typeof observation.filename === "string" && observation.filename, "signature observation filename missing");
+  requireValue(!signatureByFilename.has(observation.filename), `duplicate signature observation: ${observation.filename}`);
+  requireValue(["NotSigned", "UnknownError"].includes(observation.probe_status), `unsupported unsigned probe status for ${observation.filename}`);
+  requireValue(observation.signer_present === false, `signer certificate unexpectedly present for ${observation.filename}`);
+  requireValue(observation.timestamp_present === false, `timestamp certificate unexpectedly present for ${observation.filename}`);
+  signatureByFilename.set(observation.filename, observation);
+}
+
 function findArtifacts(directory, extension, kind) {
   const absolute = resolve(bundleRoot, directory);
   const entries = readdirSync(absolute, { withFileTypes: true })
@@ -30,17 +45,26 @@ function findArtifacts(directory, extension, kind) {
     .sort();
 
   requireValue(entries.length > 0, `no ${kind} artifacts found in ${absolute}`);
-  return entries.map((path) => ({
-    kind,
-    filename: basename(path),
-    archive_path: relative(bundleRoot, path).replaceAll("\\", "/"),
-    size_bytes: statSync(path).size,
-    sha256: sha256(path),
-    signature: {
-      scheme: "authenticode",
-      status: "absent-unsigned-preview"
-    }
-  }));
+  return entries.map((path) => {
+    const filename = basename(path);
+    const observation = signatureByFilename.get(filename);
+    requireValue(observation, `missing signature observation for ${filename}`);
+    return {
+      kind,
+      filename,
+      archive_path: relative(bundleRoot, path).replaceAll("\\", "/"),
+      size_bytes: statSync(path).size,
+      sha256: sha256(path),
+      signature: {
+        scheme: "authenticode",
+        status: "absent-unsigned-preview",
+        producer_probe_status: observation.probe_status,
+        producer_probe_message: observation.probe_message ?? "",
+        signer_present: observation.signer_present,
+        timestamp_present: observation.timestamp_present
+      }
+    };
+  });
 }
 
 const sourceCommit = process.env.SOURCE_COMMIT ?? "";
@@ -51,6 +75,7 @@ const artifacts = [
   ...findArtifacts("msi", ".msi", "windows-msi"),
   ...findArtifacts("nsis", ".exe", "windows-nsis")
 ];
+requireValue(signatureByFilename.size === artifacts.length, "signature observation count differs from installer count");
 
 const receipt = {
   schema_version: "bws.source-app-artifact/v1",
@@ -79,7 +104,8 @@ const receipt = {
     rust: "stable",
     command: "npm run desktop:build",
     boundary_check: "pass",
-    compilation: "pass"
+    compilation: "pass",
+    signature_observation: "phoenix-key.signature-observation.json"
   },
   dependency_boundary: {
     libbootforge_repository: "Bboy9090/Bootforge-usb",
@@ -111,10 +137,11 @@ writeFileSync(`${outputPath}.sha256`, `${sha256(outputPath)}  ${basename(outputP
 console.log(JSON.stringify({
   status: "PHOENIX_KEY_ARTIFACT_RECEIPT_WRITTEN",
   output: relative(appRoot, outputPath).replaceAll("\\", "/"),
-  artifacts: artifacts.map(({ kind, filename, size_bytes, sha256: digest }) => ({
+  artifacts: artifacts.map(({ kind, filename, size_bytes, sha256: digest, signature }) => ({
     kind,
     filename,
     size_bytes,
-    sha256: digest
+    sha256: digest,
+    producer_probe_status: signature.producer_probe_status
   }))
 }, null, 2));
