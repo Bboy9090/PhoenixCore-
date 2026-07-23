@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "icon_master": {
+    "format": "svg",
+    "view_box": "0 0 512 512",
+    "required_png_exports": [16, 22, 24, 32, 48, 64, 128, 256, 512],
+    "alpha_required_for_symbol_exports": true
+  },
+  "hero_wallpaper": {
+    "format": "svg",
+    "view_box": "0 0 1920 1080",
+    "required_png_exports": [
+      {"width": 1920, "height": 1080},
+      {"width": 2560, "height": 1440},
+      {"width": 3840, "height": 2160}
+    ]
+  },
+  "quality_gates": [
+    "valid XML",
+    "no embedded raster images",
+    "no baked filenames, proof labels, or UI screenshots",
+    "no fake checkerboard backgrounds",
+    "one distinct silhouette per application",
+    "manifest path exists",
+    "small-size silhouette remains legible",
+    "product accent follows PALETTE.json"
+  ]
+}

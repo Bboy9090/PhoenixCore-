@@ -1,0 +1,72 @@
+{
+  "version": "2.0.0",
+  "organization": "Bobby's Workshop",
+  "shared": {
+    "workshop_black": "#080B10",
+    "command_navy": "#071525",
+    "phoenix_blue": "#176BFF",
+    "electric_cyan": "#00C8F0",
+    "steel_white": "#E9EDF2",
+    "steel_silver": "#A9B8C7"
+  },
+  "products": {
+    "phoenixcore_mobile": {
+      "phoenix_blue": "#126BFF",
+      "command_cyan": "#00C8F0",
+      "status_green": "#27D17F"
+    },
+    "phoenixcore_desktop": {
+      "command_navy": "#071525",
+      "systems_cyan": "#00BFD8",
+      "graphite": "#202B38",
+      "steel_silver": "#A9B8C7"
+    },
+    "phoenix_usb_creator": {
+      "forge_black": "#0B0D12",
+      "phoenix_orange": "#FF6A00",
+      "hot_amber": "#FFA31A",
+      "electric_blue": "#147DFF"
+    },
+    "device_diagnosis_engine": {
+      "diagnostic_navy": "#071629",
+      "scan_blue": "#126BFF",
+      "diagnostic_cyan": "#28D7E5"
+    },
+    "repair_planning_engine": {
+      "planning_navy": "#081725",
+      "route_blue": "#1677C8",
+      "decision_amber": "#F3A712",
+      "safety_gold": "#FFD166"
+    },
+    "os_compatibility_engine": {
+      "matrix_teal": "#00A98F",
+      "compatibility_green": "#29D391",
+      "validation_cyan": "#28D7E5"
+    },
+    "boot_media_builder": {
+      "graphite": "#161B22",
+      "hot_amber": "#FFA31A",
+      "verification_blue": "#147DFF"
+    },
+    "repair_session_manager": {
+      "session_violet": "#6E56CF",
+      "session_blue": "#316BFF"
+    },
+    "device_identity_service": {
+      "identity_cyan": "#00C8F0",
+      "identity_blue": "#176BFF"
+    },
+    "technician_workspace": {
+      "technician_steel": "#8796A8",
+      "tool_cyan": "#00BFD8"
+    },
+    "installer_and_deployment_manager": {
+      "deployment_orange": "#FF7A18",
+      "deployment_blue": "#176BFF"
+    },
+    "recovery_vault": {
+      "recovery_gold": "#D7A845",
+      "recovery_blue": "#176BFF"
+    }
+  }
+}
