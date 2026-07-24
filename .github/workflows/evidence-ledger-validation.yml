@@ -1,0 +1,64 @@
+name: Evidence Ledger Validation
+
+on:
+  pull_request:
+    paths:
+      - scripts/evidence/evidence_ledger.py
+      - tests/test_evidence_ledger.py
+      - docs/EVIDENCE_LEDGER.md
+      - .github/workflows/evidence-ledger-validation.yml
+  push:
+    branches:
+      - main
+      - agent/r2-evidence-ledger-v1
+    paths:
+      - scripts/evidence/evidence_ledger.py
+      - tests/test_evidence_ledger.py
+      - docs/EVIDENCE_LEDGER.md
+      - .github/workflows/evidence-ledger-validation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-ledger-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Evidence ledger contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install formatter
+        run: python -m pip install black
+
+      - name: Check formatting
+        run: >-
+          black --check --diff
+          scripts/evidence/evidence_ledger.py
+          tests/test_evidence_ledger.py
+
+      - name: Compile Python
+        run: >-
+          python -m compileall -q
+          scripts/evidence/evidence_ledger.py
+          tests/test_evidence_ledger.py
+
+      - name: Run focused tests
+        run: python -m unittest tests/test_evidence_ledger.py -v
+
+      - name: Static safety scan
+        run: |
+          if grep -R "open(.*wb\|os.remove\|shutil.rmtree\|subprocess.*dd\|mkfs\|diskpart" scripts/evidence tests/test_evidence_ledger.py; then
+            echo "Unexpected destructive operation in evidence ledger surface" >&2
+            exit 1
+          fi
+          echo "EVIDENCE_LEDGER_STATIC_SAFETY=pass"
