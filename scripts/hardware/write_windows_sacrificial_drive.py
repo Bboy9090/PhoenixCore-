@@ -99,7 +99,9 @@ def load_drive_evidence(path: Path) -> dict[str, Any]:
     if receipt.get("evidence_source") != "live":
         raise WriteGateError("Fixture evidence cannot authorize a physical write.")
     if receipt.get("hardware_observed") is not True:
-        raise WriteGateError("Drive evidence does not contain a live hardware observation.")
+        raise WriteGateError(
+            "Drive evidence does not contain a live hardware observation."
+        )
     if receipt.get("hardware_validated") is not False:
         raise WriteGateError("Pre-write evidence must not claim hardware validation.")
     if receipt.get("physical_write_attempted") is not False:
@@ -114,7 +116,9 @@ def load_drive_evidence(path: Path) -> dict[str, Any]:
         reasons = disk.get("write_block_reasons") or ["unspecified"]
         raise WriteGateError(f"Drive evidence blocks writing: {reasons}")
     if disk.get("is_boot") or disk.get("is_system"):
-        raise WriteGateError("Boot and system disks are never valid sacrificial targets.")
+        raise WriteGateError(
+            "Boot and system disks are never valid sacrificial targets."
+        )
     if not disk.get("identity_sha256"):
         raise WriteGateError("Drive evidence is missing its identity SHA-256.")
     return receipt
@@ -321,7 +325,9 @@ def write_and_verify(
     source_hash = source_digest.hexdigest()
     readback_hash = readback_digest.hexdigest()
     if bytes_written != byte_cap or bytes_read != byte_cap:
-        raise WriteGateError("Write or read-back byte count does not match the byte cap.")
+        raise WriteGateError(
+            "Write or read-back byte count does not match the byte cap."
+        )
     if source_hash != readback_hash:
         raise WriteGateError("Full read-back SHA-256 does not match the source image.")
 
