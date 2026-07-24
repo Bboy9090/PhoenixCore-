@@ -1,0 +1,112 @@
+name: Windows Drive Evidence
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - agent/windows-drive-evidence-v1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-drive-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Read-only evidence (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install formatter
+        run: python -m pip install black
+
+      - name: Check focused formatting
+        run: >-
+          black --check --diff
+          scripts/hardware/capture_windows_drive_evidence.py
+          tests/test_windows_drive_evidence.py
+
+      - name: Compile collector and tests
+        run: >-
+          python -m compileall -q
+          scripts/hardware/capture_windows_drive_evidence.py
+          tests/test_windows_drive_evidence.py
+
+      - name: Run focused tests
+        run: python -m unittest tests/test_windows_drive_evidence.py -v
+
+      - name: Reject raw-write APIs in evidence collector
+        shell: python
+        run: |
+          from pathlib import Path
+
+          source = Path(
+              "scripts/hardware/capture_windows_drive_evidence.py"
+          ).read_text(encoding="utf-8")
+          forbidden = [
+              "GENERIC_WRITE",
+              "WriteFile",
+              "Set-Disk",
+              "Clear-Disk",
+              "Initialize-Disk",
+              "Format-Volume",
+              "Set-Partition",
+              "Remove-Partition",
+              "IOCTL_DISK_SET_DRIVE_LAYOUT",
+          ]
+          found = [token for token in forbidden if token in source]
+          if found:
+              raise SystemExit(f"raw-write APIs forbidden in evidence collector: {found}")
+          print("RAW_WRITE_API_SCAN=pass")
+
+      - name: Generate deterministic fixture receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence-output
+          python scripts/hardware/capture_windows_drive_evidence.py \
+            --target '\\.\PHYSICALDRIVE1' \
+            --fixture-json tests/fixtures/windows_disk_usb.json \
+            --output evidence-output/windows-disk-fixture.json \
+            --source-commit "$GITHUB_SHA" \
+            > evidence-output/stdout.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          receipt = json.loads(
+              Path("evidence-output/windows-disk-fixture.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          assert receipt["classification"] == "fixture-validated"
+          assert receipt["bytes_written"] == 0
+          assert receipt["physical_write_attempted"] is False
+          assert receipt["hardware_observed"] is False
+          assert receipt["hardware_validated"] is False
+          assert receipt["disk"]["write_candidate"] is True
+          print("DRIVE_EVIDENCE_FIXTURE=pass")
+          PY
+
+      - name: Upload fixture receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-drive-evidence-${{ matrix.os }}
+          path: evidence-output
+          if-no-files-found: warn
+          retention-days: 14
