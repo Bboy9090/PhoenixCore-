@@ -195,7 +195,9 @@ $partitions = @(
     try:
         return json.loads(completed.stdout.strip())
     except json.JSONDecodeError as exc:
-        raise EvidenceError("PowerShell returned malformed disk evidence JSON.") from exc
+        raise EvidenceError(
+            "PowerShell returned malformed disk evidence JSON."
+        ) from exc
 
 
 def probe_exclusive_read_handle(target: str) -> dict[str, Any]:
@@ -299,12 +301,16 @@ def build_receipt(
         "physical_write_attempted": False,
         "hardware_observed": evidence_source == "live",
         "hardware_validated": False,
-        "classification": "hardware-evidence-captured"
-        if evidence_source == "live"
-        else "fixture-validated",
-        "next_required_action": "explicit-sacrificial-drive-authorization"
-        if disk["write_candidate"]
-        else "resolve-write-block-reasons",
+        "classification": (
+            "hardware-evidence-captured"
+            if evidence_source == "live"
+            else "fixture-validated"
+        ),
+        "next_required_action": (
+            "explicit-sacrificial-drive-authorization"
+            if disk["write_candidate"]
+            else "resolve-write-block-reasons"
+        ),
     }
     receipt["receipt_sha256"] = sha256_payload(receipt)
     return receipt
@@ -331,7 +337,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--source-commit", default=os.environ.get("GITHUB_SHA", "unknown"))
+    parser.add_argument(
+        "--source-commit", default=os.environ.get("GITHUB_SHA", "unknown")
+    )
     parser.add_argument("--fixture-json", type=Path)
     parser.add_argument("--probe-exclusive-read", action="store_true")
     return parser.parse_args()

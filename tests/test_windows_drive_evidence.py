@@ -38,9 +38,7 @@ class WindowsDriveEvidenceTests(unittest.TestCase):
             captured_at="2026-07-24T01:00:00Z",
         )
 
-        self.assertEqual(
-            "bws.physical-drive-evidence/v1", receipt["schema_version"]
-        )
+        self.assertEqual("bws.physical-drive-evidence/v1", receipt["schema_version"])
         self.assertEqual("fixture-validated", receipt["classification"])
         self.assertTrue(receipt["disk"]["write_candidate"])
         self.assertEqual([], receipt["disk"]["write_block_reasons"])
@@ -77,9 +75,7 @@ class WindowsDriveEvidenceTests(unittest.TestCase):
             "target-not-proven-external-removable",
             receipt["disk"]["write_block_reasons"],
         )
-        self.assertEqual(
-            "resolve-write-block-reasons", receipt["next_required_action"]
-        )
+        self.assertEqual("resolve-write-block-reasons", receipt["next_required_action"])
 
     def test_missing_stable_identity_blocks_candidate(self):
         fixture = dict(self.fixture)
