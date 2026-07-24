@@ -9,6 +9,7 @@ use windows_target::{resolve_target, TargetResolution};
 
 const USB_CREATOR_SOURCE: &str = include_str!("../../../../usb_creator.py");
 const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py");
+const TARGET_RESOLUTION_SCHEMA: &str = "phoenix_key.target_resolution.v1";
 
 #[tauri::command]
 fn scan_connected_devices() -> Result<Vec<DeviceInfo>, String> {
@@ -86,6 +87,16 @@ fn attach_target_resolution(
         true
     };
 
+    let resolution_status = if resolution.is_windows_physical_drive() {
+        if scanner_planner_consistent {
+            "target_resolved_from_scanner_evidence"
+        } else {
+            "target_not_resolved_from_scanner_evidence"
+        }
+    } else {
+        "target_passthrough"
+    };
+
     let object = plan
         .as_object_mut()
         .ok_or_else(|| "phoenixcore_plan_not_json_object".to_string())?;
@@ -93,9 +104,11 @@ fn attach_target_resolution(
     object.insert(
         "target_resolution".to_string(),
         json!({
+            "schema": TARGET_RESOLUTION_SCHEMA,
             "requested_path": &resolution.requested_path,
             "canonical_path": &resolution.canonical_path,
             "resolution_source": resolution.resolution_source,
+            "resolution_status": resolution_status,
             "target_kind": resolution.target_kind,
             "canonicalized": resolution.canonicalized,
             "planner_root": planner_root,
@@ -161,9 +174,19 @@ mod tests {
         attach_target_resolution(&mut plan, &resolution).unwrap();
 
         assert_eq!(
+            plan.pointer("/target_resolution/schema")
+                .and_then(|value| value.as_str()),
+            Some("phoenix_key.target_resolution.v1")
+        );
+        assert_eq!(
             plan.pointer("/target_resolution/canonical_path")
                 .and_then(|value| value.as_str()),
             Some(r"\\.\PHYSICALDRIVE1")
+        );
+        assert_eq!(
+            plan.pointer("/target_resolution/resolution_status")
+                .and_then(|value| value.as_str()),
+            Some("target_resolved_from_scanner_evidence")
         );
         assert_eq!(
             plan.pointer("/target_resolution/scanner_planner_consistent")
@@ -183,6 +206,11 @@ mod tests {
         attach_target_resolution(&mut plan, &resolution).unwrap();
 
         assert_eq!(
+            plan.pointer("/target_resolution/resolution_status")
+                .and_then(|value| value.as_str()),
+            Some("target_not_resolved_from_scanner_evidence")
+        );
+        assert_eq!(
             plan.pointer("/target_resolution/scanner_planner_consistent")
                 .and_then(|value| value.as_bool()),
             Some(false)
@@ -190,6 +218,31 @@ mod tests {
         assert!(plan
             .pointer("/target_resolution/planner_root")
             .is_some_and(|value| value.is_null()));
+    }
+
+    #[test]
+    fn records_passthrough_target_status() {
+        let resolution = resolve_target("E:\\").unwrap();
+        let mut plan = json!({
+            "drive_safety": {
+                "drive": {
+                    "root": "E:\\"
+                }
+            }
+        });
+
+        attach_target_resolution(&mut plan, &resolution).unwrap();
+
+        assert_eq!(
+            plan.pointer("/target_resolution/resolution_status")
+                .and_then(|value| value.as_str()),
+            Some("target_passthrough")
+        );
+        assert_eq!(
+            plan.pointer("/target_resolution/scanner_planner_consistent")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
     }
 
     #[test]
