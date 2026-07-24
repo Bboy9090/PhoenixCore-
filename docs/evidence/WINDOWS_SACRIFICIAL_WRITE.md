@@ -20,6 +20,12 @@ python scripts\hardware\capture_windows_drive_evidence.py `
 
 Fixture receipts cannot authorize physical writes.
 
+## Evidence storage rule
+
+The input receipt and final write receipt must be stored on a different physical disk from the sacrificial target. Create the output directory before execution and confirm its volume is not backed by the selected `PHYSICALDRIVE`.
+
+Do not save the only copy of the evidence onto the disk that is about to be overwritten. The writer cannot preserve a receipt stored on its own destruction target, a fact disks understand more readily than people.
+
 ## Authorization phrase
 
 The writer calculates an exact phrase from the receipt:
