@@ -60,7 +60,9 @@ class CheckpointStoreTests(unittest.TestCase):
             store = checkpoint_module.CheckpointStore(root / "continuity")
             checkpoint = store.create_checkpoint(source, repair_id=2)
             completed = store.mark_completed(checkpoint.checkpoint_id)
-            self.assertEqual(completed.state, checkpoint_module.CheckpointState.COMPLETED)
+            self.assertEqual(
+                completed.state, checkpoint_module.CheckpointState.COMPLETED
+            )
             self.assertEqual(store.list_pending(), [])
 
     def test_rejects_directory_source_and_negative_repair_id(self) -> None:

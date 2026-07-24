@@ -146,7 +146,9 @@ class CheckpointStore:
 
             final_backup = self.backup_dir / f"{checkpoint_id}.bin"
             temporary_backup = final_backup.with_suffix(".bin.tmp")
-            with source.open("rb") as source_stream, temporary_backup.open("wb") as backup_stream:
+            with source.open("rb") as source_stream, temporary_backup.open(
+                "wb"
+            ) as backup_stream:
                 shutil.copyfileobj(source_stream, backup_stream, length=1024 * 1024)
                 backup_stream.flush()
                 os.fsync(backup_stream.fileno())
@@ -175,7 +177,9 @@ class CheckpointStore:
         try:
             value = json.loads(metadata_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise CheckpointError(f"checkpoint metadata could not be read: {exc}") from exc
+            raise CheckpointError(
+                f"checkpoint metadata could not be read: {exc}"
+            ) from exc
         if not isinstance(value, dict):
             raise CheckpointError("checkpoint metadata must be a JSON object.")
         return record_from_json(value)
@@ -196,10 +200,14 @@ class CheckpointStore:
     def restore(self, checkpoint_id: str, target_path: Path) -> CheckpointRecord:
         with self._lock:
             record = self.verify(checkpoint_id)
-            backup = ensure_regular_file(Path(record.backup_path), label="checkpoint backup")
+            backup = ensure_regular_file(
+                Path(record.backup_path), label="checkpoint backup"
+            )
             target = target_path.expanduser().resolve()
             if target.exists() and not target.is_file():
-                raise CheckpointError("restore target must be a regular file if it exists.")
+                raise CheckpointError(
+                    "restore target must be a regular file if it exists."
+                )
             if target.exists() and target.is_symlink():
                 raise CheckpointError("restore target must not be a symlink.")
             target.parent.mkdir(parents=True, exist_ok=True)
