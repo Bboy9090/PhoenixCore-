@@ -1,0 +1,64 @@
+name: Checkpointed Repair Validation
+
+on:
+  pull_request:
+    paths:
+      - scripts/recovery/checkpointed_repair.py
+      - tests/test_checkpointed_repair.py
+      - docs/CHECKPOINTED_REPAIR.md
+      - .github/workflows/checkpointed-repair-validation.yml
+  push:
+    branches:
+      - main
+      - agent/r4-checkpointed-repair-v1
+    paths:
+      - scripts/recovery/checkpointed_repair.py
+      - tests/test_checkpointed_repair.py
+      - docs/CHECKPOINTED_REPAIR.md
+      - .github/workflows/checkpointed-repair-validation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checkpointed-repair-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Checkpointed repair contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install formatter
+        run: python -m pip install black
+
+      - name: Check formatting
+        run: >-
+          black --check --diff
+          scripts/recovery/checkpointed_repair.py
+          tests/test_checkpointed_repair.py
+
+      - name: Compile Python
+        run: >-
+          python -m compileall -q
+          scripts/recovery/checkpointed_repair.py
+          tests/test_checkpointed_repair.py
+
+      - name: Run focused tests
+        run: python -m unittest tests/test_checkpointed_repair.py -v
+
+      - name: Static safety scan
+        run: |
+          if grep -R "subprocess.*dd\|mkfs\|diskpart\|nvram\|efibootmgr\|/dev/sd\|PHYSICALDRIVE\|shutil.rmtree" scripts/recovery/checkpointed_repair.py tests/test_checkpointed_repair.py; then
+            echo "Unexpected disk, firmware, raw-device, or tree-delete operation in checkpointed repair surface" >&2
+            exit 1
+          fi
+          echo "CHECKPOINTED_REPAIR_STATIC_SAFETY=pass"
