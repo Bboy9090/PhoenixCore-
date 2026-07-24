@@ -1,0 +1,26 @@
+{
+  "Number": 1,
+  "FriendlyName": "JMicron Tech USB",
+  "SerialNumber": "BWS-SACRIFICIAL-0001",
+  "UniqueId": "USBSTOR-BWS-SACRIFICIAL-0001",
+  "BusType": "USB",
+  "SizeBytes": 1000204886016,
+  "PartitionStyle": "GPT",
+  "IsBoot": false,
+  "IsSystem": false,
+  "IsOffline": false,
+  "IsReadOnly": false,
+  "HealthStatus": "Healthy",
+  "OperationalStatus": ["Online"],
+  "Partitions": [
+    {
+      "PartitionNumber": 1,
+      "DriveLetter": "E",
+      "Offset": 1048576,
+      "Size": 1000202788864,
+      "Type": "Basic",
+      "IsBoot": false,
+      "IsSystem": false
+    }
+  ]
+}
