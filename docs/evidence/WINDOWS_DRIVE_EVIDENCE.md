@@ -67,6 +67,16 @@ hardware_validated: false
 
 The implementation rejects any supplied probe observation reporting nonzero writes.
 
+## Verify a retained receipt
+
+The receipt digest binds the canonical JSON object before the `receipt_sha256` field is added:
+
+```powershell
+python -c "import hashlib,json,pathlib; p=pathlib.Path(r'.\evidence\hardware\physicaldrive1.json'); r=json.loads(p.read_text()); expected=r.pop('receipt_sha256'); encoded=json.dumps(r,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode(); actual=hashlib.sha256(encoded).hexdigest(); print('PASS' if actual==expected else 'FAIL', actual)"
+```
+
+A matching digest proves the saved receipt has not changed since collection. It does not independently prove the operating system reported truthful hardware metadata, which is why the next gate repeats identity immediately before any write.
+
 ## Fixture validation
 
 ```bash
