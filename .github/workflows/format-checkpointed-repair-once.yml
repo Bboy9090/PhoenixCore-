@@ -1,0 +1,38 @@
+name: Format Checkpointed Repair Once
+
+on:
+  push:
+    branches:
+      - agent/r4-checkpointed-repair-v1
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/r4-checkpointed-repair-v1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: python -m pip install black
+
+      - run: >-
+          black
+          scripts/recovery/checkpointed_repair.py
+          tests/test_checkpointed_repair.py
+
+      - run: |
+          rm .github/workflows/format-checkpointed-repair-once.yml
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add scripts/recovery/checkpointed_repair.py tests/test_checkpointed_repair.py .github/workflows/format-checkpointed-repair-once.yml
+          git commit -m "style: format checkpointed repair files" || exit 0
+          git push
