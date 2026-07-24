@@ -1,0 +1,56 @@
+name: Launch Boundary Audit
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - agent/launch-boundary-audit-v1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launch-boundary-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: PhoenixCore launch boundary validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile validator and tests
+        run: python -m compileall -q scripts/validate_launch_boundaries.py tests/test_launch_boundaries.py
+      - name: Validate launch claims matrix and docs
+        run: >-
+          python scripts/validate_launch_boundaries.py
+          --output /tmp/phoenixcore-launch-boundary-report.json
+      - name: Run focused tests
+        run: python -m unittest discover -s tests -p "test_launch_boundaries.py" -v
+      - name: Enforce no production secrets or bypass claims
+        shell: python
+        run: |
+          from pathlib import Path
+
+          paths = [
+              Path("docs/LAUNCH_CLAIMS_MATRIX.json"),
+              Path("docs/PRODUCT_BOUNDARIES.md"),
+              Path("scripts/validate_launch_boundaries.py"),
+          ]
+          text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
+          forbidden = [
+              "BEGIN PRIVATE KEY",
+              "BEGIN OPENSSH PRIVATE KEY",
+              '"production_release": true',
+              '"release_candidate": true',
+              '"ownership_or_activation_bypass": true',
+          ]
+          found = [token for token in forbidden if token in text]
+          if found:
+              raise SystemExit(f"forbidden launch material or claim: {found}")
+          print("PHOENIXCORE_LAUNCH_CLASSIFICATION=integrated-prototype")

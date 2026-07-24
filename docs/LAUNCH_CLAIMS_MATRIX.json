@@ -1,0 +1,77 @@
+{
+  "schema": "bws.phoenixcore-launch-claims/v1",
+  "maturity": "integrated-prototype",
+  "products": {
+    "PhoenixCore": {
+      "owns": [
+        "device-interpretation",
+        "diagnostics",
+        "compatibility-planning",
+        "repair-session-contracts",
+        "evidence-orchestration"
+      ],
+      "does_not_own": [
+        "native-kernel",
+        "native-drivers",
+        "native-os-source-tree"
+      ]
+    },
+    "BootForge": {
+      "owns": [
+        "guarded-media-primitives",
+        "immutable-target-identity",
+        "low-level-device-discovery"
+      ],
+      "does_not_own": [
+        "technician-policy",
+        "silent-target-selection"
+      ]
+    },
+    "Phoenix Key": {
+      "owns": [
+        "user-facing-media-workflow",
+        "preflight",
+        "explicit-authorization",
+        "write-and-readback-receipts"
+      ],
+      "does_not_own": [
+        "unrestricted-disk-writing",
+        "unsupported-target-approval"
+      ]
+    },
+    "ARCWYRE": {
+      "owns": [
+        "native-boot",
+        "kernel",
+        "userspace",
+        "live-repair-execution",
+        "native-evidence"
+      ],
+      "does_not_own": [
+        "host-side-device-interpretation"
+      ]
+    }
+  },
+  "claims": {
+    "production_release": false,
+    "release_candidate": false,
+    "universal_hardware_support": false,
+    "universally_safe_physical_writing": false,
+    "trusted_tool_registry_operational": false,
+    "ownership_or_activation_bypass": false
+  },
+  "supported_foundation": [
+    "read-only-device-evidence",
+    "dry-run-planning",
+    "fail-closed-tool-registry-rejection",
+    "guarded-windows-installer-lifecycle",
+    "bounded-sacrificial-drive-writer-contract",
+    "artifact-and-hardware-receipt-foundations"
+  ],
+  "blockers": [
+    "issue-135-hardware-validation",
+    "issue-136-tool-registry-trust",
+    "reproducible-production-release",
+    "approved-production-signing"
+  ]
+}
