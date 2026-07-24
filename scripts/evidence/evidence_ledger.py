@@ -86,7 +86,9 @@ def validate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def validate_record_shape(value: Mapping[str, Any], *, line_number: int) -> EvidenceRecord:
+def validate_record_shape(
+    value: Mapping[str, Any], *, line_number: int
+) -> EvidenceRecord:
     try:
         record = EvidenceRecord(
             schema_version=str(value["schema_version"]),
