@@ -17,7 +17,11 @@ SPEC.loader.exec_module(MODULE)
 
 class LaunchBoundaryTests(unittest.TestCase):
     def matrix(self) -> dict:
-        return json.loads((ROOT / "docs" / "LAUNCH_CLAIMS_MATRIX.json").read_text(encoding="utf-8"))
+        return json.loads(
+            (ROOT / "docs" / "LAUNCH_CLAIMS_MATRIX.json").read_text(
+                encoding="utf-8"
+            )
+        )
 
     def test_current_matrix_is_truthful_and_blocked(self) -> None:
         report = MODULE.validate_matrix(self.matrix())
