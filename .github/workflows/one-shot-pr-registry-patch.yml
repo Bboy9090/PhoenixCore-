@@ -1,0 +1,60 @@
+name: One-shot PR registry patch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.ref == 'agent/phoenixcore-foundation-fail-closed-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phoenixcore-foundation-fail-closed-v2
+          fetch-depth: 0
+
+      - name: Apply fail-closed patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("usb_creator.py")
+          source = path.read_text(encoding="utf-8")
+
+          old_phrase = "Tool registry manifest not found. Proceeding with basic validations."
+          new_phrase = "Tool registry manifest not found. Tool validation will fail closed."
+          old_block = '''    if not registry:
+              _log(
+                  "warning",
+                  f"Registry unavailable. Standard validation bypassed for {tool_id}.",
+              )
+              return True'''
+          new_block = '''    if not registry:
+              _log(
+                  "error",
+                  f"Registry unavailable. Tool validation denied for {tool_id}.",
+              )
+              return False'''
+
+          if source.count(old_phrase) != 1:
+              raise SystemExit("missing registry warning did not match exactly once")
+          if source.count(old_block) != 1:
+              raise SystemExit("fail-open approval block did not match exactly once")
+
+          source = source.replace(old_phrase, new_phrase)
+          source = source.replace(old_block, new_block)
+          path.write_text(source, encoding="utf-8")
+          PY
+
+      - name: Commit security repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add usb_creator.py
+          git commit -m "fix(security): fail closed when tool registry is unavailable"
+          git push origin HEAD:agent/phoenixcore-foundation-fail-closed-v2
