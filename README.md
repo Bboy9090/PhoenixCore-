@@ -25,24 +25,26 @@ PhoenixCore does not own the kernel and must not duplicate the native OS source 
 
 The current tested surface includes:
 
-- normalized read-only device and removable-drive enumeration
+- normalized read-only device and removable-drive payloads
 - SHA-256 file and image identity
-- detached Ed25519 tool-registry validation
-- fail-closed registry approval when trust evidence is unavailable
-- registered tool URL and checksum enforcement
+- fail-closed tool-registry rejection when trust evidence is unavailable
+- missing, unsigned, invalid, malformed, and tampered registry rejection tests
 - dry-run rescue and media planning
 - guarded Windows Phoenix Key MSI/NSIS builds
 - deterministic artifact receipts
 - clean-runner Windows install, launch, uninstall, and cleanup receipts
 - React dashboard locked install, lint, and production build
 
+The committed tool-registry manifest/signature pair currently fails verification under the configured trust anchor. Registered-tool URL and checksum approval therefore remain unavailable and blocked under issue #136. The system denies approval rather than bypassing trust.
+
 ## Quick start
 
 ### Python foundation
 
 ```bash
-python -m compileall -q usb_creator.py tests
-python -m unittest discover -s tests -p "test_*.py" -v
+python -m compileall -q usb_creator.py device_scanner.py tests/test_foundation_surface.py tests/test_registry_fail_closed.py
+python -m unittest discover -s tests -p "test_foundation_surface.py" -v
+python -m unittest discover -s tests -p "test_registry_fail_closed.py" -v
 python usb_creator.py --list
 python usb_creator.py --create /path/to/mounted/target --dry-run
 ```
@@ -73,7 +75,7 @@ Real drive evidence is allowed through an explicit gated sequence:
 6. complete read-back SHA-256 verification
 7. boot receipt with machine, firmware, Secure Boot, display, and serial markers
 
-Unknown, internal, boot, system, identity-mismatched, or non-authorized targets must fail closed.
+Unknown, internal, boot, system, identity-mismatched, or non-authorized targets must fail closed. The dedicated hardware wave is tracked in issue #135.
 
 ## Product boundaries
 
@@ -101,6 +103,7 @@ PhoenixCore does not currently claim:
 - firmware flashing
 - ownership, activation, FRP, MDM, credential, or anti-theft bypass
 - independently reviewed cryptography
+- a functioning trusted external-tool registry
 - reproducible production releases
 - release-candidate status
 
@@ -111,6 +114,8 @@ PhoenixCore does not currently claim:
 - [Foundation issue #125](https://github.com/Bboy9090/PhoenixCore-/issues/125)
 - [PhoenixCore Desktop packaging issue #131](https://github.com/Bboy9090/PhoenixCore-/issues/131)
 - [Phoenix Key lifecycle issue #132](https://github.com/Bboy9090/PhoenixCore-/issues/132)
+- [Hardware validation issue #135](https://github.com/Bboy9090/PhoenixCore-/issues/135)
+- [Tool-registry trust issue #136](https://github.com/Bboy9090/PhoenixCore-/issues/136)
 
 ## Security
 
