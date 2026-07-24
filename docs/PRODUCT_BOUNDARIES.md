@@ -83,3 +83,28 @@ Real physical-drive evidence is allowed only after:
 7. retained boot receipt
 
 This is not a prohibition on hardware access. It is the required proof boundary between an authorized test and accidental destruction.
+
+## Launch claims boundary
+
+PhoenixCore may launch publicly only with claims supported by retained code, tests, caller integration, and evidence. The current launch classification remains `integrated-prototype`.
+
+Allowed public statements may describe:
+
+- read-only device and removable-drive evidence;
+- dry-run planning;
+- fail-closed tool-registry rejection;
+- guarded Windows installer lifecycle evidence;
+- bounded sacrificial-drive writer contracts;
+- artifact and hardware receipt foundations.
+
+The launch material must not claim:
+
+- production-release or release-candidate status;
+- universal hardware support;
+- universally safe physical writing;
+- a functioning trusted tool registry while issue #136 remains unresolved;
+- ownership, activation, FRP, MDM, credential, anti-theft, carrier, or firmware bypass;
+- native-kernel ownership;
+- a completed ARCWYRE installation merely because Phoenix Key or the dashboard renders.
+
+The machine-readable source of truth is [`LAUNCH_CLAIMS_MATRIX.json`](LAUNCH_CLAIMS_MATRIX.json). Missing launch evidence remains a blocker, not an invitation to improve the adjectives.
