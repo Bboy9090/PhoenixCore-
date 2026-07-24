@@ -59,7 +59,8 @@ jobs:
           ).read_text(encoding="utf-8")
 
           required = [
-              "GENERIC_WRITE",
+              "generic_write = 0x40000000",
+              "generic_read | generic_write",
               "BWS_ENABLE_SACRIFICIAL_DRIVE_WRITE",
               "I AUTHORIZE COMPLETE DESTRUCTION OF",
               "verify_live_identity",
