@@ -12,6 +12,7 @@ import hashlib
 import json
 from pathlib import Path
 
+
 class BootForgeBuilder:
     def __init__(self, workspace_dir: Path):
         self.workspace_dir = Path(workspace_dir)
@@ -28,7 +29,9 @@ class BootForgeBuilder:
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
-    def assemble_hybrid_iso(self, kernel_path: Path, apps_dir: Path, output_iso: Path) -> bool:
+    def assemble_hybrid_iso(
+        self, kernel_path: Path, apps_dir: Path, output_iso: Path
+    ) -> bool:
         """Assembles the OS kernel, configurations, and app store catalogs into a bootable ISO."""
         print(f"=== {self.os_name} Installer Assembler ===")
         print(f"Presented by: {self.presentation}")
@@ -70,11 +73,16 @@ class BootForgeBuilder:
         print(f"Successfully simulated hybrid ISO packaging of {self.os_name}!")
         return True
 
+
 if __name__ == "__main__":
     # Example execution paths
     builder = BootForgeBuilder(Path("c:/Users/Bobby"))
     builder.assemble_hybrid_iso(
-        kernel_path=Path("c:/Users/Bobby/bluephoenix-native-r18/recovery/flagship-foundation/arcwyre-qemu-kernel/src/r18/types.rs"),
-        apps_dir=Path("c:/Users/Bobby/bluephoenix-native-r18/editions/arcwyre-eternum/apps"),
-        output_iso=Path("c:/Users/Bobby/PhoenixCore/dist/arcwyre-eternum.iso")
+        kernel_path=Path(
+            "c:/Users/Bobby/bluephoenix-native-r18/recovery/flagship-foundation/arcwyre-qemu-kernel/src/r18/types.rs"
+        ),
+        apps_dir=Path(
+            "c:/Users/Bobby/bluephoenix-native-r18/editions/arcwyre-eternum/apps"
+        ),
+        output_iso=Path("c:/Users/Bobby/PhoenixCore/dist/arcwyre-eternum.iso"),
     )

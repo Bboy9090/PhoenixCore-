@@ -5,6 +5,7 @@ ARCWYRE Computer Repair Station & Hardware Diagnostic Engine
 
 import json
 
+
 class PcRepairStation:
     def __init__(self):
         self.supported_repairs = [
@@ -12,7 +13,7 @@ class PcRepairStation:
             "efi_bootloader_repair",
             "memory_stress_test",
             "user_data_backup",
-            "system_restore"
+            "system_restore",
         ]
 
     def run_diagnostics(self) -> dict:
@@ -21,8 +22,9 @@ class PcRepairStation:
             "smart_health": "PASSED (Good)",
             "ram_status": "PASSED (Zero Memory Errors)",
             "efi_boot_record": "REPAIRED",
-            "repair_summary": "System ready for deployment."
+            "repair_summary": "System ready for deployment.",
         }
+
 
 if __name__ == "__main__":
     station = PcRepairStation()

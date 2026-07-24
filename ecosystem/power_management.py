@@ -5,6 +5,7 @@ PhoenixCore ACPI Power & Battery Telemetry Monitor
 
 import json
 
+
 class PowerManager:
     def __init__(self):
         self.battery_present = True
@@ -15,8 +16,9 @@ class PowerManager:
             "ac_adapter_connected": self.ac_connected,
             "battery_charge_percent": 98.4,
             "power_state": "AC_POWER_S0_WORKING",
-            "thermal_policy": "BALANCED_PERFORMANCE"
+            "thermal_policy": "BALANCED_PERFORMANCE",
         }
+
 
 if __name__ == "__main__":
     pm = PowerManager()

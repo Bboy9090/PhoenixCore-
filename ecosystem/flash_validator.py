@@ -6,6 +6,7 @@ PhoenixCore Bare-Metal USB Flash Verification & Integrity Checker
 import os
 import hashlib
 
+
 class BareMetalFlashValidator:
     def __init__(self, usb_block_device: str):
         self.usb_block_device = usb_block_device
@@ -15,6 +16,7 @@ class BareMetalFlashValidator:
             # Simulated block device verification for test harness
             return True
         return True
+
 
 if __name__ == "__main__":
     validator = BareMetalFlashValidator("/dev/sdb")

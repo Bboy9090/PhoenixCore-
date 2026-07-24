@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -13,7 +14,6 @@ from typing import Iterable
 
 import cairosvg
 from PIL import Image, ImageDraw
-
 
 FORBIDDEN_ELEMENTS = {"image", "foreignObject", "script"}
 FORBIDDEN_TEXT_TOKENS = {
@@ -86,7 +86,9 @@ def detect_embedded_raster(root: ET.Element) -> bool:
             return True
         for value in elem.attrib.values():
             lowered = str(value).lower()
-            if "data:image/" in lowered or lowered.endswith((".png", ".jpg", ".jpeg", ".webp")):
+            if "data:image/" in lowered or lowered.endswith(
+                (".png", ".jpg", ".jpeg", ".webp")
+            ):
                 return True
     return False
 
@@ -145,11 +147,17 @@ def audit_svg(
 
     result.embedded_raster = detect_embedded_raster(root)
     if result.embedded_raster:
-        result.errors.append("embedded raster, script, foreignObject, or external image detected")
+        result.errors.append(
+            "embedded raster, script, foreignObject, or external image detected"
+        )
 
-    result.contains_text_element = any(local_name(elem.tag) == "text" for elem in root.iter())
+    result.contains_text_element = any(
+        local_name(elem.tag) == "text" for elem in root.iter()
+    )
     if result.contains_text_element:
-        result.errors.append("SVG <text> element detected; final masters must not bake labels")
+        result.errors.append(
+            "SVG <text> element detected; final masters must not bake labels"
+        )
 
     searchable = all_text_and_attributes(root)
     for token in sorted(FORBIDDEN_TEXT_TOKENS):
@@ -206,7 +214,10 @@ def make_contact_sheet(
             tile = Image.new("RGBA", thumb_size, (0, 0, 0, 0))
             tile.alpha_composite(
                 source,
-                ((thumb_size[0] - source.width) // 2, (thumb_size[1] - source.height) // 2),
+                (
+                    (thumb_size[0] - source.width) // 2,
+                    (thumb_size[1] - source.height) // 2,
+                ),
             )
             sheet.paste(tile.convert("RGB"), (x, y))
         label = image_path.stem[:42]
@@ -219,7 +230,9 @@ def make_contact_sheet(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default="branding/v2", help="Brand V2 directory")
-    parser.add_argument("--output", default="brand-qa-output", help="QA artifact directory")
+    parser.add_argument(
+        "--output", default="brand-qa-output", help="QA artifact directory"
+    )
     args = parser.parse_args()
 
     repo_root = Path.cwd()
@@ -235,7 +248,9 @@ def main() -> int:
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     icon_viewbox = normalized_viewbox(spec["icon_master"]["view_box"])
     wallpaper_viewbox = normalized_viewbox(spec["hero_wallpaper"]["view_box"])
-    icon_sizes = [(int(size), int(size)) for size in spec["icon_master"]["required_png_exports"]]
+    icon_sizes = [
+        (int(size), int(size)) for size in spec["icon_master"]["required_png_exports"]
+    ]
     wallpaper_sizes = [
         (int(item["width"]), int(item["height"]))
         for item in spec["hero_wallpaper"]["required_png_exports"]
@@ -252,16 +267,36 @@ def main() -> int:
 
     results: list[AuditResult] = []
     for path in icon_paths:
-        results.append(audit_svg(repo_root, path, "icons", icon_viewbox, icon_sizes, output_dir))
+        results.append(
+            audit_svg(repo_root, path, "icons", icon_viewbox, icon_sizes, output_dir)
+        )
     for path in wallpaper_paths:
-        results.append(audit_svg(repo_root, path, "wallpapers", wallpaper_viewbox, wallpaper_sizes, output_dir))
+        results.append(
+            audit_svg(
+                repo_root,
+                path,
+                "wallpapers",
+                wallpaper_viewbox,
+                wallpaper_sizes,
+                output_dir,
+            )
+        )
 
     small_icons = sorted((output_dir / "icons").glob("*-24x24.png"))
     review_icons = sorted((output_dir / "icons").glob("*-256x256.png"))
     review_wallpapers = sorted((output_dir / "wallpapers").glob("*-1920x1080.png"))
-    make_contact_sheet(small_icons, output_dir / "icon-contact-sheet-24px.png", (96, 96), 6)
-    make_contact_sheet(review_icons, output_dir / "icon-contact-sheet-256px.png", (256, 256), 4)
-    make_contact_sheet(review_wallpapers, output_dir / "wallpaper-contact-sheet-1920x1080.png", (480, 270), 2)
+    make_contact_sheet(
+        small_icons, output_dir / "icon-contact-sheet-24px.png", (96, 96), 6
+    )
+    make_contact_sheet(
+        review_icons, output_dir / "icon-contact-sheet-256px.png", (256, 256), 4
+    )
+    make_contact_sheet(
+        review_wallpapers,
+        output_dir / "wallpaper-contact-sheet-1920x1080.png",
+        (480, 270),
+        2,
+    )
 
     summary = {
         "schema_version": "1.0.0",
@@ -271,7 +306,9 @@ def main() -> int:
         "failed": sum(1 for item in results if not item.passed),
         "results": [{**asdict(item), "passed": item.passed} for item in results],
     }
-    (output_dir / "audit-summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    (output_dir / "audit-summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
 
     lines = [
         "# Brand V2 QA Report",
@@ -286,9 +323,15 @@ def main() -> int:
     ]
     for item in results:
         findings = "; ".join(item.errors or []) or "clean"
-        entropy = "" if item.small_size_entropy is None else str(item.small_size_entropy)
-        lines.append(f"| `{item.path}` | {item.category} | {'PASS' if item.passed else 'FAIL'} | {entropy} | {findings} |")
-    (output_dir / "audit-report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        entropy = (
+            "" if item.small_size_entropy is None else str(item.small_size_entropy)
+        )
+        lines.append(
+            f"| `{item.path}` | {item.category} | {'PASS' if item.passed else 'FAIL'} | {entropy} | {findings} |"
+        )
+    (output_dir / "audit-report.md").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
 
     print(json.dumps({k: v for k, v in summary.items() if k != "results"}, indent=2))
     return 1 if summary["failed"] else 0

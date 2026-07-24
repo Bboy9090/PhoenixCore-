@@ -5,6 +5,7 @@ Phoenix USB Creator Safe Block Device Image Writer
 
 import os
 
+
 class SafeUsbWriter:
     def __init__(self, target_drive_path: str):
         self.target_drive_path = target_drive_path
@@ -24,6 +25,7 @@ class SafeUsbWriter:
             return False
         print(f"[SUCCESS] Writing {iso_path} to {self.target_drive_path}")
         return True
+
 
 if __name__ == "__main__":
     writer = SafeUsbWriter("/dev/sdb")

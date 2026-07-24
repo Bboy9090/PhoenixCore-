@@ -5,6 +5,7 @@ PhoenixCore Universal Hardware Compatibility Matrix Generator
 
 import json
 
+
 class HardwareCompatibilityMatrix:
     def __init__(self):
         self.supported_architectures = ["x86_64", "aarch64"]
@@ -22,11 +23,16 @@ class HardwareCompatibilityMatrix:
             "evaluation": {
                 "architecture_supported": arch_ok,
                 "storage_supported": storage_ok,
-                "network_supported": nic_ok
+                "network_supported": nic_ok,
             },
-            "compatibility_verdict": "FULL_SUPPORT" if overall_pass else "PARTIAL_SUPPORT",
-            "recommended_edition": "ARCWYRE Eternum" if arch == "x86_64" else "ARCWYRE Native"
+            "compatibility_verdict": (
+                "FULL_SUPPORT" if overall_pass else "PARTIAL_SUPPORT"
+            ),
+            "recommended_edition": (
+                "ARCWYRE Eternum" if arch == "x86_64" else "ARCWYRE Native"
+            ),
         }
+
 
 if __name__ == "__main__":
     matrix = HardwareCompatibilityMatrix()
