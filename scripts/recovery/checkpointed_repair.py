@@ -205,7 +205,11 @@ class RecoveryCoordinator:
     ) -> Path:
         target_dir = target.parent
         with tempfile.NamedTemporaryFile(
-            "wb", dir=target_dir, prefix=f".{operation_id}.", suffix=".repair.tmp", delete=False
+            "wb",
+            dir=target_dir,
+            prefix=f".{operation_id}.",
+            suffix=".repair.tmp",
+            delete=False,
         ) as temporary:
             temporary_path = Path(temporary.name)
             with replacement.open("rb") as source_stream:
@@ -256,7 +260,9 @@ class RecoveryCoordinator:
                     "rollback_error": f"{type(rollback_error).__name__}: {rollback_error}",
                 },
             )
-            raise RecoveryError("repair failed and rollback also failed.") from rollback_error
+            raise RecoveryError(
+                "repair failed and rollback also failed."
+            ) from rollback_error
 
 
 def parse_args() -> argparse.Namespace:
