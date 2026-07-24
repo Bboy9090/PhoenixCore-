@@ -70,7 +70,10 @@ def validate_matrix(matrix: dict[str, Any]) -> dict[str, Any]:
     blockers = matrix.get("blockers")
     require(isinstance(blockers, list) and blockers, "launch blockers missing")
     require("issue-135-hardware-validation" in blockers, "hardware blocker missing")
-    require("issue-136-tool-registry-trust" in blockers, "tool-registry blocker missing")
+    require(
+        "issue-136-tool-registry-trust" in blockers,
+        "tool-registry blocker missing",
+    )
     return {
         "valid": True,
         "maturity": matrix["maturity"],
