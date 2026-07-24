@@ -1,0 +1,38 @@
+name: One-shot format foundation tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.event.pull_request.head.ref == 'agent/phoenixcore-foundation-fail-closed-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phoenixcore-foundation-fail-closed-v2
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Format scoped files
+        run: |
+          python -m pip install --upgrade pip
+          pip install black
+          black tests/test_foundation_surface.py tests/test_registry_fail_closed.py
+
+      - name: Remove one-shot workflow and commit
+        run: |
+          git rm .github/workflows/one-shot-format-foundation-tests.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/test_foundation_surface.py tests/test_registry_fail_closed.py
+          git commit -m "style: format foundation security tests"
+          git push origin HEAD:agent/phoenixcore-foundation-fail-closed-v2
