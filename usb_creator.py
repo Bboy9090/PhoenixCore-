@@ -187,7 +187,7 @@ def load_tool_registry():
     if not registry_path.exists():
         _log(
             "warning",
-            "Tool registry manifest not found. Proceeding with basic validations.",
+            "Tool registry manifest not found. Tool validation will fail closed.",
         )
         return None
 
@@ -233,10 +233,10 @@ def validate_tool_against_registry(tool_id, download_url=None, file_path=None):
     registry = load_tool_registry()
     if not registry:
         _log(
-            "warning",
-            f"Registry unavailable. Standard validation bypassed for {tool_id}.",
+            "error",
+            f"Registry unavailable. Tool validation denied for {tool_id}.",
         )
-        return True
+        return False
 
     tools = registry.get("tools", [])
     target_tool = None

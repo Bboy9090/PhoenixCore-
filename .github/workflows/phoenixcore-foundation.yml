@@ -1,0 +1,121 @@
+name: PhoenixCore Foundation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - agent/phoenixcore-foundation-fail-closed-v2
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phoenixcore-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-foundation:
+    name: Python foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile foundation sources
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m compileall -q usb_creator.py device_scanner.py tests/test_foundation_surface.py tests/test_registry_fail_closed.py 2>&1 | tee python-compile.log
+
+      - name: Run deterministic foundation tests
+        shell: bash
+        run: |
+          set -o pipefail
+          : > python-tests.log
+          python -m unittest discover -s tests -p "test_foundation_surface.py" -v 2>&1 | tee -a python-tests.log
+          python -m unittest discover -s tests -p "test_registry_fail_closed.py" -v 2>&1 | tee -a python-tests.log
+
+      - name: Enforce fail-closed registry source boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("usb_creator.py").read_text(encoding="utf-8")
+          forbidden = "Registry unavailable. Standard validation bypassed"
+          required = "Registry unavailable. Tool validation denied"
+          if forbidden in source:
+              raise SystemExit("fail-open registry bypass marker remains")
+          if required not in source:
+              raise SystemExit("fail-closed registry denial marker missing")
+          print("TOOL_REGISTRY_FAIL_CLOSED=pass")
+          PY
+
+      - name: Upload Python evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenixcore-python-foundation
+          path: |
+            python-compile.log
+            python-tests.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  dashboard-foundation:
+    name: Dashboard lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -o pipefail
+          cd dashboard
+          npm ci 2>&1 | tee ../dashboard-install.log
+
+      - name: Lint dashboard
+        shell: bash
+        run: |
+          set -o pipefail
+          cd dashboard
+          npm run lint 2>&1 | tee ../dashboard-lint.log
+
+      - name: Build dashboard
+        shell: bash
+        run: |
+          set -o pipefail
+          cd dashboard
+          npm run build 2>&1 | tee ../dashboard-build.log
+
+      - name: Upload dashboard evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenixcore-dashboard-foundation
+          path: |
+            dashboard-install.log
+            dashboard-lint.log
+            dashboard-build.log
+            dashboard/dist
+          if-no-files-found: warn
+          retention-days: 14
