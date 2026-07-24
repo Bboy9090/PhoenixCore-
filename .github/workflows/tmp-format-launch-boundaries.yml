@@ -1,0 +1,40 @@
+name: Temporary Launch Boundary Formatter
+
+on:
+  push:
+    branches:
+      - agent/launch-boundary-audit-v1
+    paths:
+      - .github/workflows/tmp-format-launch-boundaries.yml
+      - scripts/validate_launch_boundaries.py
+      - tests/test_launch_boundaries.py
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/launch-boundary-audit-v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Black
+        run: python -m pip install black
+      - name: Format launch boundary Python files
+        run: |
+          set -euo pipefail
+          python -m black scripts/validate_launch_boundaries.py tests/test_launch_boundaries.py
+          if git diff --quiet scripts/validate_launch_boundaries.py tests/test_launch_boundaries.py; then
+            echo "No launch boundary formatting changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/validate_launch_boundaries.py tests/test_launch_boundaries.py
+          git commit -m "style: apply Black to launch boundary files"
+          git push
