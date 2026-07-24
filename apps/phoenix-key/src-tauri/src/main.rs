@@ -93,8 +93,8 @@ fn attach_target_resolution(
     object.insert(
         "target_resolution".to_string(),
         json!({
-            "requested_path": resolution.requested_path,
-            "canonical_path": resolution.canonical_path,
+            "requested_path": &resolution.requested_path,
+            "canonical_path": &resolution.canonical_path,
             "resolution_source": resolution.resolution_source,
             "target_kind": resolution.target_kind,
             "canonicalized": resolution.canonicalized,
