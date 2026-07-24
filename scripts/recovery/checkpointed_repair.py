@@ -104,11 +104,12 @@ def fsync_directory(path: Path) -> None:
 
 
 def ensure_regular_file(path: Path, *, label: str) -> Path:
-    resolved = path.expanduser().resolve(strict=True)
+    expanded = path.expanduser()
+    if expanded.is_symlink():
+        raise RecoveryError(f"{label} must not be a symlink.")
+    resolved = expanded.resolve(strict=True)
     if not resolved.is_file():
         raise RecoveryError(f"{label} must be an existing regular file.")
-    if resolved.is_symlink():
-        raise RecoveryError(f"{label} must not be a symlink.")
     return resolved
 
 
