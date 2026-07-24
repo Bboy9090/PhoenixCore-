@@ -1,0 +1,64 @@
+name: Continuity Checkpoint Validation
+
+on:
+  pull_request:
+    paths:
+      - scripts/continuity/checkpoint_store.py
+      - tests/test_continuity_checkpoint_store.py
+      - docs/CONTINUITY_CHECKPOINTS.md
+      - .github/workflows/continuity-checkpoints-validation.yml
+  push:
+    branches:
+      - main
+      - agent/r3-continuity-checkpoints-v1
+    paths:
+      - scripts/continuity/checkpoint_store.py
+      - tests/test_continuity_checkpoint_store.py
+      - docs/CONTINUITY_CHECKPOINTS.md
+      - .github/workflows/continuity-checkpoints-validation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: continuity-checkpoints-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Continuity checkpoint contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install formatter
+        run: python -m pip install black
+
+      - name: Check formatting
+        run: >-
+          black --check --diff
+          scripts/continuity/checkpoint_store.py
+          tests/test_continuity_checkpoint_store.py
+
+      - name: Compile Python
+        run: >-
+          python -m compileall -q
+          scripts/continuity/checkpoint_store.py
+          tests/test_continuity_checkpoint_store.py
+
+      - name: Run focused tests
+        run: python -m unittest tests/test_continuity_checkpoint_store.py -v
+
+      - name: Static safety scan
+        run: |
+          if grep -R "subprocess.*dd\|mkfs\|diskpart\|nvram\|efibootmgr\|/dev/sd\|PHYSICALDRIVE" scripts/continuity tests/test_continuity_checkpoint_store.py; then
+            echo "Unexpected disk, firmware, or raw-device operation in continuity checkpoint surface" >&2
+            exit 1
+          fi
+          echo "CONTINUITY_CHECKPOINT_STATIC_SAFETY=pass"
