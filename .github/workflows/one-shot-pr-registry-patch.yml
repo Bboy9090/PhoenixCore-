@@ -21,6 +21,7 @@ jobs:
       - name: Apply fail-closed patch
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path("usb_creator.py")
@@ -28,26 +29,31 @@ jobs:
 
           old_phrase = "Tool registry manifest not found. Proceeding with basic validations."
           new_phrase = "Tool registry manifest not found. Tool validation will fail closed."
-          old_block = '''    if not registry:
-              _log(
-                  "warning",
-                  f"Registry unavailable. Standard validation bypassed for {tool_id}.",
-              )
-              return True'''
-          new_block = '''    if not registry:
-              _log(
-                  "error",
-                  f"Registry unavailable. Tool validation denied for {tool_id}.",
-              )
-              return False'''
+          pattern = re.compile(
+              r'^    if not registry:\n'
+              r'        _log\(\n'
+              r'            "warning",\n'
+              r'            f"Registry unavailable\. Standard validation bypassed for \{tool_id\}\."\,\n'
+              r'        \)\n'
+              r'        return True$',
+              re.MULTILINE,
+          )
+          replacement = (
+              '    if not registry:\n'
+              '        _log(\n'
+              '            "error",\n'
+              '            f"Registry unavailable. Tool validation denied for {tool_id}.",\n'
+              '        )\n'
+              '        return False'
+          )
 
           if source.count(old_phrase) != 1:
               raise SystemExit("missing registry warning did not match exactly once")
-          if source.count(old_block) != 1:
+          source = source.replace(old_phrase, new_phrase)
+          source, substitutions = pattern.subn(replacement, source, count=1)
+          if substitutions != 1:
               raise SystemExit("fail-open approval block did not match exactly once")
 
-          source = source.replace(old_phrase, new_phrase)
-          source = source.replace(old_block, new_block)
           path.write_text(source, encoding="utf-8")
           PY
 
