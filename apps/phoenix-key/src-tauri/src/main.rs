@@ -1,8 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod windows_target;
+
 use libbootforge::{scan_devices, DeviceInfo};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::{fs, path::PathBuf, process::Command};
+use windows_target::{resolve_target, TargetResolution};
 
 const USB_CREATOR_SOURCE: &str = include_str!("../../../../usb_creator.py");
 const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py");
@@ -65,24 +68,42 @@ fn run_phoenixcore(args: &[&str]) -> Result<Value, String> {
     ))
 }
 
-fn canonicalize_windows_physical_drive_arg(value: &str) -> String {
-    let trimmed = value.trim().replace('/', "\\");
-    let upper = trimmed.to_ascii_uppercase();
-    let marker = "PHYSICALDRIVE";
+fn attach_target_resolution(
+    plan: &mut Value,
+    resolution: &TargetResolution,
+) -> Result<(), String> {
+    let planner_root = plan
+        .pointer("/drive_safety/drive/root")
+        .and_then(Value::as_str)
+        .map(str::to_string);
 
-    if let Some(index) = upper.find(marker) {
-        let suffix = &upper[index + marker.len()..];
-        let digits: String = suffix
-            .chars()
-            .take_while(|character| character.is_ascii_digit())
-            .collect();
+    let scanner_planner_consistent = if resolution.is_windows_physical_drive() {
+        planner_root
+            .as_deref()
+            .map(|root| root.eq_ignore_ascii_case(&resolution.canonical_path))
+            .unwrap_or(false)
+    } else {
+        true
+    };
 
-        if !digits.is_empty() {
-            return format!("\\\\.\\PHYSICALDRIVE{digits}");
-        }
-    }
+    let object = plan
+        .as_object_mut()
+        .ok_or_else(|| "phoenixcore_plan_not_json_object".to_string())?;
 
-    trimmed
+    object.insert(
+        "target_resolution".to_string(),
+        json!({
+            "requested_path": resolution.requested_path,
+            "canonical_path": resolution.canonical_path,
+            "resolution_source": resolution.resolution_source,
+            "target_kind": resolution.target_kind,
+            "canonicalized": resolution.canonicalized,
+            "planner_root": planner_root,
+            "scanner_planner_consistent": scanner_planner_consistent,
+        }),
+    );
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -96,16 +117,18 @@ fn plan_media_build(target_drive: String, image_path: String) -> Result<Value, S
         return Err("target drive and image path are required".to_string());
     }
 
-    let normalized_target = canonicalize_windows_physical_drive_arg(&target_drive);
+    let target_resolution = resolve_target(&target_drive)?;
     let normalized_image = image_path.trim().to_string();
 
-    run_phoenixcore(&[
+    let mut plan = run_phoenixcore(&[
         "--plan-write",
         "--target-drive",
-        &normalized_target,
+        &target_resolution.canonical_path,
         "--image",
         &normalized_image,
-    ])
+    ])?;
+    attach_target_resolution(&mut plan, &target_resolution)?;
+    Ok(plan)
 }
 
 fn main() {
@@ -121,42 +144,60 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::canonicalize_windows_physical_drive_arg;
+    use super::{attach_target_resolution, resolve_target};
+    use serde_json::json;
 
     #[test]
-    fn canonicalizes_standard_windows_physical_drive() {
+    fn records_consistent_scanner_planner_resolution() {
+        let resolution = resolve_target("PHYSICALDRIVE1").unwrap();
+        let mut plan = json!({
+            "drive_safety": {
+                "drive": {
+                    "root": "\\\\.\\PHYSICALDRIVE1"
+                }
+            }
+        });
+
+        attach_target_resolution(&mut plan, &resolution).unwrap();
+
         assert_eq!(
-            canonicalize_windows_physical_drive_arg(r"\\.\PHYSICALDRIVE1"),
-            r"\\.\PHYSICALDRIVE1"
+            plan.pointer("/target_resolution/canonical_path")
+                .and_then(|value| value.as_str()),
+            Some(r"\\.\PHYSICALDRIVE1")
+        );
+        assert_eq!(
+            plan.pointer("/target_resolution/scanner_planner_consistent")
+                .and_then(|value| value.as_bool()),
+            Some(true)
         );
     }
 
     #[test]
-    fn canonicalizes_plain_physical_drive() {
+    fn records_missing_planner_root_as_inconsistent() {
+        let resolution = resolve_target("PHYSICALDRIVE1").unwrap();
+        let mut plan = json!({
+            "blocked": true,
+            "block_reasons": ["target_not_found_in_scan_evidence"]
+        });
+
+        attach_target_resolution(&mut plan, &resolution).unwrap();
+
         assert_eq!(
-            canonicalize_windows_physical_drive_arg("PHYSICALDRIVE1"),
-            r"\\.\PHYSICALDRIVE1"
+            plan.pointer("/target_resolution/scanner_planner_consistent")
+                .and_then(|value| value.as_bool()),
+            Some(false)
         );
+        assert!(plan
+            .pointer("/target_resolution/planner_root")
+            .is_some_and(|value| value.is_null()));
     }
 
     #[test]
-    fn canonicalizes_lowercase_physical_drive() {
-        assert_eq!(
-            canonicalize_windows_physical_drive_arg("physicaldrive1"),
-            r"\\.\PHYSICALDRIVE1"
-        );
-    }
+    fn rejects_non_object_plan_payload() {
+        let resolution = resolve_target("PHYSICALDRIVE1").unwrap();
+        let mut plan = json!(["unexpected"]);
 
-    #[test]
-    fn canonicalizes_over_escaped_physical_drive() {
-        assert_eq!(
-            canonicalize_windows_physical_drive_arg(r"\\\\.\\PHYSICALDRIVE1"),
-            r"\\.\PHYSICALDRIVE1"
-        );
-    }
-
-    #[test]
-    fn leaves_non_physical_drive_target_unchanged() {
-        assert_eq!(canonicalize_windows_physical_drive_arg("E:\\"), "E:\\");
+        let error = attach_target_resolution(&mut plan, &resolution).unwrap_err();
+        assert_eq!(error, "phoenixcore_plan_not_json_object");
     }
 }
