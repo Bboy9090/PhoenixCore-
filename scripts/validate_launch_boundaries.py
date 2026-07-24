@@ -35,6 +35,7 @@ def validate_matrix(matrix: dict[str, Any]) -> dict[str, Any]:
         matrix.get("maturity") == "integrated-prototype",
         "maturity must remain integrated-prototype",
     )
+
     products = matrix.get("products")
     require(
         isinstance(products, dict) and set(products) == REQUIRED_PRODUCTS,
@@ -69,10 +70,7 @@ def validate_matrix(matrix: dict[str, Any]) -> dict[str, Any]:
     blockers = matrix.get("blockers")
     require(isinstance(blockers, list) and blockers, "launch blockers missing")
     require("issue-135-hardware-validation" in blockers, "hardware blocker missing")
-    require(
-        "issue-136-tool-registry-trust" in blockers,
-        "tool-registry blocker missing",
-    )
+    require("issue-136-tool-registry-trust" in blockers, "tool-registry blocker missing")
     return {
         "valid": True,
         "maturity": matrix["maturity"],
@@ -106,15 +104,19 @@ def validate_docs(repo_root: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--matrix", type=Path, default=Path("docs/LAUNCH_CLAIMS_MATRIX.json")
+        "--matrix",
+        type=Path,
+        default=Path("docs/LAUNCH_CLAIMS_MATRIX.json"),
     )
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+
     root = args.repo_root.resolve()
     matrix = json.loads((root / args.matrix).read_text(encoding="utf-8"))
     report = validate_matrix(matrix)
     validate_docs(root)
+
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
