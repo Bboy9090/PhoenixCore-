@@ -93,6 +93,7 @@ If PhoenixCore does not return a matching planner root, the plan remains visible
 ## Files changed
 
 ```text
+.github/workflows/phoenix-key-desktop.yml
 apps/phoenix-key/src-tauri/src/main.rs
 apps/phoenix-key/src-tauri/src/windows_target.rs
 docs/evidence/phase5b4-windows-physicaldrive-target-resolution.md
@@ -143,6 +144,14 @@ records_consistent_scanner_planner_resolution
 records_missing_planner_root_as_inconsistent
 rejects_non_object_plan_payload
 ```
+
+The Phoenix Key Windows workflow now runs:
+
+```text
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+before building MSI and NSIS preview installers. A failed Rust unit test blocks installer packaging and artifact upload.
 
 ## Required verification before merge
 
