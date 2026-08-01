@@ -2,7 +2,7 @@
 
 mod windows_target;
 
-use libbootforge::{scan_devices, DeviceInfo};
+use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
@@ -113,42 +113,20 @@ fn scan_connected_devices() -> Result<Vec<DeviceInfo>, String> {
 }
 
 fn is_actionable_device(device: &DeviceInfo) -> bool {
-    let mode = format!("{:?}", device.mode).to_ascii_lowercase();
-    if !matches!(mode.as_str(), "normal" | "unknown") {
-        return true;
-    }
-
-    let identity = [
-        device.vendor_name.as_deref(),
-        device.manufacturer.as_deref(),
-        device.product_name.as_deref(),
-        device.recommended_workflow.as_deref(),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>()
-    .join(" ")
-    .to_ascii_lowercase();
-
-    [
-        "android",
-        "iphone",
-        "ipad",
-        "ipod",
-        "samsung",
-        "pixel",
-        "motorola",
-        "oneplus",
-        "fastboot",
-        "bootloader",
-        "recovery",
-        "dfu",
-        "adb",
-        "mobile",
-        "smartphone",
-    ]
-    .iter()
-    .any(|signal| identity.contains(signal))
+    matches!(
+        device.mode,
+        DeviceMode::Recovery
+            | DeviceMode::Dfu
+            | DeviceMode::Bootloader
+            | DeviceMode::Fastboot
+            | DeviceMode::Adb
+    ) || matches!(
+        device.fingerprint.family,
+        DeviceFamily::IPhone
+            | DeviceFamily::IPad
+            | DeviceFamily::AndroidPhone
+            | DeviceFamily::AndroidTablet
+    )
 }
 
 fn bridge_directory() -> Result<PathBuf, String> {
