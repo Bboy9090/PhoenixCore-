@@ -11,8 +11,8 @@ import { fileURLToPath } from "node:url";
 const scriptDir = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const scriptPath = resolve(scriptDir, "emit-artifact-receipt.mjs");
 const fixtureRoot = mkdtempSync(resolve(tmpdir(), "phoenix-key-artifact-receipt-"));
-const msiPath = resolve(fixtureRoot, "msi", "Phoenix Key_3.1.0_x64_en-US.msi");
-const nsisPath = resolve(fixtureRoot, "nsis", "Phoenix Key_3.1.0_x64-setup.exe");
+const msiPath = resolve(fixtureRoot, "msi", "Phoenix Key_3.2.0_x64_en-US.msi");
+const nsisPath = resolve(fixtureRoot, "nsis", "Phoenix Key_3.2.0_x64-setup.exe");
 const observationPath = resolve(fixtureRoot, "phoenix-key.signature-observation.json");
 const commit = "1".repeat(40);
 const workflow = "Phoenix Key Windows Lifecycle";
@@ -33,14 +33,14 @@ try {
     observationPath,
     `${JSON.stringify([
       {
-        filename: "Phoenix Key_3.1.0_x64_en-US.msi",
+        filename: "Phoenix Key_3.2.0_x64_en-US.msi",
         probe_status: "UnknownError",
         probe_message: "The file format could not expose a signature status, and no signer certificate was present.",
         signer_present: false,
         timestamp_present: false
       },
       {
-        filename: "Phoenix Key_3.1.0_x64-setup.exe",
+        filename: "Phoenix Key_3.2.0_x64-setup.exe",
         probe_status: "NotSigned",
         probe_message: "The file is not digitally signed.",
         signer_present: false,
@@ -78,11 +78,16 @@ try {
   assert.equal(receipt.schema_version, "bws.source-app-artifact/v1");
   assert.equal(receipt.app_id, "phoenix-usb-creator");
   assert.equal(receipt.source.commit, commit);
-  assert.equal(receipt.source.version, "3.1.0");
+  assert.equal(receipt.source.version, "3.2.0");
   assert.equal(receipt.build.workflow, workflow);
   assert.equal(receipt.build.command, buildCommand);
   assert.equal(receipt.status, "verified-build-output-not-packaged");
   assert.equal(receipt.release_eligible, false);
+  assert.equal(receipt.artifact_class, "write-enabled-unsigned-release-candidate");
+  assert.equal(receipt.safety_boundary.normal_desktop_flow, "guarded-safe-device-write");
+  assert.equal(receipt.safety_boundary.system_and_boot_disks, "permanently-blocked");
+  assert.equal(receipt.safety_boundary.immediate_prewrite_rescan, true);
+  assert.equal(receipt.safety_boundary.full_readback_sha256, true);
   assert.equal(receipt.build.signature_observation, "phoenix-key.signature-observation.json");
   assert.deepEqual(receipt.lifecycle_receipts, {
     install: "not-run",

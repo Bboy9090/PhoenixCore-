@@ -254,6 +254,33 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
         self.assertEqual("named-machine-boot-test", receipt["next_required_action"])
         self.assertEqual(64, len(receipt["receipt_sha256"]))
 
+    def test_read_only_target_is_never_a_write_candidate(self):
+        raw_disk = dict(self.raw_disk)
+        raw_disk["IsReadOnly"] = True
+        receipt = drive_evidence.build_receipt(
+            target=self.target,
+            raw_disk=raw_disk,
+            evidence_source="live",
+            source_commit="3" * 40,
+        )
+        self.assertFalse(receipt["disk"]["write_candidate"])
+        self.assertIn("target-is-read-only", receipt["disk"]["write_block_reasons"])
+
+    def test_non_external_bus_is_never_a_write_candidate(self):
+        raw_disk = dict(self.raw_disk)
+        raw_disk["BusType"] = "NVMe"
+        receipt = drive_evidence.build_receipt(
+            target=self.target,
+            raw_disk=raw_disk,
+            evidence_source="live",
+            source_commit="4" * 40,
+        )
+        self.assertFalse(receipt["disk"]["write_candidate"])
+        self.assertIn(
+            "target-not-proven-external-removable",
+            receipt["disk"]["write_block_reasons"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

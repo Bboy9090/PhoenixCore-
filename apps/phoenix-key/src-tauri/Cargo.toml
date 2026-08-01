@@ -1,8 +1,8 @@
 [package]
 name = "phoenix-key"
-version = "3.1.0"
+version = "3.2.0"
 edition = "2021"
-description = "Phoenix Key desktop recovery and media planning interface"
+description = "Phoenix Key guarded recovery-media writer and device interface"
 license = "MIT OR Apache-2.0"
 
 [build-dependencies]

@@ -21,7 +21,7 @@ $ProgressPreference = "SilentlyContinue"
 
 $ProductName = "Phoenix Key"
 $AppId = "phoenix-usb-creator"
-$Version = "3.1.0"
+$Version = "3.2.0"
 $InstallerPath = (Resolve-Path -LiteralPath $InstallerPath).Path
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
@@ -243,7 +243,7 @@ try {
     if (
         $SmokeReceipt.safety_boundary.hardware_scan -ne "not-invoked" -or
         $SmokeReceipt.safety_boundary.media_plan -ne "not-invoked" -or
-        $SmokeReceipt.safety_boundary.physical_write -ne "disabled" -or
+        $SmokeReceipt.safety_boundary.physical_write -ne "guarded-not-invoked" -or
         $SmokeReceipt.safety_boundary.browser_hardware_fabrication -ne "prohibited"
     ) {
         throw "Installed smoke receipt crossed the read-only safety boundary."

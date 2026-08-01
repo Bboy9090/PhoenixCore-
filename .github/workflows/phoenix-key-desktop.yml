@@ -8,6 +8,9 @@ on:
       - "apps/phoenix-key/**"
       - "usb_creator.py"
       - "device_scanner.py"
+      - "scripts/hardware/capture_windows_drive_evidence.py"
+      - "scripts/hardware/write_windows_sacrificial_drive.py"
+      - "tests/test_windows_sacrificial_writer.py"
       - ".github/workflows/phoenix-key-desktop.yml"
 
 permissions:
@@ -47,8 +50,15 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - run: npm ci
       - name: Run Phoenix Key Rust tests
+        env:
+          PHOENIX_KEY_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Run safe-device writer tests
+        working-directory: .
+        run: python -m unittest tests.test_windows_sacrificial_writer -v
       - name: Build Phoenix Key installers
+        env:
+          PHOENIX_KEY_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run desktop:build
       - name: Inspect and confirm unsigned preview state
         shell: pwsh

@@ -128,9 +128,15 @@ const receipt = {
   safety_boundary: {
     browser_hardware_fabrication: "prohibited",
     dashboard_physical_write: "disabled",
-    normal_desktop_flow: "read-only-dry-run"
+    normal_desktop_flow: "guarded-safe-device-write",
+    allowed_target_buses: ["USB", "SD", "MMC"],
+    system_and_boot_disks: "permanently-blocked",
+    stable_identity_required: true,
+    immediate_prewrite_rescan: true,
+    identity_bound_authorization: true,
+    full_readback_sha256: true
   },
-  artifact_class: "unsigned-preview",
+  artifact_class: "write-enabled-unsigned-release-candidate",
   status: "verified-build-output-not-packaged",
   release_eligible: false
 };

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture immutable, read-only evidence for one Windows physical drive.
+r"""Capture immutable, read-only evidence for one Windows physical drive.
 
 This tool performs no writes, formatting, partition changes, volume dismounts,
 or firmware operations. An optional exclusive read-handle probe opens and closes
@@ -139,6 +139,8 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
         block_reasons.append("target-is-boot-disk")
     if record["is_system"]:
         block_reasons.append("target-is-system-disk")
+    if record["is_read_only"]:
+        block_reasons.append("target-is-read-only")
     if record["bus_type"] not in EXTERNAL_BUS_TYPES:
         block_reasons.append("target-not-proven-external-removable")
     if not (record["serial_number"] or record["unique_id"]):
