@@ -43,6 +43,17 @@ interface MediaScan {
   scan_warnings?: string[];
 }
 
+interface WritePreparation {
+  schema: string;
+  target: string;
+  target_identity_sha256: string;
+  target_size_bytes: number;
+  image_path: string;
+  image_size_bytes: number;
+  authorization_phrase: string;
+  write_candidate: boolean;
+}
+
 const hex = (value: number) => value.toString(16).padStart(4, "0").toUpperCase();
 const isDesktopRuntime = () => "__TAURI__" in window;
 
@@ -54,6 +65,10 @@ function App() {
   const [selectedMedia, setSelectedMedia] = useState<number | null>(null);
   const [imagePath, setImagePath] = useState("");
   const [plan, setPlan] = useState<Record<string, unknown> | null>(null);
+  const [writePreparation, setWritePreparation] = useState<WritePreparation | null>(null);
+  const [authorization, setAuthorization] = useState("");
+  const [destructiveAcknowledgement, setDestructiveAcknowledgement] = useState(false);
+  const [writeReceipt, setWriteReceipt] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("Desktop engine required for live hardware results.");
 
@@ -75,7 +90,9 @@ function App() {
       const result = await invoke<DeviceInfo[]>("scan_connected_devices");
       setDevices(result);
       setSelectedDevice(result.length ? 0 : null);
-      setMessage(`${result.length} connected peripheral${result.length === 1 ? "" : "s"} detected.`);
+      setMessage(result.length
+        ? `${result.length} actionable service device${result.length === 1 ? "" : "s"} detected.`
+        : "No actionable phones, recovery devices, or service-mode hardware detected.");
     } catch (error) {
       setDevices([]);
       setSelectedDevice(null);
@@ -92,6 +109,8 @@ function App() {
     }
     setBusy(true);
     setPlan(null);
+    setWritePreparation(null);
+    setWriteReceipt(null);
     setMessage("PhoenixCore is identifying removable media targets…");
     try {
       const result = await invoke<MediaScan>("scan_media_targets");
@@ -117,10 +136,57 @@ function App() {
         imagePath: imagePath.trim(),
       });
       setPlan(result);
+      setWritePreparation(null);
+      setAuthorization("");
+      setDestructiveAcknowledgement(false);
+      setWriteReceipt(null);
       setMessage("Dry-run plan generated. No bytes were written.");
     } catch (error) {
       setPlan(null);
       setMessage(`Plan validation failed: ${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function prepareWrite() {
+    if (!activeMedia || !imagePath.trim()) return;
+    setBusy(true);
+    setAuthorization("");
+    setDestructiveAcknowledgement(false);
+    setWriteReceipt(null);
+    setMessage("Re-scanning the physical drive and building an identity-bound authorization…");
+    try {
+      const result = await invoke<WritePreparation>("prepare_media_write", {
+        targetDrive: activeMedia.drive_path,
+        imagePath: imagePath.trim(),
+      });
+      setWritePreparation(result);
+      setMessage("Safe-device gate passed. Review the identity and type the exact authorization phrase.");
+    } catch (error) {
+      setWritePreparation(null);
+      setMessage(`Write preparation blocked: ${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function executeWrite() {
+    if (!activeMedia || !writePreparation || !destructiveAcknowledgement) return;
+    setBusy(true);
+    setWriteReceipt(null);
+    setMessage("Writing and verifying the selected removable device. Do not disconnect it…");
+    try {
+      const result = await invoke<Record<string, unknown>>("execute_media_write", {
+        targetDrive: activeMedia.drive_path,
+        imagePath: imagePath.trim(),
+        authorization,
+        destructiveAcknowledgement,
+      });
+      setWriteReceipt(result);
+      setMessage("Write completed and full SHA-256 readback verification passed.");
+    } catch (error) {
+      setMessage(`Physical write blocked or failed: ${String(error)}`);
     } finally {
       setBusy(false);
     }
@@ -137,7 +203,7 @@ function App() {
           <button className="nav-item" disabled><span>↻</span> Recovery Center</button>
           <button className="nav-item" disabled><span>▦</span> Session History</button>
         </nav>
-        <div className="safety-card"><strong>Read-only integration</strong><p>Detection and build planning are active. Physical media writing stays locked behind PhoenixCore safety gates.</p></div>
+        <div className="safety-card"><strong>Safe-device writer</strong><p>Only live-verified external USB, SD, or MMC targets can write. Boot, system, internal, ambiguous, or changed devices remain blocked.</p></div>
         <footer>Reignite · Rebuild · Reboot</footer>
       </aside>
 
@@ -154,9 +220,9 @@ function App() {
 
         {view === "devices" ? (
           <>
-            <div className="metric-grid"><Metric label="Connected" value={devices.length.toString()} detail="USB peripheral endpoints" /><Metric label="Special modes" value={specialModes.toString()} detail="recovery, DFU, ADB or fastboot" /><Metric label="Engine" value="BOOTFORGE" detail="low-level detection boundary" accent /></div>
+            <div className="metric-grid"><Metric label="Actionable" value={devices.length.toString()} detail="phones and service devices" /><Metric label="Special modes" value={specialModes.toString()} detail="recovery, DFU, ADB or fastboot" /><Metric label="Engine" value="BOOTFORGE" detail="low-level detection boundary" accent /></div>
             <div className="content-grid">
-              <Inventory title="Device inventory" count={devices.length} empty="Connect a phone or supported USB peripheral, then run a live scan.">
+              <Inventory title="Service-device inventory" count={devices.length} empty="No actionable device is connected. Mouse, keyboard, receivers, hubs, host controllers, and internal USB endpoints are intentionally hidden.">
                 {devices.map((device, index) => <button className={`item-row ${selectedDevice === index ? "selected" : ""}`} key={`${device.bus_number}-${device.address}-${device.vendor_id}-${device.product_id}`} onClick={() => setSelectedDevice(index)}><span className="device-orb">{device.platform === "Apple" ? "A" : "U"}</span><span><strong>{device.product_name || "USB Device"}</strong><small>{hex(device.vendor_id)}:{hex(device.product_id)}</small></span><b>{device.mode}</b></button>)}
               </Inventory>
               <section className="details panel"><PanelHeading eyebrow="SIGNAL REPORT" title="Device details" />{activeDevice ? <div className="detail-body"><div className="device-title"><span className="device-orb large">{activeDevice.platform === "Apple" ? "A" : "U"}</span><div><h4>{activeDevice.product_name || "USB Device"}</h4><p>{activeDevice.manufacturer || activeDevice.vendor_name || "Unknown manufacturer"}</p></div></div><dl><Detail label="Hardware ID" value={`${hex(activeDevice.vendor_id)}:${hex(activeDevice.product_id)}`} /><Detail label="Mode" value={activeDevice.mode} /><Detail label="Platform" value={activeDevice.platform} /><Detail label="Transport" value={activeDevice.transport} /><Detail label="Bus / Address" value={`${activeDevice.bus_number} / ${activeDevice.address}`} /><Detail label="Serial" value={activeDevice.serial_number || "Not exposed"} /></dl><div className="recommendation"><span>APPROVED NEXT ROUTE</span><strong>{activeDevice.recommended_workflow || "Standard inspection"}</strong><p>PhoenixCore may route verified, owner-authorized work to a governed tool adapter.</p></div></div> : <Empty text="Select a detected device to open its signal report." />}</section>
@@ -164,12 +230,12 @@ function App() {
           </>
         ) : (
           <>
-            <div className="metric-grid"><Metric label="Targets" value={media.length.toString()} detail="storage devices inspected" /><Metric label="Eligible" value={media.filter((item) => item.is_eligible).length.toString()} detail="removable, non-system targets" /><Metric label="Write mode" value="LOCKED" detail="dry-run planning only" accent /></div>
+            <div className="metric-grid"><Metric label="Targets" value={media.length.toString()} detail="storage devices inspected" /><Metric label="Eligible" value={media.filter((item) => item.is_eligible).length.toString()} detail="removable, non-system targets" /><Metric label="Write mode" value="GUARDED" detail="safe external devices only" accent /></div>
             <div className="content-grid">
               <Inventory title="Media targets" count={media.length} empty="Connect a removable USB drive, then scan media targets.">
-                {media.map((item, index) => <button className={`item-row ${selectedMedia === index ? "selected" : ""}`} key={item.drive_path} onClick={() => { setSelectedMedia(index); setPlan(null); }}><span className="device-orb">M</span><span><strong>{item.display_name}</strong><small>{item.drive_path} · {item.size_human}</small></span><b className={item.is_eligible ? "good" : "blocked"}>{item.is_eligible ? "Eligible" : "Blocked"}</b></button>)}
+                {media.map((item, index) => <button className={`item-row ${selectedMedia === index ? "selected" : ""}`} key={item.drive_path} onClick={() => { setSelectedMedia(index); setPlan(null); setWritePreparation(null); setAuthorization(""); setDestructiveAcknowledgement(false); setWriteReceipt(null); }}><span className="device-orb">M</span><span><strong>{item.display_name}</strong><small>{item.drive_path} · {item.size_human}</small></span><b className={item.is_eligible ? "good" : "blocked"}>{item.is_eligible ? "Eligible" : "Blocked"}</b></button>)}
               </Inventory>
-              <section className="details panel"><PanelHeading eyebrow="BUILD CONTRACT" title="Dry-run media plan" />{activeMedia ? <div className="detail-body"><dl><Detail label="Target" value={activeMedia.drive_path} /><Detail label="Capacity" value={activeMedia.size_human} /><Detail label="Confidence" value={activeMedia.confidence} /><Detail label="Protocol" value={activeMedia.bus_protocol || "Unknown"} /></dl>{activeMedia.block_reasons.length > 0 && <div className="warning-box"><strong>Target blocked</strong>{activeMedia.block_reasons.map(reason => <p key={reason}>{reason}</p>)}</div>}<label className="path-field"><span>Image path</span><input value={imagePath} onChange={(event) => { setImagePath(event.target.value); setPlan(null); }} placeholder="C:\\images\\phoenix.iso" /></label><button className="plan-button" onClick={buildPlan} disabled={busy || !activeMedia.is_eligible || !imagePath.trim()}>Generate Dry-Run Plan</button>{plan && <pre className="plan-output">{JSON.stringify(plan, null, 2)}</pre>}</div> : <Empty text="Select a scanned removable target to prepare a dry-run plan." />}</section>
+              <section className="details panel"><PanelHeading eyebrow="BUILD CONTRACT" title="Verified media writer" />{activeMedia ? <div className="detail-body"><dl><Detail label="Target" value={activeMedia.drive_path} /><Detail label="Capacity" value={activeMedia.size_human} /><Detail label="Confidence" value={activeMedia.confidence} /><Detail label="Protocol" value={activeMedia.bus_protocol || "Unknown"} /></dl>{activeMedia.block_reasons.length > 0 && <div className="warning-box"><strong>Target blocked</strong>{activeMedia.block_reasons.map(reason => <p key={reason}>{reason}</p>)}</div>}<label className="path-field"><span>Image path</span><input value={imagePath} onChange={(event) => { setImagePath(event.target.value); setPlan(null); setWritePreparation(null); setAuthorization(""); setDestructiveAcknowledgement(false); setWriteReceipt(null); }} placeholder="C:\\images\\phoenix.iso" /></label><button className="plan-button" onClick={buildPlan} disabled={busy || !activeMedia.is_eligible || !imagePath.trim()}>Generate Dry-Run Plan</button>{plan && <><pre className="plan-output">{JSON.stringify(plan, null, 2)}</pre><button className="prepare-button" onClick={prepareWrite} disabled={busy}>Prepare Safe-Device Write</button></>}{writePreparation && <div className="write-gate"><strong>Permanent erasure warning</strong><p>Phoenix Key will overwrite {writePreparation.target}. Identity: {writePreparation.target_identity_sha256}</p><code>{writePreparation.authorization_phrase}</code><label className="path-field"><span>Type the exact authorization phrase</span><input value={authorization} onChange={(event) => setAuthorization(event.target.value)} /></label><label className="acknowledgement"><input type="checkbox" checked={destructiveAcknowledgement} onChange={(event) => setDestructiveAcknowledgement(event.target.checked)} /><span>I confirm this is the selected removable test device and understand all existing data will be destroyed.</span></label><button className="write-button" onClick={executeWrite} disabled={busy || authorization !== writePreparation.authorization_phrase || !destructiveAcknowledgement}>Erase, Write and Verify</button></div>}{writeReceipt && <pre className="receipt-output">{JSON.stringify(writeReceipt, null, 2)}</pre>}</div> : <Empty text="Select a scanned removable target to prepare a verified media write." />}</section>
             </div>
           </>
         )}

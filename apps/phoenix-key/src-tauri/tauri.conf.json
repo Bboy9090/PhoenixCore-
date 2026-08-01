@@ -6,7 +6,7 @@
     "devPath": "http://localhost:1420",
     "distDir": "../dist"
   },
-  "package": { "productName": "Phoenix Key", "version": "3.1.0" },
+  "package": { "productName": "Phoenix Key", "version": "3.2.0" },
   "tauri": {
     "allowlist": { "all": false, "shell": { "all": false, "execute": false, "open": false, "sidecar": false } },
     "bundle": {
@@ -15,7 +15,7 @@
       "copyright": "Copyright © 2026 Bobby's World",
       "identifier": "com.bobbysworld.phoenixkey",
       "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
-      "longDescription": "PhoenixCore recovery-media planning and connected-device discovery powered by BootForge.",
+      "longDescription": "PhoenixCore guarded recovery-media writing and connected-device discovery powered by BootForge.",
       "shortDescription": "Reignite. Rebuild. Reboot.",
       "targets": ["msi", "nsis"],
       "windows": { "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true } }
