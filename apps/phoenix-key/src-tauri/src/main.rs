@@ -102,7 +102,53 @@ fn run_smoke_mode_if_requested() -> Result<bool, String> {
 
 #[tauri::command]
 fn scan_connected_devices() -> Result<Vec<DeviceInfo>, String> {
-    scan_devices().map_err(|error| error.to_string())
+    scan_devices()
+        .map(|devices| {
+            devices
+                .into_iter()
+                .filter(is_actionable_device)
+                .collect()
+        })
+        .map_err(|error| error.to_string())
+}
+
+fn is_actionable_device(device: &DeviceInfo) -> bool {
+    let mode = format!("{:?}", device.mode).to_ascii_lowercase();
+    if !matches!(mode.as_str(), "normal" | "unknown") {
+        return true;
+    }
+
+    let identity = [
+        device.vendor_name.as_deref(),
+        device.manufacturer.as_deref(),
+        device.product_name.as_deref(),
+        device.recommended_workflow.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" ")
+    .to_ascii_lowercase();
+
+    [
+        "android",
+        "iphone",
+        "ipad",
+        "ipod",
+        "samsung",
+        "pixel",
+        "motorola",
+        "oneplus",
+        "fastboot",
+        "bootloader",
+        "recovery",
+        "dfu",
+        "adb",
+        "mobile",
+        "smartphone",
+    ]
+    .iter()
+    .any(|signal| identity.contains(signal))
 }
 
 fn bridge_directory() -> Result<PathBuf, String> {
