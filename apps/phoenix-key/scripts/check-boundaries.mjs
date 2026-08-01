@@ -9,6 +9,9 @@ const tauri = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", im
 const failures = [];
 if (ui.includes("demoDevices") || ui.includes("DEMO-DEVICE")) failures.push("production UI contains demo hardware");
 if (!rust.includes("scan_connected_devices")) failures.push("BootForge peripheral scanner is not wired");
+if (!rust.includes("filter(is_actionable_device)")) failures.push("raw USB endpoints are not filtered from Device Forge");
+if (!rust.includes('matches!(mode.as_str(), "normal" | "unknown")')) failures.push("normal and unknown endpoint filter is missing");
+if (!ui.includes("Mouse, keyboard, receivers, hubs, host controllers, and internal USB endpoints are intentionally hidden.")) failures.push("service-device empty-state disclosure is missing");
 if (!rust.includes("scan_media_targets")) failures.push("PhoenixCore media scanner is not wired");
 if (!rust.includes("plan_media_build")) failures.push("PhoenixCore dry-run planner is not wired");
 if (!rust.includes("--plan-write")) failures.push("media planner does not use PhoenixCore dry-run contract");
