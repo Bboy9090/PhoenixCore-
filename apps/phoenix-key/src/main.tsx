@@ -90,7 +90,9 @@ function App() {
       const result = await invoke<DeviceInfo[]>("scan_connected_devices");
       setDevices(result);
       setSelectedDevice(result.length ? 0 : null);
-      setMessage(`${result.length} connected peripheral${result.length === 1 ? "" : "s"} detected.`);
+      setMessage(result.length
+        ? `${result.length} actionable service device${result.length === 1 ? "" : "s"} detected.`
+        : "No actionable phones, recovery devices, or service-mode hardware detected.");
     } catch (error) {
       setDevices([]);
       setSelectedDevice(null);
@@ -218,9 +220,9 @@ function App() {
 
         {view === "devices" ? (
           <>
-            <div className="metric-grid"><Metric label="Connected" value={devices.length.toString()} detail="USB peripheral endpoints" /><Metric label="Special modes" value={specialModes.toString()} detail="recovery, DFU, ADB or fastboot" /><Metric label="Engine" value="BOOTFORGE" detail="low-level detection boundary" accent /></div>
+            <div className="metric-grid"><Metric label="Actionable" value={devices.length.toString()} detail="phones and service devices" /><Metric label="Special modes" value={specialModes.toString()} detail="recovery, DFU, ADB or fastboot" /><Metric label="Engine" value="BOOTFORGE" detail="low-level detection boundary" accent /></div>
             <div className="content-grid">
-              <Inventory title="Device inventory" count={devices.length} empty="Connect a phone or supported USB peripheral, then run a live scan.">
+              <Inventory title="Service-device inventory" count={devices.length} empty="No actionable device is connected. Mouse, keyboard, receivers, hubs, host controllers, and internal USB endpoints are intentionally hidden.">
                 {devices.map((device, index) => <button className={`item-row ${selectedDevice === index ? "selected" : ""}`} key={`${device.bus_number}-${device.address}-${device.vendor_id}-${device.product_id}`} onClick={() => setSelectedDevice(index)}><span className="device-orb">{device.platform === "Apple" ? "A" : "U"}</span><span><strong>{device.product_name || "USB Device"}</strong><small>{hex(device.vendor_id)}:{hex(device.product_id)}</small></span><b>{device.mode}</b></button>)}
               </Inventory>
               <section className="details panel"><PanelHeading eyebrow="SIGNAL REPORT" title="Device details" />{activeDevice ? <div className="detail-body"><div className="device-title"><span className="device-orb large">{activeDevice.platform === "Apple" ? "A" : "U"}</span><div><h4>{activeDevice.product_name || "USB Device"}</h4><p>{activeDevice.manufacturer || activeDevice.vendor_name || "Unknown manufacturer"}</p></div></div><dl><Detail label="Hardware ID" value={`${hex(activeDevice.vendor_id)}:${hex(activeDevice.product_id)}`} /><Detail label="Mode" value={activeDevice.mode} /><Detail label="Platform" value={activeDevice.platform} /><Detail label="Transport" value={activeDevice.transport} /><Detail label="Bus / Address" value={`${activeDevice.bus_number} / ${activeDevice.address}`} /><Detail label="Serial" value={activeDevice.serial_number || "Not exposed"} /></dl><div className="recommendation"><span>APPROVED NEXT ROUTE</span><strong>{activeDevice.recommended_workflow || "Standard inspection"}</strong><p>PhoenixCore may route verified, owner-authorized work to a governed tool adapter.</p></div></div> : <Empty text="Select a detected device to open its signal report." />}</section>
