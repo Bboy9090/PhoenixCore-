@@ -46,6 +46,8 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - run: npm ci
+      - name: Run Phoenix Key Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
       - name: Build Phoenix Key installers
         run: npm run desktop:build
       - name: Inspect and confirm unsigned preview state
