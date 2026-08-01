@@ -1,18 +1,22 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod windows_target;
+
 use libbootforge::{scan_devices, DeviceInfo};
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::{
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
     process::Command,
 };
+use windows_target::{resolve_target, TargetResolution};
 
 const USB_CREATOR_SOURCE: &str = include_str!("../../../../usb_creator.py");
 const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py");
 const SMOKE_RECEIPT_ENV: &str = "PHOENIX_KEY_SMOKE_RECEIPT";
+const TARGET_RESOLUTION_SCHEMA: &str = "phoenix_key.target_resolution.v1";
 
 #[derive(Debug, Serialize)]
 struct SmokeSafetyBoundary {
@@ -152,6 +156,56 @@ fn run_phoenixcore(args: &[&str]) -> Result<Value, String> {
     ))
 }
 
+fn attach_target_resolution(
+    plan: &mut Value,
+    resolution: &TargetResolution,
+) -> Result<(), String> {
+    let planner_root = plan
+        .pointer("/drive_safety/drive/root")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+
+    let scanner_planner_consistent = if resolution.is_windows_physical_drive() {
+        planner_root
+            .as_deref()
+            .map(|root| root.eq_ignore_ascii_case(&resolution.canonical_path))
+            .unwrap_or(false)
+    } else {
+        true
+    };
+
+    let resolution_status = if resolution.is_windows_physical_drive() {
+        if scanner_planner_consistent {
+            "target_resolved_from_scanner_evidence"
+        } else {
+            "target_not_resolved_from_scanner_evidence"
+        }
+    } else {
+        "target_passthrough"
+    };
+
+    let object = plan
+        .as_object_mut()
+        .ok_or_else(|| "phoenixcore_plan_not_json_object".to_string())?;
+
+    object.insert(
+        "target_resolution".to_string(),
+        json!({
+            "schema": TARGET_RESOLUTION_SCHEMA,
+            "requested_path": &resolution.requested_path,
+            "canonical_path": &resolution.canonical_path,
+            "resolution_source": resolution.resolution_source,
+            "resolution_status": resolution_status,
+            "target_kind": resolution.target_kind,
+            "canonicalized": resolution.canonicalized,
+            "planner_root": planner_root,
+            "scanner_planner_consistent": scanner_planner_consistent,
+        }),
+    );
+
+    Ok(())
+}
+
 #[tauri::command]
 fn scan_media_targets() -> Result<Value, String> {
     run_phoenixcore(&["--list-json"])
@@ -162,13 +216,19 @@ fn plan_media_build(target_drive: String, image_path: String) -> Result<Value, S
     if target_drive.trim().is_empty() || image_path.trim().is_empty() {
         return Err("target drive and image path are required".to_string());
     }
-    run_phoenixcore(&[
+
+    let target_resolution = resolve_target(&target_drive)?;
+    let normalized_image = image_path.trim().to_string();
+
+    let mut plan = run_phoenixcore(&[
         "--plan-write",
         "--target-drive",
-        &target_drive,
+        &target_resolution.canonical_path,
         "--image",
-        &image_path,
-    ])
+        &normalized_image,
+    ])?;
+    attach_target_resolution(&mut plan, &target_resolution)?;
+    Ok(plan)
 }
 
 fn main() {
@@ -190,7 +250,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::installed_smoke_receipt;
+    use super::{attach_target_resolution, installed_smoke_receipt, resolve_target};
+    use serde_json::json;
 
     #[test]
     fn installed_smoke_receipt_is_read_only_and_non_destructive() {
@@ -208,5 +269,99 @@ mod tests {
             value["safety_boundary"]["browser_hardware_fabrication"],
             "prohibited"
         );
+    }
+
+    #[test]
+    fn records_consistent_scanner_planner_resolution() {
+        let resolution = resolve_target("PHYSICALDRIVE1").unwrap();
+        let mut plan = json!({
+            "drive_safety": {
+                "drive": {
+                    "root": "\\\\.\\PHYSICALDRIVE1"
+                }
+            }
+        });
+
+        attach_target_resolution(&mut plan, &resolution).unwrap();
+
+        assert_eq!(
+            plan.pointer("/target_resolution/schema")
+                .and_then(|value| value.as_str()),
+            Some("phoenix_key.target_resolution.v1")
+        );
+        assert_eq!(
+            plan.pointer("/target_resolution/canonical_path")
+                .and_then(|value| value.as_str()),
+            Some(r"\\.\PHYSICALDRIVE1")
+        );
+        assert_eq!(
+            plan.pointer("/target_resolution/resolution_status")
+                .and_then(|value| value.as_str()),
+            Some("target_resolved_from_scanner_evidence")
+        );
+        assert_eq!(
+            plan.pointer("/target_resolution/scanner_planner_consistent")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn records_missing_planner_root_as_inconsistent() {
+        let resolution = resolve_target("PHYSICALDRIVE1").unwrap();
+        let mut plan = json!({
+            "blocked": true,
+            "block_reasons": ["target_not_found_in_scan_evidence"]
+        });
+
+        attach_target_resolution(&mut plan, &resolution).unwrap();
+
+        assert_eq!(
+            plan.pointer("/target_resolution/resolution_status")
+                .and_then(|value| value.as_str()),
+            Some("target_not_resolved_from_scanner_evidence")
+        );
+        assert_eq!(
+            plan.pointer("/target_resolution/scanner_planner_consistent")
+                .and_then(|value| value.as_bool()),
+            Some(false)
+        );
+        assert!(plan
+            .pointer("/target_resolution/planner_root")
+            .is_some_and(|value| value.is_null()));
+    }
+
+    #[test]
+    fn records_passthrough_target_status() {
+        let resolution = resolve_target("E:\\").unwrap();
+        let mut plan = json!({
+            "drive_safety": {
+                "drive": {
+                    "root": "E:\\"
+                }
+            }
+        });
+
+        attach_target_resolution(&mut plan, &resolution).unwrap();
+
+        assert_eq!(
+            plan.pointer("/target_resolution/resolution_status")
+                .and_then(|value| value.as_str()),
+            Some("target_passthrough")
+        );
+        assert_eq!(
+            plan.pointer("/target_resolution/scanner_planner_consistent")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn rejects_non_object_plan_payload() {
+        let resolution = resolve_target("PHYSICALDRIVE1").unwrap();
+        let mut plan = json!(["unexpected"]);
+
+        let error = attach_target_resolution(&mut plan, &resolution).unwrap_err();
+        assert_eq!(error, "phoenixcore_plan_not_json_object");
     }
 }
