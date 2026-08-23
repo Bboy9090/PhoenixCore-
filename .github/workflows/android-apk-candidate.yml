@@ -2,7 +2,7 @@ name: PhoenixCore Mobile APK Candidate
 
 on:
   push:
-    branches: [codex/android-apk-20260823]
+    branches: [main, codex/android-apk-20260823]
   pull_request:
     branches: [main]
   workflow_dispatch:
