@@ -33,7 +33,7 @@ jobs:
       - name: Prepare guarded Android coordinator shell
         run: |
           npm install --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
-          printf '%s\n' "import type { CapacitorConfig } from '@capacitor/cli';" "const config: CapacitorConfig = { appId: 'com.bobbysworkshop.phoenixcore', appName: 'PhoenixCore Mobile', webDir: 'dist' };" "export default config;" > capacitor.config.ts
+          printf '%s\n' '{ "appId": "com.bobbysworkshop.phoenixcore", "appName": "PhoenixCore Mobile", "webDir": "dist" }' > capacitor.config.json
           npx cap add android
           npx cap sync android
       - name: Assemble PhoenixCore Mobile APK
