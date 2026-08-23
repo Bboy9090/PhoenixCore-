@@ -1,0 +1,53 @@
+name: PhoenixCore Mobile APK Candidate
+
+on:
+  push:
+    branches: [codex/android-apk-20260823]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run build
+      - name: Prepare guarded Android coordinator shell
+        run: |
+          npm install --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+          printf '%s\n' '{ "appId": "com.bobbysworkshop.phoenixcore", "appName": "PhoenixCore Mobile", "webDir": "dist" }' > capacitor.config.json
+          npx cap add android
+          npx cap sync android
+      - name: Assemble PhoenixCore Mobile APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/APK-SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhoenixCore-Mobile-android-apk
+          path: |
+            dashboard/android/app/build/outputs/apk/debug/app-debug.apk
+            dashboard/android/app/build/outputs/apk/debug/APK-SHA256.txt
+          if-no-files-found: error
+          retention-days: 30
