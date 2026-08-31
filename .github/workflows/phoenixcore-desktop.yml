@@ -56,7 +56,6 @@ jobs:
           if ($msi.Count -ne 1) { throw "Expected exactly one MSI, found $($msi.Count)" }
           if ($nsis.Count -ne 1) { throw "Expected exactly one NSIS installer, found $($nsis.Count)" }
           if ($msi[0].Length -le 0 -or $nsis[0].Length -le 0) { throw "Desktop installer output is empty" }
-
           $source = "${{ github.event.pull_request.head.sha || github.sha }}"
           $receipt = [ordered]@{
             schema_version = "bws.phoenixcore-desktop-artifact/v1"
@@ -64,16 +63,8 @@ jobs:
             source_commit = $source
             version = "0.1.0"
             target = "windows-x86_64"
-            msi = [ordered]@{
-              filename = $msi[0].Name
-              size_bytes = $msi[0].Length
-              sha256 = (Get-FileHash $msi[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            }
-            nsis = [ordered]@{
-              filename = $nsis[0].Name
-              size_bytes = $nsis[0].Length
-              sha256 = (Get-FileHash $nsis[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            }
+            msi = [ordered]@{ filename = $msi[0].Name; size_bytes = $msi[0].Length; sha256 = (Get-FileHash $msi[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+            nsis = [ordered]@{ filename = $nsis[0].Name; size_bytes = $nsis[0].Length; sha256 = (Get-FileHash $nsis[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
             dashboard_bundle = "embedded-tauri-dist"
             packaged_vite_api_bridge = "not-verified"
             install = "not-run"
@@ -99,6 +90,7 @@ jobs:
   windows-lifecycle:
     needs: windows-package
     runs-on: windows-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -110,105 +102,31 @@ jobs:
         with:
           name: phoenixcore-desktop-windows-unsigned-preview
           path: package
-      - name: Install, smoke launch, uninstall, and write receipt
+      - name: Locate exact installer
+        id: installer
         shell: pwsh
-        env:
-          KIND: ${{ matrix.kind }}
-          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          $ErrorActionPreference = "Stop"
-          $kind = $env:KIND
-          $source = $env:SOURCE_SHA
-          $out = Join-Path $PWD "desktop-lifecycle-evidence/$kind"
-          New-Item -ItemType Directory -Force -Path $out | Out-Null
-
-          if ($kind -eq "msi") {
-            $installers = @(Get-ChildItem package/msi/*.msi)
+          if ("${{ matrix.kind }}" -eq "msi") {
+            $matches = @(Get-ChildItem package -Recurse -File -Filter "*.msi")
           } else {
-            $installers = @(Get-ChildItem package/nsis/*.exe)
+            $matches = @(Get-ChildItem package -Recurse -File -Filter "*setup.exe")
           }
-          if ($installers.Count -ne 1) { throw "Expected exactly one $kind installer, found $($installers.Count)" }
-          $installer = $installers[0]
-          $installerSha = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-
-          if ($kind -eq "msi") {
-            $installLog = Join-Path $out "install.log"
-            $p = Start-Process msiexec.exe -ArgumentList @('/i', ('"' + $installer.FullName + '"'), '/qn', '/norestart', '/L*V', ('"' + $installLog + '"')) -Wait -PassThru
-            if ($p.ExitCode -ne 0) { throw "MSI install failed: $($p.ExitCode)" }
-          } else {
-            $p = Start-Process $installer.FullName -ArgumentList '/S' -Wait -PassThru
-            if ($p.ExitCode -ne 0) { throw "NSIS install failed: $($p.ExitCode)" }
-          }
-
-          Start-Sleep -Seconds 2
-          $roots = @($env:LOCALAPPDATA, $env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ -and (Test-Path $_) }
-          $executables = @()
-          foreach ($root in $roots) {
-            $executables += @(Get-ChildItem -Path $root -Filter '*.exe' -Recurse -ErrorAction SilentlyContinue | Where-Object {
-              $_.Name -match 'PhoenixCore.*Desktop|phoenixcore-desktop' -and $_.Name -notmatch 'setup|uninstall'
-            })
-          }
-          $executables = @($executables | Sort-Object FullName -Unique)
-          if ($executables.Count -lt 1) { throw "Installed PhoenixCore Desktop executable not found" }
-          $exe = $executables[0]
-          $exeSha = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-
-          $smoke = Join-Path $out "installed-smoke.json"
-          $env:PHOENIXCORE_DESKTOP_SMOKE_RECEIPT = $smoke
-          $p = Start-Process $exe.FullName -ArgumentList '--smoke-test' -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "Installed smoke launch failed: $($p.ExitCode)" }
-          if (-not (Test-Path $smoke)) { throw "Installed smoke receipt missing" }
-          $smokeJson = Get-Content $smoke -Raw | ConvertFrom-Json
-          if ($smokeJson.status -ne 'pass') { throw "Installed smoke receipt status is not pass" }
-          if ($smokeJson.source_commit -ne $source) { throw "Installed smoke source mismatch: $($smokeJson.source_commit) != $source" }
-          if ($smokeJson.app_id -ne 'phoenixcore-desktop') { throw "Installed smoke app id mismatch" }
-
-          if ($kind -eq "msi") {
-            $uninstallLog = Join-Path $out "uninstall.log"
-            $p = Start-Process msiexec.exe -ArgumentList @('/x', ('"' + $installer.FullName + '"'), '/qn', '/norestart', '/L*V', ('"' + $uninstallLog + '"')) -Wait -PassThru
-            if ($p.ExitCode -ne 0) { throw "MSI uninstall failed: $($p.ExitCode)" }
-          } else {
-            $uninstallers = @()
-            foreach ($root in $roots) {
-              $uninstallers += @(Get-ChildItem -Path $root -Filter 'uninstall.exe' -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -match 'PhoenixCore.*Desktop|phoenixcore-desktop' })
-            }
-            $uninstallers = @($uninstallers | Sort-Object FullName -Unique)
-            if ($uninstallers.Count -ne 1) { throw "Expected one NSIS uninstaller, found $($uninstallers.Count)" }
-            $p = Start-Process $uninstallers[0].FullName -ArgumentList '/S' -Wait -PassThru
-            if ($p.ExitCode -ne 0) { throw "NSIS uninstall failed: $($p.ExitCode)" }
-          }
-
-          Start-Sleep -Seconds 2
-          if (Test-Path $exe.FullName) { throw "Installed executable remains after uninstall: $($exe.FullName)" }
-
-          $receipt = [ordered]@{
-            schema_version = 'bws.phoenixcore-desktop-lifecycle/v1'
-            app_id = 'phoenixcore-desktop'
-            version = '0.1.0'
-            source_commit = $source
-            installer_kind = $kind
-            installer_filename = $installer.Name
-            installer_sha256 = $installerSha
-            installed_executable = $exe.FullName
-            installed_executable_sha256 = $exeSha
-            install = 'pass'
-            launch = 'pass'
-            smoke_receipt = (Resolve-Path $smoke).Path
-            uninstall = 'pass'
-            cleanup = 'pass'
-            rollback = 'not-run-no-prior-desktop-version'
-            packaged_vite_api_bridge = 'not-verified'
-            signing = 'not-run'
-            truth_class = 'HOST_LIFECYCLE_VALIDATED'
-          }
-          $receiptPath = Join-Path $out "$kind-lifecycle-receipt.json"
-          $receipt | ConvertTo-Json -Depth 6 | Set-Content $receiptPath -Encoding utf8
-          $receiptSha = (Get-FileHash $receiptPath -Algorithm SHA256).Hash.ToLowerInvariant()
-          Write-Host "PHOENIXCORE_DESKTOP_LIFECYCLE_PASS kind=$kind receipt=$receiptPath sha256=$receiptSha"
+          if ($matches.Count -ne 1) { throw "Expected exactly one ${{ matrix.kind }} installer; found $($matches.Count)" }
+          "path=$($matches[0].FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "DESKTOP_LIFECYCLE_INPUT kind=${{ matrix.kind }} path=$($matches[0].FullName) size=$($matches[0].Length)"
+      - name: Run clean-runner desktop lifecycle
+        shell: pwsh
+        run: |
+          & "apps/phoenixcore-desktop/scripts/test-windows-installer-lifecycle.ps1" `
+            -InstallerKind "${{ matrix.kind }}" `
+            -InstallerPath "${{ steps.installer.outputs.path }}" `
+            -OutputDirectory "desktop-lifecycle-evidence/${{ matrix.kind }}" `
+            -SourceCommit "${{ github.event.pull_request.head.sha || github.sha }}"
       - name: Upload lifecycle evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: phoenixcore-desktop-${{ matrix.kind }}-lifecycle-evidence
           path: desktop-lifecycle-evidence/${{ matrix.kind }}/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
