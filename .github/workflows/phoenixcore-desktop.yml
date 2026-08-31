@@ -1,0 +1,97 @@
+name: PhoenixCore Desktop
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "dashboard/**"
+      - "apps/phoenixcore-desktop/**"
+      - ".github/workflows/phoenixcore-desktop.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: npm ci
+      - name: Build dashboard
+        working-directory: dashboard
+        run: npm run build
+
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install desktop packaging dependencies
+        working-directory: apps/phoenixcore-desktop
+        run: npm install --ignore-scripts
+      - name: Build PhoenixCore Desktop MSI and NSIS
+        working-directory: apps/phoenixcore-desktop
+        env:
+          PHOENIXCORE_DESKTOP_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: npm run desktop:build
+      - name: Validate package outputs and write artifact receipt
+        shell: pwsh
+        run: |
+          $msi = @(Get-ChildItem "apps/phoenixcore-desktop/src-tauri/target/release/bundle/msi/*.msi")
+          $nsis = @(Get-ChildItem "apps/phoenixcore-desktop/src-tauri/target/release/bundle/nsis/*.exe")
+          if ($msi.Count -ne 1) { throw "Expected exactly one MSI, found $($msi.Count)" }
+          if ($nsis.Count -ne 1) { throw "Expected exactly one NSIS installer, found $($nsis.Count)" }
+          if ($msi[0].Length -le 0 -or $nsis[0].Length -le 0) { throw "Desktop installer output is empty" }
+
+          $source = "${{ github.event.pull_request.head.sha || github.sha }}"
+          $receipt = [ordered]@{
+            schema_version = "bws.phoenixcore-desktop-artifact/v1"
+            app_id = "phoenixcore-desktop"
+            source_commit = $source
+            version = "0.1.0"
+            target = "windows-x86_64"
+            msi = [ordered]@{
+              filename = $msi[0].Name
+              size_bytes = $msi[0].Length
+              sha256 = (Get-FileHash $msi[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+            nsis = [ordered]@{
+              filename = $nsis[0].Name
+              size_bytes = $nsis[0].Length
+              sha256 = (Get-FileHash $nsis[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+            dashboard_bundle = "embedded-tauri-dist"
+            packaged_vite_api_bridge = "not-verified"
+            install = "not-run"
+            launch = "not-run"
+            rollback = "not-run"
+            uninstall = "not-run"
+            signing = "not-run"
+            truth_class = "STATIC_ARTIFACT_VALIDATED"
+          }
+          $receipt | ConvertTo-Json -Depth 6 | Set-Content "apps/phoenixcore-desktop/src-tauri/target/release/bundle/phoenixcore-desktop.artifact.json" -Encoding utf8
+          Get-Content "apps/phoenixcore-desktop/src-tauri/target/release/bundle/phoenixcore-desktop.artifact.json"
+      - name: Upload unsigned desktop package evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenixcore-desktop-windows-unsigned-preview
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            apps/phoenixcore-desktop/src-tauri/target/release/bundle/msi/*.msi
+            apps/phoenixcore-desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/phoenixcore-desktop/src-tauri/target/release/bundle/phoenixcore-desktop.artifact.json
