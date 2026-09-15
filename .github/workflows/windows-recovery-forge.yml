@@ -1,0 +1,62 @@
+name: Windows Recovery Forge
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
+      - "apps/phoenix-key/src-tauri/src/bin/windows_recovery_probe.rs"
+      - ".github/workflows/windows-recovery-forge.yml"
+  push:
+    branches:
+      - "convergence/windows-recovery-forge-macos-v2"
+    paths:
+      - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
+      - "apps/phoenix-key/src-tauri/src/bin/windows_recovery_probe.rs"
+      - ".github/workflows/windows-recovery-forge.yml"
+
+jobs:
+  rust-recovery-core:
+    name: Rust recovery core
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: apps/phoenix-key/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format gate
+        run: cargo fmt --all -- --check
+      - name: Recovery unit tests
+        run: cargo test --bin windows_recovery_probe
+      - name: Recovery probe build
+        run: cargo build --bin windows_recovery_probe
+      - name: Clippy recovery probe
+        run: cargo clippy --bin windows_recovery_probe -- -D warnings
+
+  destructive-boundary:
+    name: Confirm recovery probe has no destructive commands
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan recovery core for forbidden writer calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            apps/phoenix-key/src-tauri/src/windows_recovery.rs
+            apps/phoenix-key/src-tauri/src/bin/windows_recovery_probe.rs
+          )
+          forbidden='execute_media_write|write_windows_sacrificial_drive|diskpart|mkfs|CreateFileW|WriteFile|DeviceIoControl|dd if=|dd of='
+          if grep -En "$forbidden" "${files[@]}"; then
+            echo "Recovery analysis/probe core must remain non-destructive." >&2
+            exit 1
+          fi
+          echo "PASS: recovery analysis/probe core contains no destructive writer path."
