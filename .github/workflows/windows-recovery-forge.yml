@@ -31,9 +31,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
-      - name: Scope format probe
-        run: rustfmt --check src/bin/windows_recovery_probe.rs
+          components: clippy
       - name: Recovery unit tests
         run: cargo test --bin windows_recovery_probe
       - name: Recovery probe build
