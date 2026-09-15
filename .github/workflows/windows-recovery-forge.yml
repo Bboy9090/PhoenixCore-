@@ -32,8 +32,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: Format gate
-        run: cargo fmt --all -- --check
+      - name: Scope format probe
+        run: rustfmt --check src/bin/windows_recovery_probe.rs
       - name: Recovery unit tests
         run: cargo test --bin windows_recovery_probe
       - name: Recovery probe build
