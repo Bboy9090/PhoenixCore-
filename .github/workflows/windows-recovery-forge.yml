@@ -32,6 +32,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      # Formatting cleanup is intentionally separate from this functional gate so
+      # legacy Phoenix Key style drift cannot hide compiler/test failures.
       - name: Recovery unit tests
         run: cargo test --bin windows_recovery_probe
       - name: Recovery probe build
