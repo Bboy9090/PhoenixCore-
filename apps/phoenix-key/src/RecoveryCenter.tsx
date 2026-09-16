@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
+import "./recovery-center.css";
 
 type RecoveryAnalysis = {
   schema: string;
