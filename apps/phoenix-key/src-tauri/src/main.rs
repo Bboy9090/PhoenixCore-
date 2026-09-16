@@ -1,8 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod recovery_center;
+mod windows_recovery;
 mod windows_target;
 
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
+use recovery_center::{analyze_windows_recovery_source, plan_windows_recovery_source};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
@@ -494,7 +497,9 @@ fn main() {
             scan_media_targets,
             plan_media_build,
             prepare_media_write,
-            execute_media_write
+            execute_media_write,
+            analyze_windows_recovery_source,
+            plan_windows_recovery_source
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Phoenix Key desktop application");
