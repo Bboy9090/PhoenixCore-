@@ -1,5 +1,7 @@
 #[path = "../windows_recovery.rs"]
 mod windows_recovery;
+#[path = "../recovery_center.rs"]
+mod recovery_center;
 
 use serde::Serialize;
 use std::{env, process};
