@@ -5,9 +5,11 @@ on:
   pull_request:
     branches: ["main"]
     paths:
+      - "apps/phoenix-key/src-tauri/src/main.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
       - "apps/phoenix-key/src-tauri/src/bin/windows_recovery_probe.rs"
+      - "apps/phoenix-key/src/main.tsx"
       - "apps/phoenix-key/src/RecoveryCenter.tsx"
       - "apps/phoenix-key/src/recovery-center.css"
       - ".github/workflows/windows-recovery-forge.yml"
@@ -15,14 +17,33 @@ on:
     branches:
       - "convergence/windows-recovery-forge-macos-v2"
     paths:
+      - "apps/phoenix-key/src-tauri/src/main.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
       - "apps/phoenix-key/src-tauri/src/bin/windows_recovery_probe.rs"
+      - "apps/phoenix-key/src/main.tsx"
       - "apps/phoenix-key/src/RecoveryCenter.tsx"
       - "apps/phoenix-key/src/recovery-center.css"
       - ".github/workflows/windows-recovery-forge.yml"
 
 jobs:
+  recovery-ui:
+    name: Recovery Center UI build
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: apps/phoenix-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/phoenix-key/package-lock.json
+      - run: npm ci
+      - name: Type-check and build guided recovery UI
+        run: npm run build
+
   rust-recovery-core:
     name: Rust recovery core (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
