@@ -1,0 +1,262 @@
+import React, { useMemo, useState } from "react";
+import { invoke } from "@tauri-apps/api/tauri";
+
+type RecoveryAnalysis = {
+  schema: string;
+  path: string;
+  kind: string;
+  confidence: string;
+  user_summary: string;
+  recommended_action: string;
+  restore_candidate: boolean;
+  has_windows_image_backup: boolean;
+  system_image_files: string[];
+  warnings: string[];
+  detected_by: string[];
+};
+
+type RecoveryPlan = {
+  schema: string;
+  source: RecoveryAnalysis;
+  host_arch: string;
+  host_os: string;
+  host_route: string;
+  host_explanation: string;
+  traditional_bootcamp_supported: boolean;
+  allowed_operations: string[];
+  blocked_operations: string[];
+  required_gates: string[];
+  next_steps: string[];
+  dry_run: boolean;
+  destructive_actions_performed: boolean;
+};
+
+const isDesktopRuntime = () => "__TAURI__" in window;
+
+const friendlyKind: Record<string, string> = {
+  windows_system_image_backup: "Windows system-image backup",
+  windows_system_image_structure_incomplete: "Incomplete Windows system-image backup",
+  extracted_windows_media: "Extracted Windows installer",
+  windows_recovery_tree: "Windows Recovery Environment",
+  iso: "Windows disc image / ISO candidate",
+  wim: "Windows image (WIM)",
+  esd: "Windows image (ESD)",
+  vhd: "Windows virtual disk (VHD)",
+  vhdx: "Windows virtual disk (VHDX)",
+  ffu_unverified: "Unverified FFU file",
+  split_wim_unverified: "Unverified split WIM segment",
+  file_unknown: "Unknown file",
+  directory_unknown: "Unknown folder",
+};
+
+const friendlyOperation: Record<string, string> = {
+  inspect_backup: "Inspect the backup",
+  generate_recovery_report: "Create a recovery report",
+  verify_source_integrity: "Verify source integrity",
+  plan_recovery_media: "Plan recovery media",
+  plan_system_image_restore: "Plan an exact system-image restore",
+  plan_bootcamp_repair: "Plan an Intel Mac Boot Camp repair",
+  plan_bootcamp_restore: "Plan an Intel Mac Boot Camp restore",
+  plan_windows_arm_recovery_media: "Plan Windows ARM recovery media",
+  plan_vhdx_vm_recovery: "Plan VHDX / virtual-machine recovery",
+};
+
+function readableToken(value: string) {
+  return friendlyOperation[value] || value.replaceAll("_", " ");
+}
+
+export default function RecoveryCenter() {
+  const [sourcePath, setSourcePath] = useState("");
+  const [analysis, setAnalysis] = useState<RecoveryAnalysis | null>(null);
+  const [plan, setPlan] = useState<RecoveryPlan | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(
+    "Choose the Windows backup or recovery source you want Phoenix Key to inspect. Analysis does not change disks.",
+  );
+  const [showTechnical, setShowTechnical] = useState(false);
+
+  const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
+  const sourceState = useMemo(() => {
+    if (!analysis) return "Not analyzed";
+    if (analysis.restore_candidate && analysis.warnings.length === 0) return "Ready to plan";
+    if (analysis.restore_candidate) return "Plan with warnings";
+    return "Blocked until fixed";
+  }, [analysis]);
+
+  function resetResult(nextPath: string) {
+    setSourcePath(nextPath);
+    setAnalysis(null);
+    setPlan(null);
+    setShowTechnical(false);
+    setMessage("Source changed. Analyze it again before planning anything.");
+  }
+
+  async function analyze() {
+    if (!canAnalyze) return;
+    setBusy(true);
+    setPlan(null);
+    setMessage("Inspecting the source read-only. No target disk is being touched…");
+    try {
+      const result = await invoke<RecoveryAnalysis>("analyze_windows_recovery_source", {
+        sourcePath: sourcePath.trim(),
+      });
+      setAnalysis(result);
+      setMessage(
+        result.restore_candidate
+          ? "Analysis complete. Review what Phoenix Key found before building a plan."
+          : "Analysis complete, but this source is not safe to plan for restore yet.",
+      );
+    } catch (error) {
+      setAnalysis(null);
+      setMessage(String(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function buildPlan() {
+    if (!analysis || !analysis.restore_candidate || busy) return;
+    setBusy(true);
+    setMessage("Building a read-only recovery plan for this computer…");
+    try {
+      const result = await invoke<RecoveryPlan>("plan_windows_recovery_source", {
+        sourcePath: sourcePath.trim(),
+      });
+      setPlan(result);
+      setMessage("Recovery plan created. This plan did not write, erase, repartition, or repair anything.");
+    } catch (error) {
+      setPlan(null);
+      setMessage(String(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="recovery-center" aria-busy={busy}>
+      <section className="panel recovery-intro">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">WINDOWS RECOVERY FORGE</p>
+            <h3>Start by understanding the backup.</h3>
+          </div>
+          <span className="read-only-pill">READ ONLY</span>
+        </div>
+        <p className="recovery-lead">
+          Phoenix Key inspects the source first, explains what it is, and tells you what this computer can safely do with it. Restore execution is intentionally separate.
+        </p>
+        {!isDesktopRuntime() && (
+          <div className="warning-box">
+            <strong>Desktop app required</strong>
+            <p>Local backup inspection is not available in the browser shell. Open Phoenix Key Desktop.</p>
+          </div>
+        )}
+        <label className="path-field">
+          <span>Windows backup or recovery source</span>
+          <input
+            value={sourcePath}
+            onChange={(event) => resetResult(event.target.value)}
+            placeholder="Example: /Volumes/Backup/WindowsImageBackup or C:\\Backups\\system.vhdx"
+            aria-describedby="recovery-source-help"
+          />
+        </label>
+        <p id="recovery-source-help" className="field-help">
+          Supported analysis includes WindowsImageBackup folders, ISO, WIM/ESD, VHD/VHDX, WinRE, and extracted Windows media. A filename alone never proves a backup is safe to restore.
+        </p>
+        <button className="scan-button" onClick={analyze} disabled={!canAnalyze}>
+          {busy && !analysis ? "Analyzing…" : "Analyze Backup Safely"}
+        </button>
+        <div className="recovery-status" role="status" aria-live="polite">{message}</div>
+      </section>
+
+      {analysis && (
+        <section className="panel recovery-result">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">WHAT WE FOUND</p>
+              <h3>{friendlyKind[analysis.kind] || readableToken(analysis.kind)}</h3>
+            </div>
+            <span className={`confidence-pill confidence-${analysis.confidence}`}>
+              {analysis.confidence} confidence
+            </span>
+          </div>
+
+          <div className="recovery-summary-card">
+            <strong>{analysis.user_summary}</strong>
+            <p>{analysis.recommended_action}</p>
+          </div>
+
+          <div className="recovery-facts">
+            <div><span>Current state</span><strong>{sourceState}</strong></div>
+            <div><span>System image</span><strong>{analysis.has_windows_image_backup ? "Detected" : "No"}</strong></div>
+            <div><span>Disk image files</span><strong>{analysis.system_image_files.length}</strong></div>
+          </div>
+
+          {analysis.warnings.length > 0 && (
+            <div className="warning-box">
+              <strong>Fix before restoring</strong>
+              {analysis.warnings.map((warning) => <p key={warning}>{warning}</p>)}
+            </div>
+          )}
+
+          {analysis.system_image_files.length > 0 && (
+            <div className="recovery-list">
+              <strong>Backup disk images found</strong>
+              {analysis.system_image_files.map((path) => <div key={path}>{path}</div>)}
+            </div>
+          )}
+
+          <button
+            className="plan-button"
+            onClick={buildPlan}
+            disabled={busy || !analysis.restore_candidate}
+            title={!analysis.restore_candidate ? "Resolve the source warnings first" : undefined}
+          >
+            {busy ? "Building Plan…" : "Build Safe Recovery Plan"}
+          </button>
+        </section>
+      )}
+
+      {plan && (
+        <section className="panel recovery-plan">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">WHAT THIS COMPUTER CAN DO</p>
+              <h3>{readableToken(plan.host_route)}</h3>
+            </div>
+            <span className="read-only-pill">DRY RUN</span>
+          </div>
+          <p className="recovery-lead">{plan.host_explanation}</p>
+
+          <div className="recovery-columns">
+            <div className="recovery-list good-list">
+              <strong>Available planning routes</strong>
+              {plan.allowed_operations.map((operation) => <div key={operation}>✓ {readableToken(operation)}</div>)}
+            </div>
+            <div className="recovery-list blocked-list">
+              <strong>Blocked routes</strong>
+              {plan.blocked_operations.length === 0
+                ? <div>None at this analysis stage</div>
+                : plan.blocked_operations.map((operation) => <div key={operation}>— {readableToken(operation)}</div>)}
+            </div>
+          </div>
+
+          <div className="recovery-list numbered-list">
+            <strong>Recommended next steps</strong>
+            {plan.next_steps.map((step, index) => <div key={step}><span>{index + 1}</span>{step}</div>)}
+          </div>
+
+          <div className="safety-card recovery-safety">
+            <strong>No disk changes were made</strong>
+            <p>This Recovery Center stage cannot erase, partition, inject drivers, repair BCD, or restore Windows. Those capabilities require a separate verified target contract and explicit authorization.</p>
+          </div>
+
+          <button className="technical-toggle" onClick={() => setShowTechnical((value) => !value)}>
+            {showTechnical ? "Hide Technical Evidence" : "Show Technical Evidence"}
+          </button>
+          {showTechnical && <pre className="plan-output">{JSON.stringify(plan, null, 2)}</pre>}
+        </section>
+      )}
+    </div>
+  );
+}
