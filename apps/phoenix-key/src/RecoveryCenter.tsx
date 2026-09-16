@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { open } from "@tauri-apps/api/dialog";
 import "./recovery-center.css";
 
 type RecoveryAnalysis = {
@@ -92,6 +93,24 @@ export default function RecoveryCenter() {
     setMessage("Source changed. Analyze it again before planning anything.");
   }
 
+  async function chooseSource(directory: boolean) {
+    if (!isDesktopRuntime() || busy) return;
+    try {
+      const selected = await open({
+        directory,
+        multiple: false,
+        title: directory ? "Choose Windows backup folder" : "Choose Windows recovery image",
+        filters: directory ? undefined : [{
+          name: "Windows recovery sources",
+          extensions: ["iso", "wim", "esd", "swm", "vhd", "vhdx", "ffu"],
+        }],
+      });
+      if (typeof selected === "string") resetResult(selected);
+    } catch (error) {
+      setMessage(`Source picker could not open. Nothing was changed. ${String(error)}`);
+    }
+  }
+
   async function analyze() {
     if (!canAnalyze) return;
     setBusy(true);
@@ -152,12 +171,16 @@ export default function RecoveryCenter() {
             <p>Local backup inspection is not available in the browser shell. Open Phoenix Key Desktop.</p>
           </div>
         )}
+        <div className="source-actions" aria-label="Choose recovery source">
+          <button className="scan-button" type="button" onClick={() => chooseSource(true)} disabled={!isDesktopRuntime() || busy}>Choose Backup Folder</button>
+          <button className="plan-button" type="button" onClick={() => chooseSource(false)} disabled={!isDesktopRuntime() || busy}>Choose Image File</button>
+        </div>
         <label className="path-field">
-          <span>Windows backup or recovery source</span>
+          <span>Selected source</span>
           <input
             value={sourcePath}
             onChange={(event) => resetResult(event.target.value)}
-            placeholder="Example: /Volumes/Backup/WindowsImageBackup or C:\\Backups\\system.vhdx"
+            placeholder="Choose a folder or image above, or paste a path"
             aria-describedby="recovery-source-help"
           />
         </label>
