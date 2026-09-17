@@ -1,5 +1,6 @@
 #[path = "../windows_recovery.rs"]
 mod windows_recovery;
+#[cfg(test)]
 #[path = "../recovery_center.rs"]
 mod recovery_center;
 
