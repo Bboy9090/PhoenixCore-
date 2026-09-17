@@ -8,7 +8,7 @@ mod platform_recovery;
 #[path = "../src/recovery_center.rs"]
 mod recovery_center;
 
-use platform_recovery::answer_recovery_question;
+use platform_recovery::get_platform_recovery_answer;
 use serde::Serialize;
 use std::{env, process};
 use windows_recovery::{analyze_backup_path, fixture_candidates};
@@ -45,7 +45,7 @@ fn run() -> Result<(), String> {
         if args.next().is_some() {
             usage();
         }
-        return emit(&answer_recovery_question(platform, scenario, None, None)?);
+        return emit(&get_platform_recovery_answer(platform, scenario, None, None)?);
     }
 
     let path = args.next().unwrap_or_else(|| usage());
