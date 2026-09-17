@@ -10,7 +10,7 @@ on:
       - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
-      - "apps/phoenix-key/src-tauri/src/bin/windows_recovery_probe.rs"
+      - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
       - "apps/phoenix-key/src/main.tsx"
       - "apps/phoenix-key/src/RecoveryCenter.tsx"
       - "apps/phoenix-key/src/recovery-center.css"
@@ -24,7 +24,7 @@ on:
       - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
-      - "apps/phoenix-key/src-tauri/src/bin/windows_recovery_probe.rs"
+      - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
       - "apps/phoenix-key/src/main.tsx"
       - "apps/phoenix-key/src/RecoveryCenter.tsx"
       - "apps/phoenix-key/src/recovery-center.css"
@@ -54,9 +54,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Tauri v1 still targets WebKit2GTK 4.0. Ubuntu 22.04 is the supported
-        # CI baseline and also produces a more broadly compatible Linux binary
-        # than compiling on a newer glibc baseline.
         os: [ubuntu-22.04, macos-latest, windows-latest]
     defaults:
       run:
@@ -78,14 +75,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      # The recovery probe is an opt-in diagnostic binary so Tauri packaging
-      # can never mistake it for the Phoenix Key desktop application.
       - name: Recovery unit tests
-        run: cargo test --features recovery-probe --bin windows_recovery_probe
+        run: cargo test --example windows_recovery_probe
       - name: Recovery probe build
-        run: cargo build --features recovery-probe --bin windows_recovery_probe
+        run: cargo build --example windows_recovery_probe
       - name: Clippy recovery probe
-        run: cargo clippy --features recovery-probe --bin windows_recovery_probe -- -D warnings
+        run: cargo clippy --example windows_recovery_probe -- -D warnings
 
   destructive-boundary:
     name: Confirm recovery probe has no destructive commands
@@ -100,7 +95,7 @@ jobs:
             apps/phoenix-key/src-tauri/src/windows_recovery.rs
             apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs
             apps/phoenix-key/src-tauri/src/recovery_center.rs
-            apps/phoenix-key/src-tauri/src/bin/windows_recovery_probe.rs
+            apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs
           )
           forbidden='execute_media_write|write_windows_sacrificial_drive|diskpart|mkfs|CreateFileW|WriteFile|DeviceIoControl|dd if=|dd of='
           if grep -En "$forbidden" "${files[@]}"; then
