@@ -1,12 +1,15 @@
 #[path = "../windows_recovery.rs"]
 mod windows_recovery;
+#[path = "../windows_recovery_guard.rs"]
+mod windows_recovery_guard;
 #[cfg(test)]
 #[path = "../recovery_center.rs"]
 mod recovery_center;
 
 use serde::Serialize;
 use std::{env, process};
-use windows_recovery::{analyze_backup_path, build_recovery_plan, fixture_candidates};
+use windows_recovery::{analyze_backup_path, fixture_candidates};
+use windows_recovery_guard::{build_guarded_recovery_plan, harden_analysis};
 
 #[derive(Serialize)]
 struct ErrorReceipt<'a> {
@@ -38,8 +41,11 @@ fn run() -> Result<(), String> {
     }
 
     match command.as_str() {
-        "inspect" => emit(&analyze_backup_path(path)?),
-        "plan" => emit(&build_recovery_plan(path)?),
+        "inspect" => {
+            let analysis = analyze_backup_path(&path)?;
+            emit(&harden_analysis(&path, analysis))
+        }
+        "plan" => emit(&build_guarded_recovery_plan(path)?),
         "fixtures" => {
             let candidates = fixture_candidates(path)?;
             let rendered: Vec<String> = candidates
