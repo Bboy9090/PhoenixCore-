@@ -6,7 +6,7 @@ use std::{
     collections::VecDeque,
     fs::{self, File},
     io::Read,
-    path::{Path, PathBuf},
+    path::Path,
     time::UNIX_EPOCH,
 };
 
@@ -107,7 +107,11 @@ fn directory_identity(path: &Path) -> Result<RecoverySourceIdentity, String> {
                 scan_limited = true;
                 break;
             }
-            let relative = child.strip_prefix(path).unwrap_or(&child).to_string_lossy().replace('\\', "/");
+            let relative = child
+                .strip_prefix(path)
+                .unwrap_or(&child)
+                .to_string_lossy()
+                .replace('\\', "/");
             let (digest, size) = hash_file(&child)?;
             total_size = total_size.saturating_add(size);
             entries.push((relative, size, modified_seconds(&metadata), digest));
@@ -174,12 +178,18 @@ pub fn build_identity_bound_recovery_plan(path: impl AsRef<Path>) -> Result<Valu
     let path = path.as_ref();
     let identity_before = capture_source_identity(path)?;
     if !identity_before.complete {
-        return Err("recovery source identity manifest exceeded its bounded scan and is not complete".to_string());
+        return Err(
+            "recovery source identity manifest exceeded its bounded scan and is not complete"
+                .to_string(),
+        );
     }
     let plan = build_guarded_recovery_plan(path)?;
     let identity_after = capture_source_identity(path)?;
     if identity_before != identity_after {
-        return Err("recovery source changed while the plan was being built; re-analysis is required".to_string());
+        return Err(
+            "recovery source changed while the plan was being built; re-analysis is required"
+                .to_string(),
+        );
     }
     let mut value = serde_json::to_value(plan)
         .map_err(|error| format!("cannot serialize recovery plan: {error}"))?;
@@ -216,16 +226,17 @@ pub fn verify_source_identity(
 #[cfg(test)]
 mod tests {
     use super::{build_identity_bound_recovery_plan, capture_source_identity, verify_source_identity};
-    use std::fs;
+    use std::{fs, path::PathBuf};
 
     fn temp_case(name: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!("phoenix-key-source-identity-{name}-{}", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "phoenix-key-source-identity-{name}-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path
     }
-
-    use std::path::PathBuf;
 
     #[test]
     fn file_identity_changes_when_source_changes() {
@@ -271,7 +282,10 @@ mod tests {
         fs::write(&source, b"MSWIM\0\0\0fixture").unwrap();
         let plan = build_identity_bound_recovery_plan(&source).unwrap();
         assert_eq!(plan["source_identity"]["source_kind"], "file_sha256");
-        assert_eq!(plan["source_identity_gate"], "recheck_immediately_before_any_mutation");
+        assert_eq!(
+            plan["source_identity_gate"],
+            "recheck_immediately_before_any_mutation"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }
