@@ -9,6 +9,7 @@ on:
       - "apps/phoenix-key/src-tauri/src/main.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs"
+      - "apps/phoenix-key/src-tauri/src/platform_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
       - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
       - "apps/phoenix-key/src/main.tsx"
@@ -23,6 +24,7 @@ on:
       - "apps/phoenix-key/src-tauri/src/main.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs"
+      - "apps/phoenix-key/src-tauri/src/platform_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
       - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
       - "apps/phoenix-key/src/main.tsx"
@@ -94,6 +96,7 @@ jobs:
           files=(
             apps/phoenix-key/src-tauri/src/windows_recovery.rs
             apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs
+            apps/phoenix-key/src-tauri/src/platform_recovery.rs
             apps/phoenix-key/src-tauri/src/recovery_center.rs
             apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs
           )
