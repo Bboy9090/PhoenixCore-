@@ -1,6 +1,7 @@
-use crate::windows_recovery::{
-    analyze_backup_path, build_recovery_plan, WindowsBackupAnalysis, WindowsRecoveryPlan,
-};
+use crate::windows_recovery::{analyze_backup_path, WindowsBackupAnalysis, WindowsRecoveryPlan};
+#[path = "windows_recovery_guard.rs"]
+mod windows_recovery_guard;
+use windows_recovery_guard::{build_guarded_recovery_plan, harden_analysis};
 
 fn require_source_path(source_path: String) -> Result<String, String> {
     let source_path = source_path.trim();
@@ -18,11 +19,13 @@ pub fn analyze_windows_recovery_source(
     source_path: String,
 ) -> Result<WindowsBackupAnalysis, String> {
     let source_path = require_source_path(source_path)?;
-    analyze_backup_path(source_path).map_err(|error| {
-        format!(
-            "Phoenix Key could not analyze that recovery source. Nothing was changed. {error}"
-        )
-    })
+    analyze_backup_path(&source_path)
+        .map(|analysis| harden_analysis(&source_path, analysis))
+        .map_err(|error| {
+            format!(
+                "Phoenix Key could not analyze that recovery source. Nothing was changed. {error}"
+            )
+        })
 }
 
 #[tauri::command]
@@ -30,7 +33,7 @@ pub fn plan_windows_recovery_source(
     source_path: String,
 ) -> Result<WindowsRecoveryPlan, String> {
     let source_path = require_source_path(source_path)?;
-    build_recovery_plan(source_path).map_err(|error| {
+    build_guarded_recovery_plan(source_path).map_err(|error| {
         format!(
             "Phoenix Key could not build a recovery plan. Nothing was changed. {error}"
         )
@@ -68,13 +71,25 @@ mod tests {
     }
 
     #[test]
-    fn planning_is_read_only() {
+    fn hostile_wim_is_blocked_in_product_boundary() {
+        let root = temp_case("hostile-wim");
+        let source = root.join("fixture.wim");
+        fs::write(&source, b"MSWIM\0\0\0fixture").unwrap();
+        let analysis = analyze_windows_recovery_source(source.to_string_lossy().to_string()).unwrap();
+        assert!(!analysis.restore_candidate);
+        assert_eq!(analysis.kind, "wim_structurally_invalid");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn planning_is_read_only_even_when_source_is_blocked() {
         let root = temp_case("plan");
         let source = root.join("fixture.wim");
         fs::write(&source, b"MSWIM\0\0\0fixture").unwrap();
         let plan = plan_windows_recovery_source(source.to_string_lossy().to_string()).unwrap();
         assert!(plan.dry_run);
         assert!(!plan.destructive_actions_performed);
+        assert!(!plan.source.restore_candidate);
         fs::remove_dir_all(root).unwrap();
     }
 }
