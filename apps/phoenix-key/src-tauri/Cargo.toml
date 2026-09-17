@@ -10,11 +10,6 @@ default-run = "phoenix-key"
 name = "phoenix-key"
 path = "src/main.rs"
 
-[[bin]]
-name = "windows_recovery_probe"
-path = "src/bin/windows_recovery_probe.rs"
-required-features = ["recovery-probe"]
-
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
 
@@ -27,4 +22,3 @@ tauri = { version = "1.5", features = ["dialog-open"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
-recovery-probe = []
