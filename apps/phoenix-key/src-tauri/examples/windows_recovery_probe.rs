@@ -2,10 +2,13 @@
 mod windows_recovery;
 #[path = "../src/windows_recovery_guard.rs"]
 mod windows_recovery_guard;
+#[path = "../src/platform_recovery.rs"]
+mod platform_recovery;
 #[cfg(test)]
 #[path = "../src/recovery_center.rs"]
 mod recovery_center;
 
+use platform_recovery::answer_recovery_question;
 use serde::Serialize;
 use std::{env, process};
 use windows_recovery::{analyze_backup_path, fixture_candidates};
@@ -27,7 +30,7 @@ fn emit<T: Serialize>(value: &T) -> Result<(), String> {
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- fixtures <directory>"
+        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
     );
     process::exit(64);
 }
@@ -35,6 +38,16 @@ fn usage() -> ! {
 fn run() -> Result<(), String> {
     let mut args = env::args().skip(1);
     let command = args.next().unwrap_or_else(|| usage());
+
+    if command == "answer" {
+        let platform = args.next().unwrap_or_else(|| usage());
+        let scenario = args.next().unwrap_or_else(|| usage());
+        if args.next().is_some() {
+            usage();
+        }
+        return emit(&answer_recovery_question(platform, scenario, None, None)?);
+    }
+
     let path = args.next().unwrap_or_else(|| usage());
     if args.next().is_some() {
         usage();
