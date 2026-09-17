@@ -64,7 +64,7 @@ const friendlyOperation: Record<string, string> = {
 };
 
 function readableToken(value: string) {
-  return friendlyOperation[value] || value.replaceAll("_", " ");
+  return friendlyOperation[value] || value.split("_").join(" ");
 }
 
 export default function RecoveryCenter() {
