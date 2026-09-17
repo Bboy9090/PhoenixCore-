@@ -4,15 +4,21 @@ mod windows_recovery;
 mod windows_recovery_guard;
 #[path = "../src/platform_recovery.rs"]
 mod platform_recovery;
+#[path = "../src/source_identity.rs"]
+mod source_identity;
+#[path = "../src/target_safety.rs"]
+mod target_safety;
 #[cfg(test)]
 #[path = "../src/recovery_center.rs"]
 mod recovery_center;
 
 use platform_recovery::get_platform_recovery_answer;
 use serde::Serialize;
-use std::{env, process};
+use source_identity::{build_identity_bound_recovery_plan, capture_source_identity, verify_source_identity};
+use std::{env, fs, process};
+use target_safety::assess_recovery_target;
 use windows_recovery::{analyze_backup_path, fixture_candidates};
-use windows_recovery_guard::{build_guarded_recovery_plan, harden_analysis};
+use windows_recovery_guard::harden_analysis;
 
 #[derive(Serialize)]
 struct ErrorReceipt<'a> {
@@ -30,7 +36,7 @@ fn emit<T: Serialize>(value: &T) -> Result<(), String> {
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
+        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- identity <path>\n  cargo run --example windows_recovery_probe -- verify <path> <expected-sha256>\n  cargo run --example windows_recovery_probe -- target-check <evidence-json> <source-size-bytes> <source-physical-target|unknown>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
     );
     process::exit(64);
 }
@@ -48,6 +54,38 @@ fn run() -> Result<(), String> {
         return emit(&get_platform_recovery_answer(platform, scenario, None, None)?);
     }
 
+    if command == "verify" {
+        let path = args.next().unwrap_or_else(|| usage());
+        let expected = args.next().unwrap_or_else(|| usage());
+        if args.next().is_some() {
+            usage();
+        }
+        return emit(&verify_source_identity(path, &expected)?);
+    }
+
+    if command == "target-check" {
+        let evidence_path = args.next().unwrap_or_else(|| usage());
+        let source_size = args
+            .next()
+            .unwrap_or_else(|| usage())
+            .parse::<u64>()
+            .map_err(|_| "source-size-bytes must be an unsigned integer".to_string())?;
+        let source_target = args.next().unwrap_or_else(|| usage());
+        if args.next().is_some() {
+            usage();
+        }
+        let evidence_bytes = fs::read(&evidence_path)
+            .map_err(|error| format!("cannot read target evidence JSON: {error}"))?;
+        let evidence: serde_json::Value = serde_json::from_slice(&evidence_bytes)
+            .map_err(|error| format!("target evidence is not valid JSON: {error}"))?;
+        let source_target = if source_target.eq_ignore_ascii_case("unknown") {
+            None
+        } else {
+            Some(source_target.as_str())
+        };
+        return emit(&assess_recovery_target(&evidence, source_size, source_target));
+    }
+
     let path = args.next().unwrap_or_else(|| usage());
     if args.next().is_some() {
         usage();
@@ -58,7 +96,8 @@ fn run() -> Result<(), String> {
             let analysis = analyze_backup_path(&path)?;
             emit(&harden_analysis(&path, analysis))
         }
-        "plan" => emit(&build_guarded_recovery_plan(path)?),
+        "plan" => emit(&build_identity_bound_recovery_plan(path)?),
+        "identity" => emit(&capture_source_identity(path)?),
         "fixtures" => {
             let candidates = fixture_candidates(path)?;
             let rendered: Vec<String> = candidates
