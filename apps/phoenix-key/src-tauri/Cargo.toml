@@ -4,6 +4,16 @@ version = "3.2.0"
 edition = "2021"
 description = "Phoenix Key guarded recovery-media writer and device interface"
 license = "MIT OR Apache-2.0"
+default-run = "phoenix-key"
+
+[[bin]]
+name = "phoenix-key"
+path = "src/main.rs"
+
+[[bin]]
+name = "windows_recovery_probe"
+path = "src/bin/windows_recovery_probe.rs"
+required-features = ["recovery-probe"]
 
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
@@ -17,3 +27,4 @@ tauri = { version = "1.5", features = ["dialog-open"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+recovery-probe = []
