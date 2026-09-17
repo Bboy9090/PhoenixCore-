@@ -5,6 +5,7 @@ on:
   pull_request:
     branches: ["main"]
     paths:
+      - "apps/phoenix-key/src-tauri/Cargo.toml"
       - "apps/phoenix-key/src-tauri/src/main.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
@@ -17,6 +18,7 @@ on:
     branches:
       - "convergence/windows-recovery-forge-macos-v2"
     paths:
+      - "apps/phoenix-key/src-tauri/Cargo.toml"
       - "apps/phoenix-key/src-tauri/src/main.rs"
       - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
@@ -74,14 +76,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      # Formatting cleanup is intentionally separate from this functional gate so
-      # legacy Phoenix Key style drift cannot hide compiler/test failures.
+      # The recovery probe is an opt-in diagnostic binary so Tauri packaging
+      # can never mistake it for the Phoenix Key desktop application.
       - name: Recovery unit tests
-        run: cargo test --bin windows_recovery_probe
+        run: cargo test --features recovery-probe --bin windows_recovery_probe
       - name: Recovery probe build
-        run: cargo build --bin windows_recovery_probe
+        run: cargo build --features recovery-probe --bin windows_recovery_probe
       - name: Clippy recovery probe
-        run: cargo clippy --bin windows_recovery_probe -- -D warnings
+        run: cargo clippy --features recovery-probe --bin windows_recovery_probe -- -D warnings
 
   destructive-boundary:
     name: Confirm recovery probe has no destructive commands
