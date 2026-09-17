@@ -97,7 +97,7 @@ pub fn assess_recovery_target(
 #[cfg(test)]
 mod tests {
     use super::assess_recovery_target;
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     fn safe_evidence() -> Value {
         json!({
