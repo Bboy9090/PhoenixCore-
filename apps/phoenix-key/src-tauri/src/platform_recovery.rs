@@ -31,7 +31,7 @@ fn base_answer(platform: &str, scenario: &str) -> RecoveryAnswer {
         evidence_to_collect: Vec::new(),
         destructive_warning: None,
         security_boundary: vec![
-            "Do not bypass firmware passwords, device enrollment, Verified Boot, Secure Boot, signature checks, or ownership controls.".to_string(),
+            "Do not bypass firmware passwords, device enrollment, Verified Boot, Secure Boot, encryption, signature checks, activation locks, FRP, or ownership controls.".to_string(),
             "Prefer vendor recovery, signed boot components, documented developer/recovery modes, and evidence-backed repair.".to_string(),
         ],
         references: Vec::new(),
@@ -104,6 +104,33 @@ pub fn answer_recovery_question(
                 ];
             }
         }
+        return Ok(answer);
+    }
+
+    if (platform_key.contains("dell")
+        || platform_key.contains("lenovo")
+        || platform_key.contains("asus")
+        || platform_key.contains("acer"))
+        && (scenario_key.contains("bios") || scenario_key.contains("firmware"))
+    {
+        answer.severity = "firmware-recovery";
+        answer.user_summary = "This is an OEM firmware-recovery case. Phoenix Key should match the exact machine and board to the vendor recovery package and keep password/ownership controls separate from corruption recovery.".to_string();
+        answer.supported_actions = vec![
+            "Collect exact model, service tag/serial, board identifier, firmware version, and failure symptoms".to_string(),
+            "Match only an official vendor firmware package intended for that exact machine or supported board family".to_string(),
+            "Use the OEM documented recovery/capsule/USB path and verify the post-recovery firmware version".to_string(),
+        ];
+        answer.blocked_actions = vec![
+            "Firmware/admin password bypass".to_string(),
+            "Cross-flash another model's BIOS/UEFI image".to_string(),
+            "Unverified SPI/capsule modification intended to defeat ownership or signature controls".to_string(),
+        ];
+        answer.evidence_to_collect = vec![
+            "Exact OEM model and serial/service identifier".to_string(),
+            "Motherboard/board identifier".to_string(),
+            "Current or last-known-good firmware version".to_string(),
+            "LED/beep/error-code evidence and whether the failure followed an update".to_string(),
+        ];
         return Ok(answer);
     }
 
@@ -181,6 +208,115 @@ pub fn answer_recovery_question(
         }
     }
 
+    if platform_key.contains("windows") && scenario_key.contains("bitlocker") {
+        answer.severity = "encrypted-volume-recovery";
+        answer.user_summary = "This is a BitLocker recovery case. Phoenix Key can identify the protected volume, recovery-key ID, WinRE state, and supported unlock/recovery sources, but it cannot bypass BitLocker encryption.".to_string();
+        answer.supported_actions = vec![
+            "Collect the BitLocker recovery-key ID and exact protected volume identity".to_string(),
+            "Use an authorized recovery key from the user's Microsoft account, organization directory, printed/USB backup, or other legitimate escrow source".to_string(),
+            "After authorized unlock, repair BCD/EFI/WinRE or recover files before considering a reset".to_string(),
+            "Preserve a forensic/read-only path when the recovery key is unavailable".to_string(),
+        ];
+        answer.blocked_actions = vec![
+            "BitLocker key bypass, brute force, or encryption defeat".to_string(),
+            "TPM clearing presented as a way to recover encrypted data".to_string(),
+            "Destructive reset presented as if it preserves inaccessible encrypted files".to_string(),
+        ];
+        answer.evidence_to_collect = vec![
+            "Recovery-key ID shown by BitLocker".to_string(),
+            "Volume/GPT identity and Windows installation path".to_string(),
+            "TPM/Secure Boot state and recent firmware/boot changes".to_string(),
+            "WinRE/BCD/EFI state after the volume is legitimately unlocked".to_string(),
+        ];
+        answer.destructive_warning = Some("Reset/reinstall can destroy inaccessible local data; do not reset while data recovery is still desired.".to_string());
+        return Ok(answer);
+    }
+
+    if platform_key.contains("android") {
+        answer.evidence_to_collect = vec![
+            "Exact OEM/model and Android build".to_string(),
+            "Current state: normal boot, Recovery, Fastboot/Bootloader, or ADB".to_string(),
+            "Bootloader lock state and whether OEM unlocking was previously authorized".to_string(),
+            "Exact error and whether user data must be preserved".to_string(),
+        ];
+        if scenario_key.contains("frp")
+            || scenario_key.contains("google lock")
+            || scenario_key.contains("activation")
+            || scenario_key.contains("account lock")
+        {
+            answer.severity = "ownership-policy";
+            answer.user_summary = "This is an Android Factory Reset Protection or account-ownership case. Phoenix Key will not bypass FRP; it will route to account recovery, OEM support, or organization administration.".to_string();
+            answer.supported_actions = vec![
+                "Use the previously authorized Google/OEM account recovery path".to_string(),
+                "Use OEM or carrier support with ownership evidence when account recovery is unavailable".to_string(),
+                "For managed devices, use the organization administrator's supported removal/reprovisioning path".to_string(),
+            ];
+            answer.blocked_actions = vec![
+                "FRP bypass payload, exploit, or account-removal trick".to_string(),
+                "Patched setup/recovery image intended to suppress ownership verification".to_string(),
+            ];
+            return Ok(answer);
+        }
+        answer.severity = "device-recovery";
+        answer.user_summary = "This is an Android recovery/bootloader case. Phoenix Key can diagnose ADB/Fastboot/Recovery state and stage only OEM-signed, model-matched recovery or factory images.".to_string();
+        answer.supported_actions = vec![
+            "Identify the exact device and current ADB/Fastboot/Recovery state".to_string(),
+            "Verify an OEM-signed, model-matched image and expected partition map".to_string(),
+            "Prefer non-wipe repair or sideload paths when the OEM supports them and data preservation matters".to_string(),
+            "Require explicit destructive authorization before any factory-image operation that wipes user data".to_string(),
+        ];
+        answer.blocked_actions = vec![
+            "Bootloader/authentication exploit intended to defeat ownership controls".to_string(),
+            "Cross-flash another device's partitions".to_string(),
+        ];
+        answer.destructive_warning = Some("Many factory-image or bootloader-unlock workflows erase user data; Phoenix Key must identify that consequence before execution.".to_string());
+        return Ok(answer);
+    }
+
+    if platform_key.contains("iphone")
+        || platform_key.contains("ipad")
+        || platform_key.contains("apple")
+        || platform_key.contains("mac")
+    {
+        if scenario_key.contains("activation lock")
+            || scenario_key.contains("icloud lock")
+            || scenario_key.contains("owner lock")
+        {
+            answer.severity = "ownership-policy";
+            answer.user_summary = "This is an Apple ownership/Activation Lock case. Recovery can restore software, but Phoenix Key will not bypass Activation Lock or Apple ID ownership controls.".to_string();
+            answer.supported_actions = vec![
+                "Use Apple account recovery or remove the device from the legitimate owner's account".to_string(),
+                "Use Apple support with proof of purchase when the supported account route is unavailable".to_string(),
+                "For organization-owned devices, use the organization's supported MDM/Apple Business or School Manager path".to_string(),
+            ];
+            answer.blocked_actions = vec![
+                "Activation Lock/iCloud bypass".to_string(),
+                "Patched restore or setup flow intended to defeat ownership checks".to_string(),
+            ];
+            return Ok(answer);
+        }
+        if scenario_key.contains("dfu")
+            || scenario_key.contains("revive")
+            || scenario_key.contains("restore")
+            || scenario_key.contains("recovery mode")
+        {
+            answer.severity = "device-recovery";
+            answer.user_summary = "This is an Apple Recovery/DFU/revive/restore scenario. Phoenix Key can detect the device state and route to Apple's supported revive/restore workflow while keeping Activation Lock separate.".to_string();
+            answer.supported_actions = vec![
+                "Identify exact device model and current Recovery/DFU state".to_string(),
+                "Use Apple's supported Finder/Apple Devices/Configurator revive or restore path appropriate to the hardware".to_string(),
+                "Prefer revive when supported and data preservation is possible; use restore only with explicit wipe acknowledgement".to_string(),
+                "Verify the device exits recovery to a valid signed OS state".to_string(),
+            ];
+            answer.blocked_actions = vec![
+                "Unsigned firmware restore intended to defeat Apple boot trust".to_string(),
+                "Activation Lock bypass after restore".to_string(),
+            ];
+            answer.destructive_warning = Some("A full restore erases device data; a supported revive may be less destructive on compatible hardware.".to_string());
+            return Ok(answer);
+        }
+    }
+
     if platform_key.contains("uefi")
         || platform_key.contains("secure boot")
         || scenario_key.contains("shim")
@@ -218,7 +354,7 @@ pub fn answer_recovery_question(
     ];
     answer.blocked_actions = vec![
         "Unknown firmware flashing".to_string(),
-        "Credential, enrollment, Verified Boot, or Secure Boot bypass".to_string(),
+        "Credential, encryption, enrollment, activation, Verified Boot, Secure Boot, or ownership bypass".to_string(),
     ];
     Ok(answer)
 }
@@ -263,6 +399,19 @@ mod tests {
     }
 
     #[test]
+    fn generic_oem_bios_route_blocks_cross_flash() {
+        let answer = answer_recovery_question(
+            "Dell".to_string(),
+            "BIOS update failed".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(answer.severity, "firmware-recovery");
+        assert!(answer.blocked_actions.iter().any(|item| item.contains("Cross-flash")));
+    }
+
+    #[test]
     fn managed_chromebook_blocks_enrollment_bypass() {
         let answer = answer_recovery_question(
             "Chromebook".to_string(),
@@ -286,6 +435,45 @@ mod tests {
         .unwrap();
         assert_eq!(answer.severity, "os-recovery");
         assert!(answer.destructive_warning.is_some());
+    }
+
+    #[test]
+    fn bitlocker_route_requires_authorized_key() {
+        let answer = answer_recovery_question(
+            "Windows 11".to_string(),
+            "BitLocker recovery key screen".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(answer.severity, "encrypted-volume-recovery");
+        assert!(answer.blocked_actions.iter().any(|item| item.contains("BitLocker key bypass")));
+    }
+
+    #[test]
+    fn android_frp_route_blocks_bypass() {
+        let answer = answer_recovery_question(
+            "Android phone".to_string(),
+            "FRP Google lock".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(answer.severity, "ownership-policy");
+        assert!(answer.blocked_actions.iter().any(|item| item.contains("FRP bypass")));
+    }
+
+    #[test]
+    fn apple_activation_lock_route_blocks_bypass() {
+        let answer = answer_recovery_question(
+            "iPhone".to_string(),
+            "Activation Lock after restore".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(answer.severity, "ownership-policy");
+        assert!(answer.blocked_actions.iter().any(|item| item.contains("Activation Lock")));
     }
 
     #[test]
