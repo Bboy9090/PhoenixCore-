@@ -20,6 +20,8 @@ use target_safety::assess_windows_recovery_target;
 use recovery_center::{analyze_windows_recovery_source, plan_windows_recovery_source};
 use serde::Serialize;
 use serde_json::{json, Value};
+use source_identity::capture_source_identity;
+use target_safety::{assess_recovery_target, RecoveryTargetSafety};
 use std::{
     ffi::OsStr,
     fs,
@@ -577,6 +579,56 @@ fn inspect_bootcamp_driver_package(
 }
 
 #[tauri::command]
+fn inspect_recovery_target_safety(
+    target_drive: String,
+    source_path: String,
+) -> Result<RecoveryTargetSafety, String> {
+    if !cfg!(windows) {
+        return Err("Windows physical-target safety inspection requires Windows.".to_string());
+    }
+
+    let resolution = resolve_target(target_drive.trim())?;
+    if !resolution.is_windows_physical_drive() {
+        return Err("recovery target must be an exact Windows PHYSICALDRIVE path".to_string());
+    }
+
+    let source = PathBuf::from(source_path.trim());
+    let source_identity = capture_source_identity(&source)?;
+    if !source_identity.complete || source_identity.size_bytes == 0 {
+        return Err("recovery source identity is incomplete or empty".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let evidence = capture_write_evidence(
+            &directory,
+            &resolution.canonical_path,
+            "phoenix-key-recovery-target-evidence.json",
+        )?;
+
+        let resolver = directory.join("resolve_windows_source_disk.py");
+        let source_text = source.to_string_lossy().to_string();
+        let source_disk = run_python_json(
+            &resolver,
+            &["--source", &source_text],
+            &[],
+        )?;
+        let source_physical_target = source_disk
+            .pointer("/source/physical_target")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "source physical-device proof is missing".to_string())?;
+
+        Ok(assess_recovery_target(
+            &evidence,
+            source_identity.size_bytes,
+            Some(source_physical_target),
+        ))
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn scan_media_targets() -> Result<Value, String> {
     run_phoenixcore(&["--list-json"])
 }
@@ -746,6 +798,7 @@ fn main() {
             inspect_windows_image_metadata,
             assess_windows_restore_readiness,
             inspect_bootcamp_driver_package,
+            inspect_recovery_target_safety,
             assess_intel_mac_restore_readiness,
             stage_cloud_recovery_payload,
             assess_windows_recovery_target
