@@ -97,6 +97,19 @@ class WindowsImageMetadataTests(unittest.TestCase):
             self.assertEqual("Professional", result["selected_image"]["edition_id"])
             self.assertEqual("x64", result["selected_image"]["architecture"])
 
+    def test_rust_x86_64_host_alias_matches_x64_image(self):
+        metadata = {
+            "selected_image": {
+                "index": 1,
+                "architecture": "x64",
+            }
+        }
+        result = windows_image_metadata.assess_architecture_compatibility(
+            metadata, "x86_64"
+        )
+        self.assertTrue(result["compatible"])
+        self.assertEqual("x64", result["target_architecture"])
+
     def test_architecture_mismatch_blocks_restore(self):
         metadata = {
             "selected_image": {
