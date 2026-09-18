@@ -59,6 +59,8 @@ class WindowsBootStateTests(unittest.TestCase):
                 "identity_sha256": "a" * 64,
                 "size_bytes": 64000000000,
                 "partition_style": "GPT",
+                "is_boot": True,
+                "is_system": True,
                 "partitions": [
                     {
                         "partition_number": 1,
@@ -106,6 +108,22 @@ class WindowsBootStateTests(unittest.TestCase):
         )
         self.assertEqual("a" * 64, manifest["target"]["identity_sha256"])
         self.assertEqual(64, len(manifest["manifest_sha256"]))
+
+    def test_external_target_cannot_be_bound_to_online_boot_state(self):
+        snapshot = windows_boot_state.build_boot_state_snapshot(
+            partition_payload=self.partition_payload(),
+            bcd_record=self.command("bcdedit.exe", "BCD DATA"),
+            winre_record=self.command("reagentc.exe", "Windows RE status: Enabled"),
+        )
+        evidence = self.target_evidence()
+        evidence["disk"]["is_boot"] = False
+        evidence["disk"]["is_system"] = False
+        with self.assertRaises(windows_boot_state.BootStateError):
+            windows_boot_state.build_rollback_manifest(
+                source_identity_sha256="d" * 64,
+                target_evidence=evidence,
+                boot_state=snapshot,
+            )
 
     def test_missing_source_identity_is_rejected(self):
         snapshot = windows_boot_state.build_boot_state_snapshot(
