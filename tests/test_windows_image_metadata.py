@@ -110,6 +110,12 @@ class WindowsImageMetadataTests(unittest.TestCase):
         self.assertTrue(result["compatible"])
         self.assertEqual("x64", result["target_architecture"])
 
+    def test_image_size_is_parsed_for_capacity_gating(self):
+        self.assertEqual(
+            20_000_000_000,
+            windows_image_metadata.parse_size_bytes("20,000,000,000 bytes"),
+        )
+
     def test_architecture_mismatch_blocks_restore(self):
         metadata = {
             "selected_image": {
