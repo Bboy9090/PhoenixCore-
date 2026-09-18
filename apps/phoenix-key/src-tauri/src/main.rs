@@ -400,6 +400,148 @@ fn attach_target_resolution(
 }
 
 #[tauri::command]
+fn capture_windows_recovery_baseline(
+    source_path: String,
+    target_drive: String,
+) -> Result<Value, String> {
+    if !cfg!(windows) {
+        return Err("Windows boot-state capture requires Windows".to_string());
+    }
+    let source = PathBuf::from(source_path.trim());
+    if !source.exists() {
+        return Err("recovery source does not exist".to_string());
+    }
+    let identity = capture_source_identity(&source)?;
+    if !identity.complete {
+        return Err("recovery source identity is incomplete".to_string());
+    }
+    let resolution = resolve_target(&target_drive)?;
+    if !resolution.is_windows_physical_drive() {
+        return Err("rollback target must resolve to an exact Windows PHYSICALDRIVE".to_string());
+    }
+
+    let evidence_root = receipt_directory()?.join(format!(
+        "recovery-baseline-{}-{}",
+        std::process::id(),
+        &identity.sha256[..12]
+    ));
+    fs::create_dir_all(&evidence_root)
+        .map_err(|error| format!("cannot create recovery baseline directory: {error}"))?;
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let drive_script = directory.join("capture_windows_drive_evidence.py");
+        let drive_receipt = evidence_root.join("drive-evidence.json");
+        let drive_receipt_text = drive_receipt.to_string_lossy().to_string();
+        let _drive_evidence = run_python_json(
+            &drive_script,
+            &[
+                "--target",
+                &resolution.canonical_path,
+                "--output",
+                &drive_receipt_text,
+                "--source-commit",
+                source_commit()?,
+            ],
+            &[],
+        )?;
+
+        let boot_script = directory.join("capture_windows_boot_state.py");
+        let boot_state = evidence_root.join("boot-state.json");
+        let rollback_manifest = evidence_root.join("rollback-manifest.json");
+        let source_text = source.to_string_lossy().to_string();
+        let boot_state_text = boot_state.to_string_lossy().to_string();
+        let rollback_text = rollback_manifest.to_string_lossy().to_string();
+        let rollback = run_python_json(
+            &boot_script,
+            &[
+                "--source-identity-sha256",
+                &identity.sha256,
+                "--source-path",
+                &source_text,
+                "--drive-receipt",
+                &drive_receipt_text,
+                "--boot-state-output",
+                &boot_state_text,
+                "--rollback-output",
+                &rollback_text,
+            ],
+            &[],
+        )?;
+        let boot: Value = serde_json::from_slice(
+            &fs::read(&boot_state)
+                .map_err(|error| format!("cannot read persisted boot-state evidence: {error}"))?,
+        )
+        .map_err(|error| format!("persisted boot-state evidence is invalid JSON: {error}"))?;
+
+        Ok(json!({
+            "schema": "phoenix_key.recovery_baseline.v1",
+            "source_identity": identity,
+            "target": resolution.canonical_path,
+            "drive_evidence_path": drive_receipt_text,
+            "boot_state_path": boot_state_text,
+            "rollback_manifest_path": rollback_text,
+            "boot_state": boot,
+            "rollback_manifest": rollback,
+            "system_mutations_performed": false
+        }))
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
+fn persist_windows_recovery_rollback_bundle(
+    boot_state_path: String,
+    rollback_manifest_path: String,
+) -> Result<Value, String> {
+    if !cfg!(windows) {
+        return Err("Windows rollback bundle persistence requires Windows".to_string());
+    }
+    let boot_state = PathBuf::from(boot_state_path.trim());
+    let rollback_manifest = PathBuf::from(rollback_manifest_path.trim());
+    if !boot_state.is_file() || !rollback_manifest.is_file() {
+        return Err("boot-state and rollback-manifest evidence files are required".to_string());
+    }
+
+    let output_root = receipt_directory()?.join(format!(
+        "rollback-bundle-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&output_root)
+        .map_err(|error| format!("cannot create rollback bundle directory: {error}"))?;
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("persist_windows_rollback_bundle.py");
+        let boot_text = boot_state.to_string_lossy().to_string();
+        let rollback_text = rollback_manifest.to_string_lossy().to_string();
+        let output_text = output_root.to_string_lossy().to_string();
+        let mut bundle = run_python_json(
+            &script,
+            &[
+                "--boot-state",
+                &boot_text,
+                "--rollback-manifest",
+                &rollback_text,
+                "--output-dir",
+                &output_text,
+            ],
+            &[],
+        )?;
+        if let Some(object) = bundle.as_object_mut() {
+            object.insert(
+                "bundle_directory".to_string(),
+                Value::String(output_text),
+            );
+        }
+        Ok(bundle)
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn stage_cloud_recovery_payload(
     source_file: String,
     destination: String,
@@ -815,7 +957,9 @@ fn main() {
             inspect_recovery_target_safety,
             assess_intel_mac_restore_readiness,
             stage_cloud_recovery_payload,
-            assess_windows_recovery_target
+            assess_windows_recovery_target,
+            capture_windows_recovery_baseline,
+            persist_windows_recovery_rollback_bundle
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Phoenix Key desktop application");
