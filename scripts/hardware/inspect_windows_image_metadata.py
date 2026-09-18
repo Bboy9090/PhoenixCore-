@@ -143,9 +143,7 @@ def split_wim_set(path: Path) -> dict[str, Any]:
         }
 
     highest = max(numbered)
-    missing = [
-        number for number in range(1, highest + 1) if number not in numbered
-    ]
+    missing = [number for number in range(1, highest + 1) if number not in numbered]
     ordered = [numbered[number] for number in sorted(numbered)]
     return {
         "complete": not missing,
@@ -199,9 +197,7 @@ def inspect_windows_image(
                 "split_wim": {
                     "complete": False,
                     "segment_count": len(split_set["segments"]),
-                    "segments": [
-                        segment.name for segment in split_set["segments"]
-                    ],
+                    "segments": [segment.name for segment in split_set["segments"]],
                     "missing_segments": split_set["missing_segments"],
                 },
                 "block_reasons": [split_set["reason"]],
@@ -293,9 +289,7 @@ def inspect_windows_image(
             {
                 "complete": True,
                 "segment_count": len(split_set["segments"]),
-                "segments": [
-                    segment.name for segment in split_set["segments"]
-                ],
+                "segments": [segment.name for segment in split_set["segments"]],
                 "missing_segments": [],
             }
             if split_set is not None
