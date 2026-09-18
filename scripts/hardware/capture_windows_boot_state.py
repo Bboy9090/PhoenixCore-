@@ -223,6 +223,10 @@ def build_rollback_manifest(
     disk = target_evidence.get("disk")
     if not isinstance(disk, dict):
         raise BootStateError("Target evidence is missing its disk record.")
+    if disk.get("is_boot") is not True and disk.get("is_system") is not True:
+        raise BootStateError(
+            "Online BCD/WinRE evidence can only bind to the current Windows boot/system disk."
+        )
 
     manifest = {
         "schema": ROLLBACK_SCHEMA,
@@ -232,7 +236,10 @@ def build_rollback_manifest(
             "identity_sha256": source_identity_sha256,
         },
         "target": {
+            "scope": "online_current_windows_boot_repair",
             "physical_target": disk.get("target"),
+            "is_boot": disk.get("is_boot"),
+            "is_system": disk.get("is_system"),
             "identity_sha256": disk.get("identity_sha256"),
             "size_bytes": disk.get("size_bytes"),
             "partition_style": disk.get("partition_style"),
