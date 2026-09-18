@@ -95,23 +95,6 @@ pub fn assess_recovery_target(
 }
 
 
-#[tauri::command]
-pub fn assess_windows_recovery_target(
-    drive_evidence_json: String,
-    source_size_bytes: u64,
-    source_physical_target: Option<String>,
-) -> Result<RecoveryTargetSafety, String> {
-    if source_size_bytes == 0 {
-        return Err("recovery source size must be positive".to_string());
-    }
-    let evidence: Value = serde_json::from_str(&drive_evidence_json)
-        .map_err(|error| format!("invalid drive evidence JSON: {error}"))?;
-    Ok(assess_recovery_target(
-        &evidence,
-        source_size_bytes,
-        source_physical_target.as_deref(),
-    ))
-}
 
 #[cfg(test)]
 mod tests {
