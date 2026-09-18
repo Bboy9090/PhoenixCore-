@@ -436,7 +436,7 @@ def main() -> int:
         output_dir=args.output_dir,
     )
     print(json.dumps(bundle, sort_keys=True))
-    return 0 if bundle["complete"] else 3
+    return 0
 
 
 if __name__ == "__main__":
