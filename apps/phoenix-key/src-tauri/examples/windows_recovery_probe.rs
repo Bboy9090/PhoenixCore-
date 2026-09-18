@@ -15,6 +15,9 @@ mod boot_repair_contract;
 #[path = "../src/mac_bootcamp_compat.rs"]
 mod mac_bootcamp_compat;
 #[cfg(test)]
+#[path = "../src/restore_readiness.rs"]
+mod restore_readiness;
+#[cfg(test)]
 #[path = "../src/recovery_center.rs"]
 mod recovery_center;
 
