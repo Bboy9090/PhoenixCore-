@@ -16,6 +16,8 @@ from typing import Any, Callable
 SCHEMA = "phoenix_key.bootcamp_driver_manifest.v1"
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 SIGNED_EXTENSIONS = {".exe", ".msi", ".dll", ".sys", ".cat"}
+MODEL_EVIDENCE_EXTENSIONS = {".dist", ".xml", ".plist", ".txt"}
+MAX_MODEL_EVIDENCE_BYTES = 2 * 1024 * 1024
 
 
 class BootCampDriverError(RuntimeError):
@@ -31,6 +33,22 @@ def file_sha256(path: Path) -> str:
                 break
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def file_contains_model_identifier(path: Path, model: str) -> bool:
+    if path.suffix.lower() not in MODEL_EVIDENCE_EXTENSIONS:
+        return False
+    try:
+        if path.stat().st_size > MAX_MODEL_EVIDENCE_BYTES:
+            return False
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    pattern = re.compile(
+        rf"(?<![A-Za-z0-9_,.-]){re.escape(model)}(?![A-Za-z0-9_,.-])",
+        re.IGNORECASE,
+    )
+    return bool(pattern.search(text))
 
 
 def canonical_manifest_digest(files: list[dict[str, Any]]) -> str:
@@ -112,6 +130,7 @@ def build_driver_manifest(
     files: list[dict[str, Any]] = []
     signature_failures: list[str] = []
     signature_pending: list[str] = []
+    model_evidence_files: list[str] = []
 
     for current_root, directories, filenames in os.walk(root):
         current = Path(current_root)
@@ -140,6 +159,8 @@ def build_driver_manifest(
                 "sha256": file_sha256(path),
                 "extension": path.suffix.lower(),
             }
+            if file_contains_model_identifier(path, model):
+                model_evidence_files.append(relative)
             if path.suffix.lower() in SIGNED_EXTENSIONS:
                 signature = signature_inspector(path)
                 entry["authenticode"] = signature
@@ -169,6 +190,8 @@ def build_driver_manifest(
         block_reasons.append("invalid_driver_signatures_present")
     if signature_pending:
         block_reasons.append("driver_signature_verification_pending_on_windows")
+    if not model_evidence_files:
+        block_reasons.append("exact_model_support_evidence_missing")
 
     return {
         "schema": SCHEMA,
@@ -181,6 +204,8 @@ def build_driver_manifest(
         "manifest_sha256_matches": manifest_matches,
         "signature_failures": signature_failures,
         "signature_pending": signature_pending,
+        "model_evidence_files": sorted(model_evidence_files),
+        "exact_model_support_evidence": bool(model_evidence_files),
         "verified_for_model": not block_reasons,
         "block_reasons": block_reasons,
         "package_modified": False,
