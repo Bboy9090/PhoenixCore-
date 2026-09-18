@@ -20,9 +20,7 @@ class WindowsSourceDiskResolutionTests(unittest.TestCase):
     def test_drive_letter_is_normalized(self):
         self.assertEqual(
             "E",
-            windows_source_disk_resolution.source_drive_letter(
-                r"e:\backups\image.wim"
-            ),
+            windows_source_disk_resolution.source_drive_letter(r"e:\backups\image.wim"),
         )
 
     def test_non_drive_letter_path_is_rejected(self):
