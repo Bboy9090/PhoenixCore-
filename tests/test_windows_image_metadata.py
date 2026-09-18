@@ -135,9 +135,7 @@ class WindowsImageMetadataTests(unittest.TestCase):
     def test_vhdx_uses_required_index_one_without_unindexed_probe(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = self.image(tmpdir, "windows.vhdx")
-            runner = FakeDism(
-                [self.detail(1, "Windows 11 Pro", "x64", "Professional")]
-            )
+            runner = FakeDism([self.detail(1, "Windows 11 Pro", "x64", "Professional")])
             old_platform = windows_image_metadata.sys.platform
             windows_image_metadata.sys.platform = "win32"
             try:
