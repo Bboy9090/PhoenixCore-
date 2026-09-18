@@ -1,7 +1,7 @@
-use crate::windows_recovery::{analyze_backup_path, WindowsBackupAnalysis, WindowsRecoveryPlan};
-#[path = "windows_recovery_guard.rs"]
-mod windows_recovery_guard;
-use windows_recovery_guard::{build_guarded_recovery_plan, harden_analysis};
+use crate::source_identity::build_identity_bound_recovery_plan;
+use crate::windows_recovery::{analyze_backup_path, WindowsBackupAnalysis};
+use crate::windows_recovery_guard::harden_analysis;
+use serde_json::Value;
 
 fn require_source_path(source_path: String) -> Result<String, String> {
     let source_path = source_path.trim();
@@ -29,13 +29,11 @@ pub fn analyze_windows_recovery_source(
 }
 
 #[tauri::command]
-pub fn plan_windows_recovery_source(
-    source_path: String,
-) -> Result<WindowsRecoveryPlan, String> {
+pub fn plan_windows_recovery_source(source_path: String) -> Result<Value, String> {
     let source_path = require_source_path(source_path)?;
-    build_guarded_recovery_plan(source_path).map_err(|error| {
+    build_identity_bound_recovery_plan(source_path).map_err(|error| {
         format!(
-            "Phoenix Key could not build a recovery plan. Nothing was changed. {error}"
+            "Phoenix Key could not build an identity-bound recovery plan. Nothing was changed. {error}"
         )
     })
 }
@@ -82,14 +80,24 @@ mod tests {
     }
 
     #[test]
-    fn planning_is_read_only_even_when_source_is_blocked() {
+    fn desktop_plan_is_identity_bound_and_read_only() {
         let root = temp_case("plan");
         let source = root.join("fixture.wim");
         fs::write(&source, b"MSWIM\0\0\0fixture").unwrap();
         let plan = plan_windows_recovery_source(source.to_string_lossy().to_string()).unwrap();
-        assert!(plan.dry_run);
-        assert!(!plan.destructive_actions_performed);
-        assert!(!plan.source.restore_candidate);
+        assert_eq!(plan["dry_run"], true);
+        assert_eq!(plan["destructive_actions_performed"], false);
+        assert_eq!(plan["source"]["restore_candidate"], false);
+        assert_eq!(
+            plan["source_identity_gate"],
+            "recheck_immediately_before_any_mutation"
+        );
+        assert_eq!(
+            plan["source_identity"]["sha256"]
+                .as_str()
+                .map(str::len),
+            Some(64)
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }
