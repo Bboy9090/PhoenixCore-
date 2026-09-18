@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod boot_repair_contract;
+mod intel_mac_restore_gate;
 mod mac_bootcamp_compat;
 mod recovery_center;
 mod restore_readiness;
@@ -10,6 +11,7 @@ mod windows_recovery_guard;
 mod windows_target;
 
 use boot_repair_contract::plan_windows_boot_repair;
+use intel_mac_restore_gate::assess_intel_mac_restore_readiness;
 use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
 use restore_readiness::assess_windows_restore_readiness;
@@ -657,7 +659,8 @@ fn main() {
             inspect_recovery_package_trust,
             inspect_windows_image_metadata,
             assess_windows_restore_readiness,
-            inspect_bootcamp_driver_package
+            inspect_bootcamp_driver_package,
+            assess_intel_mac_restore_readiness
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Phoenix Key desktop application");
