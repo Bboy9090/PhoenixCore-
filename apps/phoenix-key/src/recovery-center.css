@@ -38,6 +38,18 @@
   min-height: 1.5em;
 }
 
+.recovery-center select {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font: inherit;
+}
+
 .read-only-pill,
 .confidence-pill {
   display: inline-flex;
@@ -185,7 +197,8 @@
 
 .technical-toggle:focus-visible,
 .recovery-center button:focus-visible,
-.recovery-center input:focus-visible {
+.recovery-center input:focus-visible,
+.recovery-center select:focus-visible {
   outline: 3px solid currentColor;
   outline-offset: 3px;
 }
