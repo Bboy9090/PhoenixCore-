@@ -83,7 +83,9 @@ $partition = Get-Partition -DriveLetter '{drive_letter}'
     try:
         raw = json.loads(completed.stdout.strip())
     except json.JSONDecodeError as exc:
-        raise SourceDiskResolutionError("PowerShell returned malformed source-disk JSON.") from exc
+        raise SourceDiskResolutionError(
+            "PowerShell returned malformed source-disk JSON."
+        ) from exc
 
     return normalize_source_disk_record(
         source_path=str(path.resolve()),
@@ -97,7 +99,9 @@ $partition = Get-Partition -DriveLetter '{drive_letter}'
     )
 
 
-def compare_source_and_target(source_record: dict[str, Any], target: str) -> dict[str, Any]:
+def compare_source_and_target(
+    source_record: dict[str, Any], target: str
+) -> dict[str, Any]:
     source_target = str(source_record.get("physical_target") or "")
     distinct = source_target.upper() != target.strip().upper()
     return {
