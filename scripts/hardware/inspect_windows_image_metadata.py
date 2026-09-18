@@ -59,6 +59,13 @@ def parse_index_list(output: str) -> list[int]:
     return sorted({int(value) for value in INDEX_RE.findall(output)})
 
 
+def parse_size_bytes(value: str | None) -> int | None:
+    if not value:
+        return None
+    digits = "".join(character for character in value if character.isdigit())
+    return int(digits) if digits else None
+
+
 def parse_detailed_image(output: str, index: int) -> dict[str, Any]:
     fields = parse_fields(output)
     architecture = normalize_architecture(fields.get("architecture"))
@@ -71,6 +78,7 @@ def parse_detailed_image(output: str, index: int) -> dict[str, Any]:
         "product_name": fields.get("product name"),
         "installation_type": fields.get("installation type"),
         "version": fields.get("version"),
+        "image_size_bytes": parse_size_bytes(fields.get("size")),
         "service_pack_build": fields.get("servicepack build"),
         "service_pack_level": fields.get("servicepack level"),
         "languages": fields.get("default language"),
