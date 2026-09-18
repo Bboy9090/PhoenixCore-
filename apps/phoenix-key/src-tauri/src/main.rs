@@ -34,6 +34,8 @@ const PACKAGE_TRUST_INSPECTOR_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_recovery_package_trust.py");
 const WINDOWS_IMAGE_METADATA_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
+const BOOTCAMP_DRIVER_INSPECTOR_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/inspect_bootcamp_driver_package.py");
 const SACRIFICIAL_WRITER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/write_windows_sacrificial_drive.py");
 const SMOKE_RECEIPT_ENV: &str = "PHOENIX_KEY_SMOKE_RECEIPT";
@@ -174,6 +176,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         WINDOWS_IMAGE_METADATA_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded Windows image metadata inspector: {error}"))?;
+    fs::write(
+        directory.join("inspect_bootcamp_driver_package.py"),
+        BOOTCAMP_DRIVER_INSPECTOR_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Boot Camp driver inspector: {error}"))?;
     fs::write(
         directory.join("write_windows_sacrificial_drive.py"),
         SACRIFICIAL_WRITER_SOURCE,
@@ -443,6 +450,45 @@ fn inspect_windows_image_metadata(
 }
 
 #[tauri::command]
+fn inspect_bootcamp_driver_package(
+    package_root: String,
+    mac_model: String,
+    expected_manifest_sha256: Option<String>,
+) -> Result<Value, String> {
+    let root = PathBuf::from(package_root.trim());
+    if !root.is_dir() {
+        return Err("Boot Camp support-software path is not a directory".to_string());
+    }
+    if mac_model.trim().is_empty() {
+        return Err("exact Mac model identifier is required".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("inspect_bootcamp_driver_package.py");
+        let root_text = root.to_string_lossy().to_string();
+        let mut args = vec![
+            "--root".to_string(),
+            root_text,
+            "--mac-model".to_string(),
+            mac_model.trim().to_string(),
+        ];
+        if let Some(expected) = expected_manifest_sha256
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--expected-manifest-sha256".to_string());
+            args.push(expected.to_string());
+        }
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        run_python_json(&script, &refs, &[])
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn scan_media_targets() -> Result<Value, String> {
     run_phoenixcore(&["--list-json"])
 }
@@ -610,7 +656,8 @@ fn main() {
             inspect_mac_bootcamp_host,
             inspect_recovery_package_trust,
             inspect_windows_image_metadata,
-            assess_windows_restore_readiness
+            assess_windows_restore_readiness,
+            inspect_bootcamp_driver_package
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Phoenix Key desktop application");
