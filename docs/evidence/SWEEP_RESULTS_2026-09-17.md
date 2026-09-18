@@ -174,3 +174,154 @@ No stale or ambiguous target can reach executable state.
 5. Lint failures should be classified before suppressions are added.
 6. Parallel agents should work on independent evidence lanes, not edit the same file concurrently.
 7. Every red gate must be converted into a named root cause before the next architectural change.
+
+
+---
+
+## Sweep 11–18 convergence update
+
+Current convergence lane:
+- branch: `convergence/windows-recovery-forge-macos-v2`
+- PR: #150 remains draft
+- current recorded source head at this update: `37a3e6e245e3479b876e36c24d62c2110a152818`
+- release/execution claim: NOT MADE; exact-head CI still required
+
+### Sweep 11 — Hostile source fixtures
+
+Implemented:
+- structural WIM/VHD/VHDX/ISO guards
+- malformed WindowsImageBackup payload blocking
+- incomplete split-WIM blocking
+- hostile source guard enforced at the desktop Recovery Center boundary
+
+Result: PASS for current hostile structural fixture set; additional real-image corpus testing remains useful.
+
+### Sweep 12 — Source integrity and stale-plan invalidation
+
+Implemented:
+- full SHA-256 for file sources
+- bounded, content-hashed directory manifests
+- symlink refusal
+- source identity captured before and after plan generation
+- changed source invalidates planning
+- desktop Recovery Center now returns the identity-bound plan
+
+Result: PASS in source logic; destructive execution still requires a fresh identity recheck.
+
+### Sweep 13 — Target collision, capacity, and topology
+
+Implemented:
+- live source physical-disk resolution
+- source != target proof inside the destructive writer itself
+- target capacity and stable identity gates
+- current boot/system disk blocking
+- APFS/HFS+/CoreStorage/Apple Boot GPT type detection in Windows drive evidence
+- Apple-partition targets are blocked from the destructive writer candidate set
+- Recovery Center target scan/selection is read-only and never assumes Disk 0
+
+Result: PASS for current contract coverage; full partition-conflict policy remains intentionally conservative.
+
+### Sweep 14 — Intel Mac exact model and Boot Camp package
+
+Implemented:
+- Apple Silicon hard-block from traditional Boot Camp
+- exact Intel Mac model identifier requirement
+- Boot Camp package content manifest hashing
+- Authenticode inspection for signed package members on Windows
+- exact-model evidence must actually appear in package evidence; merely labeling a generic package with a model no longer verifies it
+- Intel Mac restore-design gate binds generic restore evidence + exact Mac model + exact driver package
+
+Result: PASS for fail-closed model/package binding. Vendor-download provenance can be strengthened further when direct Apple package acquisition is implemented.
+
+### Sweep 15 — EFI / BCD / WinRE evidence
+
+Implemented:
+- read-only EFI System Partition inventory
+- Secure Boot observation
+- `bcdedit /enum all` evidence
+- `reagentc /info` evidence
+- hashed boot-state snapshot
+- evidence-driven boot-chain vs WinRE vs partition/full-restore assessment
+- no boot repair command is executable from this planner
+
+Important correction:
+- online BCD/WinRE evidence is now allowed to bind only to the current Windows boot/system disk. It cannot be falsely attached to an arbitrary external restore target.
+
+Result: PASS for online boot-repair evidence modeling.
+
+### Sweep 16 — Rollback evidence
+
+Implemented:
+- rollback manifest bound to source identity, target identity, partition evidence, and boot-state hash
+- BCD export backup
+- EFI file backup only when the EFI partition is already accessible; the tool does not mount it merely to satisfy the gate
+- ReAgent.xml / WinRE backup when accessible
+- repair remains locked when required artifacts are absent
+- corrected an unsafe condition where EFI inventory alone could have been treated as sufficient backup
+- rollback bundle hashes and source/target bindings are verified before readiness
+
+Result: PASS for fail-closed boot-repair rollback packaging. Full-disk restore rollback still requires a separate content-preservation contract before any full restore executor can exist.
+
+### Sweep 17 — Interruption / unplug behavior
+
+Implemented:
+- short writes become explicit interruption failures
+- target unplug/write/flush/fsync/read-back failures are classified by stage
+- failure receipts record bytes written/read back
+- interrupted writes are non-resumable
+- restart requires fresh source and target identities
+- successful writes still require full read-back SHA-256 verification
+
+Result: PASS for current raw-writer interruption contract.
+
+### Sweep 18 — Cloud / Google Drive staging foundation
+
+Implemented provider-agnostic staging core:
+- cloud original opened read-only
+- provider file ID/name/size retained
+- resumable `.partial` local staging
+- partial prefix is re-hashed against the source before resume
+- provider size mismatch fails before staging
+- provider MD5 can prove transfer integrity
+- trusted SHA-256 is separately required before the staged payload becomes recovery-eligible
+- cloud original is never modified by the staging helper
+- dedicated Windows/Linux CI workflow added
+
+Current limitation:
+- this is the safe staging layer, not yet Google OAuth/browse/download transport. A Drive connector/API must materialize the binary payload and metadata before this layer can verify it.
+
+Result: PARTIAL by design; safe resumable staging exists, provider acquisition remains.
+
+### Cross-evidence binding correction
+
+A critical composability defect was fixed in restore readiness:
+- package trust SHA must match the source identity SHA
+- image metadata path must match the identity-bound source
+- target safety source size must match the source identity size
+- rollback bundle source identity must match the source
+- rollback bundle target identity must match the selected target
+- Windows edition must be identified
+- architecture compatibility must pass
+
+This prevents individually valid receipts from different sources or targets being mixed into a false green restore decision.
+
+### Windows image metadata correction
+
+Microsoft DISM documentation requires index 1 for VHD/VHDX/FFU detailed image inspection. The metadata inspector now uses index 1 directly for those formats instead of first issuing an unindexed probe.
+
+### CI state at this update
+
+The branch has been moving rapidly, so earlier workflow runs were repeatedly superseded/cancelled by concurrency. No release-ready claim is recorded. The exact current head must complete:
+- Windows Recovery Forge
+- Windows Drive Evidence
+- Windows Sacrificial Writer
+- Windows Image Metadata
+- Boot Camp Driver Manifest
+- Recovery Package Trust
+- Cloud Recovery Staging
+- Phoenix Key Desktop
+- Phoenix Key Windows Lifecycle
+- repository/governance/artifact/release gates
+
+Agent lesson:
+- evidence receipts are only meaningful when they are cryptographically/logically bound to the same source and target. Valid individual receipts must never be composable across unrelated recovery sessions.
