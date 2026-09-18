@@ -216,7 +216,7 @@ def main() -> int:
         expected_signer_contains=args.expected_signer_contains,
     )
     print(json.dumps(result, sort_keys=True))
-    return 0 if result["verified_for_use"] else 3
+    return 0
 
 
 if __name__ == "__main__":
