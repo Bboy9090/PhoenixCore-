@@ -133,9 +133,14 @@ def stage_cloud_payload(
     ):
         raise CloudStageError("Expected SHA-256 is malformed.")
 
+    source_resolved = source_file.resolve()
     destination = destination.resolve()
-    destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + ".partial")
+    if destination == source_resolved or partial == source_resolved:
+        raise CloudStageError(
+            "Cloud staging destination must be distinct from the materialized source."
+        )
+    destination.parent.mkdir(parents=True, exist_ok=True)
     resume_offset = verify_partial_prefix(source_file, partial)
 
     with source_file.open("rb") as source_stream:
