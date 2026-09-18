@@ -204,6 +204,7 @@ def validate_write_request(
     environment: dict[str, str] | None = None,
     admin: bool | None = None,
     query_disk: Callable[[int], dict[str, Any]] = query_windows_disk,
+    resolve_source_disk: Callable[[str], dict[str, Any]] = query_source_disk,
 ) -> dict[str, Any]:
     environment = environment if environment is not None else os.environ
     disk = evidence["disk"]
