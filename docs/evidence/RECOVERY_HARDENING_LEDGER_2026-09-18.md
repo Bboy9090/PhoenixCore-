@@ -183,7 +183,7 @@ Implemented:
 - multi-index media requires explicit selection
 - architecture mismatch blocks eligibility
 - ISO is not mounted automatically
-- split WIM remains blocked until complete-set metadata inspection is implemented
+- split WIM sets require contiguous `install.swm`, `install2.swm`, … segments before DISM metadata inspection; missing/gapped sets fail closed
 
 Primary files:
 - `scripts/hardware/inspect_windows_image_metadata.py`
@@ -272,3 +272,19 @@ Exact current tip must complete:
 - Launch Boundary Audit
 
 No PASS is claimed here until exact-tip results are collected.
+
+
+## Sweep 22 — Recovery Center accessibility hardening
+
+Implemented:
+- live status updates are atomic for assistive technology
+- expected-hash field disables autocorrect/spellcheck and has explicit help text
+- technical-evidence disclosure exposes expanded/collapsed state
+- technical evidence has a stable controlled region and keyboard focus target
+- existing visible focus and reduced-motion handling preserved
+
+Primary files:
+- `apps/phoenix-key/src/RecoveryCenter.tsx`
+- `apps/phoenix-key/src/recovery-center.css`
+
+Status: IMPLEMENTED / exact-head CI pending.
