@@ -87,9 +87,7 @@ class WindowsDriveEvidenceTests(unittest.TestCase):
 
     def test_apple_partition_blocks_destructive_candidate(self):
         fixture = json.loads(json.dumps(self.fixture))
-        fixture["Partitions"][0]["GptType"] = (
-            "7C3457EF-0000-11AA-AA11-00306543ECAC"
-        )
+        fixture["Partitions"][0]["GptType"] = "7C3457EF-0000-11AA-AA11-00306543ECAC"
         record = windows_drive_evidence.normalize_disk_record(fixture, self.target)
         self.assertFalse(record["write_candidate"])
         self.assertIn(
