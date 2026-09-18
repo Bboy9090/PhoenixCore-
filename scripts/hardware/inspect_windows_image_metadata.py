@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
@@ -14,7 +13,8 @@ from typing import Any, Callable
 
 SCHEMA = "phoenix_key.windows_image_metadata.v1"
 SUPPORTED_DIRECT_EXTENSIONS = {".wim", ".esd", ".vhd", ".vhdx", ".ffu"}
-LOCKED_CONTAINER_EXTENSIONS = {".iso"}\nSPLIT_WIM_EXTENSION = ".swm"
+LOCKED_CONTAINER_EXTENSIONS = {".iso"}
+SPLIT_WIM_EXTENSION = ".swm"
 INDEX_RE = re.compile(r"(?im)^\s*Index\s*:\s*(\d+)\s*$")
 FIELD_RE = re.compile(r"(?im)^\s*([^:\r\n]+?)\s*:\s*(.*?)\s*$")
 ARCH_ALIASES = {
@@ -83,9 +83,7 @@ def parse_detailed_image(output: str, index: int) -> dict[str, Any]:
         "service_pack_level": fields.get("servicepack level"),
         "languages": fields.get("default language"),
         "metadata_complete": bool(
-            fields.get("name")
-            and architecture
-            and fields.get("edition")
+            fields.get("name") and architecture and fields.get("edition")
         ),
     }
 
@@ -106,6 +104,56 @@ def run_dism(
         message = (completed.stderr or "").strip() or (completed.stdout or "").strip()
         raise WindowsImageMetadataError(f"DISM metadata inspection failed: {message}")
     return completed.stdout or ""
+
+
+def split_wim_set(path: Path) -> dict[str, Any]:
+    base = re.sub(r"\d+$", "", path.stem)
+    if not base:
+        raise WindowsImageMetadataError("Split WIM base name could not be determined.")
+
+    pattern = re.compile(
+        rf"^{re.escape(base)}(?:(\d+))?\.swm$",
+        re.IGNORECASE,
+    )
+    numbered: dict[int, Path] = {}
+    for candidate in path.parent.iterdir():
+        if candidate.is_symlink() or not candidate.is_file():
+            continue
+        match = pattern.match(candidate.name)
+        if not match:
+            continue
+        number = int(match.group(1)) if match.group(1) else 1
+        if number in numbered:
+            raise WindowsImageMetadataError(
+                f"Duplicate split WIM segment number {number}."
+            )
+        numbered[number] = candidate
+
+    if 1 not in numbered:
+        raise WindowsImageMetadataError(
+            f"Split WIM set is missing the first segment {base}.swm."
+        )
+    if len(numbered) < 2:
+        return {
+            "complete": False,
+            "first_segment": numbered[1],
+            "segments": [numbered[1]],
+            "missing_segments": [2],
+            "reason": "split_wim_requires_multiple_segments",
+        }
+
+    highest = max(numbered)
+    missing = [
+        number for number in range(1, highest + 1) if number not in numbered
+    ]
+    ordered = [numbered[number] for number in sorted(numbered)]
+    return {
+        "complete": not missing,
+        "first_segment": numbered[1],
+        "segments": ordered,
+        "missing_segments": missing,
+        "reason": None if not missing else "split_wim_segment_gap",
+    }
 
 
 def inspect_windows_image(
@@ -130,17 +178,41 @@ def inspect_windows_image(
             "images": [],
             "selection_required": True,
             "restore_eligible": False,
-            "block_reasons": [
-                (
-                    "iso_requires_extracted_install_wim_or_esd"
-                    if extension == ".iso"
-                    else "split_wim_metadata_requires_complete_set_inspection"
-                )
-            ],
+            "block_reasons": ["iso_requires_extracted_install_wim_or_esd"],
             "image_modified": False,
         }
 
-    if extension not in SUPPORTED_DIRECT_EXTENSIONS:
+    split_set = None
+    inspection_path = path
+    if extension == SPLIT_WIM_EXTENSION:
+        split_set = split_wim_set(path)
+        if not split_set["complete"]:
+            return {
+                "schema": SCHEMA,
+                "path": str(path.resolve()),
+                "extension": extension,
+                "metadata_verified": False,
+                "selected_index": selected_index,
+                "images": [],
+                "selection_required": True,
+                "restore_eligible": False,
+                "split_wim": {
+                    "complete": False,
+                    "segment_count": len(split_set["segments"]),
+                    "segments": [
+                        segment.name for segment in split_set["segments"]
+                    ],
+                    "missing_segments": split_set["missing_segments"],
+                },
+                "block_reasons": [split_set["reason"]],
+                "image_modified": False,
+            }
+        inspection_path = split_set["first_segment"]
+
+    if (
+        extension not in SUPPORTED_DIRECT_EXTENSIONS
+        and extension != SPLIT_WIM_EXTENSION
+    ):
         return {
             "schema": SCHEMA,
             "path": str(path.resolve()),
@@ -159,7 +231,7 @@ def inspect_windows_image(
             "Live Windows image metadata inspection requires Windows DISM."
         )
 
-    image_arg = f"/ImageFile:{path.resolve()}"
+    image_arg = f"/ImageFile:{inspection_path.resolve()}"
     if extension in {".vhd", ".vhdx", ".ffu"}:
         indexes = [1]
     else:
@@ -217,6 +289,18 @@ def inspect_windows_image(
         "selected_index": selected["index"] if selected else selected_index,
         "selected_image": selected,
         "images": images,
+        "split_wim": (
+            {
+                "complete": True,
+                "segment_count": len(split_set["segments"]),
+                "segments": [
+                    segment.name for segment in split_set["segments"]
+                ],
+                "missing_segments": [],
+            }
+            if split_set is not None
+            else None
+        ),
         "selection_required": selection_required,
         "restore_eligible": bool(selected and not block_reasons),
         "block_reasons": block_reasons,
