@@ -14,7 +14,7 @@ from typing import Any, Callable
 
 SCHEMA = "phoenix_key.windows_image_metadata.v1"
 SUPPORTED_DIRECT_EXTENSIONS = {".wim", ".esd", ".vhd", ".vhdx", ".ffu"}
-LOCKED_CONTAINER_EXTENSIONS = {".iso", ".swm"}
+LOCKED_CONTAINER_EXTENSIONS = {".iso"}\nSPLIT_WIM_EXTENSION = ".swm"
 INDEX_RE = re.compile(r"(?im)^\s*Index\s*:\s*(\d+)\s*$")
 FIELD_RE = re.compile(r"(?im)^\s*([^:\r\n]+?)\s*:\s*(.*?)\s*$")
 ARCH_ALIASES = {
