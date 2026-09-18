@@ -11,6 +11,7 @@ pub struct RestoreReadiness {
     pub selected_image_index: Option<u64>,
     pub source_architecture: Option<String>,
     pub source_edition_id: Option<String>,
+    pub selected_image_size_bytes: Option<u64>,
     pub target_architecture: Option<String>,
     pub source_identity_sha256: Option<String>,
     pub target_identity_sha256: Option<String>,
@@ -133,6 +134,9 @@ pub fn assess_restore_readiness(
         .pointer("/selected_image/edition_id")
         .and_then(Value::as_str)
         .map(str::to_string);
+    let selected_image_size_bytes = image_metadata
+        .pointer("/selected_image/image_size_bytes")
+        .and_then(Value::as_u64);
     gate(
         source_edition_id
             .as_deref()
@@ -159,6 +163,9 @@ pub fn assess_restore_readiness(
     let target_identity = target_safety
         .get("target_identity_sha256")
         .and_then(Value::as_str);
+    let target_size = target_safety
+        .get("target_size_bytes")
+        .and_then(Value::as_u64);
     gate(
         target_safety
             .get("safe_to_prepare")
@@ -173,8 +180,12 @@ pub fn assess_restore_readiness(
             && target_safety
                 .get("source_size_bytes")
                 .and_then(Value::as_u64)
-                == source_size,
-        "target_safety_bound_to_source_size",
+                == source_size
+            && selected_image_size_bytes.is_some()
+            && target_size
+                .zip(selected_image_size_bytes)
+                .is_some_and(|(target, required)| target >= required),
+        "target_safety_bound_to_source_and_deployed_size",
         &mut satisfied,
         &mut blocked,
     );
@@ -230,6 +241,7 @@ pub fn assess_restore_readiness(
         selected_image_index: selected_index,
         source_architecture,
         source_edition_id,
+        selected_image_size_bytes,
         target_architecture,
         source_identity_sha256: source_identity.map(str::to_string),
         target_identity_sha256: target_identity.map(str::to_string),
@@ -293,7 +305,8 @@ mod tests {
                 "selected_image": {
                     "index": 2,
                     "architecture": "x64",
-                    "edition_id": "Professional"
+                    "edition_id": "Professional",
+                    "image_size_bytes": 20_000
                 },
                 "architecture_compatibility": {
                     "target_architecture": "x64",
@@ -304,6 +317,7 @@ mod tests {
                 "safe_to_prepare": true,
                 "source_target_distinct": true,
                 "target_identity_sha256": "b".repeat(64),
+                "target_size_bytes": 64_000,
                 "source_size_bytes": 4096
             }),
             json!({
@@ -365,6 +379,17 @@ mod tests {
     }
 
     #[test]
+    fn compressed_source_size_alone_cannot_pass_capacity_gate() {
+        let (plan, trust, metadata, mut target, rollback) = evidence();
+        target["target_size_bytes"] = json!(8_000);
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(result
+            .blocked_gates
+            .contains(&"target_safety_bound_to_source_and_deployed_size".to_string()));
+    }
+
+    #[test]
     fn same_device_target_blocks_readiness() {
         let (plan, trust, metadata, mut target, rollback) = evidence();
         target["source_target_distinct"] = json!(false);
@@ -372,7 +397,7 @@ mod tests {
             assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
         assert!(result
             .blocked_gates
-            .contains(&"target_safety_bound_to_source_size".to_string()));
+            .contains(&"target_safety_bound_to_source_and_deployed_size".to_string()));
     }
 
     #[test]
