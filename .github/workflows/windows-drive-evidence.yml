@@ -41,9 +41,11 @@ jobs:
           scripts/hardware/capture_windows_drive_evidence.py
           scripts/hardware/resolve_windows_source_disk.py
           scripts/hardware/capture_windows_boot_state.py
+          scripts/hardware/persist_windows_rollback_bundle.py
           tests/test_windows_drive_evidence.py
           tests/test_windows_source_disk_resolution.py
           tests/test_windows_boot_state.py
+          tests/test_windows_rollback_bundle.py
 
       - name: Compile collector and tests
         run: >-
@@ -51,9 +53,11 @@ jobs:
           scripts/hardware/capture_windows_drive_evidence.py
           scripts/hardware/resolve_windows_source_disk.py
           scripts/hardware/capture_windows_boot_state.py
+          scripts/hardware/persist_windows_rollback_bundle.py
           tests/test_windows_drive_evidence.py
           tests/test_windows_source_disk_resolution.py
           tests/test_windows_boot_state.py
+          tests/test_windows_rollback_bundle.py
 
       - name: Run focused tests
         run: >-
@@ -61,6 +65,7 @@ jobs:
           tests/test_windows_drive_evidence.py
           tests/test_windows_source_disk_resolution.py
           tests/test_windows_boot_state.py
+          tests/test_windows_rollback_bundle.py
           -v
 
       - name: Reject mutation APIs in evidence collectors
@@ -72,6 +77,7 @@ jobs:
               Path("scripts/hardware/capture_windows_drive_evidence.py"),
               Path("scripts/hardware/resolve_windows_source_disk.py"),
               Path("scripts/hardware/capture_windows_boot_state.py"),
+              Path("scripts/hardware/persist_windows_rollback_bundle.py"),
           ]
           forbidden = [
               "GENERIC_WRITE",
@@ -92,6 +98,9 @@ jobs:
               '"/enable"',
               '"/disable"',
               '"/setreimage"',
+              "mountvol",
+              "Set-Volume",
+              "Set-Partition",
           ]
           found = []
           for path in sources:
