@@ -151,14 +151,15 @@ def inspect_windows_image(
         )
 
     image_arg = f"/ImageFile:{path.resolve()}"
-    list_output = run_dism(
-        ["/English", "/Get-ImageInfo", image_arg],
-        runner=runner,
-    )
-    indexes = parse_index_list(list_output)
-
-    if extension in {".vhd", ".vhdx", ".ffu"} and not indexes:
+    if extension in {".vhd", ".vhdx", ".ffu"}:
         indexes = [1]
+    else:
+        list_output = run_dism(
+            ["/English", "/Get-ImageInfo", image_arg],
+            runner=runner,
+        )
+        indexes = parse_index_list(list_output)
+
     if not indexes:
         raise WindowsImageMetadataError(
             "DISM did not report any Windows image indexes."
