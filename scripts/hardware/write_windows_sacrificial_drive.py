@@ -40,6 +40,17 @@ except ModuleNotFoundError:
         sha256_payload,
     )
 
+try:
+    from scripts.hardware.resolve_windows_source_disk import (
+        compare_source_and_target,
+        query_source_disk,
+    )
+except ModuleNotFoundError:
+    from resolve_windows_source_disk import (  # type: ignore
+        compare_source_and_target,
+        query_source_disk,
+    )
+
 SCHEMA_VERSION = "bws.sacrificial-drive-write/v1"
 DRIVE_EVIDENCE_SCHEMA = "bws.physical-drive-evidence/v1"
 UNLOCK_ENV = "BWS_ENABLE_SACRIFICIAL_DRIVE_WRITE"
@@ -144,6 +155,7 @@ def verify_live_identity(
     *,
     evidence: dict[str, Any],
     query_disk: Callable[[int], dict[str, Any]] = query_windows_disk,
+    resolve_source_disk: Callable[[str], dict[str, Any]] = query_source_disk,
 ) -> dict[str, Any]:
     disk = evidence["disk"]
     target = str(disk["target"])
@@ -196,6 +208,15 @@ def validate_write_request(
     if image_size > int(disk["size_bytes"]):
         raise WriteGateError("Source image is larger than the target drive.")
 
+    source_disk = resolve_source_disk(str(image_path.resolve()))
+    collision = compare_source_and_target(source_disk, target)
+    if collision.get("blocked") is True:
+        raise WriteGateError(
+            "Source image and destructive target resolve to the same physical device."
+        )
+    if collision.get("source_target_distinct") is not True:
+        raise WriteGateError("Source/target physical-device distinction is not proven.")
+
     required_authorization = expected_authorization(
         target,
         str(disk["identity_sha256"]),
@@ -220,6 +241,8 @@ def validate_write_request(
         "image_path": str(image_path.resolve()),
         "image_size_bytes": image_size,
         "image_sha256": image_hash,
+        "source_physical_target": source_disk["physical_target"],
+        "source_target_distinct": True,
         "byte_cap": image_size,
         "source_commit": source_commit,
         "authorization": required_authorization,
