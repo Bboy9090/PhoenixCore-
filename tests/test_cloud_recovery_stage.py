@@ -124,6 +124,51 @@ class CloudRecoveryStageTests(unittest.TestCase):
                     expected_sha256=sha256,
                 )
 
+    def test_destination_cannot_replace_cloud_materialized_source(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            content = b"cloud-original"
+            source = root / "provider.bin"
+            source.write_bytes(content)
+            _, sha256 = self.digests(content)
+            with self.assertRaisesRegex(
+                cloud_recovery_stage.CloudStageError,
+                "destination must be distinct",
+            ):
+                cloud_recovery_stage.stage_cloud_payload(
+                    source_file=source,
+                    destination=source,
+                    provider="google-drive",
+                    provider_file_id="file-123",
+                    provider_name="backup.vhdx",
+                    provider_size_bytes=len(content),
+                    expected_sha256=sha256,
+                )
+            self.assertEqual(content, source.read_bytes())
+
+    def test_partial_path_cannot_alias_cloud_materialized_source(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            content = b"cloud-original"
+            destination = root / "staged.vhdx"
+            source = root / "staged.vhdx.partial"
+            source.write_bytes(content)
+            _, sha256 = self.digests(content)
+            with self.assertRaisesRegex(
+                cloud_recovery_stage.CloudStageError,
+                "destination must be distinct",
+            ):
+                cloud_recovery_stage.stage_cloud_payload(
+                    source_file=source,
+                    destination=destination,
+                    provider="google-drive",
+                    provider_file_id="file-123",
+                    provider_name="backup.vhdx",
+                    provider_size_bytes=len(content),
+                    expected_sha256=sha256,
+                )
+            self.assertEqual(content, source.read_bytes())
+
     def test_provider_size_mismatch_fails_before_staging(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
