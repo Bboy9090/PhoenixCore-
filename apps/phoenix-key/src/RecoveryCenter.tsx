@@ -74,33 +74,6 @@ type RecoveryTargetSafety = {
 };
 
 
-type RecoveryTargetDevice = {
-  drive_path?: string | null;
-  display_name?: string | null;
-  size_gb?: number | null;
-  is_system?: boolean;
-  is_boot_drive?: boolean;
-  is_removable?: boolean;
-  is_external?: boolean;
-  block_reasons?: string[];
-};
-
-type DriveScan = {
-  devices: RecoveryTargetDevice[];
-  scan_warnings: string[];
-};
-
-type TargetSafety = {
-  safe_to_prepare: boolean;
-  target?: string | null;
-  target_identity_sha256?: string | null;
-  target_size_bytes?: number | null;
-  source_size_bytes: number;
-  source_physical_target?: string | null;
-  source_target_distinct?: boolean | null;
-  block_reasons: string[];
-};
-
 type RecoveryPlan = {
   schema: string;
   source: RecoveryAnalysis;
@@ -167,9 +140,6 @@ export default function RecoveryCenter() {
   const [targetArchitecture, setTargetArchitecture] = useState("");
   const [packageTrust, setPackageTrust] = useState<PackageTrust | null>(null);
   const [imageMetadata, setImageMetadata] = useState<ImageMetadata | null>(null);
-  const [targetScan, setTargetScan] = useState<DriveScan | null>(null);
-  const [selectedTarget, setSelectedTarget] = useState("");
-  const [targetSafety, setTargetSafety] = useState<TargetSafety | null>(null);
   const [targetDrive, setTargetDrive] = useState("");
   const [targetSafety, setTargetSafety] = useState<RecoveryTargetSafety | null>(null);
 
@@ -338,55 +308,6 @@ export default function RecoveryCenter() {
     }
   }
 
-
-  async function scanRecoveryTargets() {
-    if (!plan || busy) return;
-    setBusy(true);
-    setMessage("Scanning physical disks read-only. No disk is being changed…");
-    try {
-      const result = await invoke<DriveScan>("scan_media_targets");
-      setTargetScan(result);
-      setTargetSafety(null);
-      const physical = result.devices.filter((device) => device.drive_path);
-      if (!selectedTarget && physical.length === 1 && physical[0].drive_path) {
-        setSelectedTarget(physical[0].drive_path);
-      }
-      setMessage(
-        physical.length > 0
-          ? "Found " + physical.length + " physical target candidate" + (physical.length === 1 ? "" : "s") + ". Select the exact disk to inspect."
-          : "No physical target disks were returned by the read-only scanner.",
-      );
-    } catch (error) {
-      setTargetScan(null);
-      setTargetSafety(null);
-      setMessage("Target scan could not complete. Nothing was changed. " + String(error));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function inspectTargetSafety() {
-    if (!plan || !selectedTarget || busy) return;
-    setBusy(true);
-    setMessage("Rechecking source and target physical identities read-only…");
-    try {
-      const result = await invoke<TargetSafety>("inspect_recovery_target_safety", {
-        targetDrive: selectedTarget,
-        sourcePath: sourcePath.trim(),
-      });
-      setTargetSafety(result);
-      setMessage(
-        result.safe_to_prepare
-          ? "Target identity, capacity, topology, and source separation passed the preparation gate."
-          : "Target inspection completed, but destructive restore preparation remains blocked.",
-      );
-    } catch (error) {
-      setTargetSafety(null);
-      setMessage("Target safety inspection could not complete. Nothing was changed. " + String(error));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <div className="recovery-center" aria-busy={busy}>
@@ -626,54 +547,6 @@ export default function RecoveryCenter() {
               )}
             </div>
           )}
-
-
-          <div className="recovery-list">
-            <strong>Target safety</strong>
-            <p className="field-help">
-              Scan first. Phoenix Key never assumes Disk 0 and does not treat a drive letter as physical-disk proof.
-            </p>
-            <button className="plan-button" type="button" onClick={scanRecoveryTargets} disabled={busy}>
-              Scan Physical Disks Read Only
-            </button>
-            {targetScan && targetScan.devices.filter((device) => device.drive_path).length > 0 && (
-              <label className="path-field">
-                <span>Exact physical target</span>
-                <select
-                  value={selectedTarget}
-                  onChange={(event) => {
-                    setSelectedTarget(event.target.value);
-                    setTargetSafety(null);
-                  }}
-                >
-                  <option value="">Choose a detected disk</option>
-                  {targetScan.devices.filter((device) => device.drive_path).map((device) => (
-                    <option key={device.drive_path || ""} value={device.drive_path || ""}>
-                      {device.display_name || device.drive_path} · {device.size_gb || 0} GB
-                      {device.is_system || device.is_boot_drive ? " · current system/boot disk" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <button
-              className="plan-button"
-              type="button"
-              onClick={inspectTargetSafety}
-              disabled={busy || !selectedTarget}
-            >
-              Verify Source ≠ Target & Capacity
-            </button>
-            {targetSafety && (
-              <div className={targetSafety.safe_to_prepare ? "good-list" : "warning-box"}>
-                <strong>{targetSafety.safe_to_prepare ? "Target preparation gate passed" : "Target blocked"}</strong>
-                <p>Target: {targetSafety.target || selectedTarget}</p>
-                <p>Identity: {targetSafety.target_identity_sha256 || "not proven"}</p>
-                <p>Source and target distinct: {targetSafety.source_target_distinct === true ? "Yes" : "Not proven"}</p>
-                {targetSafety.block_reasons.map((reason) => <p key={reason}>— {readableToken(reason)}</p>)}
-              </div>
-            )}
-          </div>
 
           <div className="recovery-columns">
             <div className="recovery-list good-list">
