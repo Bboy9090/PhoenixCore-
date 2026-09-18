@@ -24,6 +24,8 @@ const USB_CREATOR_SOURCE: &str = include_str!("../../../../usb_creator.py");
 const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py");
 const DRIVE_EVIDENCE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_drive_evidence.py");
+const SOURCE_DISK_RESOLVER_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/resolve_windows_source_disk.py");
 const SACRIFICIAL_WRITER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/write_windows_sacrificial_drive.py");
 const SMOKE_RECEIPT_ENV: &str = "PHOENIX_KEY_SMOKE_RECEIPT";
@@ -149,6 +151,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         DRIVE_EVIDENCE_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded drive evidence collector: {error}"))?;
+    fs::write(
+        directory.join("resolve_windows_source_disk.py"),
+        SOURCE_DISK_RESOLVER_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded source-disk resolver: {error}"))?;
     fs::write(
         directory.join("write_windows_sacrificial_drive.py"),
         SACRIFICIAL_WRITER_SOURCE,
