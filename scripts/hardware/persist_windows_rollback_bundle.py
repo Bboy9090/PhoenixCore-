@@ -60,7 +60,9 @@ def load_json(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise RollbackBundleError(f"Could not read JSON evidence {path}: {exc}") from exc
+        raise RollbackBundleError(
+            f"Could not read JSON evidence {path}: {exc}"
+        ) from exc
     if not isinstance(value, dict):
         raise RollbackBundleError(f"Evidence {path} must contain a JSON object.")
     return value
@@ -73,7 +75,9 @@ def verify_embedded_digest(
     digest_field: str,
 ) -> None:
     if payload.get("schema") != schema:
-        raise RollbackBundleError(f"Unsupported evidence schema: {payload.get('schema')}")
+        raise RollbackBundleError(
+            f"Unsupported evidence schema: {payload.get('schema')}"
+        )
     expected = str(payload.get(digest_field) or "")
     if not SHA256_RE.fullmatch(expected):
         raise RollbackBundleError(f"{digest_field} is missing or invalid.")
@@ -90,7 +94,9 @@ def verify_boot_state(snapshot: dict[str, Any]) -> None:
         digest_field="snapshot_sha256",
     )
     if snapshot.get("complete") is not True:
-        raise RollbackBundleError("Boot-state snapshot is incomplete; repair must remain locked.")
+        raise RollbackBundleError(
+            "Boot-state snapshot is incomplete; repair must remain locked."
+        )
 
 
 def verify_rollback_manifest(
@@ -107,9 +113,14 @@ def verify_rollback_manifest(
             "Rollback manifest is not bound to this boot-state snapshot."
         )
     if manifest.get("system_mutations_performed") is not False:
-        raise RollbackBundleError("Rollback manifest must precede all system mutations.")
+        raise RollbackBundleError(
+            "Rollback manifest must precede all system mutations."
+        )
     target = manifest.get("target")
-    if not isinstance(target, dict) or target.get("scope") != "online_current_windows_boot_repair":
+    if (
+        not isinstance(target, dict)
+        or target.get("scope") != "online_current_windows_boot_repair"
+    ):
         raise RollbackBundleError(
             "Rollback manifest is not scoped to online Windows boot repair."
         )
@@ -356,9 +367,7 @@ def build_fixture_bundle(
         "winre_image": winre_status,
     }
     missing = [
-        name
-        for name, record in required.items()
-        if record.get("status") != "persisted"
+        name for name, record in required.items() if record.get("status") != "persisted"
     ]
     complete = not missing
     bundle = {
