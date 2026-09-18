@@ -62,6 +62,17 @@ type ImageMetadata = {
   };
 };
 
+type RecoveryTargetSafety = {
+  safe_to_prepare: boolean;
+  target?: string | null;
+  target_identity_sha256?: string | null;
+  target_size_bytes?: number | null;
+  source_size_bytes: number;
+  source_physical_target?: string | null;
+  source_target_distinct?: boolean | null;
+  block_reasons: string[];
+};
+
 type RecoveryPlan = {
   schema: string;
   source: RecoveryAnalysis;
@@ -128,6 +139,8 @@ export default function RecoveryCenter() {
   const [targetArchitecture, setTargetArchitecture] = useState("");
   const [packageTrust, setPackageTrust] = useState<PackageTrust | null>(null);
   const [imageMetadata, setImageMetadata] = useState<ImageMetadata | null>(null);
+  const [targetDrive, setTargetDrive] = useState("");
+  const [targetSafety, setTargetSafety] = useState<RecoveryTargetSafety | null>(null);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
   const sourceState = useMemo(() => {
@@ -147,6 +160,8 @@ export default function RecoveryCenter() {
     setTargetArchitecture("");
     setPackageTrust(null);
     setImageMetadata(null);
+    setTargetDrive("");
+    setTargetSafety(null);
     setMessage("Source changed. Analyze it again before planning anything.");
   }
 
@@ -264,6 +279,29 @@ export default function RecoveryCenter() {
     } catch (error) {
       setImageMetadata(null);
       setMessage(`Windows image metadata inspection could not complete. Nothing was changed. ${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function inspectTargetSafety() {
+    if (!plan || plan.host_os !== "windows" || !targetDrive.trim() || busy) return;
+    setBusy(true);
+    setMessage("Re-enumerating the Windows target and proving source/target separation read-only…");
+    try {
+      const result = await invoke<RecoveryTargetSafety>("inspect_recovery_target_safety", {
+        targetDrive: targetDrive.trim(),
+        sourcePath: sourcePath.trim(),
+      });
+      setTargetSafety(result);
+      setMessage(
+        result.safe_to_prepare
+          ? "Target identity, capacity, and source/target separation are verified for planning."
+          : "Target safety inspection completed, but the target remains blocked.",
+      );
+    } catch (error) {
+      setTargetSafety(null);
+      setMessage(`Target safety inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
     }
@@ -463,6 +501,45 @@ export default function RecoveryCenter() {
               )}
             </div>
           </div>
+
+          {plan.host_os === "windows" && (
+            <div className="recovery-list">
+              <strong>Windows physical target</strong>
+              <p className="field-help">
+                This is a read-only identity/capacity check. Use an exact PHYSICALDRIVE number from Windows disk enumeration; Phoenix Key will also prove the source is on a different physical disk.
+              </p>
+              <label className="path-field">
+                <span>Target disk</span>
+                <input
+                  value={targetDrive}
+                  onChange={(event) => {
+                    setTargetDrive(event.target.value);
+                    setTargetSafety(null);
+                  }}
+                  placeholder="PHYSICALDRIVE7"
+                />
+              </label>
+              <button
+                className="plan-button"
+                type="button"
+                onClick={inspectTargetSafety}
+                disabled={busy || !targetDrive.trim()}
+              >
+                Verify Target Safety
+              </button>
+              {targetSafety && (
+                <div className={targetSafety.safe_to_prepare ? "good-list" : "warning-box"}>
+                  <strong>{targetSafety.safe_to_prepare ? "Target safe for preparation" : "Target blocked"}</strong>
+                  <p>Target: {targetSafety.target || "unresolved"}</p>
+                  <p>Identity: {targetSafety.target_identity_sha256 || "missing"}</p>
+                  <p>Capacity: {targetSafety.target_size_bytes ?? 0} bytes · source: {targetSafety.source_size_bytes} bytes</p>
+                  <p>Source device: {targetSafety.source_physical_target || "unproven"}</p>
+                  <p>Distinct physical devices: {targetSafety.source_target_distinct === true ? "yes" : "no / unproven"}</p>
+                  {targetSafety.block_reasons.map((reason) => <p key={reason}>— {readableToken(reason)}</p>)}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="recovery-columns">
             <div className="recovery-list good-list">
