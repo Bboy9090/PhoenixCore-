@@ -44,6 +44,10 @@ const WINDOWS_IMAGE_METADATA_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
 const BOOTCAMP_DRIVER_INSPECTOR_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_bootcamp_driver_package.py");
+const WINDOWS_BOOT_STATE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/capture_windows_boot_state.py");
+const WINDOWS_ROLLBACK_BUNDLE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/persist_windows_rollback_bundle.py");
 const SACRIFICIAL_WRITER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/write_windows_sacrificial_drive.py");
 const SMOKE_RECEIPT_ENV: &str = "PHOENIX_KEY_SMOKE_RECEIPT";
@@ -194,6 +198,16 @@ fn bridge_directory() -> Result<PathBuf, String> {
         BOOTCAMP_DRIVER_INSPECTOR_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded Boot Camp driver inspector: {error}"))?;
+    fs::write(
+        directory.join("capture_windows_boot_state.py"),
+        WINDOWS_BOOT_STATE_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Windows boot-state collector: {error}"))?;
+    fs::write(
+        directory.join("persist_windows_rollback_bundle.py"),
+        WINDOWS_ROLLBACK_BUNDLE_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded rollback-bundle helper: {error}"))?;
     fs::write(
         directory.join("write_windows_sacrificial_drive.py"),
         SACRIFICIAL_WRITER_SOURCE,
