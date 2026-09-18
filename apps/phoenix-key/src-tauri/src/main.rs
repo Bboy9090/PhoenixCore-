@@ -16,7 +16,6 @@ use intel_mac_restore_gate::assess_intel_mac_restore_readiness;
 use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
 use restore_readiness::assess_windows_restore_readiness;
-use target_safety::assess_windows_recovery_target;
 use recovery_center::{analyze_windows_recovery_source, plan_windows_recovery_source};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -957,7 +956,6 @@ fn main() {
             inspect_recovery_target_safety,
             assess_intel_mac_restore_readiness,
             stage_cloud_recovery_payload,
-            assess_windows_recovery_target,
             capture_windows_recovery_baseline,
             persist_windows_recovery_rollback_bundle
         ])
