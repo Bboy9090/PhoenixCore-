@@ -162,15 +162,50 @@ class WindowsImageMetadataTests(unittest.TestCase):
                 result["block_reasons"],
             )
 
-    def test_split_wim_is_locked_until_complete_set_inspection(self):
+    def test_single_split_wim_segment_is_blocked(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = self.image(tmpdir, "install.swm")
             result = windows_image_metadata.inspect_windows_image(path)
             self.assertFalse(result["restore_eligible"])
+            self.assertEqual(1, result["split_wim"]["segment_count"])
             self.assertIn(
-                "split_wim_metadata_requires_complete_set_inspection",
+                "split_wim_requires_multiple_segments",
                 result["block_reasons"],
             )
+
+    def test_split_wim_gap_is_blocked_before_dism(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            path = self.image(root, "install.swm")
+            self.image(root, "install3.swm")
+            result = windows_image_metadata.inspect_windows_image(path)
+            self.assertFalse(result["restore_eligible"])
+            self.assertEqual([2], result["split_wim"]["missing_segments"])
+            self.assertIn("split_wim_segment_gap", result["block_reasons"])
+
+    def test_complete_split_wim_set_can_be_inspected_read_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            path = self.image(root, "install.swm")
+            self.image(root, "install2.swm")
+            runner = FakeDism(
+                [
+                    "Index : 1\nName : Windows 11 Pro\n",
+                    self.detail(1, "Windows 11 Pro", "x64", "Professional"),
+                ]
+            )
+            old_platform = windows_image_metadata.sys.platform
+            windows_image_metadata.sys.platform = "win32"
+            try:
+                result = windows_image_metadata.inspect_windows_image(
+                    path, selected_index=1, runner=runner
+                )
+            finally:
+                windows_image_metadata.sys.platform = old_platform
+            self.assertTrue(result["split_wim"]["complete"])
+            self.assertEqual(2, result["split_wim"]["segment_count"])
+            self.assertTrue(result["restore_eligible"])
+            self.assertTrue(runner.calls[0][-1].lower().endswith("install.swm"))
 
 
 if __name__ == "__main__":
