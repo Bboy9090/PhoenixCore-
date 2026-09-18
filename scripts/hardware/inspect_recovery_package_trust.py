@@ -109,7 +109,9 @@ $signature = Get-AuthenticodeSignature -LiteralPath $env:PHOENIX_VERIFY_PATH
     try:
         value = json.loads(completed.stdout.strip())
     except json.JSONDecodeError as exc:
-        raise PackageTrustError("Authenticode inspection returned malformed JSON.") from exc
+        raise PackageTrustError(
+            "Authenticode inspection returned malformed JSON."
+        ) from exc
 
     return {
         "checked": True,
@@ -128,7 +130,9 @@ def evaluate_package_trust(
     signature_record: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not path.is_file():
-        raise PackageTrustError("Recovery package does not exist or is not a regular file.")
+        raise PackageTrustError(
+            "Recovery package does not exist or is not a regular file."
+        )
 
     observed_sha256 = file_sha256(path)
     expected = (expected_sha256 or "").strip().lower()
@@ -149,21 +153,14 @@ def evaluate_package_trust(
             "signer_thumbprint": None,
         }
 
-    signature_valid = (
-        route != "hash_plus_authenticode"
-        or (
-            signature.get("checked") is True
-            and str(signature.get("status") or "").lower() == "valid"
-        )
+    signature_valid = route != "hash_plus_authenticode" or (
+        signature.get("checked") is True
+        and str(signature.get("status") or "").lower() == "valid"
     )
     signer_expected = (expected_signer_contains or "").strip()
     signer_subject = str(signature.get("signer_subject") or "")
-    signer_matches = (
-        not signer_expected
-        or (
-            bool(signer_subject)
-            and signer_expected.lower() in signer_subject.lower()
-        )
+    signer_matches = not signer_expected or (
+        bool(signer_subject) and signer_expected.lower() in signer_subject.lower()
     )
 
     block_reasons: list[str] = []
