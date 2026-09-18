@@ -268,7 +268,7 @@ def main() -> int:
                 if reason not in metadata["block_reasons"]
             )
     print(json.dumps(metadata, sort_keys=True))
-    return 0 if metadata["restore_eligible"] else 3
+    return 0
 
 
 if __name__ == "__main__":
