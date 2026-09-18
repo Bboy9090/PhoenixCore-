@@ -17,6 +17,51 @@ type RecoveryAnalysis = {
   detected_by: string[];
 };
 
+type SourceIdentity = {
+  sha256: string;
+  size_bytes: number;
+  source_kind: string;
+  complete: boolean;
+};
+
+type PackageTrust = {
+  verified_for_use: boolean;
+  observed_sha256: string;
+  expected_sha256: string | null;
+  sha256_matches: boolean;
+  trust_route: string;
+  block_reasons: string[];
+  authenticode?: {
+    checked: boolean;
+    status: string;
+    signer_subject?: string | null;
+  };
+};
+
+type WindowsImage = {
+  index: number;
+  name?: string | null;
+  architecture?: string | null;
+  edition_id?: string | null;
+  metadata_complete: boolean;
+};
+
+type ImageMetadata = {
+  metadata_verified: boolean;
+  selected_index: number | null;
+  selected_image?: WindowsImage | null;
+  images: WindowsImage[];
+  selection_required: boolean;
+  restore_eligible: boolean;
+  block_reasons: string[];
+  architecture_compatibility?: {
+    source_architecture?: string | null;
+    target_architecture?: string | null;
+    compatible: boolean;
+    block_reasons: string[];
+  };
+};
+
 type RecoveryPlan = {
   schema: string;
   source: RecoveryAnalysis;
@@ -31,6 +76,8 @@ type RecoveryPlan = {
   next_steps: string[];
   dry_run: boolean;
   destructive_actions_performed: boolean;
+  source_identity?: SourceIdentity;
+  source_identity_gate?: string;
 };
 
 const isDesktopRuntime = () => "__TAURI__" in window;
@@ -76,6 +123,11 @@ export default function RecoveryCenter() {
     "Choose the Windows backup or recovery source you want Phoenix Key to inspect. Analysis does not change disks.",
   );
   const [showTechnical, setShowTechnical] = useState(false);
+  const [expectedSha256, setExpectedSha256] = useState("");
+  const [selectedImageIndex, setSelectedImageIndex] = useState("");
+  const [targetArchitecture, setTargetArchitecture] = useState("");
+  const [packageTrust, setPackageTrust] = useState<PackageTrust | null>(null);
+  const [imageMetadata, setImageMetadata] = useState<ImageMetadata | null>(null);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
   const sourceState = useMemo(() => {
@@ -90,6 +142,11 @@ export default function RecoveryCenter() {
     setAnalysis(null);
     setPlan(null);
     setShowTechnical(false);
+    setExpectedSha256("");
+    setSelectedImageIndex("");
+    setTargetArchitecture("");
+    setPackageTrust(null);
+    setImageMetadata(null);
     setMessage("Source changed. Analyze it again before planning anything.");
   }
 
@@ -143,10 +200,70 @@ export default function RecoveryCenter() {
         sourcePath: sourcePath.trim(),
       });
       setPlan(result);
-      setMessage("Recovery plan created. This plan did not write, erase, repartition, or repair anything.");
+      setTargetArchitecture(result.host_arch || "");
+      setPackageTrust(null);
+      setImageMetadata(null);
+      setMessage("Recovery plan created and bound to the current source identity. No disk was changed.");
     } catch (error) {
       setPlan(null);
       setMessage(String(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyPackageTrust() {
+    if (!plan || !expectedSha256.trim() || busy) return;
+    setBusy(true);
+    setMessage("Hashing the recovery package and checking signature evidence read-only…");
+    try {
+      const result = await invoke<PackageTrust>("inspect_recovery_package_trust", {
+        packagePath: sourcePath.trim(),
+        expectedSha256: expectedSha256.trim(),
+        expectedSignerContains: null,
+      });
+      setPackageTrust(result);
+      setMessage(
+        result.verified_for_use
+          ? "Package trust verified for the supplied SHA-256."
+          : "Package inspection completed, but trust requirements are not satisfied.",
+      );
+    } catch (error) {
+      setPackageTrust(null);
+      setMessage(`Package trust inspection could not complete. Nothing was changed. ${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function inspectImageMetadata() {
+    if (!plan || busy) return;
+    const indexText = selectedImageIndex.trim();
+    const parsedIndex = indexText ? Number(indexText) : undefined;
+    if (indexText && (!Number.isInteger(parsedIndex) || (parsedIndex || 0) <= 0)) {
+      setMessage("Windows image index must be a positive whole number.");
+      return;
+    }
+    setBusy(true);
+    setMessage("Reading Windows image index, edition, and architecture metadata with no mount or modification…");
+    try {
+      const result = await invoke<ImageMetadata>("inspect_windows_image_metadata", {
+        imagePath: sourcePath.trim(),
+        selectedIndex: parsedIndex,
+        targetArchitecture: targetArchitecture.trim() || null,
+      });
+      setImageMetadata(result);
+      if (!selectedImageIndex && result.images.length === 1) {
+        setSelectedImageIndex(String(result.images[0].index));
+      }
+      setMessage(
+        result.restore_eligible
+          ? "Exact Windows image metadata and architecture compatibility are verified."
+          : "Image metadata inspection completed. Review the blocked gates before restore planning.",
+      );
+    } catch (error) {
+      setImageMetadata(null);
+      setMessage(`Windows image metadata inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
     }
@@ -251,6 +368,101 @@ export default function RecoveryCenter() {
             <span className="read-only-pill">DRY RUN</span>
           </div>
           <p className="recovery-lead">{plan.host_explanation}</p>
+
+          <div className="recovery-list">
+            <strong>Source identity & restore evidence</strong>
+            <div>
+              Source SHA-256: {plan.source_identity?.sha256 || "Identity unavailable — restore remains locked"}
+            </div>
+            <div>
+              Identity state: {plan.source_identity?.complete ? "Complete and bound to this plan" : "Incomplete"}
+            </div>
+            <div>
+              Pre-mutation rule: {plan.source_identity_gate || "Fresh identity recheck required"}
+            </div>
+          </div>
+
+          <div className="recovery-columns">
+            <div className="recovery-list">
+              <strong>Package trust</strong>
+              <label className="path-field">
+                <span>Expected SHA-256 from the trusted source</span>
+                <input
+                  value={expectedSha256}
+                  onChange={(event) => {
+                    setExpectedSha256(event.target.value);
+                    setPackageTrust(null);
+                  }}
+                  placeholder="64-character SHA-256"
+                />
+              </label>
+              <button
+                className="plan-button"
+                type="button"
+                onClick={verifyPackageTrust}
+                disabled={busy || expectedSha256.trim().length !== 64}
+              >
+                Verify Package Trust
+              </button>
+              {packageTrust && (
+                <div className={packageTrust.verified_for_use ? "good-list" : "warning-box"}>
+                  <strong>{packageTrust.verified_for_use ? "Verified" : "Blocked"}</strong>
+                  <p>Observed SHA-256: {packageTrust.observed_sha256}</p>
+                  <p>Trust route: {readableToken(packageTrust.trust_route)}</p>
+                  {packageTrust.authenticode?.checked && (
+                    <p>Signature: {packageTrust.authenticode.status}{packageTrust.authenticode.signer_subject ? ` · ${packageTrust.authenticode.signer_subject}` : ""}</p>
+                  )}
+                  {packageTrust.block_reasons.map((reason) => <p key={reason}>— {readableToken(reason)}</p>)}
+                </div>
+              )}
+            </div>
+
+            <div className="recovery-list">
+              <strong>Windows image selection</strong>
+              <label className="path-field">
+                <span>Image index</span>
+                <input
+                  value={selectedImageIndex}
+                  onChange={(event) => {
+                    setSelectedImageIndex(event.target.value);
+                    setImageMetadata(null);
+                  }}
+                  inputMode="numeric"
+                  placeholder="Leave blank to enumerate"
+                />
+              </label>
+              <label className="path-field">
+                <span>Target architecture</span>
+                <input
+                  value={targetArchitecture}
+                  onChange={(event) => {
+                    setTargetArchitecture(event.target.value);
+                    setImageMetadata(null);
+                  }}
+                  placeholder="x64 or arm64"
+                />
+              </label>
+              <button className="plan-button" type="button" onClick={inspectImageMetadata} disabled={busy}>
+                Inspect Edition & Architecture
+              </button>
+              {imageMetadata && (
+                <div className={imageMetadata.restore_eligible ? "good-list" : "warning-box"}>
+                  <strong>{imageMetadata.restore_eligible ? "Image compatible" : "Selection blocked"}</strong>
+                  {imageMetadata.selected_image ? (
+                    <p>
+                      Index {imageMetadata.selected_image.index}: {imageMetadata.selected_image.name || "Unnamed image"} · {imageMetadata.selected_image.edition_id || "edition unknown"} · {imageMetadata.selected_image.architecture || "architecture unknown"}
+                    </p>
+                  ) : (
+                    <p>{imageMetadata.images.length} image index{imageMetadata.images.length === 1 ? "" : "es"} discovered; select one explicitly.</p>
+                  )}
+                  {imageMetadata.images.length > 1 && imageMetadata.images.map((image) => (
+                    <p key={image.index}>Index {image.index}: {image.name || "Unnamed"} · {image.edition_id || "edition unknown"} · {image.architecture || "architecture unknown"}</p>
+                  ))}
+                  {imageMetadata.block_reasons.map((reason) => <p key={reason}>— {readableToken(reason)}</p>)}
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="recovery-columns">
             <div className="recovery-list good-list">
