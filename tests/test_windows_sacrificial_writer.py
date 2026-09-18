@@ -34,6 +34,18 @@ class ShortWriteBuffer(io.BytesIO):
         return super().write(data[:-1])
 
 
+class UnplugAfterFirstWrite(io.BytesIO):
+    def __init__(self, initial_bytes: bytes):
+        super().__init__(initial_bytes)
+        self._writes = 0
+
+    def write(self, data):
+        if self._writes > 0:
+            raise OSError("simulated device removal")
+        self._writes += 1
+        return super().write(data)
+
+
 class WindowsSacrificialWriterTests(unittest.TestCase):
     def setUp(self):
         fixture_path = Path(__file__).parent / "fixtures" / "windows_disk_usb.json"
@@ -262,6 +274,48 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     byte_cap=10,
                     chunk_size=10,
                 )
+
+    def test_unplug_failure_is_nonresumable_and_receipted(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"0123456789")
+            with self.assertRaises(writer.WriteInterruptedError) as caught:
+                writer.write_and_verify(
+                    image_path=image,
+                    target_stream=UnplugAfterFirstWrite(b"\x00" * 32),
+                    byte_cap=10,
+                    chunk_size=4,
+                )
+
+            self.assertEqual("target-write", caught.exception.stage)
+            self.assertEqual(4, caught.exception.bytes_written)
+
+            plan = {
+                "source_commit": "8" * 40,
+                "target": self.target,
+                "identity_sha256": self.evidence["disk"]["identity_sha256"],
+                "target_size_bytes": self.evidence["disk"]["size_bytes"],
+                "source_physical_target": r"\\.\PHYSICALDRIVE2",
+                "source_target_distinct": True,
+                "image_path": str(image),
+                "image_size_bytes": 10,
+                "image_sha256": writer.file_sha256(image),
+                "byte_cap": 10,
+            }
+            receipt = writer.build_failure_result(
+                plan=plan,
+                error=caught.exception,
+                started_at="2026-09-17T22:10:00Z",
+                failed_at="2026-09-17T22:10:01Z",
+            )
+            self.assertEqual("hardware-write-interrupted", receipt["classification"])
+            self.assertEqual("target-write", receipt["failure_stage"])
+            self.assertEqual(4, receipt["bytes_written"])
+            self.assertFalse(receipt["resume_allowed"])
+            self.assertTrue(receipt["restart_requires_fresh_source_identity"])
+            self.assertTrue(receipt["restart_requires_fresh_target_identity"])
+            self.assertFalse(receipt["verification_passed"])
+            self.assertEqual(64, len(receipt["receipt_sha256"]))
 
     def test_success_receipt_requires_boot_test_next(self):
         plan = {
