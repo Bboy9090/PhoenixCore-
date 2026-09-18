@@ -34,6 +34,8 @@ const SOURCE_DISK_RESOLVER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/resolve_windows_source_disk.py");
 const PACKAGE_TRUST_INSPECTOR_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_recovery_package_trust.py");
+const CLOUD_STAGE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/stage_cloud_recovery_payload.py");
 const WINDOWS_IMAGE_METADATA_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
 const BOOTCAMP_DRIVER_INSPECTOR_SOURCE: &str =
@@ -173,6 +175,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         PACKAGE_TRUST_INSPECTOR_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded package trust inspector: {error}"))?;
+    fs::write(
+        directory.join("stage_cloud_recovery_payload.py"),
+        CLOUD_STAGE_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded cloud staging helper: {error}"))?;
     fs::write(
         directory.join("inspect_windows_image_metadata.py"),
         WINDOWS_IMAGE_METADATA_SOURCE,
@@ -372,6 +379,83 @@ fn attach_target_resolution(
     );
 
     Ok(())
+}
+
+#[tauri::command]
+fn stage_cloud_recovery_payload(
+    source_file: String,
+    destination: String,
+    provider: String,
+    provider_file_id: String,
+    provider_name: String,
+    provider_size_bytes: u64,
+    provider_md5: Option<String>,
+    expected_sha256: Option<String>,
+) -> Result<Value, String> {
+    let source = PathBuf::from(source_file.trim());
+    if !source.is_file() {
+        return Err("materialized cloud payload is not a regular file".to_string());
+    }
+    let destination = PathBuf::from(destination.trim());
+    if destination.as_os_str().is_empty() {
+        return Err("cloud staging destination is required".to_string());
+    }
+    if provider.trim().is_empty() || provider_file_id.trim().is_empty() {
+        return Err("cloud provider and provider file ID are required".to_string());
+    }
+    if provider_size_bytes == 0 {
+        return Err("cloud provider size must be positive".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("stage_cloud_recovery_payload.py");
+        let receipt = receipt_directory()?.join(format!(
+            "phoenix-key-cloud-stage-{}-{}.json",
+            std::process::id(),
+            provider_file_id
+                .chars()
+                .filter(|ch| ch.is_ascii_alphanumeric())
+                .take(12)
+                .collect::<String>()
+        ));
+        let mut args = vec![
+            "--source-file".to_string(),
+            source.to_string_lossy().to_string(),
+            "--destination".to_string(),
+            destination.to_string_lossy().to_string(),
+            "--receipt".to_string(),
+            receipt.to_string_lossy().to_string(),
+            "--provider".to_string(),
+            provider.trim().to_string(),
+            "--provider-file-id".to_string(),
+            provider_file_id.trim().to_string(),
+            "--provider-name".to_string(),
+            provider_name,
+            "--provider-size-bytes".to_string(),
+            provider_size_bytes.to_string(),
+        ];
+        if let Some(md5) = provider_md5
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--provider-md5".to_string());
+            args.push(md5.to_string());
+        }
+        if let Some(sha256) = expected_sha256
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--expected-sha256".to_string());
+            args.push(sha256.to_string());
+        }
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        run_python_json(&script, &refs, &[])
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
 }
 
 #[tauri::command]
@@ -660,7 +744,8 @@ fn main() {
             inspect_windows_image_metadata,
             assess_windows_restore_readiness,
             inspect_bootcamp_driver_package,
-            assess_intel_mac_restore_readiness
+            assess_intel_mac_restore_readiness,
+            stage_cloud_recovery_payload
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Phoenix Key desktop application");
