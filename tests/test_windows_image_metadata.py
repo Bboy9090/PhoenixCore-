@@ -113,6 +113,25 @@ class WindowsImageMetadataTests(unittest.TestCase):
             result["block_reasons"],
         )
 
+    def test_vhdx_uses_required_index_one_without_unindexed_probe(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = self.image(tmpdir, "windows.vhdx")
+            runner = FakeDism(
+                [self.detail(1, "Windows 11 Pro", "x64", "Professional")]
+            )
+            old_platform = windows_image_metadata.sys.platform
+            windows_image_metadata.sys.platform = "win32"
+            try:
+                result = windows_image_metadata.inspect_windows_image(
+                    path, runner=runner
+                )
+            finally:
+                windows_image_metadata.sys.platform = old_platform
+            self.assertTrue(result["restore_eligible"])
+            self.assertEqual(1, result["selected_index"])
+            self.assertEqual(1, len(runner.calls))
+            self.assertIn("/Index:1", runner.calls[0])
+
     def test_iso_is_never_mounted_for_metadata(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = self.image(tmpdir, "windows.iso")
