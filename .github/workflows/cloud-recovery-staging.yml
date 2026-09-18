@@ -1,0 +1,65 @@
+name: Cloud Recovery Staging
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "scripts/hardware/stage_cloud_recovery_payload.py"
+      - "tests/test_cloud_recovery_stage.py"
+      - ".github/workflows/cloud-recovery-staging.yml"
+  push:
+    branches:
+      - "convergence/windows-recovery-forge-macos-v2"
+    paths:
+      - "scripts/hardware/stage_cloud_recovery_payload.py"
+      - "tests/test_cloud_recovery_stage.py"
+      - ".github/workflows/cloud-recovery-staging.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  stage:
+    name: Resumable cloud stage (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install black
+      - name: Check formatting
+        run: >-
+          black --check --diff
+          scripts/hardware/stage_cloud_recovery_payload.py
+          tests/test_cloud_recovery_stage.py
+      - name: Compile
+        run: >-
+          python -m compileall -q
+          scripts/hardware/stage_cloud_recovery_payload.py
+          tests/test_cloud_recovery_stage.py
+      - name: Run resumable staging tests
+        run: python -m unittest tests/test_cloud_recovery_stage.py -v
+      - name: Confirm cloud source is read-only
+        shell: python
+        run: |
+          from pathlib import Path
+
+          source = Path(
+              "scripts/hardware/stage_cloud_recovery_payload.py"
+          ).read_text(encoding="utf-8")
+          forbidden = [
+              "requests.delete",
+              "files.update",
+              "files.delete",
+              "permissions.create",
+              "trash",
+          ]
+          found = [token for token in forbidden if token in source]
+          if found:
+              raise SystemExit(f"cloud source mutation APIs forbidden: {found}")
+          print("CLOUD_SOURCE_READ_ONLY=pass")
