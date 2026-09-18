@@ -258,7 +258,7 @@ def main() -> int:
     )
     write_receipt(receipt, args.receipt)
     print(json.dumps(receipt, sort_keys=True))
-    return 0 if receipt["recovery_eligible"] else 3
+    return 0
 
 
 if __name__ == "__main__":
