@@ -3,6 +3,7 @@
 mod boot_repair_contract;
 mod mac_bootcamp_compat;
 mod recovery_center;
+mod restore_readiness;
 mod source_identity;
 mod windows_recovery;
 mod windows_recovery_guard;
@@ -11,6 +12,7 @@ mod windows_target;
 use boot_repair_contract::plan_windows_boot_repair;
 use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
+use restore_readiness::assess_windows_restore_readiness;
 use recovery_center::{analyze_windows_recovery_source, plan_windows_recovery_source};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -607,7 +609,8 @@ fn main() {
             plan_windows_boot_repair,
             inspect_mac_bootcamp_host,
             inspect_recovery_package_trust,
-            inspect_windows_image_metadata
+            inspect_windows_image_metadata,
+            assess_windows_restore_readiness
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Phoenix Key desktop application");
