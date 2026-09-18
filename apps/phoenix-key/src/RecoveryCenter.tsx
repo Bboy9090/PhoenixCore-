@@ -426,7 +426,7 @@ export default function RecoveryCenter() {
         <button className="scan-button" onClick={analyze} disabled={!canAnalyze}>
           {busy && !analysis ? "Analyzing…" : "Analyze Backup Safely"}
         </button>
-        <div className="recovery-status" role="status" aria-live="polite">{message}</div>
+        <div className="recovery-status" role="status" aria-live="polite" aria-atomic="true">{message}</div>
       </section>
 
       {analysis && (
@@ -513,8 +513,13 @@ export default function RecoveryCenter() {
                     setPackageTrust(null);
                   }}
                   placeholder="64-character SHA-256"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  aria-describedby="recovery-hash-help"
                 />
               </label>
+              <p id="recovery-hash-help" className="field-help">Use the SHA-256 published with the trusted recovery source. Phoenix Key compares it locally and does not modify the package.</p>
               <button
                 className="plan-button"
                 type="button"
@@ -693,10 +698,16 @@ export default function RecoveryCenter() {
             <p>This Recovery Center stage cannot erase, partition, inject drivers, repair BCD, or restore Windows. Those capabilities require a separate verified target contract and explicit authorization.</p>
           </div>
 
-          <button className="technical-toggle" onClick={() => setShowTechnical((value) => !value)}>
+          <button
+            className="technical-toggle"
+            type="button"
+            aria-expanded={showTechnical}
+            aria-controls="recovery-technical-evidence"
+            onClick={() => setShowTechnical((value) => !value)}
+          >
             {showTechnical ? "Hide Technical Evidence" : "Show Technical Evidence"}
           </button>
-          {showTechnical && <pre className="plan-output">{JSON.stringify(plan, null, 2)}</pre>}
+          {showTechnical && <pre id="recovery-technical-evidence" className="plan-output" tabIndex={0}>{JSON.stringify(plan, null, 2)}</pre>}
         </section>
       )}
     </div>
