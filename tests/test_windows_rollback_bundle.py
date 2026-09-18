@@ -73,6 +73,7 @@ class WindowsRollbackBundleTests(unittest.TestCase):
                 "identity_sha256": "b" * 64,
             },
             "target": {
+                "scope": "online_current_windows_boot_repair",
                 "physical_target": r"\\.\PHYSICALDRIVE7",
                 "identity_sha256": "a" * 64,
                 "size_bytes": 64000000000,
@@ -176,6 +177,14 @@ class WindowsRollbackBundleTests(unittest.TestCase):
         snapshot["secure_boot_enabled"] = False
         with self.assertRaises(windows_rollback_bundle.RollbackBundleError):
             windows_rollback_bundle.verify_boot_state(snapshot)
+
+    def test_wrong_rollback_scope_is_rejected(self):
+        snapshot = self.snapshot()
+        manifest = self.rollback_manifest(snapshot)
+        manifest["target"]["scope"] = "full_disk_restore"
+        manifest["manifest_sha256"] = windows_rollback_bundle.sha256_payload(manifest)
+        with self.assertRaises(windows_rollback_bundle.RollbackBundleError):
+            windows_rollback_bundle.verify_rollback_manifest(manifest, snapshot)
 
     def test_rollback_manifest_must_match_boot_snapshot(self):
         snapshot = self.snapshot()
