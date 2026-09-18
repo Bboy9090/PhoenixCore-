@@ -43,11 +43,13 @@ jobs:
           scripts/hardware/capture_windows_boot_state.py
           scripts/hardware/stage_windows_rollback_artifacts.py
           scripts/hardware/persist_windows_rollback_bundle.py
+          scripts/hardware/check_windows_recovery_readiness.py
           tests/test_windows_drive_evidence.py
           tests/test_windows_source_disk_resolution.py
           tests/test_windows_boot_state.py
           tests/test_windows_rollback_artifacts.py
           tests/test_windows_rollback_bundle.py
+          tests/test_windows_recovery_readiness.py
 
       - name: Compile collector and tests
         run: >-
@@ -81,6 +83,7 @@ jobs:
               Path("scripts/hardware/capture_windows_boot_state.py"),
               Path("scripts/hardware/stage_windows_rollback_artifacts.py"),
               Path("scripts/hardware/persist_windows_rollback_bundle.py"),
+              Path("scripts/hardware/check_windows_recovery_readiness.py"),
           ]
           forbidden = [
               "GENERIC_WRITE",
