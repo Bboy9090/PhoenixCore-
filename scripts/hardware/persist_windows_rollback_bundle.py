@@ -108,6 +108,11 @@ def verify_rollback_manifest(
         )
     if manifest.get("system_mutations_performed") is not False:
         raise RollbackBundleError("Rollback manifest must precede all system mutations.")
+    target = manifest.get("target")
+    if not isinstance(target, dict) or target.get("scope") != "online_current_windows_boot_repair":
+        raise RollbackBundleError(
+            "Rollback manifest is not scoped to online Windows boot repair."
+        )
 
 
 def parse_winre_location(reagent_stdout: str) -> str | None:
