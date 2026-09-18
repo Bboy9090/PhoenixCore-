@@ -28,6 +28,8 @@ const DRIVE_EVIDENCE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_drive_evidence.py");
 const SOURCE_DISK_RESOLVER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/resolve_windows_source_disk.py");
+const PACKAGE_TRUST_INSPECTOR_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/inspect_recovery_package_trust.py");
 const SACRIFICIAL_WRITER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/write_windows_sacrificial_drive.py");
 const SMOKE_RECEIPT_ENV: &str = "PHOENIX_KEY_SMOKE_RECEIPT";
@@ -158,6 +160,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         SOURCE_DISK_RESOLVER_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded source-disk resolver: {error}"))?;
+    fs::write(
+        directory.join("inspect_recovery_package_trust.py"),
+        PACKAGE_TRUST_INSPECTOR_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded package trust inspector: {error}"))?;
     fs::write(
         directory.join("write_windows_sacrificial_drive.py"),
         SACRIFICIAL_WRITER_SOURCE,
@@ -350,6 +357,45 @@ fn attach_target_resolution(
 }
 
 #[tauri::command]
+fn inspect_recovery_package_trust(
+    package_path: String,
+    expected_sha256: Option<String>,
+    expected_signer_contains: Option<String>,
+) -> Result<Value, String> {
+    let package = PathBuf::from(package_path.trim());
+    if !package.is_file() {
+        return Err("recovery package does not exist or is not a regular file".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("inspect_recovery_package_trust.py");
+        let package_text = package.to_string_lossy().to_string();
+        let mut args = vec!["--path".to_string(), package_text];
+        if let Some(expected) = expected_sha256
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--expected-sha256".to_string());
+            args.push(expected.to_string());
+        }
+        if let Some(signer) = expected_signer_contains
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--expected-signer-contains".to_string());
+            args.push(signer.to_string());
+        }
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        run_python_json(&script, &refs, &[])
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn scan_media_targets() -> Result<Value, String> {
     run_phoenixcore(&["--list-json"])
 }
@@ -514,7 +560,8 @@ fn main() {
             analyze_windows_recovery_source,
             plan_windows_recovery_source,
             plan_windows_boot_repair,
-            inspect_mac_bootcamp_host
+            inspect_mac_bootcamp_host,
+            inspect_recovery_package_trust
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Phoenix Key desktop application");
