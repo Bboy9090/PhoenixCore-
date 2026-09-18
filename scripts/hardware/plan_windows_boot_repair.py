@@ -91,7 +91,9 @@ def verify_readiness(readiness: dict[str, Any]) -> None:
     if readiness.get("repair_planning_ready") is not True:
         raise RepairPlanError("Recovery evidence is not ready for repair planning.")
     if readiness.get("destructive_restore_unlocked") is not False:
-        raise RepairPlanError("Destructive restore must remain locked during repair planning.")
+        raise RepairPlanError(
+            "Destructive restore must remain locked during repair planning."
+        )
 
 
 def build_repair_plan(
@@ -136,7 +138,9 @@ def build_repair_plan(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--readiness", type=Path, required=True)
-    parser.add_argument("--repair-kind", choices=sorted(SUPPORTED_REPAIRS), required=True)
+    parser.add_argument(
+        "--repair-kind", choices=sorted(SUPPORTED_REPAIRS), required=True
+    )
     return parser.parse_args()
 
 
