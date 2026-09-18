@@ -22,7 +22,7 @@ Recovery Forge must be understandable before it is powerful. Analysis and planni
 | --- | --- | --- | --- |
 | Windows ISO | ISO9660 signature | Windows disc image detected; inspect contents before use | Plan only |
 | WIM / ESD | MSWIM signature | Windows image payload verified | Plan only |
-| Split WIM / SWM | Complete-set validation pending | Explain that every segment is required | Blocked until complete |
+| Split WIM / SWM | Contiguous segment-set validation + read-only DISM metadata on complete sets | Explain missing/gapped segments and require exact image selection | Plan only when complete and metadata-compatible |
 | VHD | `conectix` footer | Legacy virtual disk image verified | Plan only |
 | VHDX | `vhdxfile` signature | Virtual disk image verified | Plan only |
 | WindowsImageBackup | Backup structure + VHD/VHDX payload | Windows system-image backup detected | Plan only |
