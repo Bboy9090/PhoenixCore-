@@ -35,7 +35,9 @@ class BootCampDriverPackageTests(unittest.TestCase):
         driver_dir.mkdir(parents=True)
         (driver_dir / "AppleKeyboard.sys").write_bytes(b"driver")
         (driver_dir / "BootCamp.msi").write_bytes(b"installer")
-        (root / "ReadMe.txt").write_text("support software", encoding="utf-8")
+        (root / "ReadMe.txt").write_text(
+            "support software for MacBookPro16,1", encoding="utf-8"
+        )
         return root
 
     def test_manifest_requires_expected_hash(self):
@@ -68,6 +70,30 @@ class BootCampDriverPackageTests(unittest.TestCase):
             )
             self.assertTrue(result["verified_for_model"])
             self.assertEqual("MacBookPro16,1", result["mac_model_identifier"])
+
+    def test_package_without_exact_model_evidence_stays_locked(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = self.package(Path(tmpdir))
+            (root / "ReadMe.txt").write_text(
+                "generic support software", encoding="utf-8"
+            )
+            first = bootcamp_driver_package.build_driver_manifest(
+                root,
+                mac_model="MacBookPro16,1",
+                signature_inspector=self.valid_signature,
+            )
+            result = bootcamp_driver_package.build_driver_manifest(
+                root,
+                mac_model="MacBookPro16,1",
+                expected_manifest_sha256=first["manifest_sha256"],
+                signature_inspector=self.valid_signature,
+            )
+            self.assertFalse(result["verified_for_model"])
+            self.assertFalse(result["exact_model_support_evidence"])
+            self.assertIn(
+                "exact_model_support_evidence_missing",
+                result["block_reasons"],
+            )
 
     def test_pending_signatures_keep_package_locked(self):
         with tempfile.TemporaryDirectory() as tmpdir:
