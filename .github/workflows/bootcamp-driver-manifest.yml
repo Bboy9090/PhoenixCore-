@@ -1,0 +1,68 @@
+name: Boot Camp Driver Manifest
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "scripts/hardware/inspect_bootcamp_driver_package.py"
+      - "tests/test_bootcamp_driver_package.py"
+      - ".github/workflows/bootcamp-driver-manifest.yml"
+  push:
+    branches:
+      - "convergence/windows-recovery-forge-macos-v2"
+    paths:
+      - "scripts/hardware/inspect_bootcamp_driver_package.py"
+      - "tests/test_bootcamp_driver_package.py"
+      - ".github/workflows/bootcamp-driver-manifest.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  manifest:
+    name: Boot Camp package (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install black
+      - name: Check formatting
+        run: >-
+          black --check --diff
+          scripts/hardware/inspect_bootcamp_driver_package.py
+          tests/test_bootcamp_driver_package.py
+      - name: Compile
+        run: >-
+          python -m compileall -q
+          scripts/hardware/inspect_bootcamp_driver_package.py
+          tests/test_bootcamp_driver_package.py
+      - name: Run tests
+        run: python -m unittest tests/test_bootcamp_driver_package.py -v
+      - name: Confirm read-only package inspection
+        shell: python
+        run: |
+          from pathlib import Path
+
+          source = Path(
+              "scripts/hardware/inspect_bootcamp_driver_package.py"
+          ).read_text(encoding="utf-8")
+          forbidden = [
+              "Set-AuthenticodeSignature",
+              "WriteFile",
+              "GENERIC_WRITE",
+              "diskpart",
+              "Format-Volume",
+              "Set-Partition",
+          ]
+          found = [token for token in forbidden if token in source]
+          if found:
+              raise SystemExit(
+                  f"mutating APIs forbidden in Boot Camp inspector: {found}"
+              )
+          print("BOOTCAMP_DRIVER_INSPECTION_READ_ONLY=pass")
