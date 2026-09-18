@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import hashlib
+import io
 import json
 import os
 import re
@@ -61,6 +62,23 @@ DEFAULT_CHUNK_SIZE = 1024 * 1024
 
 class WriteGateError(RuntimeError):
     """Raised when a destructive-operation gate is not satisfied."""
+
+
+class WriteInterruptedError(WriteGateError):
+    """Raised when a write/readback started but could not complete safely."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        stage: str,
+        bytes_written: int = 0,
+        bytes_read_back: int = 0,
+    ):
+        super().__init__(message)
+        self.stage = stage
+        self.bytes_written = max(0, int(bytes_written))
+        self.bytes_read_back = max(0, int(bytes_read_back))
 
 
 def utc_now_iso() -> str:
@@ -311,48 +329,130 @@ def write_and_verify(
 
     source_digest = hashlib.sha256()
     bytes_written = 0
-    target_stream.seek(0)
+    try:
+        target_stream.seek(0)
+    except OSError as exc:
+        raise WriteInterruptedError(
+            f"Could not seek target before write: {exc}",
+            stage="target-seek-before-write",
+        ) from exc
+
     with image_path.open("rb") as source:
         while bytes_written < byte_cap:
-            chunk = source.read(min(chunk_size, byte_cap - bytes_written))
+            try:
+                chunk = source.read(min(chunk_size, byte_cap - bytes_written))
+            except OSError as exc:
+                raise WriteInterruptedError(
+                    f"Source read failed after {bytes_written} target bytes: {exc}",
+                    stage="source-read",
+                    bytes_written=bytes_written,
+                ) from exc
             if not chunk:
-                raise WriteGateError("Source image ended before the byte cap.")
+                raise WriteInterruptedError(
+                    "Source image ended before the byte cap.",
+                    stage="source-read",
+                    bytes_written=bytes_written,
+                )
             source_digest.update(chunk)
-            written = target_stream.write(chunk)
+            try:
+                written = target_stream.write(chunk)
+            except OSError as exc:
+                raise WriteInterruptedError(
+                    f"Target write failed after {bytes_written} bytes: {exc}",
+                    stage="target-write",
+                    bytes_written=bytes_written,
+                ) from exc
             if written != len(chunk):
-                raise WriteGateError(
+                actual = max(0, int(written or 0))
+                raise WriteInterruptedError(
                     f"Short write after {bytes_written} bytes: expected "
-                    f"{len(chunk)}, wrote {written}."
+                    f"{len(chunk)}, wrote {written}.",
+                    stage="target-write",
+                    bytes_written=bytes_written + actual,
                 )
             bytes_written += written
 
-        if source.read(1):
-            raise WriteGateError("Source image contains data beyond the byte cap.")
+        try:
+            extra = source.read(1)
+        except OSError as exc:
+            raise WriteInterruptedError(
+                f"Source final-length check failed: {exc}",
+                stage="source-read",
+                bytes_written=bytes_written,
+            ) from exc
+        if extra:
+            raise WriteInterruptedError(
+                "Source image contains data beyond the byte cap.",
+                stage="source-length-check",
+                bytes_written=bytes_written,
+            )
 
-    target_stream.flush()
+    try:
+        target_stream.flush()
+    except OSError as exc:
+        raise WriteInterruptedError(
+            f"Target flush failed after {bytes_written} bytes: {exc}",
+            stage="target-flush",
+            bytes_written=bytes_written,
+        ) from exc
     try:
         os.fsync(target_stream.fileno())
-    except (AttributeError, OSError):
+    except (AttributeError, io.UnsupportedOperation):
         pass
+    except OSError as exc:
+        raise WriteInterruptedError(
+            f"Target fsync failed after {bytes_written} bytes: {exc}",
+            stage="target-fsync",
+            bytes_written=bytes_written,
+        ) from exc
 
-    target_stream.seek(0)
+    try:
+        target_stream.seek(0)
+    except OSError as exc:
+        raise WriteInterruptedError(
+            f"Could not seek target for read-back: {exc}",
+            stage="readback-seek",
+            bytes_written=bytes_written,
+        ) from exc
+
     readback_digest = hashlib.sha256()
     bytes_read = 0
     while bytes_read < byte_cap:
-        chunk = target_stream.read(min(chunk_size, byte_cap - bytes_read))
+        try:
+            chunk = target_stream.read(min(chunk_size, byte_cap - bytes_read))
+        except OSError as exc:
+            raise WriteInterruptedError(
+                f"Read-back failed after {bytes_read} bytes: {exc}",
+                stage="readback",
+                bytes_written=bytes_written,
+                bytes_read_back=bytes_read,
+            ) from exc
         if not chunk:
-            raise WriteGateError("Read-back ended before the written byte count.")
+            raise WriteInterruptedError(
+                "Read-back ended before the written byte count.",
+                stage="readback",
+                bytes_written=bytes_written,
+                bytes_read_back=bytes_read,
+            )
         readback_digest.update(chunk)
         bytes_read += len(chunk)
 
     source_hash = source_digest.hexdigest()
     readback_hash = readback_digest.hexdigest()
     if bytes_written != byte_cap or bytes_read != byte_cap:
-        raise WriteGateError(
-            "Write or read-back byte count does not match the byte cap."
+        raise WriteInterruptedError(
+            "Write or read-back byte count does not match the byte cap.",
+            stage="readback-verify",
+            bytes_written=bytes_written,
+            bytes_read_back=bytes_read,
         )
     if source_hash != readback_hash:
-        raise WriteGateError("Full read-back SHA-256 does not match the source image.")
+        raise WriteInterruptedError(
+            "Full read-back SHA-256 does not match the source image.",
+            stage="readback-verify",
+            bytes_written=bytes_written,
+            bytes_read_back=bytes_read,
+        )
 
     return {
         "bytes_expected": byte_cap,
@@ -363,6 +463,49 @@ def write_and_verify(
         "verification_passed": True,
     }
 
+
+
+def build_failure_result(
+    *,
+    plan: dict[str, Any],
+    error: BaseException,
+    started_at: str,
+    failed_at: str,
+) -> dict[str, Any]:
+    stage = getattr(error, "stage", "open-or-io-failure")
+    bytes_written = int(getattr(error, "bytes_written", 0) or 0)
+    bytes_read_back = int(getattr(error, "bytes_read_back", 0) or 0)
+    receipt = {
+        "schema_version": SCHEMA_VERSION,
+        "started_at": started_at,
+        "failed_at": failed_at,
+        "source_commit": plan["source_commit"],
+        "target": plan["target"],
+        "target_identity_sha256": plan["identity_sha256"],
+        "target_size_bytes": plan["target_size_bytes"],
+        "source_physical_target": plan.get("source_physical_target"),
+        "source_target_distinct": plan.get("source_target_distinct"),
+        "image_path": plan["image_path"],
+        "image_size_bytes": plan["image_size_bytes"],
+        "image_sha256": plan["image_sha256"],
+        "byte_cap": plan["byte_cap"],
+        "failure_stage": stage,
+        "error": str(error),
+        "bytes_written": bytes_written,
+        "bytes_read_back": bytes_read_back,
+        "physical_write_attempted": True,
+        "physical_write_completed": False,
+        "readback_completed": False,
+        "verification_passed": False,
+        "hardware_validated": False,
+        "classification": "hardware-write-interrupted",
+        "resume_allowed": False,
+        "restart_requires_fresh_source_identity": True,
+        "restart_requires_fresh_target_identity": True,
+        "next_required_action": "re-enumerate-target-and-restart-from-verified-source",
+    }
+    receipt["receipt_sha256"] = sha256_payload(receipt)
+    return receipt
 
 def build_result(
     *,
@@ -438,12 +581,22 @@ def main() -> int:
     )
 
     started_at = utc_now_iso()
-    with open_windows_raw_device(plan["target"]) as target_stream:
-        write_result = write_and_verify(
-            image_path=args.image,
-            target_stream=target_stream,
-            byte_cap=plan["byte_cap"],
+    try:
+        with open_windows_raw_device(plan["target"]) as target_stream:
+            write_result = write_and_verify(
+                image_path=args.image,
+                target_stream=target_stream,
+                byte_cap=plan["byte_cap"],
+            )
+    except (WriteInterruptedError, OSError) as exc:
+        failure = build_failure_result(
+            plan=plan,
+            error=exc,
+            started_at=started_at,
+            failed_at=utc_now_iso(),
         )
+        write_json_atomic(failure, args.output)
+        raise
     completed_at = utc_now_iso()
 
     receipt = build_result(
