@@ -10,6 +10,7 @@ pub struct RestoreReadiness {
     pub blocked_gates: Vec<String>,
     pub selected_image_index: Option<u64>,
     pub source_architecture: Option<String>,
+    pub source_edition_id: Option<String>,
     pub target_architecture: Option<String>,
     pub source_identity_sha256: Option<String>,
     pub target_identity_sha256: Option<String>,
@@ -20,6 +21,23 @@ fn is_sha256(value: Option<&str>) -> bool {
     value.is_some_and(|value| {
         value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
     })
+}
+
+fn same_sha256(left: Option<&str>, right: Option<&str>) -> bool {
+    is_sha256(left)
+        && is_sha256(right)
+        && left
+            .zip(right)
+            .is_some_and(|(left, right)| left.eq_ignore_ascii_case(right))
+}
+
+fn normalized_path(value: &str) -> String {
+    value.replace('\\', "/").trim_end_matches('/').to_ascii_lowercase()
+}
+
+fn same_path(left: Option<&str>, right: Option<&str>) -> bool {
+    left.zip(right)
+        .is_some_and(|(left, right)| normalized_path(left) == normalized_path(right))
 }
 
 fn gate(
@@ -59,16 +77,30 @@ pub fn assess_restore_readiness(
         &mut blocked,
     );
 
+    let source_kind = identity_bound_plan
+        .pointer("/source_identity/source_kind")
+        .and_then(Value::as_str);
+    let source_path = identity_bound_plan
+        .pointer("/source_identity/canonical_path")
+        .and_then(Value::as_str);
+    let source_size = identity_bound_plan
+        .pointer("/source_identity/size_bytes")
+        .and_then(Value::as_u64);
+    let trusted_package_sha = package_trust
+        .get("observed_sha256")
+        .and_then(Value::as_str);
     gate(
-        package_trust
-            .get("verified_for_use")
-            .and_then(Value::as_bool)
-            == Some(true)
+        source_kind == Some("file_sha256")
+            && package_trust
+                .get("verified_for_use")
+                .and_then(Value::as_bool)
+                == Some(true)
             && package_trust
                 .get("sha256_matches")
                 .and_then(Value::as_bool)
-                == Some(true),
-        "source_package_trust",
+                == Some(true)
+            && same_sha256(source_identity, trusted_package_sha),
+        "source_package_trust_bound_to_identity",
         &mut satisfied,
         &mut blocked,
     );
@@ -83,8 +115,12 @@ pub fn assess_restore_readiness(
             .and_then(Value::as_bool)
             == Some(true)
             && selected_index.is_some()
-            && selected_image.is_some_and(|value| !value.is_null()),
-        "exact_windows_image_selected",
+            && selected_image.is_some_and(|value| !value.is_null())
+            && same_path(
+                source_path,
+                image_metadata.get("path").and_then(Value::as_str),
+            ),
+        "exact_windows_image_bound_to_source",
         &mut satisfied,
         &mut blocked,
     );
@@ -93,6 +129,19 @@ pub fn assess_restore_readiness(
         .pointer("/selected_image/architecture")
         .and_then(Value::as_str)
         .map(str::to_string);
+    let source_edition_id = image_metadata
+        .pointer("/selected_image/edition_id")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    gate(
+        source_edition_id
+            .as_deref()
+            .is_some_and(|edition| !edition.trim().is_empty()),
+        "source_windows_edition_identified",
+        &mut satisfied,
+        &mut blocked,
+    );
+
     let target_architecture = image_metadata
         .pointer("/architecture_compatibility/target_architecture")
         .and_then(Value::as_str)
@@ -119,8 +168,13 @@ pub fn assess_restore_readiness(
                 .get("source_target_distinct")
                 .and_then(Value::as_bool)
                 == Some(true)
-            && is_sha256(target_identity),
-        "target_safety_and_distinct_identity",
+            && is_sha256(target_identity)
+            && source_size.is_some()
+            && target_safety
+                .get("source_size_bytes")
+                .and_then(Value::as_u64)
+                == source_size,
+        "target_safety_bound_to_source_size",
         &mut satisfied,
         &mut blocked,
     );
@@ -139,8 +193,20 @@ pub fn assess_restore_readiness(
                 rollback_bundle
                     .get("bundle_sha256")
                     .and_then(Value::as_str),
+            )
+            && same_sha256(
+                source_identity,
+                rollback_bundle
+                    .get("source_identity_sha256")
+                    .and_then(Value::as_str),
+            )
+            && same_sha256(
+                target_identity,
+                rollback_bundle
+                    .get("target_identity_sha256")
+                    .and_then(Value::as_str),
             ),
-        "rollback_bundle_complete",
+        "rollback_bundle_bound_to_source_and_target",
         &mut satisfied,
         &mut blocked,
     );
@@ -163,6 +229,7 @@ pub fn assess_restore_readiness(
         blocked_gates: blocked,
         selected_image_index: selected_index,
         source_architecture,
+        source_edition_id,
         target_architecture,
         source_identity_sha256: source_identity.map(str::to_string),
         target_identity_sha256: target_identity.map(str::to_string),
@@ -207,15 +274,20 @@ mod tests {
             json!({
                 "source_identity": {
                     "sha256": "a".repeat(64),
-                    "complete": true
+                    "complete": true,
+                    "source_kind": "file_sha256",
+                    "canonical_path": "C:/recovery/install.wim",
+                    "size_bytes": 4096
                 },
                 "destructive_actions_performed": false
             }),
             json!({
                 "verified_for_use": true,
-                "sha256_matches": true
+                "sha256_matches": true,
+                "observed_sha256": "a".repeat(64)
             }),
             json!({
+                "path": "C:/recovery/install.wim",
                 "metadata_verified": true,
                 "selected_index": 2,
                 "selected_image": {
@@ -231,13 +303,16 @@ mod tests {
             json!({
                 "safe_to_prepare": true,
                 "source_target_distinct": true,
-                "target_identity_sha256": "b".repeat(64)
+                "target_identity_sha256": "b".repeat(64),
+                "source_size_bytes": 4096
             }),
             json!({
                 "complete": true,
                 "repair_unlock_ready": true,
                 "system_configuration_mutated": false,
-                "bundle_sha256": "c".repeat(64)
+                "bundle_sha256": "c".repeat(64),
+                "source_identity_sha256": "a".repeat(64),
+                "target_identity_sha256": "b".repeat(64)
             }),
         )
     }
@@ -262,7 +337,7 @@ mod tests {
         assert!(!result.ready_for_restore_executor_design);
         assert!(result
             .blocked_gates
-            .contains(&"source_package_trust".to_string()));
+            .contains(&"source_package_trust_bound_to_identity".to_string()));
         assert!(!result.executable);
     }
 
@@ -275,7 +350,7 @@ mod tests {
             assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
         assert!(result
             .blocked_gates
-            .contains(&"exact_windows_image_selected".to_string()));
+            .contains(&"exact_windows_image_bound_to_source".to_string()));
     }
 
     #[test]
@@ -297,7 +372,51 @@ mod tests {
             assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
         assert!(result
             .blocked_gates
-            .contains(&"target_safety_and_distinct_identity".to_string()));
+            .contains(&"target_safety_bound_to_source_size".to_string()));
+    }
+
+    #[test]
+    fn mismatched_package_identity_blocks_readiness() {
+        let (plan, mut trust, metadata, target, rollback) = evidence();
+        trust["observed_sha256"] = json!("d".repeat(64));
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(result
+            .blocked_gates
+            .contains(&"source_package_trust_bound_to_identity".to_string()));
+    }
+
+    #[test]
+    fn mismatched_image_path_blocks_readiness() {
+        let (plan, trust, mut metadata, target, rollback) = evidence();
+        metadata["path"] = json!("C:/other/install.wim");
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(result
+            .blocked_gates
+            .contains(&"exact_windows_image_bound_to_source".to_string()));
+    }
+
+    #[test]
+    fn rollback_bundle_from_different_target_is_rejected() {
+        let (plan, trust, metadata, target, mut rollback) = evidence();
+        rollback["target_identity_sha256"] = json!("e".repeat(64));
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(result
+            .blocked_gates
+            .contains(&"rollback_bundle_bound_to_source_and_target".to_string()));
+    }
+
+    #[test]
+    fn missing_windows_edition_blocks_readiness() {
+        let (plan, trust, mut metadata, target, rollback) = evidence();
+        metadata["selected_image"]["edition_id"] = Value::Null;
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(result
+            .blocked_gates
+            .contains(&"source_windows_edition_identified".to_string()));
     }
 
     #[test]
@@ -308,6 +427,6 @@ mod tests {
             assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
         assert!(result
             .blocked_gates
-            .contains(&"rollback_bundle_complete".to_string()));
+            .contains(&"rollback_bundle_bound_to_source_and_target".to_string()));
     }
 }
