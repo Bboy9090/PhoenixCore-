@@ -12,6 +12,9 @@ mod target_safety;
 #[path = "../src/boot_repair_contract.rs"]
 mod boot_repair_contract;
 #[cfg(test)]
+#[path = "../src/mac_bootcamp_compat.rs"]
+mod mac_bootcamp_compat;
+#[cfg(test)]
 #[path = "../src/recovery_center.rs"]
 mod recovery_center;
 
