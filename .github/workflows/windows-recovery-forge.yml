@@ -11,6 +11,7 @@ on:
       - "apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs"
       - "apps/phoenix-key/src-tauri/src/platform_recovery.rs"
       - "apps/phoenix-key/src-tauri/src/boot_repair_contract.rs"
+      - "apps/phoenix-key/src-tauri/src/mac_bootcamp_compat.rs"
       - "apps/phoenix-key/src-tauri/src/source_identity.rs"
       - "apps/phoenix-key/src-tauri/src/target_safety.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
@@ -103,6 +104,7 @@ jobs:
             apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs
             apps/phoenix-key/src-tauri/src/platform_recovery.rs
             apps/phoenix-key/src-tauri/src/boot_repair_contract.rs
+            apps/phoenix-key/src-tauri/src/mac_bootcamp_compat.rs
             apps/phoenix-key/src-tauri/src/source_identity.rs
             apps/phoenix-key/src-tauri/src/target_safety.rs
             apps/phoenix-key/src-tauri/src/recovery_center.rs
