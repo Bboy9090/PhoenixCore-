@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod recovery_center;
+mod source_identity;
 mod windows_recovery;
+mod windows_recovery_guard;
 mod windows_target;
 
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
