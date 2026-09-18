@@ -8,7 +8,9 @@ MODULE_PATH = (
     / "hardware"
     / "resolve_windows_source_disk.py"
 )
-SPEC = importlib.util.spec_from_file_location("windows_source_disk_resolution", MODULE_PATH)
+SPEC = importlib.util.spec_from_file_location(
+    "windows_source_disk_resolution", MODULE_PATH
+)
 assert SPEC and SPEC.loader
 windows_source_disk_resolution = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(windows_source_disk_resolution)
@@ -18,14 +20,18 @@ class WindowsSourceDiskResolutionTests(unittest.TestCase):
     def test_drive_letter_is_normalized(self):
         self.assertEqual(
             "E",
-            windows_source_disk_resolution.source_drive_letter(r"e:\backups\image.wim"),
+            windows_source_disk_resolution.source_drive_letter(
+                r"e:\backups\image.wim"
+            ),
         )
 
     def test_non_drive_letter_path_is_rejected(self):
         with self.assertRaises(
             windows_source_disk_resolution.SourceDiskResolutionError
         ):
-            windows_source_disk_resolution.source_drive_letter(r"\\server\share\image.wim")
+            windows_source_disk_resolution.source_drive_letter(
+                r"\\server\share\image.wim"
+            )
 
     def test_normalized_record_maps_to_physical_drive(self):
         record = windows_source_disk_resolution.normalize_source_disk_record(
