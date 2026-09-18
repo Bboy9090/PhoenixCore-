@@ -64,6 +64,19 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
         self.assertEqual(1, number)
         return dict(self.raw_disk)
 
+    def _resolve_source_disk(self, source_path):
+        self.assertTrue(source_path)
+        return {
+            "schema": "phoenix_key.windows_source_disk.v1",
+            "source_path": source_path,
+            "drive_letter": "E",
+            "disk_number": 2,
+            "partition_number": 1,
+            "physical_target": r"\\.\PHYSICALDRIVE2",
+            "resolved": True,
+            "read_only": True,
+        }
+
     def test_live_receipt_loads_and_fixture_receipt_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             live_path = self._write_receipt(tmpdir)
@@ -106,6 +119,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
                 admin=True,
                 query_disk=self._query_disk,
+                resolve_source_disk=self._resolve_source_disk,
             )
 
             self.assertEqual(image.stat().st_size, plan["byte_cap"])
@@ -131,6 +145,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     environment={},
                     admin=True,
                     query_disk=self._query_disk,
+                resolve_source_disk=self._resolve_source_disk,
                 )
 
     def test_request_rejects_wrong_authorization_and_missing_execute(self):
@@ -157,6 +172,30 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     authorization=self.authorization,
                     execute=False,
                     **common,
+                )
+
+    def test_request_rejects_source_target_collision(self):
+        def same_disk(source_path):
+            record = self._resolve_source_disk(source_path)
+            record["disk_number"] = 1
+            record["physical_target"] = self.target
+            return record
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"x")
+            with self.assertRaisesRegex(writer.WriteGateError, "same physical device"):
+                writer.validate_write_request(
+                    evidence=self.evidence,
+                    image_path=image,
+                    target=self.target,
+                    authorization=self.authorization,
+                    source_commit="9" * 40,
+                    execute=True,
+                    environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                    admin=True,
+                    query_disk=self._query_disk,
+                    resolve_source_disk=same_disk,
                 )
 
     def test_request_rejects_identity_drift(self):
