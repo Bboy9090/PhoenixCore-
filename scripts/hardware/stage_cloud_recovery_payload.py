@@ -158,8 +158,7 @@ def stage_cloud_payload(
     observed_md5 = file_digest(partial, "md5") if complete else None
     observed_sha256 = file_digest(partial, "sha256") if complete else None
     md5_matches = (
-        bool(provider_md5_normalized)
-        and observed_md5 == provider_md5_normalized
+        bool(provider_md5_normalized) and observed_md5 == provider_md5_normalized
         if complete
         else False
     )
@@ -170,9 +169,7 @@ def stage_cloud_payload(
         else False
     )
 
-    transfer_integrity_verified = complete and (
-        md5_matches or sha256_matches
-    )
+    transfer_integrity_verified = complete and (md5_matches or sha256_matches)
     recovery_trust_verified = complete and sha256_matches
 
     final_path: str | None = None
