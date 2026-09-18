@@ -157,7 +157,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     environment={},
                     admin=True,
                     query_disk=self._query_disk,
-                resolve_source_disk=self._resolve_source_disk,
+                    resolve_source_disk=self._resolve_source_disk,
                 )
 
     def test_request_rejects_wrong_authorization_and_missing_execute(self):
