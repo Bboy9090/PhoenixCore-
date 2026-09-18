@@ -96,9 +96,7 @@ $sig = Get-AuthenticodeSignature -LiteralPath $env:PHOENIX_DRIVER_PATH
     )
     if completed.returncode != 0:
         message = completed.stderr.strip() or completed.stdout.strip()
-        raise BootCampDriverError(
-            f"Authenticode driver inspection failed: {message}"
-        )
+        raise BootCampDriverError(f"Authenticode driver inspection failed: {message}")
     try:
         value = json.loads(completed.stdout.strip())
     except json.JSONDecodeError as exc:
@@ -120,9 +118,7 @@ def build_driver_manifest(
     signature_inspector: Callable[[Path], dict[str, Any]] = inspect_authenticode,
 ) -> dict[str, Any]:
     if not root.is_dir():
-        raise BootCampDriverError(
-            "Boot Camp support-software path is not a directory."
-        )
+        raise BootCampDriverError("Boot Camp support-software path is not a directory.")
     model = mac_model.strip()
     if not model:
         raise BootCampDriverError("Exact Mac model identifier is required.")
@@ -147,9 +143,7 @@ def build_driver_manifest(
         for name in filenames:
             path = current / name
             if path.is_symlink():
-                raise BootCampDriverError(
-                    f"Symbolic-link file is not accepted: {path}"
-                )
+                raise BootCampDriverError(f"Symbolic-link file is not accepted: {path}")
             if not path.is_file():
                 continue
             relative = path.relative_to(root).as_posix()
