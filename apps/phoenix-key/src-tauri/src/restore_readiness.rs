@@ -194,7 +194,7 @@ pub fn assess_windows_restore_readiness(
 #[cfg(test)]
 mod tests {
     use super::assess_restore_readiness;
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     fn evidence() -> (
         serde_json::Value,
