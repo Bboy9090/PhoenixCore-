@@ -9,6 +9,9 @@ mod source_identity;
 #[path = "../src/target_safety.rs"]
 mod target_safety;
 #[cfg(test)]
+#[path = "../src/boot_repair_contract.rs"]
+mod boot_repair_contract;
+#[cfg(test)]
 #[path = "../src/recovery_center.rs"]
 mod recovery_center;
 
