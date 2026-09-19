@@ -172,6 +172,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 "environment": {writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
                 "admin": True,
                 "query_disk": self._query_disk,
+                "resolve_source_disk": self._resolve_source_disk,
             }
             with self.assertRaisesRegex(writer.WriteGateError, "authorization"):
                 writer.validate_write_request(
@@ -230,6 +231,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
                     admin=True,
                     query_disk=drifted_query,
+                    resolve_source_disk=self._resolve_source_disk,
                 )
 
     def test_file_backed_write_and_full_readback_pass(self):
