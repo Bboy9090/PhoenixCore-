@@ -857,7 +857,7 @@ fn prepare_media_write(target_drive: String, image_path: String) -> Result<Value
             "target_size_bytes": size,
             "image_path": image.to_string_lossy(),
             "image_size_bytes": image_size,
-            "image_sha256": source_identity.sha256,
+            "image_sha256": source_identity.sha256.clone(),
             "authorization_phrase": expected_authorization(
                 target,
                 identity,
@@ -1112,7 +1112,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_binds_target_identity_and_capacity() {
+    fn authorization_binds_target_and_source_identity() {
         assert_eq!(
             expected_authorization(
                 r"\\.\physicaldrive7",
