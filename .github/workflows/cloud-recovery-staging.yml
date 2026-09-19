@@ -5,18 +5,22 @@ on:
     branches: ["main"]
     paths:
       - "scripts/hardware/stage_cloud_recovery_payload.py"
-      - "scripts/hardware/acquire_google_drive_recovery.py"\n      - "scripts/hardware/google_drive_picker_recovery.py"
+      - "scripts/hardware/acquire_google_drive_recovery.py"
+      - "scripts/hardware/google_drive_picker_recovery.py"
       - "tests/test_cloud_recovery_stage.py"
-      - "tests/test_google_drive_recovery_acquisition.py"\n      - "tests/test_google_drive_picker_recovery.py"
+      - "tests/test_google_drive_recovery_acquisition.py"
+      - "tests/test_google_drive_picker_recovery.py"
       - ".github/workflows/cloud-recovery-staging.yml"
   push:
     branches:
       - "convergence/windows-recovery-forge-macos-v2"
     paths:
       - "scripts/hardware/stage_cloud_recovery_payload.py"
-      - "scripts/hardware/acquire_google_drive_recovery.py"\n      - "scripts/hardware/google_drive_picker_recovery.py"
+      - "scripts/hardware/acquire_google_drive_recovery.py"
+      - "scripts/hardware/google_drive_picker_recovery.py"
       - "tests/test_cloud_recovery_stage.py"
-      - "tests/test_google_drive_recovery_acquisition.py"\n      - "tests/test_google_drive_picker_recovery.py"
+      - "tests/test_google_drive_recovery_acquisition.py"
+      - "tests/test_google_drive_picker_recovery.py"
       - ".github/workflows/cloud-recovery-staging.yml"
 
 permissions:
