@@ -297,7 +297,9 @@ def revalidate_source_before_raw_open(
     expected_source_target = str(plan["source_physical_target"])
     observed_source_target = str(source_disk.get("physical_target") or "")
     if observed_source_target.casefold() != expected_source_target.casefold():
-        raise WriteGateError("Source image physical device changed after authorization.")
+        raise WriteGateError(
+            "Source image physical device changed after authorization."
+        )
 
     collision = compare_source_and_target(source_disk, str(plan["target"]))
     if collision.get("source_target_distinct") is not True:
