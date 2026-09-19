@@ -213,16 +213,22 @@ def download_file(
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + ".partial")
     if partial.exists() and not partial.is_file():
-        raise DriveAcquisitionError("Drive download partial path is not a regular file.")
+        raise DriveAcquisitionError(
+            "Drive download partial path is not a regular file."
+        )
     resume_offset = partial.stat().st_size if partial.exists() else 0
     if resume_offset > provider_size:
-        raise DriveAcquisitionError("Drive download partial exceeds provider file size.")
+        raise DriveAcquisitionError(
+            "Drive download partial exceeds provider file size."
+        )
 
     if resume_offset < provider_size:
         params = {"alt": "media", "supportsAllDrives": "true"}
         request = urllib.request.Request(
             api_url(f"files/{file_id}", params),
-            headers=auth_headers(\n                token, range_start=resume_offset if resume_offset else None\n            ),
+            headers=auth_headers(
+                token, range_start=resume_offset if resume_offset else None
+            ),
             method="GET",
         )
         try:
