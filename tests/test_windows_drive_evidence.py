@@ -47,7 +47,25 @@ class WindowsDriveEvidenceTests(unittest.TestCase):
         self.assertFalse(receipt["physical_write_attempted"])
         self.assertEqual(0, receipt["bytes_written"])
         self.assertEqual(64, len(receipt["disk"]["identity_sha256"]))
+        self.assertEqual(64, len(receipt["disk"]["stable_identity_sha256"]))
         self.assertEqual(64, len(receipt["receipt_sha256"]))
+
+    def test_stable_identity_survives_physicaldrive_reenumeration(self):
+        first = windows_drive_evidence.normalize_disk_record(
+            self.fixture,
+            r"\\.\PHYSICALDRIVE1",
+        )
+        moved = dict(self.fixture)
+        moved["Number"] = 7
+        second = windows_drive_evidence.normalize_disk_record(
+            moved,
+            r"\\.\PHYSICALDRIVE7",
+        )
+        self.assertNotEqual(first["identity_sha256"], second["identity_sha256"])
+        self.assertEqual(
+            first["stable_identity_sha256"],
+            second["stable_identity_sha256"],
+        )
 
     def test_system_disk_is_never_a_write_candidate(self):
         fixture = dict(self.fixture)
