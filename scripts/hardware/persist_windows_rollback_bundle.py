@@ -377,6 +377,9 @@ def build_fixture_bundle(
         "rollback_manifest_sha256": rollback_manifest["manifest_sha256"],
         "source_identity_sha256": rollback_manifest["source"]["identity_sha256"],
         "target_identity_sha256": rollback_manifest["target"]["identity_sha256"],
+        "target_stable_identity_sha256": rollback_manifest["target"][
+            "stable_identity_sha256"
+        ],
         "output_directory": str(output_dir),
         "artifacts": required,
         "complete": complete,
