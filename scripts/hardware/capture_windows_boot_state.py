@@ -228,6 +228,14 @@ def build_rollback_manifest(
     disk = target_evidence.get("disk")
     if not isinstance(disk, dict):
         raise BootStateError("Target evidence is missing its disk record.")
+    target_identity = str(disk.get("identity_sha256") or "")
+    if not SHA256_RE.fullmatch(target_identity):
+        raise BootStateError("Target evidence is missing a valid identity SHA-256.")
+    target_stable_identity = str(disk.get("stable_identity_sha256") or "")
+    if not SHA256_RE.fullmatch(target_stable_identity):
+        raise BootStateError(
+            "Target evidence is missing a valid stable identity SHA-256."
+        )
     if disk.get("is_boot") is not True and disk.get("is_system") is not True:
         raise BootStateError(
             "Online BCD/WinRE evidence can only bind to the current Windows boot/system disk."
