@@ -1,5 +1,9 @@
 name: PhoenixCore Mobile APK Candidate
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main, codex/android-apk-20260823]
