@@ -63,7 +63,10 @@ class GoogleDriveAcquisitionTests(unittest.TestCase):
         self.assertFalse(result["cloud_original_modified"])
         self.assertEqual(["GET", "GET"], [request.method for request in requests])
         self.assertTrue(
-            all(request.get_header("Authorization") == "Bearer secret" for request in requests)
+            all(
+                request.get_header("Authorization") == "Bearer secret"
+                for request in requests
+            )
         )
 
     def test_complete_download_verifies_provider_md5_and_hashes_sha256(self):
