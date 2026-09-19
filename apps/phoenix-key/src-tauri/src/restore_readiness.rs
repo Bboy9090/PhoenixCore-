@@ -329,6 +329,7 @@ mod tests {
                 "safe_to_prepare": true,
                 "source_target_distinct": true,
                 "target_identity_sha256": "b".repeat(64),
+                "target_stable_identity_sha256": "d".repeat(64),
                 "target_size_bytes": 64_000,
                 "source_size_bytes": 4096
             }),
@@ -338,7 +339,8 @@ mod tests {
                 "system_configuration_mutated": false,
                 "bundle_sha256": "c".repeat(64),
                 "source_identity_sha256": "a".repeat(64),
-                "target_identity_sha256": "b".repeat(64)
+                "target_identity_sha256": "b".repeat(64),
+                "target_stable_identity_sha256": "d".repeat(64)
             }),
         )
     }
@@ -438,6 +440,17 @@ mod tests {
     fn rollback_bundle_from_different_target_is_rejected() {
         let (plan, trust, metadata, target, mut rollback) = evidence();
         rollback["target_identity_sha256"] = json!("e".repeat(64));
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(result
+            .blocked_gates
+            .contains(&"rollback_bundle_bound_to_source_and_target".to_string()));
+    }
+
+    #[test]
+    fn mismatched_stable_target_identity_blocks_readiness() {
+        let (plan, trust, metadata, target, mut rollback) = evidence();
+        rollback["target_stable_identity_sha256"] = json!("e".repeat(64));
         let result =
             assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
         assert!(result
