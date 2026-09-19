@@ -37,7 +37,7 @@ pub struct SourceIdentityVerification {
 }
 
 fn metadata_is_link_or_reparse(metadata: &fs::Metadata) -> bool {
-    if metadata_is_link_or_reparse(&metadata) {
+    if metadata.file_type().is_symlink() {
         return true;
     }
     #[cfg(windows)]
