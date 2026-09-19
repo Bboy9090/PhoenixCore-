@@ -251,13 +251,9 @@ def picker_download(
         redirect_uri=redirect_uri,
         opener=opener,
     )
-    metadata = drive.get_file_metadata(
-        callback["file_id"], token=token, opener=opener
-    )
+    metadata = drive.get_file_metadata(callback["file_id"], token=token, opener=opener)
     provider_name, _, _ = drive.validate_download_metadata(metadata)
-    destination = destination_dir / safe_local_name(
-        provider_name, callback["file_id"]
-    )
+    destination = destination_dir / safe_local_name(provider_name, callback["file_id"])
     if destination.exists():
         raise PickerError("Selected Drive payload already exists at the destination.")
     receipt = drive.download_file(
