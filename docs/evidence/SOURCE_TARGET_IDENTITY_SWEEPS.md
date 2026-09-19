@@ -1,6 +1,6 @@
 # Phoenix Key — Source + Target Identity Sweeps
 
-Date: 2026-09-17
+Date: 2026-09-19
 Branch: `convergence/windows-recovery-forge-macos-v2`
 PR: #150
 
@@ -62,13 +62,26 @@ The Windows sacrificial writer already performs fresh target re-enumeration imme
 
 The new target contract sits before that writer. It does not weaken or replace the writer's own fresh pre-write target checks.
 
+## Subsequent closure
+
+The convergence branch now also contains:
+- automatic Windows source-path to physical-disk resolution through `resolve_windows_source_disk.py`
+- source/target collision enforcement in the sacrificial writer
+- writer authorization bound to target identity, target capacity, and the source SHA-256
+- an immediate pre-raw-open source recheck covering byte length, SHA-256, source physical device, and source/target distinction
+- a second fresh target identity/capacity scan immediately before raw-device open
+- persisted prewrite source/target recheck evidence in success and interruption receipts
+- Windows boot-state capture plus rollback-manifest/bundle persistence for EFI/BCD/WinRE evidence
+- non-resumable interruption receipts and a simulated unplug-after-first-write test
+
+The source-SHA authorization/recheck changes added on 2026-09-19 remain subject to exact-head CI before they can be treated as verified.
+
 ## Still required before destructive recovery unlock
 
-- automatically resolve a source file/folder to its underlying Windows physical disk instead of requiring a supplied source-physical-target hint
-- bind the writer authorization to the source SHA-256 as well as target identity and capacity
-- re-check the source SHA-256 immediately before opening the raw target
-- persist a rollback manifest for partition/EFI/BCD/WinRE state
-- test unplug/replug target identity changes on sacrificial hardware
-- interruption and ENOSPC receipts
+- exact-head CI success for the newest source-bound writer changes
+- real sacrificial-hardware unplug/replug identity-change evidence
+- explicit ENOSPC/short-capacity failure-receipt coverage at the execution boundary
+- Google Drive OAuth/Picker integration and verified acquisition-to-identity-lock handoff
+- signed/notarized desktop release evidence and final release review
 
-Result: IMPLEMENTED AT ANALYSIS/PREFLIGHT CONTRACT LAYER; destructive recovery remains locked.
+Result: SOURCE/TARGET IDENTITY CONTRACT IMPLEMENTED AND EXECUTION BOUNDARY HARDENED; destructive recovery remains gated.
