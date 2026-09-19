@@ -191,9 +191,11 @@ def plan_media(
         block_reasons.append("windows_install_image_missing")
 
     permitted_oversized = {
-        str(install_wim.relative_to(root))
-        if install_wim is not None and split_required
-        else ""
+        (
+            str(install_wim.relative_to(root))
+            if install_wim is not None and split_required
+            else ""
+        )
     }
     unsupported_large = [
         item for item in large_files if item["path"] not in permitted_oversized
