@@ -72,9 +72,9 @@ The convergence branch now also contains:
 - a second fresh target identity/capacity scan immediately before raw-device open
 - persisted prewrite source/target recheck evidence in success and interruption receipts
 - Windows boot-state capture plus rollback-manifest/bundle persistence for EFI/BCD/WinRE evidence
-- non-resumable interruption receipts and a simulated unplug-after-first-write test
+- non-resumable interruption receipts, a simulated unplug-after-first-write test, and explicit ENOSPC failure-receipt coverage
 
-The source-SHA authorization/recheck changes added on 2026-09-19 remain subject to exact-head CI before they can be treated as verified.
+The source-SHA authorization/recheck and ENOSPC receipt changes added on 2026-09-19 remain subject to exact-head CI before they can be treated as verified.
 
 ## Still required before destructive recovery unlock
 
