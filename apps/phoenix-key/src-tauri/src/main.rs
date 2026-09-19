@@ -43,6 +43,8 @@ const GOOGLE_DRIVE_ACQUISITION_SOURCE: &str =
     include_str!("../../../../scripts/hardware/acquire_google_drive_recovery.py");
 const GOOGLE_DRIVE_PICKER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/google_drive_picker_recovery.py");
+const FAT32_WINDOWS_MEDIA_PLANNER_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/plan_fat32_windows_media.py");
 const WINDOWS_IMAGE_METADATA_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
 const BOOTCAMP_DRIVER_INSPECTOR_SOURCE: &str =
@@ -203,6 +205,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         GOOGLE_DRIVE_PICKER_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded Google Picker helper: {error}"))?;
+    fs::write(
+        directory.join("plan_fat32_windows_media.py"),
+        FAT32_WINDOWS_MEDIA_PLANNER_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded FAT32 media planner: {error}"))?;
     fs::write(
         directory.join("inspect_windows_image_metadata.py"),
         WINDOWS_IMAGE_METADATA_SOURCE,
@@ -732,6 +739,30 @@ async fn acquire_google_drive_picker_recovery(
 }
 
 #[tauri::command]
+fn plan_fat32_windows_media(source_root: String) -> Result<Value, String> {
+    let source = PathBuf::from(source_root.trim());
+    if !source.is_dir() {
+        return Err(
+            "FAT32 media planning requires an extracted Windows installation folder"
+                .to_string(),
+        );
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("plan_fat32_windows_media.py");
+        let source_text = source.to_string_lossy().to_string();
+        run_python_json(
+            &script,
+            &["--source-root", &source_text, "--split-size-mb", "3800"],
+            &[],
+        )
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn stage_cloud_recovery_payload(
     source_file: String,
     destination: String,
@@ -1169,6 +1200,7 @@ fn main() {
             google_drive_acquisition_status,
             cancel_google_drive_acquisition,
             acquire_google_drive_picker_recovery,
+            plan_fat32_windows_media,
             stage_cloud_recovery_payload,
             capture_windows_recovery_baseline,
             persist_windows_recovery_rollback_bundle
