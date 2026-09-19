@@ -100,8 +100,6 @@ def get_file_metadata(
     *,
     token: str,
     opener: UrlOpen = urllib.request.urlopen,
-    progress_file: Path | None = None,
-    cancel_file: Path | None = None,
 ) -> dict[str, Any]:
     file_id = require_file_id(file_id)
     fields = (
@@ -282,6 +280,8 @@ def download_file(
     *,
     token: str,
     opener: UrlOpen = urllib.request.urlopen,
+    progress_file: Path | None = None,
+    cancel_file: Path | None = None,
 ) -> dict[str, Any]:
     file_id = require_file_id(file_id)
     metadata = get_file_metadata(file_id, token=token, opener=opener)
