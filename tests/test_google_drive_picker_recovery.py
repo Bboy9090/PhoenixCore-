@@ -148,11 +148,11 @@ class GoogleDrivePickerTests(unittest.TestCase):
 
     def test_local_name_neutralizes_path_separators(self):
         name = picker.safe_local_name(
-            "../Windows\\system.vhd", "file_1234567890"
+            '../Windows\\\\system:bad*name?.vhd', "file_1234567890"
         )
-        self.assertNotIn("/", name)
-        self.assertNotIn("\\", name)
-        self.assertTrue(name.endswith("system.vhd"))
+        for character in '<>:"/\\\\|?*':
+            self.assertNotIn(character, name)
+        self.assertTrue(name.endswith("system_bad_name_.vhd"))
 
 
 if __name__ == "__main__":
