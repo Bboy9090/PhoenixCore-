@@ -33,7 +33,6 @@ APPLE_PARTITION_TYPE_GUIDS = {
 }
 
 
-
 class EvidenceError(RuntimeError):
     """Raised when trustworthy evidence cannot be collected."""
 
