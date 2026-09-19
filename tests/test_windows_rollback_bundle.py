@@ -76,6 +76,7 @@ class WindowsRollbackBundleTests(unittest.TestCase):
                 "scope": "online_current_windows_boot_repair",
                 "physical_target": r"\\.\PHYSICALDRIVE7",
                 "identity_sha256": "a" * 64,
+                "stable_identity_sha256": "d" * 64,
                 "size_bytes": 64000000000,
                 "partition_style": "GPT",
                 "partitions": [],
@@ -134,6 +135,7 @@ class WindowsRollbackBundleTests(unittest.TestCase):
             self.assertIn("repartition_disk", bundle["always_blocked_by_this_bundle"])
             self.assertFalse(bundle["system_configuration_mutated"])
             self.assertFalse(bundle["efi_mounted_by_bundle_tool"])
+            self.assertEqual("d" * 64, bundle["target_stable_identity_sha256"])
 
     def test_missing_efi_backup_keeps_repair_locked(self):
         with tempfile.TemporaryDirectory() as tmpdir:
