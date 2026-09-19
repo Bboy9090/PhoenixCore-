@@ -70,6 +70,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
             source_commit="a" * 40,
             captured_at="2026-07-24T02:00:00Z",
         )
+
     def _authorization_for(self, image):
         return writer.expected_authorization(
             self.target,
@@ -295,7 +296,9 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 record["physical_target"] = r"\\.\PHYSICALDRIVE3"
                 return record
 
-            with self.assertRaisesRegex(writer.WriteGateError, "physical device changed"):
+            with self.assertRaisesRegex(
+                writer.WriteGateError, "physical device changed"
+            ):
                 writer.revalidate_source_before_raw_open(
                     plan=plan,
                     image_path=image,
@@ -408,9 +411,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 "target_size_bytes": self.evidence["disk"]["size_bytes"],
                 "source_physical_target": r"\\.\PHYSICALDRIVE2",
                 "source_target_distinct": True,
-                "prewrite_source_recheck": {
-                    "source_sha256": writer.file_sha256(image)
-                },
+                "prewrite_source_recheck": {"source_sha256": writer.file_sha256(image)},
                 "prewrite_target_recheck": {
                     "identity_sha256": self.evidence["disk"]["identity_sha256"]
                 },
