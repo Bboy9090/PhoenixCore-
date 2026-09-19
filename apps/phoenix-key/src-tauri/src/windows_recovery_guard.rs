@@ -107,12 +107,12 @@ fn valid_vhd_structure(path: &Path) -> bool {
             let Some(header_offset) = be_u64(&footer, 16) else {
                 return false;
             };
-            if header_offset == u64::MAX
-                || header_offset
-                    .checked_add(1024)
-                    .is_none_or(|end| end > meta.len())
-            {
+            if header_offset == u64::MAX {
                 return false;
+            }
+            match header_offset.checked_add(1024) {
+                Some(end) if end <= meta.len() => {}
+                _ => return false,
             }
             let Ok(header) = read_exact_at(path, header_offset, 1024) else {
                 return false;
