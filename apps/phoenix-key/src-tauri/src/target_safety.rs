@@ -2,6 +2,20 @@ use serde::Serialize;
 use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RecoveryTargetIdentityVerification {
+    pub schema: &'static str,
+    pub expected_snapshot_identity_sha256: String,
+    pub observed_snapshot_identity_sha256: Option<String>,
+    pub expected_stable_identity_sha256: String,
+    pub observed_stable_identity_sha256: Option<String>,
+    pub snapshot_matches: bool,
+    pub stable_identity_matches: bool,
+    pub matches: bool,
+    pub reanalysis_required: bool,
+    pub system_mutations_performed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RecoveryTargetSafety {
     pub schema: &'static str,
     pub safe_to_prepare: bool,
@@ -14,6 +28,52 @@ pub struct RecoveryTargetSafety {
     pub source_physical_identity_sha256: Option<String>,
     pub source_target_distinct: Option<bool>,
     pub block_reasons: Vec<String>,
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+pub fn verify_recovery_target_identity(
+    evidence: &Value,
+    expected_snapshot_identity_sha256: &str,
+    expected_stable_identity_sha256: &str,
+) -> RecoveryTargetIdentityVerification {
+    let disk = evidence.get("disk").unwrap_or(&Value::Null);
+    let observed_snapshot = disk
+        .get("identity_sha256")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let observed_stable = disk
+        .get("stable_identity_sha256")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+
+    let expected_snapshot = expected_snapshot_identity_sha256.trim().to_ascii_lowercase();
+    let expected_stable = expected_stable_identity_sha256.trim().to_ascii_lowercase();
+
+    let snapshot_matches = is_sha256(&expected_snapshot)
+        && observed_snapshot.as_deref().is_some_and(|value| {
+            is_sha256(value) && value.eq_ignore_ascii_case(&expected_snapshot)
+        });
+    let stable_identity_matches = is_sha256(&expected_stable)
+        && observed_stable.as_deref().is_some_and(|value| {
+            is_sha256(value) && value.eq_ignore_ascii_case(&expected_stable)
+        });
+    let matches = snapshot_matches && stable_identity_matches;
+
+    RecoveryTargetIdentityVerification {
+        schema: "phoenix_key.recovery_target_identity_verification.v1",
+        expected_snapshot_identity_sha256: expected_snapshot,
+        observed_snapshot_identity_sha256: observed_snapshot,
+        expected_stable_identity_sha256: expected_stable,
+        observed_stable_identity_sha256: observed_stable,
+        snapshot_matches,
+        stable_identity_matches,
+        matches,
+        reanalysis_required: !matches,
+        system_mutations_performed: false,
+    }
 }
 
 fn push_reason(reasons: &mut Vec<String>, reason: &str) {
@@ -133,7 +193,7 @@ pub fn assess_recovery_target(
 
 #[cfg(test)]
 mod tests {
-    use super::assess_recovery_target;
+    use super::{assess_recovery_target, verify_recovery_target_identity};
     use serde_json::{json, Value};
 
     fn safe_evidence() -> Value {
@@ -149,6 +209,47 @@ mod tests {
                 "write_block_reasons": []
             }
         })
+    }
+
+    #[test]
+    fn target_identity_verification_requires_snapshot_and_stable_match() {
+        let evidence = safe_evidence();
+        let result = verify_recovery_target_identity(
+            &evidence,
+            &"a".repeat(64),
+            &"b".repeat(64),
+        );
+        assert!(result.matches);
+        assert!(!result.reanalysis_required);
+        assert!(!result.system_mutations_performed);
+    }
+
+    #[test]
+    fn target_identity_verification_rejects_reenumerated_snapshot() {
+        let evidence = safe_evidence();
+        let result = verify_recovery_target_identity(
+            &evidence,
+            &"c".repeat(64),
+            &"b".repeat(64),
+        );
+        assert!(!result.matches);
+        assert!(!result.snapshot_matches);
+        assert!(result.stable_identity_matches);
+        assert!(result.reanalysis_required);
+    }
+
+    #[test]
+    fn target_identity_verification_rejects_stable_hardware_mismatch() {
+        let evidence = safe_evidence();
+        let result = verify_recovery_target_identity(
+            &evidence,
+            &"a".repeat(64),
+            &"c".repeat(64),
+        );
+        assert!(!result.matches);
+        assert!(result.snapshot_matches);
+        assert!(!result.stable_identity_matches);
+        assert!(result.reanalysis_required);
     }
 
     #[test]
