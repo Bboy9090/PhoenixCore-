@@ -76,6 +76,12 @@ def normalize_source_disk_record(
         "size_bytes": size,
     }
     stable_identity_available = size > 0 and bool(serial or unique)
+    stable_identity_material = {
+        "serial_number": serial,
+        "unique_id": unique,
+        "bus_type": identity_material["bus_type"],
+        "size_bytes": size,
+    }
     return {
         "schema": "phoenix_key.windows_source_disk.v2",
         "source_path": source_path,
@@ -90,6 +96,11 @@ def normalize_source_disk_record(
         "size_bytes": size,
         "identity_sha256": (
             sha256_payload(identity_material) if stable_identity_available else None
+        ),
+        "stable_identity_sha256": (
+            sha256_payload(stable_identity_material)
+            if stable_identity_available
+            else None
         ),
         "stable_identity_available": stable_identity_available,
         "resolved": True,
