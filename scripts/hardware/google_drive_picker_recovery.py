@@ -151,7 +151,7 @@ def exchange_code(
 
 
 def safe_local_name(provider_name: str, file_id: str) -> str:
-    cleaned = re.sub(r'[<>:"/\\\\|?*\\x00-\\x1f]', "_", provider_name).strip(" .")
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", provider_name).strip(" .")
     if not cleaned:
         cleaned = "google-drive-recovery.bin"
     cleaned = cleaned[:180].rstrip(" .")
