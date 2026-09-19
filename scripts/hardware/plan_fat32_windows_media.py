@@ -88,6 +88,10 @@ def split_sequence_is_contiguous(segments: list[Path]) -> bool:
 def oversized_files(root: Path) -> list[dict[str, Any]]:
     oversized: list[dict[str, Any]] = []
     for path in root.rglob("*"):
+        if path.is_symlink():
+            raise MediaPlanError(
+                "Windows installation media must not contain symbolic links."
+            )
         if not path.is_file():
             continue
         try:
@@ -104,10 +108,16 @@ def oversized_files(root: Path) -> list[dict[str, Any]]:
     return oversized
 
 
-def plan_media(root: Path, split_size_mb: int = DEFAULT_SPLIT_SIZE_MB) -> dict[str, Any]:
+def plan_media(
+    root: Path, split_size_mb: int = DEFAULT_SPLIT_SIZE_MB
+) -> dict[str, Any]:
+    if root.is_symlink():
+        raise MediaPlanError("Windows installation-media root must not be a symbolic link.")
     root = root.resolve()
     if not root.is_dir():
-        raise MediaPlanError("Source must be an extracted Windows installation-media folder.")
+        raise MediaPlanError(
+            "Source must be an extracted Windows installation-media folder."
+        )
     if not 512 <= split_size_mb <= 4000:
         raise MediaPlanError("Split size must be between 512 MB and 4000 MB.")
 
@@ -125,6 +135,8 @@ def plan_media(root: Path, split_size_mb: int = DEFAULT_SPLIT_SIZE_MB) -> dict[s
         block_reasons.append("setup_exe_missing")
     if boot_wim is None:
         block_reasons.append("boot_wim_missing")
+    elif not valid_wim_header(boot_wim):
+        block_reasons.append("boot_wim_structure_invalid")
     if not uefi_files:
         block_reasons.append("uefi_boot_file_missing")
 
