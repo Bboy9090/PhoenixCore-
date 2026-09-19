@@ -222,7 +222,7 @@ def download_file(
         params = {"alt": "media", "supportsAllDrives": "true"}
         request = urllib.request.Request(
             api_url(f"files/{file_id}", params),
-            headers=auth_headers(token, range_start=resume_offset if resume_offset else None),
+            headers=auth_headers(\n                token, range_start=resume_offset if resume_offset else None\n            ),
             method="GET",
         )
         try:
