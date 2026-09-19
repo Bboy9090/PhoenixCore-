@@ -146,6 +146,14 @@ class GoogleDrivePickerTests(unittest.TestCase):
                 opener=opener,
             )
 
+    def test_cancelled_picker_receipt_is_non_destructive(self):
+        receipt = picker.cancelled_picker_receipt()
+        self.assertTrue(receipt["cancelled"])
+        self.assertFalse(receipt["complete"])
+        self.assertFalse(receipt["cloud_original_modified"])
+        self.assertFalse(receipt["oauth_token_persisted"])
+        self.assertEqual(["picker_cancelled"], receipt["block_reasons"])
+
     def test_picker_forwards_progress_and_cancel_paths(self):
         source = Path(picker.__file__).read_text(encoding="utf-8")
         self.assertIn("progress_file=progress_file", source)

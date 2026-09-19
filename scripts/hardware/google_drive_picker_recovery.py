@@ -10,6 +10,7 @@ import json
 import os
 import re
 import secrets
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -158,6 +159,26 @@ def safe_local_name(provider_name: str, file_id: str) -> str:
     return f"{file_id[:12]}-{cleaned}"
 
 
+def cancelled_picker_receipt() -> dict[str, Any]:
+    return {
+        "picker_schema": SCHEMA,
+        "operation": "picker",
+        "complete": False,
+        "cancelled": True,
+        "staged_path": None,
+        "partial_path": None,
+        "read_only": True,
+        "cloud_original_modified": False,
+        "identity_lock_ready": False,
+        "recovery_eligible": False,
+        "authorization_scope": DRIVE_FILE_SCOPE,
+        "selection_mode": "explicit_google_picker_single_file",
+        "oauth_token_persisted": False,
+        "oauth_token_exposed_to_ui": False,
+        "block_reasons": ["picker_cancelled"],
+    }
+
+
 class PickerCallbackHandler(BaseHTTPRequestHandler):
     callback_query: str | None = None
 
@@ -199,7 +220,7 @@ def picker_download(
     PickerCallbackHandler.callback_query = None
 
     with HTTPServer(("127.0.0.1", 0), PickerCallbackHandler) as server:
-        server.timeout = CALLBACK_TIMEOUT_SECONDS
+        server.timeout = 0.5
         port = int(server.server_address[1])
         redirect_uri = f"http://127.0.0.1:{port}{CALLBACK_PATH}"
         authorization_url = build_picker_url(
@@ -210,7 +231,14 @@ def picker_download(
         )
         if not browser_open(authorization_url, new=2):
             raise PickerError("Phoenix Key could not open the system browser.")
-        server.handle_request()
+        deadline = time.monotonic() + CALLBACK_TIMEOUT_SECONDS
+        while (
+            PickerCallbackHandler.callback_query is None
+            and time.monotonic() < deadline
+        ):
+            if drive.cancel_requested(cancel_file):
+                return cancelled_picker_receipt()
+            server.handle_request()
 
     query = PickerCallbackHandler.callback_query
     if not query:

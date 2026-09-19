@@ -584,9 +584,74 @@ fn google_drive_picker_status() -> Value {
     })
 }
 
+fn validate_drive_operation_id(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if !(8..=64).contains(&value.len())
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    {
+        return Err("Google Drive operation ID is malformed".to_string());
+    }
+    Ok(value.to_string())
+}
+
+fn drive_operation_paths(operation_id: &str) -> Result<(PathBuf, PathBuf), String> {
+    let operation_id = validate_drive_operation_id(operation_id)?;
+    let root = receipt_directory()?;
+    Ok((
+        root.join(format!("google-drive-{operation_id}.progress.json")),
+        root.join(format!("google-drive-{operation_id}.cancel")),
+    ))
+}
+
+#[tauri::command]
+fn google_drive_acquisition_status(operation_id: String) -> Result<Value, String> {
+    let (progress, cancel) = drive_operation_paths(&operation_id)?;
+    if !progress.is_file() {
+        return Ok(json!({
+            "schema": "phoenix_key.google_drive_progress.v1",
+            "phase": "waiting",
+            "downloaded_size_bytes": 0,
+            "provider_size_bytes": 0,
+            "resume_offset_bytes": 0,
+            "percent": 0.0,
+            "cancel_requested": cancel.exists(),
+            "read_only": true,
+            "cloud_original_modified": false
+        }));
+    }
+    let mut value: Value = serde_json::from_slice(
+        &fs::read(&progress)
+            .map_err(|error| format!("cannot read Drive progress receipt: {error}"))?,
+    )
+    .map_err(|error| format!("Drive progress receipt is invalid JSON: {error}"))?;
+    if let Some(object) = value.as_object_mut() {
+        object.insert(
+            "cancel_requested".to_string(),
+            Value::Bool(cancel.exists()),
+        );
+    }
+    Ok(value)
+}
+
+#[tauri::command]
+fn cancel_google_drive_acquisition(operation_id: String) -> Result<Value, String> {
+    let (_, cancel) = drive_operation_paths(&operation_id)?;
+    fs::write(&cancel, b"cancel")
+        .map_err(|error| format!("cannot request Drive acquisition cancellation: {error}"))?;
+    Ok(json!({
+        "schema": "phoenix_key.google_drive_cancel.v1",
+        "cancel_requested": true,
+        "read_only": true,
+        "cloud_original_modified": false
+    }))
+}
+
 #[tauri::command]
 async fn acquire_google_drive_picker_recovery(
     destination_dir: String,
+    operation_id: String,
 ) -> Result<Value, String> {
     let destination = PathBuf::from(destination_dir.trim());
     if destination.as_os_str().is_empty() {
@@ -595,17 +660,32 @@ async fn acquire_google_drive_picker_recovery(
     let client_id = google_drive_client_id().ok_or_else(|| {
         "Phoenix Key build is missing its Google Drive desktop OAuth client ID".to_string()
     })?;
+    let (progress_file, cancel_file) = drive_operation_paths(&operation_id)?;
+    let _ = fs::remove_file(&progress_file);
+    let _ = fs::remove_file(&cancel_file);
 
     tauri::async_runtime::spawn_blocking(move || {
         let directory = bridge_directory()?;
         let result = (|| {
             let script = directory.join("google_drive_picker_recovery.py");
             let destination_text = destination.to_string_lossy().to_string();
+            let progress_text = progress_file.to_string_lossy().to_string();
+            let cancel_text = cancel_file.to_string_lossy().to_string();
             let mut receipt = run_python_json(
                 &script,
-                &["--destination-dir", &destination_text],
+                &[
+                    "--destination-dir",
+                    &destination_text,
+                    "--progress-file",
+                    &progress_text,
+                    "--cancel-file",
+                    &cancel_text,
+                ],
                 &[(GOOGLE_DRIVE_CLIENT_ID_ENV, client_id.as_str())],
             )?;
+            if receipt.get("complete").and_then(Value::as_bool) != Some(true) {
+                return Ok(receipt);
+            }
             let staged_path = receipt
                 .get("staged_path")
                 .and_then(Value::as_str)
@@ -644,6 +724,7 @@ async fn acquire_google_drive_picker_recovery(
             Ok(receipt)
         })();
         let _ = fs::remove_dir_all(&directory);
+        let _ = fs::remove_file(&cancel_file);
         result
     })
     .await
@@ -1085,6 +1166,8 @@ fn main() {
             inspect_recovery_target_safety,
             assess_intel_mac_restore_readiness,
             google_drive_picker_status,
+            google_drive_acquisition_status,
+            cancel_google_drive_acquisition,
             acquire_google_drive_picker_recovery,
             stage_cloud_recovery_payload,
             capture_windows_recovery_baseline,
@@ -1098,9 +1181,16 @@ fn main() {
 mod tests {
     use super::{
         attach_target_resolution, expected_authorization, installed_smoke_receipt,
-        require_write_candidate, resolve_target,
+        require_write_candidate, resolve_target, validate_drive_operation_id,
     };
     use serde_json::json;
+
+    #[test]
+    fn drive_operation_id_blocks_path_traversal() {
+        assert!(validate_drive_operation_id("drive-123456").is_ok());
+        assert!(validate_drive_operation_id("../../escape").is_err());
+        assert!(validate_drive_operation_id("short").is_err());
+    }
 
     #[test]
     fn installed_smoke_receipt_is_read_only_and_non_destructive() {

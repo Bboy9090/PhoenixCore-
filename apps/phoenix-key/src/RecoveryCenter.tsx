@@ -71,12 +71,25 @@ type GoogleDrivePickerStatus = {
   cloud_mutation_allowed: boolean;
 };
 
-type GoogleDriveReceipt = {
-  provider_name: string;
+type GoogleDriveProgress = {
+  phase: string;
+  downloaded_size_bytes: number;
   provider_size_bytes: number;
-  observed_sha256: string;
-  staged_path: string;
-  identity_lock_verified: boolean;
+  resume_offset_bytes: number;
+  percent: number;
+  cancel_requested?: boolean;
+};
+
+type GoogleDriveReceipt = {
+  provider_name?: string;
+  provider_size_bytes?: number;
+  observed_sha256?: string;
+  staged_path?: string | null;
+  partial_path?: string | null;
+  downloaded_size_bytes?: number;
+  cancelled?: boolean;
+  complete?: boolean;
+  identity_lock_verified?: boolean;
   authorization_scope: string;
   selection_mode: string;
   oauth_token_persisted: boolean;
@@ -167,6 +180,8 @@ export default function RecoveryCenter() {
   const [targetSafety, setTargetSafety] = useState<RecoveryTargetSafety | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
+  const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
+  const [driveProgress, setDriveProgress] = useState<GoogleDriveProgress | null>(null);
 
   useEffect(() => {
     if (!isDesktopRuntime()) return;
@@ -196,6 +211,7 @@ export default function RecoveryCenter() {
     setTargetDrive("");
     setTargetSafety(null);
     setDriveReceipt(null);
+    setDriveProgress(null);
     setMessage("Source changed. Analyze it again before planning anything.");
   }
 
@@ -226,19 +242,41 @@ export default function RecoveryCenter() {
         title: "Choose a local staging folder for the Drive recovery file",
       });
       if (typeof selected !== "string") return;
+      const operationId = globalThis.crypto.randomUUID();
       setBusy(true);
+      setDriveOperationId(operationId);
+      setDriveProgress(null);
       setMessage(
         "Opening Google Picker in your system browser. Select one recovery file; Phoenix Key will download and identity-lock it locally…",
       );
-      const result = await invoke<GoogleDriveReceipt>(
-        "acquire_google_drive_picker_recovery",
-        { destinationDir: selected },
-      );
-      resetResult(result.staged_path);
-      setDriveReceipt(result);
-      setMessage(
-        "Drive file staged locally and SHA-256 identity lock verified. Analyze the local copy before any recovery planning.",
-      );
+      const poll = window.setInterval(() => {
+        invoke<GoogleDriveProgress>("google_drive_acquisition_status", {
+          operationId,
+        })
+          .then(setDriveProgress)
+          .catch(() => undefined);
+      }, 500);
+      try {
+        const result = await invoke<GoogleDriveReceipt>(
+          "acquire_google_drive_picker_recovery",
+          { destinationDir: selected, operationId },
+        );
+        setDriveReceipt(result);
+        if (result.cancelled) {
+          setMessage(
+            "Drive acquisition cancelled. Partial bytes were preserved for a safe resume; no cloud file was modified.",
+          );
+        } else if (result.staged_path) {
+          resetResult(result.staged_path);
+          setDriveReceipt(result);
+          setMessage(
+            "Drive file staged locally and SHA-256 identity lock verified. Analyze the local copy before any recovery planning.",
+          );
+        }
+      } finally {
+        window.clearInterval(poll);
+        setDriveOperationId(null);
+      }
     } catch (error) {
       setDriveReceipt(null);
       setMessage(
@@ -246,6 +284,20 @@ export default function RecoveryCenter() {
       );
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function cancelGoogleDriveSource() {
+    if (!driveOperationId) return;
+    try {
+      await invoke("cancel_google_drive_acquisition", {
+        operationId: driveOperationId,
+      });
+      setMessage(
+        "Cancellation requested. Phoenix Key will stop at the next safe chunk boundary and keep resumable partial bytes.",
+      );
+    } catch (error) {
+      setMessage(`Cancellation request failed. ${String(error)}`);
     }
   }
 
@@ -422,18 +474,45 @@ export default function RecoveryCenter() {
           {busy && !analysis ? "Analyzing…" : "Analyze Backup Safely"}
         </button>
         <div className="recovery-status" role="status" aria-live="polite" aria-atomic="true">{message}</div>
+        {driveOperationId && (
+          <div className="recovery-list">
+            <strong>Google Drive acquisition</strong>
+            <progress max={100} value={driveProgress?.percent ?? 0}>
+              {driveProgress?.percent ?? 0}%
+            </progress>
+            <div>
+              {driveProgress?.phase || "waiting"} · {driveProgress?.downloaded_size_bytes ?? 0}
+              {" / "}
+              {driveProgress?.provider_size_bytes ?? 0} bytes
+            </div>
+            <button
+              className="plan-button"
+              type="button"
+              onClick={cancelGoogleDriveSource}
+              disabled={driveProgress?.cancel_requested === true}
+            >
+              {driveProgress?.cancel_requested ? "Cancelling…" : "Cancel Download"}
+            </button>
+          </div>
+        )}
         {drivePickerStatus && !drivePickerStatus.configured && (
           <p className="field-help">
             Google Drive Picker is unavailable in this build until its desktop OAuth client ID is configured.
           </p>
         )}
         {driveReceipt && (
-          <div className="recovery-list good-list">
-            <strong>Google Drive acquisition verified</strong>
-            <div>File: {driveReceipt.provider_name}</div>
-            <div>Local path: {driveReceipt.staged_path}</div>
-            <div>Size: {driveReceipt.provider_size_bytes} bytes</div>
-            <div>SHA-256: {driveReceipt.observed_sha256}</div>
+          <div className={driveReceipt.cancelled ? "warning-box" : "recovery-list good-list"}>
+            <strong>
+              {driveReceipt.cancelled
+                ? "Google Drive acquisition cancelled safely"
+                : "Google Drive acquisition verified"}
+            </strong>
+            {driveReceipt.provider_name && <div>File: {driveReceipt.provider_name}</div>}
+            {driveReceipt.staged_path && <div>Local path: {driveReceipt.staged_path}</div>}
+            {driveReceipt.partial_path && <div>Resumable partial: {driveReceipt.partial_path}</div>}
+            <div>Size: {driveReceipt.provider_size_bytes ?? 0} bytes</div>
+            <div>Downloaded: {driveReceipt.downloaded_size_bytes ?? 0} bytes</div>
+            {driveReceipt.observed_sha256 && <div>SHA-256: {driveReceipt.observed_sha256}</div>}
             <div>Identity lock: {driveReceipt.identity_lock_verified ? "verified" : "blocked"}</div>
             <div>Cloud original modified: no</div>
             <div>OAuth token persisted: {driveReceipt.oauth_token_persisted ? "yes" : "no"}</div>
