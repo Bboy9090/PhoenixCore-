@@ -98,6 +98,31 @@ type GoogleDriveReceipt = {
   block_reasons: string[];
 };
 
+type Fat32MediaPlan = {
+  filesystem: string;
+  uefi_boot_files: string[];
+  uefi_boot_evidence_present: boolean;
+  image_mode: string;
+  fat32_max_file_bytes: number;
+  split_size_mb: number;
+  split_required: boolean;
+  split_command_preview?: string[] | null;
+  split_segments: Array<{
+    name: string;
+    size_bytes: number;
+    wim_header_valid: boolean;
+    fat32_size_safe: boolean;
+  }>;
+  oversized_files: Array<{ path: string; size_bytes: number }>;
+  unsupported_oversized_files: Array<{ path: string; size_bytes: number }>;
+  ready_for_fat32_copy_now: boolean;
+  ready_for_fat32_copy_after_split: boolean;
+  block_reasons: string[];
+  source_modified: boolean;
+  target_disk_modified: boolean;
+  execution_performed: boolean;
+};
+
 type RecoveryTargetSafety = {
   safe_to_prepare: boolean;
   target?: string | null;
@@ -182,6 +207,7 @@ export default function RecoveryCenter() {
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
   const [driveProgress, setDriveProgress] = useState<GoogleDriveProgress | null>(null);
+  const [fat32MediaPlan, setFat32MediaPlan] = useState<Fat32MediaPlan | null>(null);
 
   useEffect(() => {
     if (!isDesktopRuntime()) return;
@@ -212,6 +238,7 @@ export default function RecoveryCenter() {
     setTargetSafety(null);
     setDriveReceipt(null);
     setDriveProgress(null);
+    setFat32MediaPlan(null);
     setMessage("Source changed. Analyze it again before planning anything.");
   }
 
@@ -402,6 +429,35 @@ export default function RecoveryCenter() {
     }
   }
 
+  async function inspectFat32MediaReadiness() {
+    if (!analysis || analysis.kind !== "extracted_windows_media" || busy) return;
+    setBusy(true);
+    setFat32MediaPlan(null);
+    setMessage(
+      "Checking the extracted Windows media for FAT32 file limits, split-WIM requirements, and UEFI boot evidence…",
+    );
+    try {
+      const result = await invoke<Fat32MediaPlan>("plan_fat32_windows_media", {
+        sourceRoot: sourcePath.trim(),
+      });
+      setFat32MediaPlan(result);
+      setMessage(
+        result.ready_for_fat32_copy_now
+          ? "FAT32/UEFI media readiness verified. No files or disks were changed."
+          : result.ready_for_fat32_copy_after_split
+            ? "Media is UEFI-capable, but install.wim must be split before a FAT32 copy. The DISM command is a preview only."
+            : "FAT32/UEFI readiness is blocked. Review the evidence before preparing media.",
+      );
+    } catch (error) {
+      setFat32MediaPlan(null);
+      setMessage(
+        `FAT32/UEFI media inspection could not complete. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function inspectTargetSafety() {
     if (!plan || plan.host_os !== "windows" || !targetDrive.trim() || busy) return;
     setBusy(true);
@@ -554,6 +610,54 @@ export default function RecoveryCenter() {
             <div className="recovery-list">
               <strong>Backup disk images found</strong>
               {analysis.system_image_files.map((path) => <div key={path}>{path}</div>)}
+            </div>
+          )}
+
+          {analysis.kind === "extracted_windows_media" && (
+            <div className="recovery-list">
+              <strong>FAT32 / UEFI installation-media readiness</strong>
+              <p className="field-help">
+                Phoenix Key checks the entire extracted media tree for FAT32's file-size limit and verifies whether a Microsoft split-WIM layout is required. This check does not copy, format, split, or write anything.
+              </p>
+              <button
+                className="plan-button"
+                type="button"
+                onClick={inspectFat32MediaReadiness}
+                disabled={busy}
+              >
+                Check FAT32 / UEFI Readiness
+              </button>
+              {fat32MediaPlan && (
+                <div
+                  className={
+                    fat32MediaPlan.ready_for_fat32_copy_now ||
+                    fat32MediaPlan.ready_for_fat32_copy_after_split
+                      ? "good-list"
+                      : "warning-box"
+                  }
+                >
+                  <strong>
+                    {fat32MediaPlan.ready_for_fat32_copy_now
+                      ? "Ready for a FAT32 media-copy stage"
+                      : fat32MediaPlan.ready_for_fat32_copy_after_split
+                        ? "Ready after splitting install.wim"
+                        : "FAT32 media preparation blocked"}
+                  </strong>
+                  <p>UEFI boot evidence: {fat32MediaPlan.uefi_boot_evidence_present ? "present" : "missing"}</p>
+                  <p>Windows image layout: {readableToken(fat32MediaPlan.image_mode)}</p>
+                  <p>Split WIM required: {fat32MediaPlan.split_required ? "yes" : "no"}</p>
+                  {fat32MediaPlan.split_command_preview && (
+                    <p>DISM preview: {fat32MediaPlan.split_command_preview.join(" ")}</p>
+                  )}
+                  {fat32MediaPlan.unsupported_oversized_files.map((item) => (
+                    <p key={item.path}>Oversized: {item.path} · {item.size_bytes} bytes</p>
+                  ))}
+                  {fat32MediaPlan.block_reasons.map((reason) => (
+                    <p key={reason}>— {readableToken(reason)}</p>
+                  ))}
+                  <p>Source modified: no · target disk modified: no</p>
+                </div>
+              )}
             </div>
           )}
 
