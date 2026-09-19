@@ -48,7 +48,7 @@ fn emit<T: Serialize>(value: &T) -> Result<(), String> {
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- identity <path>\n  cargo run --example windows_recovery_probe -- verify <path> <expected-sha256>\n  cargo run --example windows_recovery_probe -- target-check <evidence-json> <source-size-bytes> <source-physical-target|unknown>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
+        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- identity <path>\n  cargo run --example windows_recovery_probe -- verify <path> <expected-sha256>\n  cargo run --example windows_recovery_probe -- target-check <evidence-json> <source-size-bytes> <source-physical-target|unknown> <source-stable-identity-sha256|unknown>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
     );
     process::exit(64);
 }
@@ -83,6 +83,7 @@ fn run() -> Result<(), String> {
             .parse::<u64>()
             .map_err(|_| "source-size-bytes must be an unsigned integer".to_string())?;
         let source_target = args.next().unwrap_or_else(|| usage());
+        let source_stable_identity = args.next().unwrap_or_else(|| usage());
         if args.next().is_some() {
             usage();
         }
@@ -95,7 +96,18 @@ fn run() -> Result<(), String> {
         } else {
             Some(source_target.as_str())
         };
-        return emit(&assess_recovery_target(&evidence, source_size, source_target));
+        let source_stable_identity =
+            if source_stable_identity.eq_ignore_ascii_case("unknown") {
+                None
+            } else {
+                Some(source_stable_identity.as_str())
+            };
+        return emit(&assess_recovery_target(
+            &evidence,
+            source_size,
+            source_target,
+            source_stable_identity,
+        ));
     }
 
     let path = args.next().unwrap_or_else(|| usage());
