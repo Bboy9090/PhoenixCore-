@@ -39,6 +39,10 @@ const PACKAGE_TRUST_INSPECTOR_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_recovery_package_trust.py");
 const CLOUD_STAGE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/stage_cloud_recovery_payload.py");
+const GOOGLE_DRIVE_ACQUISITION_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/acquire_google_drive_recovery.py");
+const GOOGLE_DRIVE_PICKER_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/google_drive_picker_recovery.py");
 const WINDOWS_IMAGE_METADATA_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
 const BOOTCAMP_DRIVER_INSPECTOR_SOURCE: &str =
@@ -53,6 +57,8 @@ const SMOKE_RECEIPT_ENV: &str = "PHOENIX_KEY_SMOKE_RECEIPT";
 const TARGET_RESOLUTION_SCHEMA: &str = "phoenix_key.target_resolution.v1";
 const WRITE_UNLOCK_ENV: &str = "BWS_ENABLE_SACRIFICIAL_DRIVE_WRITE";
 const WRITE_UNLOCK_VALUE: &str = "I_ACCEPT_COMPLETE_DESTRUCTION_OF_NAMED_TEST_DRIVE";
+const GOOGLE_DRIVE_CLIENT_ID_ENV: &str = "PHOENIX_KEY_GOOGLE_DRIVE_CLIENT_ID";
+const GOOGLE_DRIVE_FILE_SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
 
 #[derive(Debug, Serialize)]
 struct SmokeSafetyBoundary {
@@ -187,6 +193,16 @@ fn bridge_directory() -> Result<PathBuf, String> {
         CLOUD_STAGE_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded cloud staging helper: {error}"))?;
+    fs::write(
+        directory.join("acquire_google_drive_recovery.py"),
+        GOOGLE_DRIVE_ACQUISITION_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Drive acquisition helper: {error}"))?;
+    fs::write(
+        directory.join("google_drive_picker_recovery.py"),
+        GOOGLE_DRIVE_PICKER_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Google Picker helper: {error}"))?;
     fs::write(
         directory.join("inspect_windows_image_metadata.py"),
         WINDOWS_IMAGE_METADATA_SOURCE,
@@ -544,6 +560,86 @@ fn persist_windows_recovery_rollback_bundle(
     })();
     let _ = fs::remove_dir_all(&directory);
     result
+}
+
+#[tauri::command]
+fn google_drive_picker_status() -> Value {
+    let configured = std::env::var(GOOGLE_DRIVE_CLIENT_ID_ENV)
+        .ok()
+        .map(|value| value.trim().ends_with(".apps.googleusercontent.com"))
+        .unwrap_or(false);
+    json!({
+        "schema": "phoenix_key.google_drive_picker_status.v1",
+        "configured": configured,
+        "scope": GOOGLE_DRIVE_FILE_SCOPE,
+        "selection_mode": "explicit_single_file",
+        "system_browser_required": true,
+        "oauth_token_persisted": false,
+        "cloud_mutation_allowed": false
+    })
+}
+
+#[tauri::command]
+async fn acquire_google_drive_picker_recovery(
+    destination_dir: String,
+) -> Result<Value, String> {
+    let destination = PathBuf::from(destination_dir.trim());
+    if destination.as_os_str().is_empty() {
+        return Err("Google Drive staging destination is required".to_string());
+    }
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = bridge_directory()?;
+        let result = (|| {
+            let script = directory.join("google_drive_picker_recovery.py");
+            let destination_text = destination.to_string_lossy().to_string();
+            let mut receipt = run_python_json(
+                &script,
+                &["--destination-dir", &destination_text],
+                &[],
+            )?;
+            let staged_path = receipt
+                .get("staged_path")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    "Google Picker receipt did not contain a staged path".to_string()
+                })?;
+            let identity = capture_source_identity(PathBuf::from(staged_path))?;
+            if !identity.complete {
+                return Err(
+                    "Google Picker download source identity is incomplete".to_string(),
+                );
+            }
+            let observed = receipt
+                .get("observed_sha256")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    "Google Picker receipt did not contain a SHA-256".to_string()
+                })?;
+            if observed != identity.sha256 {
+                return Err(
+                    "Google Picker download changed before identity lock".to_string(),
+                );
+            }
+            let object = receipt
+                .as_object_mut()
+                .ok_or_else(|| "Google Picker receipt is not a JSON object".to_string())?;
+            object.insert(
+                "source_identity".to_string(),
+                serde_json::to_value(&identity)
+                    .map_err(|error| format!("cannot serialize source identity: {error}"))?,
+            );
+            object.insert(
+                "identity_lock_verified".to_string(),
+                Value::Bool(true),
+            );
+            Ok(receipt)
+        })();
+        let _ = fs::remove_dir_all(&directory);
+        result
+    })
+    .await
+    .map_err(|error| format!("Google Picker worker failed: {error}"))?
 }
 
 #[tauri::command]
@@ -980,6 +1076,8 @@ fn main() {
             inspect_bootcamp_driver_package,
             inspect_recovery_target_safety,
             assess_intel_mac_restore_readiness,
+            google_drive_picker_status,
+            acquire_google_drive_picker_recovery,
             stage_cloud_recovery_payload,
             capture_windows_recovery_baseline,
             persist_windows_recovery_rollback_bundle
