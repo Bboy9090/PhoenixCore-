@@ -562,12 +562,17 @@ fn persist_windows_recovery_rollback_bundle(
     result
 }
 
+fn google_drive_client_id() -> Option<String> {
+    std::env::var(GOOGLE_DRIVE_CLIENT_ID_ENV)
+        .ok()
+        .or_else(|| option_env!("PHOENIX_KEY_GOOGLE_DRIVE_CLIENT_ID").map(str::to_string))
+        .map(|value| value.trim().to_string())
+        .filter(|value| value.ends_with(".apps.googleusercontent.com"))
+}
+
 #[tauri::command]
 fn google_drive_picker_status() -> Value {
-    let configured = std::env::var(GOOGLE_DRIVE_CLIENT_ID_ENV)
-        .ok()
-        .map(|value| value.trim().ends_with(".apps.googleusercontent.com"))
-        .unwrap_or(false);
+    let configured = google_drive_client_id().is_some();
     json!({
         "schema": "phoenix_key.google_drive_picker_status.v1",
         "configured": configured,
@@ -587,6 +592,9 @@ async fn acquire_google_drive_picker_recovery(
     if destination.as_os_str().is_empty() {
         return Err("Google Drive staging destination is required".to_string());
     }
+    let client_id = google_drive_client_id().ok_or_else(|| {
+        "Phoenix Key build is missing its Google Drive desktop OAuth client ID".to_string()
+    })?;
 
     tauri::async_runtime::spawn_blocking(move || {
         let directory = bridge_directory()?;
@@ -596,7 +604,7 @@ async fn acquire_google_drive_picker_recovery(
             let mut receipt = run_python_json(
                 &script,
                 &["--destination-dir", &destination_text],
-                &[],
+                &[(GOOGLE_DRIVE_CLIENT_ID_ENV, client_id.as_str())],
             )?;
             let staged_path = receipt
                 .get("staged_path")
