@@ -200,6 +200,11 @@ def load_drive_evidence(path: Path) -> dict[str, Any]:
     identity = str(disk.get("identity_sha256") or "")
     if not SHA256_RE.fullmatch(identity):
         raise BootStateError("Target evidence is missing a valid identity SHA-256.")
+    stable_identity = str(disk.get("stable_identity_sha256") or "")
+    if not SHA256_RE.fullmatch(stable_identity):
+        raise BootStateError(
+            "Target evidence is missing a valid stable identity SHA-256."
+        )
     return evidence
 
 
@@ -241,6 +246,7 @@ def build_rollback_manifest(
             "is_boot": disk.get("is_boot"),
             "is_system": disk.get("is_system"),
             "identity_sha256": disk.get("identity_sha256"),
+            "stable_identity_sha256": disk.get("stable_identity_sha256"),
             "size_bytes": disk.get("size_bytes"),
             "partition_style": disk.get("partition_style"),
             "partitions": disk.get("partitions") or [],
@@ -257,7 +263,8 @@ def build_rollback_manifest(
         "repair_unlock_block_reasons": [
             "rollback artifacts have not yet been persisted and independently verified",
             "source identity must be rechecked immediately before mutation",
-            "target identity must be rechecked immediately before mutation",
+            "target snapshot identity must be rechecked immediately before mutation",
+            "target stable hardware identity must be rechecked immediately before mutation",
         ],
         "system_mutations_performed": False,
     }
