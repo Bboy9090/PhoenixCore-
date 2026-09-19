@@ -129,7 +129,9 @@ def list_folder(
     page_token: str | None = None
     for _ in range(MAX_LIST_PAGES):
         params = {
-            "q": f"'{escape_drive_query_literal(folder_id)}' in parents and trashed = false",
+            "q": (
+                f"'{escape_drive_query_literal(folder_id)}' in parents and trashed = false"
+            ),
             "spaces": "drive",
             "pageSize": "1000",
             "supportsAllDrives": "true",
@@ -181,8 +183,13 @@ def validate_download_metadata(metadata: dict[str, Any]) -> tuple[str, int, str 
             "Recovery acquisition supports stored binary files, not Google Workspace files."
         )
     capabilities = metadata.get("capabilities")
-    if not isinstance(capabilities, dict) or capabilities.get("canDownload") is not True:
-        raise DriveAcquisitionError("Google Drive does not permit downloading this file.")
+    if (
+        not isinstance(capabilities, dict)
+        or capabilities.get("canDownload") is not True
+    ):
+        raise DriveAcquisitionError(
+            "Google Drive does not permit downloading this file."
+        )
     try:
         size = int(metadata["size"])
     except (KeyError, TypeError, ValueError) as exc:
@@ -262,7 +269,9 @@ def download_file(
                 f"Google Drive download failed with HTTP {exc.code}."
             ) from exc
         except urllib.error.URLError as exc:
-            raise DriveAcquisitionError("Google Drive download was interrupted.") from exc
+            raise DriveAcquisitionError(
+                "Google Drive download was interrupted."
+            ) from exc
 
     observed_size = partial.stat().st_size if partial.exists() else 0
     if observed_size != provider_size:
