@@ -465,7 +465,6 @@ def write_and_verify(
     }
 
 
-
 def build_failure_result(
     *,
     plan: dict[str, Any],
@@ -507,6 +506,7 @@ def build_failure_result(
     }
     receipt["receipt_sha256"] = sha256_payload(receipt)
     return receipt
+
 
 def build_result(
     *,
