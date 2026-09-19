@@ -24,7 +24,7 @@ on:
       - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
       - "apps/phoenix-key/src/main.tsx"
       - "apps/phoenix-key/src/RecoveryCenter.tsx"
-      - "apps/phoenix-key/src/recovery-center.css"
+      - "apps/phoenix-key/src/recovery-center.css"\n      - "scripts/hardware/plan_fat32_windows_media.py"
       - ".github/workflows/windows-recovery-forge.yml"
   push:
     branches:
@@ -45,7 +45,7 @@ on:
       - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
       - "apps/phoenix-key/src/main.tsx"
       - "apps/phoenix-key/src/RecoveryCenter.tsx"
-      - "apps/phoenix-key/src/recovery-center.css"
+      - "apps/phoenix-key/src/recovery-center.css"\n      - "scripts/hardware/plan_fat32_windows_media.py"
       - ".github/workflows/windows-recovery-forge.yml"
 
 jobs:
