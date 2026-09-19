@@ -68,7 +68,14 @@ class Fat32WindowsMediaPlanTests(unittest.TestCase):
             command = result["split_command_preview"]
             self.assertEqual("Dism", command[0])
             self.assertIn("/Split-Image", command)
-            self.assertIn("/SWMFile:" + str(sources / "install.swm"), command)
+            swm_argument = next(
+                value for value in command if value.startswith("/SWMFile:")
+            )
+            self.assertTrue(
+                swm_argument.replace("\\", "/")
+                .casefold()
+                .endswith("/sources/install.swm")
+            )
             self.assertIn("/FileSize:3800", command)
             self.assertIn("/CheckIntegrity", command)
             self.assertFalse(result["execution_performed"])
