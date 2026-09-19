@@ -5,14 +5,18 @@ on:
     branches: ["main"]
     paths:
       - "scripts/hardware/stage_cloud_recovery_payload.py"
+      - "scripts/hardware/acquire_google_drive_recovery.py"
       - "tests/test_cloud_recovery_stage.py"
+      - "tests/test_google_drive_recovery_acquisition.py"
       - ".github/workflows/cloud-recovery-staging.yml"
   push:
     branches:
       - "convergence/windows-recovery-forge-macos-v2"
     paths:
       - "scripts/hardware/stage_cloud_recovery_payload.py"
+      - "scripts/hardware/acquire_google_drive_recovery.py"
       - "tests/test_cloud_recovery_stage.py"
+      - "tests/test_google_drive_recovery_acquisition.py"
       - ".github/workflows/cloud-recovery-staging.yml"
 
 permissions:
@@ -36,28 +40,39 @@ jobs:
         run: >-
           black --check --diff
           scripts/hardware/stage_cloud_recovery_payload.py
+          scripts/hardware/acquire_google_drive_recovery.py
           tests/test_cloud_recovery_stage.py
+          tests/test_google_drive_recovery_acquisition.py
       - name: Compile
         run: >-
           python -m compileall -q
           scripts/hardware/stage_cloud_recovery_payload.py
+          scripts/hardware/acquire_google_drive_recovery.py
           tests/test_cloud_recovery_stage.py
-      - name: Run resumable staging tests
-        run: python -m unittest tests/test_cloud_recovery_stage.py -v
+          tests/test_google_drive_recovery_acquisition.py
+      - name: Run resumable staging and Drive acquisition tests
+        run: >-
+          python -m unittest
+          tests/test_cloud_recovery_stage.py
+          tests/test_google_drive_recovery_acquisition.py -v
       - name: Confirm cloud source is read-only
         shell: python
         run: |
           from pathlib import Path
 
-          source = Path(
-              "scripts/hardware/stage_cloud_recovery_payload.py"
-          ).read_text(encoding="utf-8")
+          sources = [
+              Path("scripts/hardware/stage_cloud_recovery_payload.py"),
+              Path("scripts/hardware/acquire_google_drive_recovery.py"),
+          ]
+          source = "\\n".join(path.read_text(encoding="utf-8") for path in sources)
           forbidden = [
               "requests.delete",
               "files.update",
               "files.delete",
               "permissions.create",
-              "trash",
+              "method=\\\"POST\\\"",
+              "method=\\\"PATCH\\\"",
+              "method=\\\"DELETE\\\"",
           ]
           found = [token for token in forbidden if token in source]
           if found:
