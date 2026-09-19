@@ -233,8 +233,7 @@ def picker_download(
             raise PickerError("Phoenix Key could not open the system browser.")
         deadline = time.monotonic() + CALLBACK_TIMEOUT_SECONDS
         while (
-            PickerCallbackHandler.callback_query is None
-            and time.monotonic() < deadline
+            PickerCallbackHandler.callback_query is None and time.monotonic() < deadline
         ):
             if drive.cancel_requested(cancel_file):
                 return cancelled_picker_receipt()
