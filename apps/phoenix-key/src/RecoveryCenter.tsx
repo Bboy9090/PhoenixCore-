@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { open } from "@tauri-apps/api/dialog";
 import "./recovery-center.css";
@@ -60,6 +60,29 @@ type ImageMetadata = {
     compatible: boolean;
     block_reasons: string[];
   };
+};
+
+type GoogleDrivePickerStatus = {
+  configured: boolean;
+  scope: string;
+  selection_mode: string;
+  system_browser_required: boolean;
+  oauth_token_persisted: boolean;
+  cloud_mutation_allowed: boolean;
+};
+
+type GoogleDriveReceipt = {
+  provider_name: string;
+  provider_size_bytes: number;
+  observed_sha256: string;
+  staged_path: string;
+  identity_lock_verified: boolean;
+  authorization_scope: string;
+  selection_mode: string;
+  oauth_token_persisted: boolean;
+  oauth_token_exposed_to_ui: boolean;
+  recovery_eligible: boolean;
+  block_reasons: string[];
 };
 
 type RecoveryTargetSafety = {
@@ -142,6 +165,15 @@ export default function RecoveryCenter() {
   const [imageMetadata, setImageMetadata] = useState<ImageMetadata | null>(null);
   const [targetDrive, setTargetDrive] = useState("");
   const [targetSafety, setTargetSafety] = useState<RecoveryTargetSafety | null>(null);
+  const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
+  const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
+
+  useEffect(() => {
+    if (!isDesktopRuntime()) return;
+    invoke<GoogleDrivePickerStatus>("google_drive_picker_status")
+      .then(setDrivePickerStatus)
+      .catch(() => setDrivePickerStatus(null));
+  }, []);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
   const sourceState = useMemo(() => {
@@ -163,6 +195,7 @@ export default function RecoveryCenter() {
     setImageMetadata(null);
     setTargetDrive("");
     setTargetSafety(null);
+    setDriveReceipt(null);
     setMessage("Source changed. Analyze it again before planning anything.");
   }
 
@@ -181,6 +214,38 @@ export default function RecoveryCenter() {
       if (typeof selected === "string") resetResult(selected);
     } catch (error) {
       setMessage(`Source picker could not open. Nothing was changed. ${String(error)}`);
+    }
+  }
+
+  async function chooseGoogleDriveSource() {
+    if (!isDesktopRuntime() || busy || !drivePickerStatus?.configured) return;
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Choose a local staging folder for the Drive recovery file",
+      });
+      if (typeof selected !== "string") return;
+      setBusy(true);
+      setMessage(
+        "Opening Google Picker in your system browser. Select one recovery file; Phoenix Key will download and identity-lock it locally…",
+      );
+      const result = await invoke<GoogleDriveReceipt>(
+        "acquire_google_drive_picker_recovery",
+        { destinationDir: selected },
+      );
+      resetResult(result.staged_path);
+      setDriveReceipt(result);
+      setMessage(
+        "Drive file staged locally and SHA-256 identity lock verified. Analyze the local copy before any recovery planning.",
+      );
+    } catch (error) {
+      setDriveReceipt(null);
+      setMessage(
+        `Google Drive selection did not complete. No cloud file was modified. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -331,6 +396,15 @@ export default function RecoveryCenter() {
         <div className="source-actions" aria-label="Choose recovery source">
           <button className="scan-button" type="button" onClick={() => chooseSource(true)} disabled={!isDesktopRuntime() || busy}>Choose Backup Folder</button>
           <button className="plan-button" type="button" onClick={() => chooseSource(false)} disabled={!isDesktopRuntime() || busy}>Choose Image File</button>
+          <button
+            className="plan-button"
+            type="button"
+            onClick={chooseGoogleDriveSource}
+            disabled={!isDesktopRuntime() || busy || !drivePickerStatus?.configured}
+            title={drivePickerStatus?.configured ? "Open Google Picker in your system browser" : "This build is missing its Google Drive desktop OAuth client ID"}
+          >
+            Choose from Google Drive
+          </button>
         </div>
         <label className="path-field">
           <span>Selected source</span>
@@ -348,6 +422,23 @@ export default function RecoveryCenter() {
           {busy && !analysis ? "Analyzing…" : "Analyze Backup Safely"}
         </button>
         <div className="recovery-status" role="status" aria-live="polite" aria-atomic="true">{message}</div>
+        {drivePickerStatus && !drivePickerStatus.configured && (
+          <p className="field-help">
+            Google Drive Picker is unavailable in this build until its desktop OAuth client ID is configured.
+          </p>
+        )}
+        {driveReceipt && (
+          <div className="recovery-list good-list">
+            <strong>Google Drive acquisition verified</strong>
+            <div>File: {driveReceipt.provider_name}</div>
+            <div>Local path: {driveReceipt.staged_path}</div>
+            <div>Size: {driveReceipt.provider_size_bytes} bytes</div>
+            <div>SHA-256: {driveReceipt.observed_sha256}</div>
+            <div>Identity lock: {driveReceipt.identity_lock_verified ? "verified" : "blocked"}</div>
+            <div>Cloud original modified: no</div>
+            <div>OAuth token persisted: {driveReceipt.oauth_token_persisted ? "yes" : "no"}</div>
+          </div>
+        )}
       </section>
 
       {analysis && (
