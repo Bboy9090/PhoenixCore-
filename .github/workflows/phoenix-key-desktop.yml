@@ -12,7 +12,7 @@ on:
       - "apps/phoenix-key/**"
       - "usb_creator.py"
       - "device_scanner.py"
-      - "scripts/hardware/capture_windows_drive_evidence.py"
+      - "scripts/hardware/capture_windows_drive_evidence.py"\n      - "scripts/hardware/plan_fat32_windows_media.py"
       - "scripts/hardware/write_windows_sacrificial_drive.py"
       - "tests/test_windows_sacrificial_writer.py"
       - ".github/workflows/phoenix-key-desktop.yml"
