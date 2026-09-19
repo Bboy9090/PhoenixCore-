@@ -64,15 +64,15 @@ jobs:
               Path("scripts/hardware/stage_cloud_recovery_payload.py"),
               Path("scripts/hardware/acquire_google_drive_recovery.py"),
           ]
-          source = "\\n".join(path.read_text(encoding="utf-8") for path in sources)
+          source = "\n".join(path.read_text(encoding="utf-8") for path in sources)
           forbidden = [
               "requests.delete",
               "files.update",
               "files.delete",
               "permissions.create",
-              "method=\\\"POST\\\"",
-              "method=\\\"PATCH\\\"",
-              "method=\\\"DELETE\\\"",
+              'method="POST"',
+              'method="PATCH"',
+              'method="DELETE"',
           ]
           found = [token for token in forbidden if token in source]
           if found:
