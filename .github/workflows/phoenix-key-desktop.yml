@@ -1,5 +1,9 @@
 name: Phoenix Key Desktop
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   pull_request:
@@ -9,6 +13,7 @@ on:
       - "usb_creator.py"
       - "device_scanner.py"
       - "scripts/hardware/capture_windows_drive_evidence.py"
+      - "scripts/hardware/plan_fat32_windows_media.py"
       - "scripts/hardware/write_windows_sacrificial_drive.py"
       - "tests/test_windows_sacrificial_writer.py"
       - ".github/workflows/phoenix-key-desktop.yml"

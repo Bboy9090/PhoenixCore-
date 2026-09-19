@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - agent/windows-drive-evidence-v1
+      - convergence/windows-recovery-forge-macos-v2
 
 permissions:
   contents: read
@@ -38,25 +39,52 @@ jobs:
         run: >-
           black --check --diff
           scripts/hardware/capture_windows_drive_evidence.py
+          scripts/hardware/resolve_windows_source_disk.py
+          scripts/hardware/capture_windows_boot_state.py
+          scripts/hardware/persist_windows_rollback_bundle.py
+          scripts/hardware/check_windows_recovery_readiness.py
+          scripts/hardware/plan_windows_boot_repair.py
           tests/test_windows_drive_evidence.py
+          tests/test_windows_source_disk_resolution.py
+          tests/test_windows_boot_state.py
+          tests/test_windows_rollback_bundle.py
+          tests/test_windows_recovery_readiness.py
+          tests/test_windows_boot_repair_plan.py
 
       - name: Compile collector and tests
         run: >-
           python -m compileall -q
           scripts/hardware/capture_windows_drive_evidence.py
+          scripts/hardware/resolve_windows_source_disk.py
+          scripts/hardware/capture_windows_boot_state.py
+          scripts/hardware/persist_windows_rollback_bundle.py
           tests/test_windows_drive_evidence.py
+          tests/test_windows_source_disk_resolution.py
+          tests/test_windows_boot_state.py
+          tests/test_windows_rollback_bundle.py
 
       - name: Run focused tests
-        run: python -m unittest tests/test_windows_drive_evidence.py -v
+        run: >-
+          python -m unittest
+          tests/test_windows_drive_evidence.py
+          tests/test_windows_source_disk_resolution.py
+          tests/test_windows_boot_state.py
+          tests/test_windows_rollback_bundle.py
+          -v
 
-      - name: Reject raw-write APIs in evidence collector
+      - name: Reject mutation APIs in evidence collectors
         shell: python
         run: |
           from pathlib import Path
 
-          source = Path(
-              "scripts/hardware/capture_windows_drive_evidence.py"
-          ).read_text(encoding="utf-8")
+          sources = [
+              Path("scripts/hardware/capture_windows_drive_evidence.py"),
+              Path("scripts/hardware/resolve_windows_source_disk.py"),
+              Path("scripts/hardware/capture_windows_boot_state.py"),
+              Path("scripts/hardware/persist_windows_rollback_bundle.py"),
+              Path("scripts/hardware/check_windows_recovery_readiness.py"),
+              Path("scripts/hardware/plan_windows_boot_repair.py"),
+          ]
           forbidden = [
               "GENERIC_WRITE",
               "WriteFile",
@@ -67,11 +95,28 @@ jobs:
               "Set-Partition",
               "Remove-Partition",
               "IOCTL_DISK_SET_DRIVE_LAYOUT",
+              "bcdboot",
+              "bootrec",
+              '"/set"',
+              '"/delete"',
+              '"/create"',
+              '"/import"',
+              '"/enable"',
+              '"/disable"',
+              '"/setreimage"',
+              "mountvol",
+              "Set-Volume",
+              "Set-Partition",
           ]
-          found = [token for token in forbidden if token in source]
+          found = []
+          for path in sources:
+              source = path.read_text(encoding="utf-8")
+              found.extend(f"{path}:{token}" for token in forbidden if token in source)
           if found:
-              raise SystemExit(f"raw-write APIs forbidden in evidence collector: {found}")
-          print("RAW_WRITE_API_SCAN=pass")
+              raise SystemExit(
+                  f"mutation APIs forbidden in evidence collectors: {found}"
+              )
+          print("READ_ONLY_EVIDENCE_API_SCAN=pass")
 
       - name: Generate deterministic fixture receipt
         shell: bash

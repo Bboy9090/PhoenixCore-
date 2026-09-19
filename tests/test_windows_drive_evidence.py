@@ -85,6 +85,20 @@ class WindowsDriveEvidenceTests(unittest.TestCase):
         self.assertFalse(record["write_candidate"])
         self.assertIn("stable-device-identity-missing", record["write_block_reasons"])
 
+    def test_apple_partition_blocks_destructive_candidate(self):
+        fixture = json.loads(json.dumps(self.fixture))
+        fixture["Partitions"][0]["GptType"] = "7C3457EF-0000-11AA-AA11-00306543ECAC"
+        record = windows_drive_evidence.normalize_disk_record(fixture, self.target)
+        self.assertFalse(record["write_candidate"])
+        self.assertIn(
+            "target-contains-apple-partition",
+            record["write_block_reasons"],
+        )
+        self.assertEqual(
+            "7C3457EF-0000-11AA-AA11-00306543ECAC",
+            record["partitions"][0]["gpt_type"],
+        )
+
     def test_nonzero_write_observation_is_rejected(self):
         with self.assertRaises(windows_drive_evidence.EvidenceError):
             windows_drive_evidence.build_receipt(

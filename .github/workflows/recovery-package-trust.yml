@@ -1,0 +1,71 @@
+name: Recovery Package Trust
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "scripts/hardware/inspect_recovery_package_trust.py"
+      - "tests/test_recovery_package_trust.py"
+      - ".github/workflows/recovery-package-trust.yml"
+  push:
+    branches:
+      - "convergence/windows-recovery-forge-macos-v2"
+    paths:
+      - "scripts/hardware/inspect_recovery_package_trust.py"
+      - "tests/test_recovery_package_trust.py"
+      - ".github/workflows/recovery-package-trust.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  trust:
+    name: Package trust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install black
+      - name: Check formatting
+        run: >-
+          black --check --diff
+          scripts/hardware/inspect_recovery_package_trust.py
+          tests/test_recovery_package_trust.py
+      - name: Compile
+        run: >-
+          python -m compileall -q
+          scripts/hardware/inspect_recovery_package_trust.py
+          tests/test_recovery_package_trust.py
+      - name: Run tests
+        run: python -m unittest tests/test_recovery_package_trust.py -v
+      - name: Confirm trust inspector is read-only
+        shell: python
+        run: |
+          from pathlib import Path
+
+          source = Path(
+              "scripts/hardware/inspect_recovery_package_trust.py"
+          ).read_text(encoding="utf-8")
+          forbidden = [
+              "Set-AuthenticodeSignature",
+              "WriteFile",
+              "GENERIC_WRITE",
+              "Set-Disk",
+              "Format-Volume",
+              "bcdedit",
+              "reagentc",
+          ]
+          found = [token for token in forbidden if token in source]
+          if found:
+              raise SystemExit(f"mutating APIs forbidden in trust inspector: {found}")
+          print("PACKAGE_TRUST_READ_ONLY=pass")

@@ -1,10 +1,26 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod boot_repair_contract;
+mod intel_mac_restore_gate;
+mod mac_bootcamp_compat;
+mod recovery_center;
+mod restore_readiness;
+mod source_identity;
+mod target_safety;
+mod windows_recovery;
+mod windows_recovery_guard;
 mod windows_target;
 
+use boot_repair_contract::plan_windows_boot_repair;
+use intel_mac_restore_gate::assess_intel_mac_restore_readiness;
+use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
+use restore_readiness::assess_windows_restore_readiness;
+use recovery_center::{analyze_windows_recovery_source, plan_windows_recovery_source};
 use serde::Serialize;
 use serde_json::{json, Value};
+use source_identity::capture_source_identity;
+use target_safety::{assess_recovery_target, RecoveryTargetSafety};
 use std::{
     ffi::OsStr,
     fs,
@@ -17,12 +33,34 @@ const USB_CREATOR_SOURCE: &str = include_str!("../../../../usb_creator.py");
 const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py");
 const DRIVE_EVIDENCE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_drive_evidence.py");
+const SOURCE_DISK_RESOLVER_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/resolve_windows_source_disk.py");
+const PACKAGE_TRUST_INSPECTOR_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/inspect_recovery_package_trust.py");
+const CLOUD_STAGE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/stage_cloud_recovery_payload.py");
+const GOOGLE_DRIVE_ACQUISITION_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/acquire_google_drive_recovery.py");
+const GOOGLE_DRIVE_PICKER_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/google_drive_picker_recovery.py");
+const FAT32_WINDOWS_MEDIA_PLANNER_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/plan_fat32_windows_media.py");
+const WINDOWS_IMAGE_METADATA_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
+const BOOTCAMP_DRIVER_INSPECTOR_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/inspect_bootcamp_driver_package.py");
+const WINDOWS_BOOT_STATE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/capture_windows_boot_state.py");
+const WINDOWS_ROLLBACK_BUNDLE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/persist_windows_rollback_bundle.py");
 const SACRIFICIAL_WRITER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/write_windows_sacrificial_drive.py");
 const SMOKE_RECEIPT_ENV: &str = "PHOENIX_KEY_SMOKE_RECEIPT";
 const TARGET_RESOLUTION_SCHEMA: &str = "phoenix_key.target_resolution.v1";
 const WRITE_UNLOCK_ENV: &str = "BWS_ENABLE_SACRIFICIAL_DRIVE_WRITE";
 const WRITE_UNLOCK_VALUE: &str = "I_ACCEPT_COMPLETE_DESTRUCTION_OF_NAMED_TEST_DRIVE";
+const GOOGLE_DRIVE_CLIENT_ID_ENV: &str = "PHOENIX_KEY_GOOGLE_DRIVE_CLIENT_ID";
+const GOOGLE_DRIVE_FILE_SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
 
 #[derive(Debug, Serialize)]
 struct SmokeSafetyBoundary {
@@ -143,6 +181,56 @@ fn bridge_directory() -> Result<PathBuf, String> {
     )
     .map_err(|error| format!("cannot stage embedded drive evidence collector: {error}"))?;
     fs::write(
+        directory.join("resolve_windows_source_disk.py"),
+        SOURCE_DISK_RESOLVER_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded source-disk resolver: {error}"))?;
+    fs::write(
+        directory.join("inspect_recovery_package_trust.py"),
+        PACKAGE_TRUST_INSPECTOR_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded package trust inspector: {error}"))?;
+    fs::write(
+        directory.join("stage_cloud_recovery_payload.py"),
+        CLOUD_STAGE_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded cloud staging helper: {error}"))?;
+    fs::write(
+        directory.join("acquire_google_drive_recovery.py"),
+        GOOGLE_DRIVE_ACQUISITION_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Drive acquisition helper: {error}"))?;
+    fs::write(
+        directory.join("google_drive_picker_recovery.py"),
+        GOOGLE_DRIVE_PICKER_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Google Picker helper: {error}"))?;
+    fs::write(
+        directory.join("plan_fat32_windows_media.py"),
+        FAT32_WINDOWS_MEDIA_PLANNER_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded FAT32 media planner: {error}"))?;
+    fs::write(
+        directory.join("inspect_windows_image_metadata.py"),
+        WINDOWS_IMAGE_METADATA_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Windows image metadata inspector: {error}"))?;
+    fs::write(
+        directory.join("inspect_bootcamp_driver_package.py"),
+        BOOTCAMP_DRIVER_INSPECTOR_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Boot Camp driver inspector: {error}"))?;
+    fs::write(
+        directory.join("capture_windows_boot_state.py"),
+        WINDOWS_BOOT_STATE_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Windows boot-state collector: {error}"))?;
+    fs::write(
+        directory.join("persist_windows_rollback_bundle.py"),
+        WINDOWS_ROLLBACK_BUNDLE_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded rollback-bundle helper: {error}"))?;
+    fs::write(
         directory.join("write_windows_sacrificial_drive.py"),
         SACRIFICIAL_WRITER_SOURCE,
     )
@@ -213,12 +301,18 @@ fn source_commit() -> Result<&'static str, String> {
     }
 }
 
-fn expected_authorization(target: &str, identity: &str, size: u64) -> String {
+fn expected_authorization(
+    target: &str,
+    identity: &str,
+    size: u64,
+    source_sha256: &str,
+) -> String {
     format!(
-        "I AUTHORIZE COMPLETE DESTRUCTION OF {} IDENTITY {} SIZE {}",
+        "I AUTHORIZE COMPLETE DESTRUCTION OF {} IDENTITY {} SIZE {} SOURCE_SHA256 {}",
         target.to_uppercase(),
         identity,
-        size
+        size,
+        source_sha256
     )
 }
 
@@ -334,6 +428,584 @@ fn attach_target_resolution(
 }
 
 #[tauri::command]
+fn capture_windows_recovery_baseline(
+    source_path: String,
+    target_drive: String,
+) -> Result<Value, String> {
+    if !cfg!(windows) {
+        return Err("Windows boot-state capture requires Windows".to_string());
+    }
+    let source = PathBuf::from(source_path.trim());
+    if !source.exists() {
+        return Err("recovery source does not exist".to_string());
+    }
+    let identity = capture_source_identity(&source)?;
+    if !identity.complete {
+        return Err("recovery source identity is incomplete".to_string());
+    }
+    let resolution = resolve_target(&target_drive)?;
+    if !resolution.is_windows_physical_drive() {
+        return Err("rollback target must resolve to an exact Windows PHYSICALDRIVE".to_string());
+    }
+
+    let evidence_root = receipt_directory()?.join(format!(
+        "recovery-baseline-{}-{}",
+        std::process::id(),
+        &identity.sha256[..12]
+    ));
+    fs::create_dir_all(&evidence_root)
+        .map_err(|error| format!("cannot create recovery baseline directory: {error}"))?;
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let drive_script = directory.join("capture_windows_drive_evidence.py");
+        let drive_receipt = evidence_root.join("drive-evidence.json");
+        let drive_receipt_text = drive_receipt.to_string_lossy().to_string();
+        let _drive_evidence = run_python_json(
+            &drive_script,
+            &[
+                "--target",
+                &resolution.canonical_path,
+                "--output",
+                &drive_receipt_text,
+                "--source-commit",
+                source_commit()?,
+            ],
+            &[],
+        )?;
+
+        let boot_script = directory.join("capture_windows_boot_state.py");
+        let boot_state = evidence_root.join("boot-state.json");
+        let rollback_manifest = evidence_root.join("rollback-manifest.json");
+        let source_text = source.to_string_lossy().to_string();
+        let boot_state_text = boot_state.to_string_lossy().to_string();
+        let rollback_text = rollback_manifest.to_string_lossy().to_string();
+        let rollback = run_python_json(
+            &boot_script,
+            &[
+                "--source-identity-sha256",
+                &identity.sha256,
+                "--source-path",
+                &source_text,
+                "--drive-receipt",
+                &drive_receipt_text,
+                "--boot-state-output",
+                &boot_state_text,
+                "--rollback-output",
+                &rollback_text,
+            ],
+            &[],
+        )?;
+        let boot: Value = serde_json::from_slice(
+            &fs::read(&boot_state)
+                .map_err(|error| format!("cannot read persisted boot-state evidence: {error}"))?,
+        )
+        .map_err(|error| format!("persisted boot-state evidence is invalid JSON: {error}"))?;
+
+        Ok(json!({
+            "schema": "phoenix_key.recovery_baseline.v1",
+            "source_identity": identity,
+            "target": resolution.canonical_path,
+            "drive_evidence_path": drive_receipt_text,
+            "boot_state_path": boot_state_text,
+            "rollback_manifest_path": rollback_text,
+            "boot_state": boot,
+            "rollback_manifest": rollback,
+            "system_mutations_performed": false
+        }))
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
+fn persist_windows_recovery_rollback_bundle(
+    boot_state_path: String,
+    rollback_manifest_path: String,
+) -> Result<Value, String> {
+    if !cfg!(windows) {
+        return Err("Windows rollback bundle persistence requires Windows".to_string());
+    }
+    let boot_state = PathBuf::from(boot_state_path.trim());
+    let rollback_manifest = PathBuf::from(rollback_manifest_path.trim());
+    if !boot_state.is_file() || !rollback_manifest.is_file() {
+        return Err("boot-state and rollback-manifest evidence files are required".to_string());
+    }
+
+    let output_root = receipt_directory()?.join(format!(
+        "rollback-bundle-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&output_root)
+        .map_err(|error| format!("cannot create rollback bundle directory: {error}"))?;
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("persist_windows_rollback_bundle.py");
+        let boot_text = boot_state.to_string_lossy().to_string();
+        let rollback_text = rollback_manifest.to_string_lossy().to_string();
+        let output_text = output_root.to_string_lossy().to_string();
+        let mut bundle = run_python_json(
+            &script,
+            &[
+                "--boot-state",
+                &boot_text,
+                "--rollback-manifest",
+                &rollback_text,
+                "--output-dir",
+                &output_text,
+            ],
+            &[],
+        )?;
+        if let Some(object) = bundle.as_object_mut() {
+            object.insert(
+                "bundle_directory".to_string(),
+                Value::String(output_text),
+            );
+        }
+        Ok(bundle)
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+fn google_drive_client_id() -> Option<String> {
+    std::env::var(GOOGLE_DRIVE_CLIENT_ID_ENV)
+        .ok()
+        .or_else(|| option_env!("PHOENIX_KEY_GOOGLE_DRIVE_CLIENT_ID").map(str::to_string))
+        .map(|value| value.trim().to_string())
+        .filter(|value| value.ends_with(".apps.googleusercontent.com"))
+}
+
+#[tauri::command]
+fn google_drive_picker_status() -> Value {
+    let configured = google_drive_client_id().is_some();
+    json!({
+        "schema": "phoenix_key.google_drive_picker_status.v1",
+        "configured": configured,
+        "scope": GOOGLE_DRIVE_FILE_SCOPE,
+        "selection_mode": "explicit_single_file",
+        "system_browser_required": true,
+        "oauth_token_persisted": false,
+        "cloud_mutation_allowed": false
+    })
+}
+
+fn validate_drive_operation_id(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if !(8..=64).contains(&value.len())
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    {
+        return Err("Google Drive operation ID is malformed".to_string());
+    }
+    Ok(value.to_string())
+}
+
+fn drive_operation_paths(operation_id: &str) -> Result<(PathBuf, PathBuf), String> {
+    let operation_id = validate_drive_operation_id(operation_id)?;
+    let root = receipt_directory()?;
+    Ok((
+        root.join(format!("google-drive-{operation_id}.progress.json")),
+        root.join(format!("google-drive-{operation_id}.cancel")),
+    ))
+}
+
+#[tauri::command]
+fn google_drive_acquisition_status(operation_id: String) -> Result<Value, String> {
+    let (progress, cancel) = drive_operation_paths(&operation_id)?;
+    if !progress.is_file() {
+        return Ok(json!({
+            "schema": "phoenix_key.google_drive_progress.v1",
+            "phase": "waiting",
+            "downloaded_size_bytes": 0,
+            "provider_size_bytes": 0,
+            "resume_offset_bytes": 0,
+            "percent": 0.0,
+            "cancel_requested": cancel.exists(),
+            "read_only": true,
+            "cloud_original_modified": false
+        }));
+    }
+    let mut value: Value = serde_json::from_slice(
+        &fs::read(&progress)
+            .map_err(|error| format!("cannot read Drive progress receipt: {error}"))?,
+    )
+    .map_err(|error| format!("Drive progress receipt is invalid JSON: {error}"))?;
+    if let Some(object) = value.as_object_mut() {
+        object.insert(
+            "cancel_requested".to_string(),
+            Value::Bool(cancel.exists()),
+        );
+    }
+    Ok(value)
+}
+
+#[tauri::command]
+fn cancel_google_drive_acquisition(operation_id: String) -> Result<Value, String> {
+    let (_, cancel) = drive_operation_paths(&operation_id)?;
+    fs::write(&cancel, b"cancel")
+        .map_err(|error| format!("cannot request Drive acquisition cancellation: {error}"))?;
+    Ok(json!({
+        "schema": "phoenix_key.google_drive_cancel.v1",
+        "cancel_requested": true,
+        "read_only": true,
+        "cloud_original_modified": false
+    }))
+}
+
+#[tauri::command]
+async fn acquire_google_drive_picker_recovery(
+    destination_dir: String,
+    operation_id: String,
+) -> Result<Value, String> {
+    let destination = PathBuf::from(destination_dir.trim());
+    if destination.as_os_str().is_empty() {
+        return Err("Google Drive staging destination is required".to_string());
+    }
+    let client_id = google_drive_client_id().ok_or_else(|| {
+        "Phoenix Key build is missing its Google Drive desktop OAuth client ID".to_string()
+    })?;
+    let (progress_file, cancel_file) = drive_operation_paths(&operation_id)?;
+    let _ = fs::remove_file(&progress_file);
+    let _ = fs::remove_file(&cancel_file);
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = bridge_directory()?;
+        let result = (|| {
+            let script = directory.join("google_drive_picker_recovery.py");
+            let destination_text = destination.to_string_lossy().to_string();
+            let progress_text = progress_file.to_string_lossy().to_string();
+            let cancel_text = cancel_file.to_string_lossy().to_string();
+            let mut receipt = run_python_json(
+                &script,
+                &[
+                    "--destination-dir",
+                    &destination_text,
+                    "--progress-file",
+                    &progress_text,
+                    "--cancel-file",
+                    &cancel_text,
+                ],
+                &[(GOOGLE_DRIVE_CLIENT_ID_ENV, client_id.as_str())],
+            )?;
+            if receipt.get("complete").and_then(Value::as_bool) != Some(true) {
+                return Ok(receipt);
+            }
+            let staged_path = receipt
+                .get("staged_path")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    "Google Picker receipt did not contain a staged path".to_string()
+                })?;
+            let identity = capture_source_identity(PathBuf::from(staged_path))?;
+            if !identity.complete {
+                return Err(
+                    "Google Picker download source identity is incomplete".to_string(),
+                );
+            }
+            let observed = receipt
+                .get("observed_sha256")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    "Google Picker receipt did not contain a SHA-256".to_string()
+                })?;
+            if observed != identity.sha256 {
+                return Err(
+                    "Google Picker download changed before identity lock".to_string(),
+                );
+            }
+            let object = receipt
+                .as_object_mut()
+                .ok_or_else(|| "Google Picker receipt is not a JSON object".to_string())?;
+            object.insert(
+                "source_identity".to_string(),
+                serde_json::to_value(&identity)
+                    .map_err(|error| format!("cannot serialize source identity: {error}"))?,
+            );
+            object.insert(
+                "identity_lock_verified".to_string(),
+                Value::Bool(true),
+            );
+            Ok(receipt)
+        })();
+        let _ = fs::remove_dir_all(&directory);
+        let _ = fs::remove_file(&cancel_file);
+        result
+    })
+    .await
+    .map_err(|error| format!("Google Picker worker failed: {error}"))?
+}
+
+#[tauri::command]
+fn plan_fat32_windows_media(source_root: String) -> Result<Value, String> {
+    let source = PathBuf::from(source_root.trim());
+    if !source.is_dir() {
+        return Err(
+            "FAT32 media planning requires an extracted Windows installation folder"
+                .to_string(),
+        );
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("plan_fat32_windows_media.py");
+        let source_text = source.to_string_lossy().to_string();
+        run_python_json(
+            &script,
+            &["--source-root", &source_text, "--split-size-mb", "3800"],
+            &[],
+        )
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
+fn stage_cloud_recovery_payload(
+    source_file: String,
+    destination: String,
+    provider: String,
+    provider_file_id: String,
+    provider_name: String,
+    provider_size_bytes: u64,
+    provider_md5: Option<String>,
+    expected_sha256: Option<String>,
+) -> Result<Value, String> {
+    let source = PathBuf::from(source_file.trim());
+    if !source.is_file() {
+        return Err("materialized cloud payload is not a regular file".to_string());
+    }
+    let destination = PathBuf::from(destination.trim());
+    if destination.as_os_str().is_empty() {
+        return Err("cloud staging destination is required".to_string());
+    }
+    if provider.trim().is_empty() || provider_file_id.trim().is_empty() {
+        return Err("cloud provider and provider file ID are required".to_string());
+    }
+    if provider_size_bytes == 0 {
+        return Err("cloud provider size must be positive".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("stage_cloud_recovery_payload.py");
+        let receipt = receipt_directory()?.join(format!(
+            "phoenix-key-cloud-stage-{}-{}.json",
+            std::process::id(),
+            provider_file_id
+                .chars()
+                .filter(|ch| ch.is_ascii_alphanumeric())
+                .take(12)
+                .collect::<String>()
+        ));
+        let mut args = vec![
+            "--source-file".to_string(),
+            source.to_string_lossy().to_string(),
+            "--destination".to_string(),
+            destination.to_string_lossy().to_string(),
+            "--receipt".to_string(),
+            receipt.to_string_lossy().to_string(),
+            "--provider".to_string(),
+            provider.trim().to_string(),
+            "--provider-file-id".to_string(),
+            provider_file_id.trim().to_string(),
+            "--provider-name".to_string(),
+            provider_name,
+            "--provider-size-bytes".to_string(),
+            provider_size_bytes.to_string(),
+        ];
+        if let Some(md5) = provider_md5
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--provider-md5".to_string());
+            args.push(md5.to_string());
+        }
+        if let Some(sha256) = expected_sha256
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--expected-sha256".to_string());
+            args.push(sha256.to_string());
+        }
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        run_python_json(&script, &refs, &[])
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
+fn inspect_recovery_package_trust(
+    package_path: String,
+    expected_sha256: Option<String>,
+    expected_signer_contains: Option<String>,
+) -> Result<Value, String> {
+    let package = PathBuf::from(package_path.trim());
+    if !package.is_file() {
+        return Err("recovery package does not exist or is not a regular file".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("inspect_recovery_package_trust.py");
+        let package_text = package.to_string_lossy().to_string();
+        let mut args = vec!["--path".to_string(), package_text];
+        if let Some(expected) = expected_sha256
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--expected-sha256".to_string());
+            args.push(expected.to_string());
+        }
+        if let Some(signer) = expected_signer_contains
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--expected-signer-contains".to_string());
+            args.push(signer.to_string());
+        }
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        run_python_json(&script, &refs, &[])
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
+fn inspect_windows_image_metadata(
+    image_path: String,
+    selected_index: Option<u32>,
+    target_architecture: Option<String>,
+) -> Result<Value, String> {
+    let image = PathBuf::from(image_path.trim());
+    if !image.is_file() {
+        return Err("Windows image does not exist or is not a regular file".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("inspect_windows_image_metadata.py");
+        let image_text = image.to_string_lossy().to_string();
+        let mut args = vec!["--path".to_string(), image_text];
+        if let Some(index) = selected_index {
+            if index == 0 {
+                return Err("Windows image index must be greater than zero".to_string());
+            }
+            args.push("--index".to_string());
+            args.push(index.to_string());
+        }
+        if let Some(architecture) = target_architecture
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--target-architecture".to_string());
+            args.push(architecture.to_string());
+        }
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        run_python_json(&script, &refs, &[])
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
+fn inspect_bootcamp_driver_package(
+    package_root: String,
+    mac_model: String,
+    expected_manifest_sha256: Option<String>,
+) -> Result<Value, String> {
+    let root = PathBuf::from(package_root.trim());
+    if !root.is_dir() {
+        return Err("Boot Camp support-software path is not a directory".to_string());
+    }
+    if mac_model.trim().is_empty() {
+        return Err("exact Mac model identifier is required".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("inspect_bootcamp_driver_package.py");
+        let root_text = root.to_string_lossy().to_string();
+        let mut args = vec![
+            "--root".to_string(),
+            root_text,
+            "--mac-model".to_string(),
+            mac_model.trim().to_string(),
+        ];
+        if let Some(expected) = expected_manifest_sha256
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            args.push("--expected-manifest-sha256".to_string());
+            args.push(expected.to_string());
+        }
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        run_python_json(&script, &refs, &[])
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
+fn inspect_recovery_target_safety(
+    target_drive: String,
+    source_path: String,
+) -> Result<RecoveryTargetSafety, String> {
+    if !cfg!(windows) {
+        return Err("Windows physical-target safety inspection requires Windows.".to_string());
+    }
+
+    let resolution = resolve_target(target_drive.trim())?;
+    if !resolution.is_windows_physical_drive() {
+        return Err("recovery target must be an exact Windows PHYSICALDRIVE path".to_string());
+    }
+
+    let source = PathBuf::from(source_path.trim());
+    let source_identity = capture_source_identity(&source)?;
+    if !source_identity.complete || source_identity.size_bytes == 0 {
+        return Err("recovery source identity is incomplete or empty".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let evidence = capture_write_evidence(
+            &directory,
+            &resolution.canonical_path,
+            "phoenix-key-recovery-target-evidence.json",
+        )?;
+
+        let resolver = directory.join("resolve_windows_source_disk.py");
+        let source_text = source.to_string_lossy().to_string();
+        let source_disk = run_python_json(
+            &resolver,
+            &["--source", &source_text],
+            &[],
+        )?;
+        let source_physical_target = source_disk
+            .pointer("/source/physical_target")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "source physical-device proof is missing".to_string())?;
+
+        Ok(assess_recovery_target(
+            &evidence,
+            source_identity.size_bytes,
+            Some(source_physical_target),
+        ))
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn scan_media_targets() -> Result<Value, String> {
     run_phoenixcore(&["--list-json"])
 }
@@ -390,6 +1062,10 @@ fn prepare_media_write(target_drive: String, image_path: String) -> Result<Value
         if image_size > size {
             return Err("source image is larger than the selected target".to_string());
         }
+        let source_identity = capture_source_identity(&image)?;
+        if !source_identity.complete {
+            return Err("source image identity is incomplete".to_string());
+        }
         Ok(json!({
             "schema": "phoenix_key.write_preparation.v1",
             "target": target,
@@ -397,7 +1073,13 @@ fn prepare_media_write(target_drive: String, image_path: String) -> Result<Value
             "target_size_bytes": size,
             "image_path": image.to_string_lossy(),
             "image_size_bytes": image_size,
-            "authorization_phrase": expected_authorization(target, identity, size),
+            "image_sha256": source_identity.sha256.clone(),
+            "authorization_phrase": expected_authorization(
+                target,
+                identity,
+                size,
+                &source_identity.sha256,
+            ),
             "write_candidate": true,
             "physical_write_attempted": false,
             "bytes_written": 0
@@ -434,7 +1116,16 @@ fn execute_media_write(
             "phoenix-key-write-evidence.json",
         )?;
         let (target, identity, size) = require_write_candidate(&evidence)?;
-        let required = expected_authorization(target, identity, size);
+        let source_identity = capture_source_identity(&image)?;
+        if !source_identity.complete {
+            return Err("source image identity is incomplete".to_string());
+        }
+        let required = expected_authorization(
+            target,
+            identity,
+            size,
+            &source_identity.sha256,
+        );
         if authorization != required {
             return Err("authorization phrase does not match the freshly scanned target".to_string());
         }
@@ -494,7 +1185,25 @@ fn main() {
             scan_media_targets,
             plan_media_build,
             prepare_media_write,
-            execute_media_write
+            execute_media_write,
+            analyze_windows_recovery_source,
+            plan_windows_recovery_source,
+            plan_windows_boot_repair,
+            inspect_mac_bootcamp_host,
+            inspect_recovery_package_trust,
+            inspect_windows_image_metadata,
+            assess_windows_restore_readiness,
+            inspect_bootcamp_driver_package,
+            inspect_recovery_target_safety,
+            assess_intel_mac_restore_readiness,
+            google_drive_picker_status,
+            google_drive_acquisition_status,
+            cancel_google_drive_acquisition,
+            acquire_google_drive_picker_recovery,
+            plan_fat32_windows_media,
+            stage_cloud_recovery_payload,
+            capture_windows_recovery_baseline,
+            persist_windows_recovery_rollback_bundle
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Phoenix Key desktop application");
@@ -504,9 +1213,16 @@ fn main() {
 mod tests {
     use super::{
         attach_target_resolution, expected_authorization, installed_smoke_receipt,
-        require_write_candidate, resolve_target,
+        require_write_candidate, resolve_target, validate_drive_operation_id,
     };
     use serde_json::json;
+
+    #[test]
+    fn drive_operation_id_blocks_path_traversal() {
+        assert!(validate_drive_operation_id("drive-123456").is_ok());
+        assert!(validate_drive_operation_id("../../escape").is_err());
+        assert!(validate_drive_operation_id("short").is_err());
+    }
 
     #[test]
     fn installed_smoke_receipt_is_read_only_and_non_destructive() {
@@ -624,10 +1340,18 @@ mod tests {
     }
 
     #[test]
-    fn authorization_binds_target_identity_and_capacity() {
+    fn authorization_binds_target_and_source_identity() {
         assert_eq!(
-            expected_authorization(r"\\.\physicaldrive7", "abc123", 4096),
-            r"I AUTHORIZE COMPLETE DESTRUCTION OF \\.\PHYSICALDRIVE7 IDENTITY abc123 SIZE 4096"
+            expected_authorization(
+                r"\\.\physicaldrive7",
+                "abc123",
+                4096,
+                &"d".repeat(64),
+            ),
+            format!(
+                r"I AUTHORIZE COMPLETE DESTRUCTION OF \\.\PHYSICALDRIVE7 IDENTITY abc123 SIZE 4096 SOURCE_SHA256 {}",
+                "d".repeat(64)
+            )
         );
     }
 

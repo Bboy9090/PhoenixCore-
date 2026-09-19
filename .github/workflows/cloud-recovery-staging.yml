@@ -1,0 +1,95 @@
+name: Cloud Recovery Staging
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "scripts/hardware/stage_cloud_recovery_payload.py"
+      - "scripts/hardware/acquire_google_drive_recovery.py"
+      - "scripts/hardware/google_drive_picker_recovery.py"
+      - "tests/test_cloud_recovery_stage.py"
+      - "tests/test_google_drive_recovery_acquisition.py"
+      - "tests/test_google_drive_picker_recovery.py"
+      - ".github/workflows/cloud-recovery-staging.yml"
+  push:
+    branches:
+      - "convergence/windows-recovery-forge-macos-v2"
+    paths:
+      - "scripts/hardware/stage_cloud_recovery_payload.py"
+      - "scripts/hardware/acquire_google_drive_recovery.py"
+      - "scripts/hardware/google_drive_picker_recovery.py"
+      - "tests/test_cloud_recovery_stage.py"
+      - "tests/test_google_drive_recovery_acquisition.py"
+      - "tests/test_google_drive_picker_recovery.py"
+      - ".github/workflows/cloud-recovery-staging.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  stage:
+    name: Resumable cloud stage (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install black
+      - name: Check formatting
+        run: >-
+          black --check --diff
+          scripts/hardware/stage_cloud_recovery_payload.py
+          scripts/hardware/acquire_google_drive_recovery.py
+          scripts/hardware/google_drive_picker_recovery.py
+          tests/test_cloud_recovery_stage.py
+          tests/test_google_drive_recovery_acquisition.py
+          tests/test_google_drive_picker_recovery.py
+      - name: Compile
+        run: >-
+          python -m compileall -q
+          scripts/hardware/stage_cloud_recovery_payload.py
+          scripts/hardware/acquire_google_drive_recovery.py
+          scripts/hardware/google_drive_picker_recovery.py
+          tests/test_cloud_recovery_stage.py
+          tests/test_google_drive_recovery_acquisition.py
+          tests/test_google_drive_picker_recovery.py
+      - name: Run resumable staging and Drive acquisition tests
+        run: >-
+          python -m unittest
+          tests/test_cloud_recovery_stage.py
+          tests/test_google_drive_recovery_acquisition.py
+          tests/test_google_drive_picker_recovery.py -v
+      - name: Confirm cloud source is read-only
+        shell: python
+        run: |
+          from pathlib import Path
+
+          sources = [
+              Path("scripts/hardware/stage_cloud_recovery_payload.py"),
+              Path("scripts/hardware/acquire_google_drive_recovery.py"),
+              Path("scripts/hardware/google_drive_picker_recovery.py"),
+          ]
+          source = "\n".join(path.read_text(encoding="utf-8") for path in sources)
+          forbidden = [
+              "requests.delete",
+              "files.update",
+              "files.delete",
+              "permissions.create",
+              'method="PATCH"',
+              'method="DELETE"',
+              "upload/drive",
+              "files.create",
+          ]
+          found = [token for token in forbidden if token in source]
+          if found:
+              raise SystemExit(f"cloud source mutation APIs forbidden: {found}")
+          print("CLOUD_SOURCE_READ_ONLY=pass")
