@@ -112,7 +112,9 @@ def plan_media(
     root: Path, split_size_mb: int = DEFAULT_SPLIT_SIZE_MB
 ) -> dict[str, Any]:
     if root.is_symlink():
-        raise MediaPlanError("Windows installation-media root must not be a symbolic link.")
+        raise MediaPlanError(
+            "Windows installation-media root must not be a symbolic link."
+        )
     root = root.resolve()
     if not root.is_dir():
         raise MediaPlanError(
