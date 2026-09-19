@@ -54,15 +54,85 @@ fn valid_vhdx_structure(path: &Path) -> bool {
     identifier == b"vhdxfile" && header1 == b"head" && header2 == b"head"
 }
 
+fn vhd_checksum_valid(block: &[u8], checksum_offset: usize) -> bool {
+    if checksum_offset + 4 > block.len() {
+        return false;
+    }
+    let stored = u32::from_be_bytes([
+        block[checksum_offset],
+        block[checksum_offset + 1],
+        block[checksum_offset + 2],
+        block[checksum_offset + 3],
+    ]);
+    let sum = block
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| !(*index >= checksum_offset && *index < checksum_offset + 4))
+        .fold(0_u32, |total, (_, byte)| total.wrapping_add(*byte as u32));
+    stored == !sum
+}
+
+fn be_u32(block: &[u8], offset: usize) -> Option<u32> {
+    let bytes: [u8; 4] = block.get(offset..offset + 4)?.try_into().ok()?;
+    Some(u32::from_be_bytes(bytes))
+}
+
+fn be_u64(block: &[u8], offset: usize) -> Option<u64> {
+    let bytes: [u8; 8] = block.get(offset..offset + 8)?.try_into().ok()?;
+    Some(u64::from_be_bytes(bytes))
+}
+
 fn valid_vhd_structure(path: &Path) -> bool {
     let Ok(meta) = path.metadata() else { return false; };
     if meta.len() < VHD_FOOTER_SIZE {
         return false;
     }
-    let Ok(footer) = read_exact_at(path, meta.len() - VHD_FOOTER_SIZE, 8) else {
+    let Ok(footer) = read_exact_at(
+        path,
+        meta.len() - VHD_FOOTER_SIZE,
+        VHD_FOOTER_SIZE as usize,
+    ) else {
         return false;
     };
-    footer == b"conectix"
+    if !footer.starts_with(b"conectix") || !vhd_checksum_valid(&footer, 64) {
+        return false;
+    }
+    if be_u32(&footer, 12) != Some(0x0001_0000) || be_u64(&footer, 48).unwrap_or(0) == 0 {
+        return false;
+    }
+
+    match be_u32(&footer, 60) {
+        Some(2) => true,
+        Some(3 | 4) => {
+            let Some(header_offset) = be_u64(&footer, 16) else {
+                return false;
+            };
+            if header_offset == u64::MAX
+                || header_offset
+                    .checked_add(1024)
+                    .is_none_or(|end| end > meta.len())
+            {
+                return false;
+            }
+            let Ok(header) = read_exact_at(path, header_offset, 1024) else {
+                return false;
+            };
+            if !header.starts_with(b"cxsparse") || !vhd_checksum_valid(&header, 36) {
+                return false;
+            }
+            let table_offset = be_u64(&header, 16).unwrap_or(0);
+            let header_version = be_u32(&header, 24);
+            let max_table_entries = be_u32(&header, 28).unwrap_or(0);
+            let block_size = be_u32(&header, 32).unwrap_or(0);
+            header_version == Some(0x0001_0000)
+                && table_offset >= header_offset + 1024
+                && table_offset < meta.len()
+                && max_table_entries > 0
+                && block_size >= 512
+                && block_size.is_power_of_two()
+        }
+        _ => false,
+    }
 }
 
 fn valid_iso_structure(path: &Path) -> bool {
@@ -205,7 +275,7 @@ pub fn build_guarded_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsReco
 
 #[cfg(test)]
 mod tests {
-    use super::{build_guarded_recovery_plan, harden_analysis};
+    use super::{build_guarded_recovery_plan, harden_analysis, valid_vhd_structure};
     use crate::windows_recovery::analyze_backup_path;
     use std::fs;
 
@@ -261,6 +331,74 @@ mod tests {
         assert!(!hardened.restore_candidate);
         assert_eq!(hardened.kind, "windows_system_image_payload_unverified");
         fs::remove_dir_all(parent).unwrap();
+    }
+
+    fn write_dynamic_vhd(path: &std::path::Path, corrupt_footer: bool, corrupt_header: bool) {
+        let mut image = vec![0_u8; 4096];
+        let mut header = vec![0_u8; 1024];
+        header[0..8].copy_from_slice(b"cxsparse");
+        header[8..16].copy_from_slice(&u64::MAX.to_be_bytes());
+        header[16..24].copy_from_slice(&1536_u64.to_be_bytes());
+        header[24..28].copy_from_slice(&0x0001_0000_u32.to_be_bytes());
+        header[28..32].copy_from_slice(&1_u32.to_be_bytes());
+        header[32..36].copy_from_slice(&(2_u32 * 1024 * 1024).to_be_bytes());
+        let header_sum = header
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| !(*index >= 36 && *index < 40))
+            .fold(0_u32, |total, (_, byte)| total.wrapping_add(*byte as u32));
+        header[36..40].copy_from_slice(&(!header_sum).to_be_bytes());
+        if corrupt_header {
+            header[40] ^= 0x01;
+        }
+        image[512..1536].copy_from_slice(&header);
+
+        let mut footer = vec![0_u8; 512];
+        footer[0..8].copy_from_slice(b"conectix");
+        footer[8..12].copy_from_slice(&2_u32.to_be_bytes());
+        footer[12..16].copy_from_slice(&0x0001_0000_u32.to_be_bytes());
+        footer[16..24].copy_from_slice(&512_u64.to_be_bytes());
+        footer[40..48].copy_from_slice(&(2_u64 * 1024 * 1024).to_be_bytes());
+        footer[48..56].copy_from_slice(&(2_u64 * 1024 * 1024).to_be_bytes());
+        footer[60..64].copy_from_slice(&3_u32.to_be_bytes());
+        let footer_sum = footer
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| !(*index >= 64 && *index < 68))
+            .fold(0_u32, |total, (_, byte)| total.wrapping_add(*byte as u32));
+        footer[64..68].copy_from_slice(&(!footer_sum).to_be_bytes());
+        if corrupt_footer {
+            footer[68] ^= 0x01;
+        }
+        image[3584..4096].copy_from_slice(&footer);
+        fs::write(path, image).unwrap();
+    }
+
+    #[test]
+    fn validates_dynamic_vhd_footer_and_sparse_header_checksums() {
+        let root = temp_case("valid-dynamic-vhd");
+        let source = root.join("valid.vhd");
+        write_dynamic_vhd(&source, false, false);
+        assert!(valid_vhd_structure(&source));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn blocks_vhd_with_corrupt_footer_checksum() {
+        let root = temp_case("bad-vhd-footer");
+        let source = root.join("bad-footer.vhd");
+        write_dynamic_vhd(&source, true, false);
+        assert!(!valid_vhd_structure(&source));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn blocks_vhd_with_corrupt_dynamic_header_checksum() {
+        let root = temp_case("bad-vhd-header");
+        let source = root.join("bad-header.vhd");
+        write_dynamic_vhd(&source, false, true);
+        assert!(!valid_vhd_structure(&source));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
