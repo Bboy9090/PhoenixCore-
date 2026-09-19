@@ -8,6 +8,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import secrets
 import urllib.error
 import urllib.parse
@@ -150,9 +151,10 @@ def exchange_code(
 
 
 def safe_local_name(provider_name: str, file_id: str) -> str:
-    cleaned = provider_name.replace("/", "_").replace("\\", "_").strip(" .")
+    cleaned = re.sub(r'[<>:"/\\\\|?*\\x00-\\x1f]', "_", provider_name).strip(" .")
     if not cleaned:
         cleaned = "google-drive-recovery.bin"
+    cleaned = cleaned[:180].rstrip(" .")
     return f"{file_id[:12]}-{cleaned}"
 
 
