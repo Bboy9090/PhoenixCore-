@@ -20,7 +20,10 @@ use recovery_center::{analyze_windows_recovery_source, plan_windows_recovery_sou
 use serde::Serialize;
 use serde_json::{json, Value};
 use source_identity::capture_source_identity;
-use target_safety::{assess_recovery_target, RecoveryTargetSafety};
+use target_safety::{
+    assess_recovery_target, verify_recovery_target_identity,
+    RecoveryTargetIdentityVerification, RecoveryTargetSafety,
+};
 use std::{
     ffi::OsStr,
     fs,
@@ -956,6 +959,38 @@ fn inspect_bootcamp_driver_package(
 }
 
 #[tauri::command]
+fn verify_windows_recovery_target_identity(
+    target_drive: String,
+    expected_snapshot_identity_sha256: String,
+    expected_stable_identity_sha256: String,
+) -> Result<RecoveryTargetIdentityVerification, String> {
+    if !cfg!(windows) {
+        return Err("Windows target identity verification requires Windows.".to_string());
+    }
+
+    let resolution = resolve_target(target_drive.trim())?;
+    if !resolution.is_windows_physical_drive() {
+        return Err("recovery target must be an exact Windows PHYSICALDRIVE path".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let evidence = capture_write_evidence(
+            &directory,
+            &resolution.canonical_path,
+            "phoenix-key-target-revalidation-evidence.json",
+        )?;
+        Ok(verify_recovery_target_identity(
+            &evidence,
+            &expected_snapshot_identity_sha256,
+            &expected_stable_identity_sha256,
+        ))
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn inspect_recovery_target_safety(
     target_drive: String,
     source_path: String,
@@ -1200,6 +1235,7 @@ fn main() {
             assess_windows_restore_readiness,
             inspect_bootcamp_driver_package,
             inspect_recovery_target_safety,
+            verify_windows_recovery_target_identity,
             assess_intel_mac_restore_readiness,
             google_drive_picker_status,
             google_drive_acquisition_status,
