@@ -94,7 +94,9 @@ class GoogleDriveAcquisitionTests(unittest.TestCase):
             self.assertTrue(result["provider_md5_verified"])
             self.assertTrue(result["identity_lock_ready"])
             self.assertFalse(result["recovery_eligible"])
-            self.assertEqual(\n                hashlib.sha256(content).hexdigest(), result["observed_sha256"]\n            )
+            self.assertEqual(
+                hashlib.sha256(content).hexdigest(), result["observed_sha256"]
+            )
             self.assertEqual(content, destination.read_bytes())
             self.assertFalse(destination.with_name("backup.vhd.partial").exists())
             self.assertEqual(["GET", "GET"], [request.method for request in calls])
