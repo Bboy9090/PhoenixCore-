@@ -6,9 +6,7 @@ import unittest
 import urllib.parse
 from pathlib import Path
 
-MODULE_DIR = (
-    Path(__file__).resolve().parent.parent / "scripts" / "hardware"
-)
+MODULE_DIR = Path(__file__).resolve().parent.parent / "scripts" / "hardware"
 if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
 
@@ -91,9 +89,7 @@ class GoogleDrivePickerTests(unittest.TestCase):
 
         broad = query.replace(
             urllib.parse.quote_plus(picker.DRIVE_FILE_SCOPE),
-            urllib.parse.quote_plus(
-                "https://www.googleapis.com/auth/drive.readonly"
-            ),
+            urllib.parse.quote_plus("https://www.googleapis.com/auth/drive.readonly"),
         )
         with self.assertRaisesRegex(picker.PickerError, "scope"):
             picker.parse_picker_callback(broad, "expected")
@@ -163,7 +159,7 @@ class GoogleDrivePickerTests(unittest.TestCase):
 
     def test_local_name_neutralizes_path_separators(self):
         name = picker.safe_local_name(
-            '../Windows\\system:bad*name?.vhd', "file_1234567890"
+            "../Windows\\system:bad*name?.vhd", "file_1234567890"
         )
         for character in '<>:"/\\|?*':
             self.assertNotIn(character, name)
