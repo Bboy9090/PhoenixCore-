@@ -57,7 +57,7 @@ class WindowsBootStateTests(unittest.TestCase):
             "disk": {
                 "target": r"\\.\PHYSICALDRIVE7",
                 "identity_sha256": "a" * 64,
-                "stable_identity_sha256": "s" * 64,
+                "stable_identity_sha256": "d" * 64,
                 "size_bytes": 64000000000,
                 "partition_style": "GPT",
                 "is_boot": True,
@@ -108,7 +108,7 @@ class WindowsBootStateTests(unittest.TestCase):
             manifest["required_backup_artifacts_before_repair"],
         )
         self.assertEqual("a" * 64, manifest["target"]["identity_sha256"])
-        self.assertEqual("s" * 64, manifest["target"]["stable_identity_sha256"])
+        self.assertEqual("d" * 64, manifest["target"]["stable_identity_sha256"])
         self.assertEqual(64, len(manifest["manifest_sha256"]))
 
     def test_missing_stable_target_identity_is_rejected(self):
