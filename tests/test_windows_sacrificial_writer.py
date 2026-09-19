@@ -131,7 +131,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
                 admin=True,
                 query_disk=self._query_disk,
-                    resolve_source_disk=self._resolve_source_disk,
+                resolve_source_disk=self._resolve_source_disk,
             )
 
             self.assertEqual(image.stat().st_size, plan["byte_cap"])
