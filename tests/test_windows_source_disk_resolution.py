@@ -37,10 +37,43 @@ class WindowsSourceDiskResolutionTests(unittest.TestCase):
             drive_letter="E",
             disk_number=7,
             partition_number=2,
+            friendly_name="USB Recovery Disk",
+            serial_number="SERIAL-123",
+            unique_id="UNIQUE-123",
+            bus_type="USB",
+            size_bytes=64_000,
         )
         self.assertEqual(r"\\.\PHYSICALDRIVE7", record["physical_target"])
+        self.assertEqual("phoenix_key.windows_source_disk.v2", record["schema"])
+        self.assertTrue(record["stable_identity_available"])
+        self.assertEqual(64, len(record["stable_identity_sha256"]))
         self.assertTrue(record["resolved"])
         self.assertTrue(record["read_only"])
+
+    def test_stable_source_identity_survives_disk_number_change(self):
+        common = dict(
+            source_path=r"E:\backups\image.wim",
+            drive_letter="E",
+            partition_number=2,
+            friendly_name="USB Recovery Disk",
+            serial_number="SERIAL-123",
+            unique_id="UNIQUE-123",
+            bus_type="USB",
+            size_bytes=64_000,
+        )
+        first = windows_source_disk_resolution.normalize_source_disk_record(
+            disk_number=7,
+            **common,
+        )
+        moved = windows_source_disk_resolution.normalize_source_disk_record(
+            disk_number=9,
+            **common,
+        )
+        self.assertNotEqual(first["identity_sha256"], moved["identity_sha256"])
+        self.assertEqual(
+            first["stable_identity_sha256"],
+            moved["stable_identity_sha256"],
+        )
 
     def test_same_physical_device_is_blocked(self):
         record = windows_source_disk_resolution.normalize_source_disk_record(
