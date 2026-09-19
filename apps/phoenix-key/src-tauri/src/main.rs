@@ -278,12 +278,18 @@ fn source_commit() -> Result<&'static str, String> {
     }
 }
 
-fn expected_authorization(target: &str, identity: &str, size: u64) -> String {
+fn expected_authorization(
+    target: &str,
+    identity: &str,
+    size: u64,
+    source_sha256: &str,
+) -> String {
     format!(
-        "I AUTHORIZE COMPLETE DESTRUCTION OF {} IDENTITY {} SIZE {}",
+        "I AUTHORIZE COMPLETE DESTRUCTION OF {} IDENTITY {} SIZE {} SOURCE_SHA256 {}",
         target.to_uppercase(),
         identity,
-        size
+        size,
+        source_sha256
     )
 }
 
@@ -840,6 +846,10 @@ fn prepare_media_write(target_drive: String, image_path: String) -> Result<Value
         if image_size > size {
             return Err("source image is larger than the selected target".to_string());
         }
+        let source_identity = capture_source_identity(&image)?;
+        if !source_identity.complete {
+            return Err("source image identity is incomplete".to_string());
+        }
         Ok(json!({
             "schema": "phoenix_key.write_preparation.v1",
             "target": target,
@@ -847,7 +857,13 @@ fn prepare_media_write(target_drive: String, image_path: String) -> Result<Value
             "target_size_bytes": size,
             "image_path": image.to_string_lossy(),
             "image_size_bytes": image_size,
-            "authorization_phrase": expected_authorization(target, identity, size),
+            "image_sha256": source_identity.sha256,
+            "authorization_phrase": expected_authorization(
+                target,
+                identity,
+                size,
+                &source_identity.sha256,
+            ),
             "write_candidate": true,
             "physical_write_attempted": false,
             "bytes_written": 0
@@ -884,7 +900,16 @@ fn execute_media_write(
             "phoenix-key-write-evidence.json",
         )?;
         let (target, identity, size) = require_write_candidate(&evidence)?;
-        let required = expected_authorization(target, identity, size);
+        let source_identity = capture_source_identity(&image)?;
+        if !source_identity.complete {
+            return Err("source image identity is incomplete".to_string());
+        }
+        let required = expected_authorization(
+            target,
+            identity,
+            size,
+            &source_identity.sha256,
+        );
         if authorization != required {
             return Err("authorization phrase does not match the freshly scanned target".to_string());
         }
@@ -1089,8 +1114,16 @@ mod tests {
     #[test]
     fn authorization_binds_target_identity_and_capacity() {
         assert_eq!(
-            expected_authorization(r"\\.\physicaldrive7", "abc123", 4096),
-            r"I AUTHORIZE COMPLETE DESTRUCTION OF \\.\PHYSICALDRIVE7 IDENTITY abc123 SIZE 4096"
+            expected_authorization(
+                r"\\.\physicaldrive7",
+                "abc123",
+                4096,
+                &"d".repeat(64),
+            ),
+            format!(
+                r"I AUTHORIZE COMPLETE DESTRUCTION OF \\.\PHYSICALDRIVE7 IDENTITY abc123 SIZE 4096 SOURCE_SHA256 {}",
+                "d".repeat(64)
+            )
         );
     }
 
