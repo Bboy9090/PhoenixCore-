@@ -143,6 +143,18 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
     }
     record["identity_sha256"] = sha256_payload(identity_material)
 
+    stable_identity_material = {
+        "serial_number": record["serial_number"],
+        "unique_id": record["unique_id"],
+        "bus_type": record["bus_type"],
+        "size_bytes": record["size_bytes"],
+    }
+    record["stable_identity_sha256"] = (
+        sha256_payload(stable_identity_material)
+        if (record["serial_number"] or record["unique_id"])
+        else None
+    )
+
     block_reasons = []
     if record["is_boot"]:
         block_reasons.append("target-is-boot-disk")
