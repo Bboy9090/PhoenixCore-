@@ -153,10 +153,17 @@ def load_drive_evidence(path: Path) -> dict[str, Any]:
     return receipt
 
 
-def expected_authorization(target: str, identity_sha256: str, size_bytes: int) -> str:
+def expected_authorization(
+    target: str,
+    identity_sha256: str,
+    size_bytes: int,
+    source_sha256: str,
+) -> str:
+    if not re.fullmatch(r"[0-9a-f]{64}", source_sha256):
+        raise WriteGateError("Source SHA-256 is missing or invalid.")
     return (
         f"I AUTHORIZE COMPLETE DESTRUCTION OF {target.upper()} "
-        f"IDENTITY {identity_sha256} SIZE {size_bytes}"
+        f"IDENTITY {identity_sha256} SIZE {size_bytes} SOURCE_SHA256 {source_sha256}"
     )
 
 
@@ -227,6 +234,7 @@ def validate_write_request(
     if image_size > int(disk["size_bytes"]):
         raise WriteGateError("Source image is larger than the target drive.")
 
+    image_hash = file_sha256(image_path)
     source_disk = resolve_source_disk(str(image_path.resolve()))
     collision = compare_source_and_target(source_disk, target)
     if collision.get("blocked") is True:
@@ -240,6 +248,7 @@ def validate_write_request(
         target,
         str(disk["identity_sha256"]),
         int(disk["size_bytes"]),
+        image_hash,
     )
     if authorization != required_authorization:
         raise WriteGateError("Sacrificial-drive authorization phrase does not match.")
@@ -252,7 +261,6 @@ def validate_write_request(
         raise WriteGateError("Physical write requires an elevated Windows process.")
 
     fresh = verify_live_identity(evidence=evidence, query_disk=query_disk)
-    image_hash = file_sha256(image_path)
     return {
         "target": target,
         "identity_sha256": fresh["identity_sha256"],
@@ -266,6 +274,42 @@ def validate_write_request(
         "source_commit": source_commit,
         "authorization": required_authorization,
         "fresh_scan": fresh,
+    }
+
+
+def revalidate_source_before_raw_open(
+    *,
+    plan: dict[str, Any],
+    image_path: Path,
+    resolve_source_disk: Callable[[str], dict[str, Any]] = query_source_disk,
+) -> dict[str, Any]:
+    expected_size = int(plan["image_size_bytes"])
+    observed_size = image_path.stat().st_size
+    if observed_size != expected_size:
+        raise WriteGateError("Source image size changed after authorization.")
+
+    expected_sha256 = str(plan["image_sha256"])
+    observed_sha256 = file_sha256(image_path)
+    if observed_sha256 != expected_sha256:
+        raise WriteGateError("Source image SHA-256 changed after authorization.")
+
+    source_disk = resolve_source_disk(str(image_path.resolve()))
+    expected_source_target = str(plan["source_physical_target"])
+    observed_source_target = str(source_disk.get("physical_target") or "")
+    if observed_source_target.casefold() != expected_source_target.casefold():
+        raise WriteGateError("Source image physical device changed after authorization.")
+
+    collision = compare_source_and_target(source_disk, str(plan["target"]))
+    if collision.get("source_target_distinct") is not True:
+        raise WriteGateError(
+            "Source/target physical-device distinction failed immediately before write."
+        )
+
+    return {
+        "source_sha256": observed_sha256,
+        "source_size_bytes": observed_size,
+        "source_physical_target": observed_source_target,
+        "source_target_distinct": True,
     }
 
 
@@ -580,6 +624,12 @@ def main() -> int:
         source_commit=args.source_commit,
         execute=args.execute,
     )
+
+    plan["prewrite_source_recheck"] = revalidate_source_before_raw_open(
+        plan=plan,
+        image_path=args.image,
+    )
+    plan["prewrite_target_recheck"] = verify_live_identity(evidence=evidence)
 
     started_at = utc_now_iso()
     try:
