@@ -7,9 +7,11 @@ pub struct RecoveryTargetSafety {
     pub safe_to_prepare: bool,
     pub target: Option<String>,
     pub target_identity_sha256: Option<String>,
+    pub target_stable_identity_sha256: Option<String>,
     pub target_size_bytes: Option<u64>,
     pub source_size_bytes: u64,
     pub source_physical_target: Option<String>,
+    pub source_physical_identity_sha256: Option<String>,
     pub source_target_distinct: Option<bool>,
     pub block_reasons: Vec<String>,
 }
@@ -24,6 +26,7 @@ pub fn assess_recovery_target(
     evidence: &Value,
     source_size_bytes: u64,
     source_physical_target: Option<&str>,
+    source_physical_identity_sha256: Option<&str>,
 ) -> RecoveryTargetSafety {
     let disk = evidence.get("disk").unwrap_or(&Value::Null);
     let target = disk.get("target").and_then(Value::as_str).map(str::to_string);
@@ -31,6 +34,11 @@ pub fn assess_recovery_target(
         .get("identity_sha256")
         .and_then(Value::as_str)
         .map(str::to_string);
+    let stable_identity = disk
+        .get("stable_identity_sha256")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let source_stable_identity = source_physical_identity_sha256.map(str::to_string);
     let target_size = disk.get("size_bytes").and_then(Value::as_u64);
     let mut block_reasons = Vec::new();
 
@@ -54,7 +62,17 @@ pub fn assess_recovery_target(
 
     match identity.as_deref() {
         Some(value) if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) => {}
+        _ => push_reason(&mut block_reasons, "target-snapshot-identity-missing-or-invalid"),
+    }
+
+    match stable_identity.as_deref() {
+        Some(value) if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) => {}
         _ => push_reason(&mut block_reasons, "stable-target-identity-missing-or-invalid"),
+    }
+
+    match source_stable_identity.as_deref() {
+        Some(value) if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) => {}
+        _ => push_reason(&mut block_reasons, "stable-source-identity-missing-or-invalid"),
     }
 
     match target_size {
@@ -65,7 +83,22 @@ pub fn assess_recovery_target(
 
     let source_target_distinct = match (source_physical_target, target.as_deref()) {
         (Some(source), Some(target)) => {
-            let distinct = !source.eq_ignore_ascii_case(target);
+            let path_distinct = !source.eq_ignore_ascii_case(target);
+            let stable_identity_distinct = match (
+                source_stable_identity.as_deref(),
+                stable_identity.as_deref(),
+            ) {
+                (Some(source_identity), Some(target_identity))
+                    if source_identity.len() == 64
+                        && target_identity.len() == 64
+                        && source_identity.bytes().all(|byte| byte.is_ascii_hexdigit())
+                        && target_identity.bytes().all(|byte| byte.is_ascii_hexdigit()) =>
+                {
+                    !source_identity.eq_ignore_ascii_case(target_identity)
+                }
+                _ => false,
+            };
+            let distinct = path_distinct && stable_identity_distinct;
             if !distinct {
                 push_reason(&mut block_reasons, "source-and-target-same-physical-device");
             }
@@ -86,9 +119,11 @@ pub fn assess_recovery_target(
         safe_to_prepare: block_reasons.is_empty(),
         target,
         target_identity_sha256: identity,
+        target_stable_identity_sha256: stable_identity,
         target_size_bytes: target_size,
         source_size_bytes,
         source_physical_target: source_physical_target.map(str::to_string),
+        source_physical_identity_sha256: source_stable_identity,
         source_target_distinct,
         block_reasons,
     }
