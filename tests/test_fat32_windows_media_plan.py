@@ -37,6 +37,13 @@ def make_tree(root: Path) -> Path:
 
 
 class Fat32WindowsMediaPlanTests(unittest.TestCase):
+    def setUp(self):
+        self.real_fat32_max = media.FAT32_MAX_FILE_BYTES
+        media.FAT32_MAX_FILE_BYTES = 1023
+
+    def tearDown(self):
+        media.FAT32_MAX_FILE_BYTES = self.real_fat32_max
+
     def test_small_wim_media_is_ready_without_mutation(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
