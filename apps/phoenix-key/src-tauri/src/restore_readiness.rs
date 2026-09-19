@@ -15,6 +15,7 @@ pub struct RestoreReadiness {
     pub target_architecture: Option<String>,
     pub source_identity_sha256: Option<String>,
     pub target_identity_sha256: Option<String>,
+    pub target_stable_identity_sha256: Option<String>,
     pub system_mutations_performed: bool,
 }
 
@@ -163,6 +164,9 @@ pub fn assess_restore_readiness(
     let target_identity = target_safety
         .get("target_identity_sha256")
         .and_then(Value::as_str);
+    let target_stable_identity = target_safety
+        .get("target_stable_identity_sha256")
+        .and_then(Value::as_str);
     let target_size = target_safety
         .get("target_size_bytes")
         .and_then(Value::as_u64);
@@ -176,6 +180,7 @@ pub fn assess_restore_readiness(
                 .and_then(Value::as_bool)
                 == Some(true)
             && is_sha256(target_identity)
+            && is_sha256(target_stable_identity)
             && source_size.is_some()
             && target_safety
                 .get("source_size_bytes")
@@ -216,6 +221,12 @@ pub fn assess_restore_readiness(
                 rollback_bundle
                     .get("target_identity_sha256")
                     .and_then(Value::as_str),
+            )
+            && same_sha256(
+                target_stable_identity,
+                rollback_bundle
+                    .get("target_stable_identity_sha256")
+                    .and_then(Value::as_str),
             ),
         "rollback_bundle_bound_to_source_and_target",
         &mut satisfied,
@@ -245,6 +256,7 @@ pub fn assess_restore_readiness(
         target_architecture,
         source_identity_sha256: source_identity.map(str::to_string),
         target_identity_sha256: target_identity.map(str::to_string),
+        target_stable_identity_sha256: target_stable_identity.map(str::to_string),
         system_mutations_performed: false,
     }
 }
