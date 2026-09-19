@@ -100,6 +100,8 @@ def get_file_metadata(
     *,
     token: str,
     opener: UrlOpen = urllib.request.urlopen,
+    progress_file: Path | None = None,
+    cancel_file: Path | None = None,
 ) -> dict[str, Any]:
     file_id = require_file_id(file_id)
     fields = (
@@ -205,6 +207,75 @@ def validate_download_metadata(metadata: dict[str, Any]) -> tuple[str, int, str 
     return name, size, md5
 
 
+def write_download_progress(
+    progress_file: Path | None,
+    *,
+    phase: str,
+    downloaded_size: int,
+    provider_size: int,
+    resume_offset: int,
+) -> None:
+    if progress_file is None:
+        return
+    progress_file.parent.mkdir(parents=True, exist_ok=True)
+    percent = min(100.0, (downloaded_size * 100.0) / provider_size)
+    payload = {
+        "schema": "phoenix_key.google_drive_progress.v1",
+        "phase": phase,
+        "downloaded_size_bytes": downloaded_size,
+        "provider_size_bytes": provider_size,
+        "resume_offset_bytes": resume_offset,
+        "percent": round(percent, 2),
+        "read_only": True,
+        "cloud_original_modified": False,
+    }
+    temporary = progress_file.with_name(progress_file.name + ".tmp")
+    temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    os.replace(temporary, progress_file)
+
+
+def cancel_requested(cancel_file: Path | None) -> bool:
+    return cancel_file is not None and cancel_file.exists()
+
+
+def cancelled_download_receipt(
+    *,
+    file_id: str,
+    name: str,
+    provider_size: int,
+    resume_offset: int,
+    partial: Path,
+    progress_file: Path | None,
+) -> dict[str, Any]:
+    observed_size = partial.stat().st_size if partial.exists() else 0
+    write_download_progress(
+        progress_file,
+        phase="cancelled",
+        downloaded_size=observed_size,
+        provider_size=provider_size,
+        resume_offset=resume_offset,
+    )
+    return {
+        "schema": SCHEMA,
+        "operation": "download",
+        "provider": "google-drive",
+        "provider_file_id": file_id,
+        "provider_name": name,
+        "provider_size_bytes": provider_size,
+        "resume_offset_bytes": resume_offset,
+        "downloaded_size_bytes": observed_size,
+        "complete": False,
+        "cancelled": True,
+        "staged_path": None,
+        "partial_path": str(partial) if partial.exists() else None,
+        "read_only": True,
+        "cloud_original_modified": False,
+        "identity_lock_ready": False,
+        "recovery_eligible": False,
+        "block_reasons": ["download_cancelled"],
+    }
+
+
 def download_file(
     file_id: str,
     destination: Path,
@@ -229,6 +300,24 @@ def download_file(
             "Drive download partial exceeds provider file size."
         )
 
+    write_download_progress(
+        progress_file,
+        phase="ready",
+        downloaded_size=resume_offset,
+        provider_size=provider_size,
+        resume_offset=resume_offset,
+    )
+    if cancel_requested(cancel_file):
+        return cancelled_download_receipt(
+            file_id=file_id,
+            name=name,
+            provider_size=provider_size,
+            resume_offset=resume_offset,
+            partial=partial,
+            progress_file=progress_file,
+        )
+
+    cancelled = False
     if resume_offset < provider_size:
         params = {"alt": "media", "supportsAllDrives": "true"}
         request = urllib.request.Request(
@@ -258,10 +347,20 @@ def download_file(
                     mode = "wb"
                 with partial.open(mode) as stream:
                     while True:
+                        if cancel_requested(cancel_file):
+                            cancelled = True
+                            break
                         chunk = response.read(CHUNK_SIZE)
                         if not chunk:
                             break
                         stream.write(chunk)
+                        write_download_progress(
+                            progress_file,
+                            phase="downloading",
+                            downloaded_size=stream.tell(),
+                            provider_size=provider_size,
+                            resume_offset=resume_offset,
+                        )
                     stream.flush()
                     os.fsync(stream.fileno())
         except urllib.error.HTTPError as exc:
@@ -273,8 +372,25 @@ def download_file(
                 "Google Drive download was interrupted."
             ) from exc
 
+    if cancelled:
+        return cancelled_download_receipt(
+            file_id=file_id,
+            name=name,
+            provider_size=provider_size,
+            resume_offset=resume_offset,
+            partial=partial,
+            progress_file=progress_file,
+        )
+
     observed_size = partial.stat().st_size if partial.exists() else 0
     if observed_size != provider_size:
+        write_download_progress(
+            progress_file,
+            phase="incomplete",
+            downloaded_size=observed_size,
+            provider_size=provider_size,
+            resume_offset=resume_offset,
+        )
         return {
             "schema": SCHEMA,
             "operation": "download",
@@ -300,6 +416,13 @@ def download_file(
         )
 
     os.replace(partial, destination)
+    write_download_progress(
+        progress_file,
+        phase="complete",
+        downloaded_size=provider_size,
+        provider_size=provider_size,
+        resume_offset=resume_offset,
+    )
     return {
         "schema": SCHEMA,
         "operation": "download",

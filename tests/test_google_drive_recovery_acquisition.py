@@ -182,6 +182,75 @@ class GoogleDriveAcquisitionTests(unittest.TestCase):
                 }
             )
 
+    def test_cancel_preserves_partial_and_emits_progress(self):
+        content = b"0123456789"
+
+        def opener(request):
+            if "alt=media" in request.full_url:
+                self.fail("cancelled acquisition must not start media transfer")
+            metadata = {
+                "id": "file_123",
+                "name": "backup.vhd",
+                "mimeType": "application/octet-stream",
+                "size": str(len(content)),
+                "capabilities": {"canDownload": True},
+            }
+            return FakeResponse(json.dumps(metadata).encode())
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            destination = Path(tmpdir) / "backup.vhd"
+            partial = destination.with_name("backup.vhd.partial")
+            progress = Path(tmpdir) / "progress.json"
+            cancel = Path(tmpdir) / "cancel"
+            partial.write_bytes(content[:4])
+            cancel.write_text("cancel", encoding="utf-8")
+            result = drive.download_file(
+                "file_123",
+                destination,
+                token="secret",
+                opener=opener,
+                progress_file=progress,
+                cancel_file=cancel,
+            )
+            self.assertTrue(result["cancelled"])
+            self.assertFalse(result["complete"])
+            self.assertEqual(content[:4], partial.read_bytes())
+            self.assertEqual(4, result["downloaded_size_bytes"])
+            progress_payload = json.loads(progress.read_text(encoding="utf-8"))
+            self.assertEqual("cancelled", progress_payload["phase"])
+            self.assertFalse(progress_payload["cloud_original_modified"])
+
+    def test_complete_download_emits_terminal_progress(self):
+        content = b"conectix" + (b"x" * 32)
+
+        def opener(request):
+            if "alt=media" in request.full_url:
+                return FakeResponse(content, status=200)
+            metadata = {
+                "id": "file_123",
+                "name": "backup.vhd",
+                "mimeType": "application/octet-stream",
+                "size": str(len(content)),
+                "md5Checksum": hashlib.md5(content).hexdigest(),
+                "capabilities": {"canDownload": True},
+            }
+            return FakeResponse(json.dumps(metadata).encode())
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            destination = Path(tmpdir) / "backup.vhd"
+            progress = Path(tmpdir) / "progress.json"
+            result = drive.download_file(
+                "file_123",
+                destination,
+                token="secret",
+                opener=opener,
+                progress_file=progress,
+            )
+            self.assertTrue(result["complete"])
+            payload = json.loads(progress.read_text(encoding="utf-8"))
+            self.assertEqual("complete", payload["phase"])
+            self.assertEqual(100.0, payload["percent"])
+
     def test_malformed_file_id_is_rejected_before_network(self):
         with self.assertRaises(drive.DriveAcquisitionError):
             drive.require_file_id("../../secret")

@@ -146,6 +146,13 @@ class GoogleDrivePickerTests(unittest.TestCase):
                 opener=opener,
             )
 
+    def test_picker_forwards_progress_and_cancel_paths(self):
+        source = Path(picker.__file__).read_text(encoding="utf-8")
+        self.assertIn("progress_file=progress_file", source)
+        self.assertIn("cancel_file=cancel_file", source)
+        self.assertIn('"--progress-file"', source)
+        self.assertIn('"--cancel-file"', source)
+
     def test_local_name_neutralizes_path_separators(self):
         name = picker.safe_local_name(
             '../Windows\\system:bad*name?.vhd', "file_1234567890"

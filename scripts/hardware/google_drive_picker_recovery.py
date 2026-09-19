@@ -188,6 +188,8 @@ def picker_download(
     client_id: str,
     browser_open: Callable[..., bool] = webbrowser.open,
     opener: UrlOpen = urllib.request.urlopen,
+    progress_file: Path | None = None,
+    cancel_file: Path | None = None,
 ) -> dict[str, Any]:
     destination_dir = destination_dir.resolve()
     destination_dir.mkdir(parents=True, exist_ok=True)
@@ -231,7 +233,12 @@ def picker_download(
     if destination.exists():
         raise PickerError("Selected Drive payload already exists at the destination.")
     receipt = drive.download_file(
-        callback["file_id"], destination, token=token, opener=opener
+        callback["file_id"],
+        destination,
+        token=token,
+        opener=opener,
+        progress_file=progress_file,
+        cancel_file=cancel_file,
     )
     receipt.update(
         {
@@ -248,6 +255,8 @@ def picker_download(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--destination-dir", type=Path, required=True)
+    parser.add_argument("--progress-file", type=Path)
+    parser.add_argument("--cancel-file", type=Path)
     return parser.parse_args()
 
 
@@ -256,6 +265,8 @@ def main() -> int:
     result = picker_download(
         args.destination_dir,
         client_id=require_client_id(),
+        progress_file=args.progress_file,
+        cancel_file=args.cancel_file,
     )
     print(json.dumps(result, sort_keys=True))
     return 0
