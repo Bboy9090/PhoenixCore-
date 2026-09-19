@@ -5,18 +5,18 @@ on:
     branches: ["main"]
     paths:
       - "scripts/hardware/stage_cloud_recovery_payload.py"
-      - "scripts/hardware/acquire_google_drive_recovery.py"
+      - "scripts/hardware/acquire_google_drive_recovery.py"\n      - "scripts/hardware/google_drive_picker_recovery.py"
       - "tests/test_cloud_recovery_stage.py"
-      - "tests/test_google_drive_recovery_acquisition.py"
+      - "tests/test_google_drive_recovery_acquisition.py"\n      - "tests/test_google_drive_picker_recovery.py"
       - ".github/workflows/cloud-recovery-staging.yml"
   push:
     branches:
       - "convergence/windows-recovery-forge-macos-v2"
     paths:
       - "scripts/hardware/stage_cloud_recovery_payload.py"
-      - "scripts/hardware/acquire_google_drive_recovery.py"
+      - "scripts/hardware/acquire_google_drive_recovery.py"\n      - "scripts/hardware/google_drive_picker_recovery.py"
       - "tests/test_cloud_recovery_stage.py"
-      - "tests/test_google_drive_recovery_acquisition.py"
+      - "tests/test_google_drive_recovery_acquisition.py"\n      - "tests/test_google_drive_picker_recovery.py"
       - ".github/workflows/cloud-recovery-staging.yml"
 
 permissions:
@@ -41,8 +41,10 @@ jobs:
           black --check --diff
           scripts/hardware/stage_cloud_recovery_payload.py
           scripts/hardware/acquire_google_drive_recovery.py
+          scripts/hardware/google_drive_picker_recovery.py
           tests/test_cloud_recovery_stage.py
           tests/test_google_drive_recovery_acquisition.py
+          tests/test_google_drive_picker_recovery.py
       - name: Compile
         run: >-
           python -m compileall -q
@@ -54,7 +56,8 @@ jobs:
         run: >-
           python -m unittest
           tests/test_cloud_recovery_stage.py
-          tests/test_google_drive_recovery_acquisition.py -v
+          tests/test_google_drive_recovery_acquisition.py
+          tests/test_google_drive_picker_recovery.py -v
       - name: Confirm cloud source is read-only
         shell: python
         run: |
@@ -63,6 +66,7 @@ jobs:
           sources = [
               Path("scripts/hardware/stage_cloud_recovery_payload.py"),
               Path("scripts/hardware/acquire_google_drive_recovery.py"),
+              Path("scripts/hardware/google_drive_picker_recovery.py"),
           ]
           source = "\n".join(path.read_text(encoding="utf-8") for path in sources)
           forbidden = [
