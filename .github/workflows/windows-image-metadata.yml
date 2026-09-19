@@ -1,5 +1,9 @@
 name: Windows Image Metadata
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     branches: ["main"]
