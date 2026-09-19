@@ -58,10 +58,12 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
             source_commit="a" * 40,
             captured_at="2026-07-24T02:00:00Z",
         )
-        self.authorization = writer.expected_authorization(
+    def _authorization_for(self, image):
+        return writer.expected_authorization(
             self.target,
             self.evidence["disk"]["identity_sha256"],
             self.evidence["disk"]["size_bytes"],
+            writer.file_sha256(image),
         )
 
     def _write_receipt(self, directory: str, receipt=None) -> Path:
@@ -125,7 +127,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 evidence=self.evidence,
                 image_path=image,
                 target=self.target,
-                authorization=self.authorization,
+                authorization=self._authorization_for(image),
                 source_commit="c" * 40,
                 execute=True,
                 environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
@@ -151,7 +153,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     evidence=self.evidence,
                     image_path=image,
                     target=self.target,
-                    authorization=self.authorization,
+                    authorization=self._authorization_for(image),
                     source_commit="d" * 40,
                     execute=True,
                     environment={},
@@ -182,7 +184,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 )
             with self.assertRaisesRegex(writer.WriteGateError, "--execute"):
                 writer.validate_write_request(
-                    authorization=self.authorization,
+                    authorization=self._authorization_for(image),
                     execute=False,
                     **common,
                 )
@@ -202,7 +204,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     evidence=self.evidence,
                     image_path=image,
                     target=self.target,
-                    authorization=self.authorization,
+                    authorization=self._authorization_for(image),
                     source_commit="9" * 40,
                     execute=True,
                     environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
@@ -225,13 +227,67 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     evidence=self.evidence,
                     image_path=image,
                     target=self.target,
-                    authorization=self.authorization,
+                    authorization=self._authorization_for(image),
                     source_commit="f" * 40,
                     execute=True,
                     environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
                     admin=True,
                     query_disk=drifted_query,
                     resolve_source_disk=self._resolve_source_disk,
+                )
+
+    def test_prewrite_recheck_rejects_source_byte_mutation(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"original-source")
+            plan = writer.validate_write_request(
+                evidence=self.evidence,
+                image_path=image,
+                target=self.target,
+                authorization=self._authorization_for(image),
+                source_commit="7" * 40,
+                execute=True,
+                environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                admin=True,
+                query_disk=self._query_disk,
+                resolve_source_disk=self._resolve_source_disk,
+            )
+            image.write_bytes(b"mutated-source!")
+            with self.assertRaisesRegex(writer.WriteGateError, "SHA-256 changed"):
+                writer.revalidate_source_before_raw_open(
+                    plan=plan,
+                    image_path=image,
+                    resolve_source_disk=self._resolve_source_disk,
+                )
+
+    def test_prewrite_recheck_rejects_source_device_change(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"stable-source")
+            plan = writer.validate_write_request(
+                evidence=self.evidence,
+                image_path=image,
+                target=self.target,
+                authorization=self._authorization_for(image),
+                source_commit="8" * 40,
+                execute=True,
+                environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                admin=True,
+                query_disk=self._query_disk,
+                resolve_source_disk=self._resolve_source_disk,
+            )
+
+            def moved_source(source_path):
+                record = self._resolve_source_disk(source_path)
+                record["disk_number"] = 3
+                record["physical_target"] = r"\\.\PHYSICALDRIVE3"
+                return record
+
+            with self.assertRaisesRegex(writer.WriteGateError, "physical device changed"):
+                writer.revalidate_source_before_raw_open(
+                    plan=plan,
+                    image_path=image,
+                    resolve_source_disk=moved_source,
                 )
 
     def test_file_backed_write_and_full_readback_pass(self):
