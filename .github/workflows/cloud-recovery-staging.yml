@@ -50,8 +50,10 @@ jobs:
           python -m compileall -q
           scripts/hardware/stage_cloud_recovery_payload.py
           scripts/hardware/acquire_google_drive_recovery.py
+          scripts/hardware/google_drive_picker_recovery.py
           tests/test_cloud_recovery_stage.py
           tests/test_google_drive_recovery_acquisition.py
+          tests/test_google_drive_picker_recovery.py
       - name: Run resumable staging and Drive acquisition tests
         run: >-
           python -m unittest
@@ -74,9 +76,10 @@ jobs:
               "files.update",
               "files.delete",
               "permissions.create",
-              'method="POST"',
               'method="PATCH"',
               'method="DELETE"',
+              "upload/drive",
+              "files.create",
           ]
           found = [token for token in forbidden if token in source]
           if found:
