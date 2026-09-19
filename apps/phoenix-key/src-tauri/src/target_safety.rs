@@ -141,6 +141,7 @@ mod tests {
             "disk": {
                 "target": "\\\\.\\PHYSICALDRIVE7",
                 "identity_sha256": "a".repeat(64),
+                "stable_identity_sha256": "b".repeat(64),
                 "size_bytes": 64_000u64,
                 "is_boot": false,
                 "is_system": false,
@@ -156,6 +157,7 @@ mod tests {
             &safe_evidence(),
             32_000,
             Some("\\\\.\\PHYSICALDRIVE8"),
+            Some(&"c".repeat(64)),
         );
         assert!(result.safe_to_prepare);
         assert_eq!(result.source_target_distinct, Some(true));
@@ -167,8 +169,24 @@ mod tests {
             &safe_evidence(),
             32_000,
             Some("\\\\.\\physicaldrive7"),
+            Some(&"c".repeat(64)),
         );
         assert!(!result.safe_to_prepare);
+        assert!(result
+            .block_reasons
+            .contains(&"source-and-target-same-physical-device".to_string()));
+    }
+
+    #[test]
+    fn stable_identity_collision_blocks_reenumerated_same_device() {
+        let result = assess_recovery_target(
+            &safe_evidence(),
+            32_000,
+            Some("\\\\.\\PHYSICALDRIVE9"),
+            Some(&"b".repeat(64)),
+        );
+        assert!(!result.safe_to_prepare);
+        assert_eq!(result.source_target_distinct, Some(false));
         assert!(result
             .block_reasons
             .contains(&"source-and-target-same-physical-device".to_string()));
@@ -180,6 +198,7 @@ mod tests {
             &safe_evidence(),
             128_000,
             Some("\\\\.\\PHYSICALDRIVE8"),
+            Some(&"c".repeat(64)),
         );
         assert!(!result.safe_to_prepare);
         assert!(result
@@ -189,7 +208,12 @@ mod tests {
 
     #[test]
     fn blocks_unproven_source_device() {
-        let result = assess_recovery_target(&safe_evidence(), 32_000, None);
+        let result = assess_recovery_target(
+            &safe_evidence(),
+            32_000,
+            None,
+            Some(&"c".repeat(64)),
+        );
         assert!(!result.safe_to_prepare);
         assert!(result
             .block_reasons
@@ -213,6 +237,7 @@ mod tests {
             &evidence,
             32_000,
             Some("\\\\.\\PHYSICALDRIVE8"),
+            Some(&"c".repeat(64)),
         );
         assert!(!result.safe_to_prepare);
         assert!(result.block_reasons.contains(&"target-is-system-disk".to_string()));
