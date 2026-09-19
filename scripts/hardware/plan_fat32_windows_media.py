@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import stat
 from pathlib import Path
 from typing import Any
 
@@ -20,10 +22,96 @@ class MediaPlanError(RuntimeError):
     """Raised when the source cannot be safely assessed as Windows install media."""
 
 
+REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+
+
+def _is_link_or_reparse(info: os.stat_result) -> bool:
+    return stat.S_ISLNK(info.st_mode) or bool(
+        getattr(info, "st_file_attributes", 0) & REPARSE_POINT_ATTRIBUTE
+    )
+
+
+def _checked_lstat(path: Path) -> os.stat_result:
+    try:
+        info = path.lstat()
+    except OSError as exc:
+        raise MediaPlanError(f"Cannot inspect media path {path}: {exc}") from exc
+    if _is_link_or_reparse(info):
+        raise MediaPlanError(
+            f"Windows installation media must not contain symbolic links, "
+            f"junctions, or reparse points: {path}"
+        )
+    return info
+
+
+def _is_directory_nofollow(path: Path) -> bool:
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    if _is_link_or_reparse(info):
+        raise MediaPlanError(
+            f"Windows installation media must not contain symbolic links, "
+            f"junctions, or reparse points: {path}"
+        )
+    return stat.S_ISDIR(info.st_mode)
+
+
+def _regular_file_info_nofollow(path: Path) -> os.stat_result | None:
+    try:
+        info = path.lstat()
+    except OSError:
+        return None
+    if _is_link_or_reparse(info):
+        raise MediaPlanError(
+            f"Windows installation media must not contain symbolic links, "
+            f"junctions, or reparse points: {path}"
+        )
+    if not stat.S_ISREG(info.st_mode):
+        return None
+    return info
+
+
+def _walk_regular_files_nofollow(root: Path):
+    stack = [root]
+    while stack:
+        directory = stack.pop()
+        try:
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    path = Path(entry.path)
+                    try:
+                        info = entry.stat(follow_symlinks=False)
+                    except OSError as exc:
+                        raise MediaPlanError(
+                            f"Cannot inspect media path {path}: {exc}"
+                        ) from exc
+                    if _is_link_or_reparse(info):
+                        raise MediaPlanError(
+                            "Windows installation media must not contain symbolic "
+                            f"links, junctions, or reparse points: {path}"
+                        )
+                    if stat.S_ISDIR(info.st_mode):
+                        stack.append(path)
+                    elif stat.S_ISREG(info.st_mode):
+                        yield path, info
+                    else:
+                        raise MediaPlanError(
+                            "Windows installation media must contain only regular "
+                            f"files and directories; unsupported entry: {path}"
+                        )
+        except MediaPlanError:
+            raise
+        except OSError as exc:
+            raise MediaPlanError(
+                f"Cannot enumerate media directory {directory}: {exc}"
+            ) from exc
+
+
 def sources_dir(root: Path) -> Path:
     for name in ("sources", "Sources"):
         candidate = root / name
-        if candidate.is_dir():
+        if _is_directory_nofollow(candidate):
             return candidate
     raise MediaPlanError("Windows installation media is missing its Sources directory.")
 
@@ -31,16 +119,22 @@ def sources_dir(root: Path) -> Path:
 def first_file(root: Path, names: tuple[str, ...]) -> Path | None:
     for name in names:
         candidate = root / name
-        if candidate.is_file():
+        if _regular_file_info_nofollow(candidate) is not None:
             return candidate
     return None
 
 
 def valid_wim_header(path: Path) -> bool:
+    info = _regular_file_info_nofollow(path)
+    if info is None or info.st_size < WIM_HEADER_SIZE:
+        return False
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        if path.stat().st_size < WIM_HEADER_SIZE:
-            return False
-        with path.open("rb") as stream:
+        fd = os.open(path, flags)
+        with os.fdopen(fd, "rb", closefd=True) as stream:
+            opened = os.fstat(stream.fileno())
+            if not stat.S_ISREG(opened.st_mode):
+                return False
             header = stream.read(WIM_HEADER_SIZE)
     except OSError:
         return False
@@ -58,16 +152,40 @@ def uefi_boot_files(root: Path) -> list[str]:
         "efi/boot/bootaa64.efi",
         "efi/boot/bootia32.efi",
     )
-    return [name for name in candidates if (root / name).is_file()]
+    return [
+        name
+        for name in candidates
+        if _regular_file_info_nofollow(root / name) is not None
+    ]
 
 
 def split_wim_segments(sources: Path) -> list[Path]:
+    segments: list[Path] = []
+    try:
+        with os.scandir(sources) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                try:
+                    info = entry.stat(follow_symlinks=False)
+                except OSError as exc:
+                    raise MediaPlanError(
+                        f"Cannot inspect media path {path}: {exc}"
+                    ) from exc
+                if _is_link_or_reparse(info):
+                    raise MediaPlanError(
+                        "Windows installation media must not contain symbolic "
+                        f"links, junctions, or reparse points: {path}"
+                    )
+                if stat.S_ISREG(info.st_mode) and SWM_NAME_RE.fullmatch(path.name):
+                    segments.append(path)
+    except MediaPlanError:
+        raise
+    except OSError as exc:
+        raise MediaPlanError(
+            f"Cannot enumerate Sources directory {sources}: {exc}"
+        ) from exc
     return sorted(
-        (
-            path
-            for path in sources.iterdir()
-            if path.is_file() and SWM_NAME_RE.fullmatch(path.name)
-        ),
+        segments,
         key=lambda path: (
             1
             if SWM_NAME_RE.fullmatch(path.name).group(1) is None
@@ -87,22 +205,12 @@ def split_sequence_is_contiguous(segments: list[Path]) -> bool:
 
 def oversized_files(root: Path) -> list[dict[str, Any]]:
     oversized: list[dict[str, Any]] = []
-    for path in root.rglob("*"):
-        if path.is_symlink():
-            raise MediaPlanError(
-                "Windows installation media must not contain symbolic links."
-            )
-        if not path.is_file():
-            continue
-        try:
-            size = path.stat().st_size
-        except OSError as exc:
-            raise MediaPlanError(f"Cannot inspect media file {path}: {exc}") from exc
-        if size > FAT32_MAX_FILE_BYTES:
+    for path, info in _walk_regular_files_nofollow(root):
+        if info.st_size > FAT32_MAX_FILE_BYTES:
             oversized.append(
                 {
                     "path": str(path.relative_to(root)),
-                    "size_bytes": size,
+                    "size_bytes": info.st_size,
                 }
             )
     return oversized
@@ -111,12 +219,13 @@ def oversized_files(root: Path) -> list[dict[str, Any]]:
 def plan_media(
     root: Path, split_size_mb: int = DEFAULT_SPLIT_SIZE_MB
 ) -> dict[str, Any]:
-    if root.is_symlink():
+    root_info = _checked_lstat(root)
+    if not stat.S_ISDIR(root_info.st_mode):
         raise MediaPlanError(
-            "Windows installation-media root must not be a symbolic link."
+            "Source must be an extracted Windows installation-media folder."
         )
     root = root.resolve()
-    if not root.is_dir():
+    if not _is_directory_nofollow(root):
         raise MediaPlanError(
             "Source must be an extracted Windows installation-media folder."
         )
@@ -151,7 +260,7 @@ def plan_media(
         image_mode = "install_wim"
         if not valid_wim_header(install_wim):
             block_reasons.append("install_wim_structure_invalid")
-        if install_wim.stat().st_size > FAT32_MAX_FILE_BYTES:
+        if _regular_file_info_nofollow(install_wim).st_size > FAT32_MAX_FILE_BYTES:
             split_required = True
             split_command = [
                 "Dism",
@@ -165,7 +274,7 @@ def plan_media(
         image_mode = "install_esd"
         if not valid_wim_header(install_esd):
             block_reasons.append("install_esd_structure_invalid")
-        if install_esd.stat().st_size > FAT32_MAX_FILE_BYTES:
+        if _regular_file_info_nofollow(install_esd).st_size > FAT32_MAX_FILE_BYTES:
             block_reasons.append("oversized_install_esd_requires_supported_conversion")
     elif segments:
         image_mode = "split_wim"
@@ -173,7 +282,11 @@ def plan_media(
         if not contiguous:
             block_reasons.append("split_wim_sequence_incomplete")
         for path in segments:
-            size = path.stat().st_size
+            segment_info = _regular_file_info_nofollow(path)
+            if segment_info is None:
+                block_reasons.append("split_wim_segment_not_regular_file")
+                continue
+            size = segment_info.st_size
             valid = valid_wim_header(path)
             segment_evidence.append(
                 {
