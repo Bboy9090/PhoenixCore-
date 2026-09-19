@@ -142,6 +142,61 @@ class Fat32WindowsMediaPlanTests(unittest.TestCase):
             result = media.plan_media(root)
             self.assertIn("uefi_boot_file_missing", result["block_reasons"])
 
+    def test_nested_symlink_directory_is_rejected_before_traversal(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir) / "media"
+            root.mkdir()
+            sources = make_tree(root)
+            write_wim(sources / "install.wim")
+            outside = Path(tmpdir) / "outside"
+            outside.mkdir()
+            (outside / "payload.bin").write_bytes(b"outside")
+            link = root / "linked-outside"
+            try:
+                link.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"symlink creation unavailable: {exc}")
+            with self.assertRaises(media.MediaPlanError) as caught:
+                media.plan_media(root)
+            self.assertRegex(
+                str(caught.exception),
+                r"symbolic links|junctions|reparse points",
+            )
+
+    def test_symlinked_media_root_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            actual = Path(tmpdir) / "actual"
+            actual.mkdir()
+            sources = make_tree(actual)
+            write_wim(sources / "install.wim")
+            link = Path(tmpdir) / "media-link"
+            try:
+                link.symlink_to(actual, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"symlink creation unavailable: {exc}")
+            with self.assertRaises(media.MediaPlanError) as caught:
+                media.plan_media(link)
+            self.assertRegex(
+                str(caught.exception),
+                r"symbolic links|junctions|reparse points",
+            )
+
+    def test_special_files_are_rejected_in_media_tree(self):
+        if not hasattr(__import__("os"), "mkfifo"):
+            self.skipTest("FIFO creation unavailable on this platform")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sources = make_tree(root)
+            write_wim(sources / "install.wim")
+            fifo = root / "unexpected.pipe"
+            try:
+                __import__("os").mkfifo(fifo)
+            except OSError as exc:
+                self.skipTest(f"FIFO creation unavailable: {exc}")
+            with self.assertRaises(media.MediaPlanError) as caught:
+                media.plan_media(root)
+            self.assertIn("regular files and directories", str(caught.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
