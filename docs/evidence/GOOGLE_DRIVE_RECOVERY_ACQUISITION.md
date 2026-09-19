@@ -59,13 +59,31 @@ The downloaded local artifact must enter the existing SHA-256 source-identity an
 
 `.github/workflows/cloud-recovery-staging.yml` now runs the acquisition tests on Ubuntu and Windows and scans the acquisition/staging source for Drive mutation calls and non-GET HTTP methods.
 
+## Explicit desktop Picker boundary
+
+The convergence branch now also includes `google_drive_picker_recovery.py` and Recovery Center integration.
+
+The desktop flow:
+- requests exactly `https://www.googleapis.com/auth/drive.file`
+- opens Google Picker in the system browser rather than an embedded webview
+- uses a random IPv4 loopback callback
+- uses PKCE S256 and a random OAuth state value
+- requires exactly one explicitly selected file ID
+- rejects callbacks that return a broader scope
+- exchanges the authorization code without a client secret
+- never returns the access token to React and never persists the token
+- neutralizes path separators, Windows-invalid characters, control characters, and excessive filename length before local staging
+- immediately captures the downloaded file's Phoenix Key SHA-256 source identity
+- requires the acquisition SHA-256 to equal the source-identity SHA-256 before setting `identity_lock_verified=true`
+- leaves `recovery_eligible=false` until the normal Recovery Center analysis/trust gates run
+
+The OAuth client ID is public application configuration, not a secret. Phoenix Key accepts a build-time `PHOENIX_KEY_GOOGLE_DRIVE_CLIENT_ID` with a runtime override for development. The Picker UI stays disabled when no valid desktop client ID is configured.
+
 ## Remaining product integration
 
-- user-facing Google OAuth authorization
-- Google Picker or equivalent explicit file/folder selection
-- narrow-scope authorization strategy for public distribution
-- handoff from acquisition receipt to local SHA-256 identity lock
-- Recovery Center UI progress/cancel/resume states
-- large-file and network-interruption evidence using sacrificial cloud fixtures
+- create/configure the production Google Cloud desktop OAuth client and consent-screen metadata
+- large-file, cancellation, timeout, and network-interruption evidence using sacrificial cloud fixtures
+- explicit progress/cancel UX for long cloud downloads
+- signed/notarized desktop release evidence using the configured production OAuth client
 
 The PR remains draft while these product-level gates are incomplete.
