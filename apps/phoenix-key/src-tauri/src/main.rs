@@ -994,11 +994,16 @@ fn inspect_recovery_target_safety(
             .pointer("/source/physical_target")
             .and_then(Value::as_str)
             .ok_or_else(|| "source physical-device proof is missing".to_string())?;
+        let source_stable_identity = source_disk
+            .pointer("/source/stable_identity_sha256")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "source stable physical-device identity is missing".to_string())?;
 
         Ok(assess_recovery_target(
             &evidence,
             source_identity.size_bytes,
             Some(source_physical_target),
+            Some(source_stable_identity),
         ))
     })();
     let _ = fs::remove_dir_all(&directory);
