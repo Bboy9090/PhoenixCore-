@@ -46,6 +46,18 @@ class UnplugAfterFirstWrite(io.BytesIO):
         return super().write(data)
 
 
+class EnospcAfterFirstWrite(io.BytesIO):
+    def __init__(self, initial_bytes: bytes):
+        super().__init__(initial_bytes)
+        self._writes = 0
+
+    def write(self, data):
+        if self._writes > 0:
+            raise OSError(28, "No space left on device")
+        self._writes += 1
+        return super().write(data)
+
+
 class WindowsSacrificialWriterTests(unittest.TestCase):
     def setUp(self):
         fixture_path = Path(__file__).parent / "fixtures" / "windows_disk_usb.json"
@@ -374,6 +386,47 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
             self.assertTrue(receipt["restart_requires_fresh_target_identity"])
             self.assertFalse(receipt["verification_passed"])
             self.assertEqual(64, len(receipt["receipt_sha256"]))
+
+    def test_enospc_failure_is_nonresumable_and_receipted(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"0123456789")
+            with self.assertRaises(writer.WriteInterruptedError) as caught:
+                writer.write_and_verify(
+                    image_path=image,
+                    target_stream=EnospcAfterFirstWrite(b"\x00" * 32),
+                    byte_cap=10,
+                    chunk_size=4,
+                )
+
+            self.assertEqual("target-write", caught.exception.stage)
+            self.assertIn("No space left", str(caught.exception))
+            plan = {
+                "source_commit": "9" * 40,
+                "target": self.target,
+                "identity_sha256": self.evidence["disk"]["identity_sha256"],
+                "target_size_bytes": self.evidence["disk"]["size_bytes"],
+                "source_physical_target": r"\\.\PHYSICALDRIVE2",
+                "source_target_distinct": True,
+                "prewrite_source_recheck": {"source_sha256": writer.file_sha256(image)},
+                "prewrite_target_recheck": {"identity_sha256": self.evidence["disk"]["identity_sha256"]},
+                "image_path": str(image),
+                "image_size_bytes": 10,
+                "image_sha256": writer.file_sha256(image),
+                "byte_cap": 10,
+            }
+            receipt = writer.build_failure_result(
+                plan=plan,
+                error=caught.exception,
+                started_at="2026-09-19T14:00:00Z",
+                failed_at="2026-09-19T14:00:01Z",
+            )
+            self.assertEqual("hardware-write-interrupted", receipt["classification"])
+            self.assertFalse(receipt["resume_allowed"])
+            self.assertEqual("target-write", receipt["failure_stage"])
+            self.assertIn("No space left", receipt["error"])
+            self.assertIsNotNone(receipt["prewrite_source_recheck"])
+            self.assertIsNotNone(receipt["prewrite_target_recheck"])
 
     def test_success_receipt_requires_boot_test_next(self):
         plan = {
