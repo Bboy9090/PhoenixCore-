@@ -36,6 +36,22 @@ pub struct SourceIdentityVerification {
     pub reanalysis_required: bool,
 }
 
+fn metadata_is_link_or_reparse(metadata: &fs::Metadata) -> bool {
+    if metadata_is_link_or_reparse(&metadata) {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+        return metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0;
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
 fn modified_seconds(metadata: &fs::Metadata) -> Option<u64> {
     metadata
         .modified()
@@ -89,7 +105,7 @@ fn directory_identity(path: &Path) -> Result<RecoverySourceIdentity, String> {
             let child = entry.path();
             let metadata = fs::symlink_metadata(&child)
                 .map_err(|error| format!("cannot inspect recovery source entry: {error}"))?;
-            if metadata.file_type().is_symlink() {
+            if metadata_is_link_or_reparse(&metadata) {
                 return Err("recovery source identity refuses symbolic-link entries".to_string());
             }
             if metadata.is_dir() {
@@ -101,7 +117,9 @@ fn directory_identity(path: &Path) -> Result<RecoverySourceIdentity, String> {
                 continue;
             }
             if !metadata.is_file() {
-                continue;
+                return Err(
+                    "recovery source identity refuses non-regular filesystem entries".to_string(),
+                );
             }
             if entries.len() >= MAX_MANIFEST_ENTRIES {
                 scan_limited = true;
@@ -149,7 +167,7 @@ pub fn capture_source_identity(path: impl AsRef<Path>) -> Result<RecoverySourceI
     let path = path.as_ref();
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| format!("cannot inspect recovery source identity: {error}"))?;
-    if metadata.file_type().is_symlink() {
+    if metadata_is_link_or_reparse(&metadata) {
         return Err("recovery source identity refuses symbolic-link sources".to_string());
     }
     if metadata.is_file() {
@@ -236,6 +254,22 @@ mod tests {
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn directory_identity_rejects_nested_symlink_entries() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_case("nested-symlink");
+        let outside = temp_case("nested-symlink-outside");
+        fs::write(outside.join("payload.bin"), b"outside").unwrap();
+        symlink(&outside, root.join("escape")).unwrap();
+
+        let error = capture_source_identity(&root).unwrap_err();
+        assert!(error.contains("symbolic-link") || error.contains("reparse"));
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
     }
 
     #[test]
