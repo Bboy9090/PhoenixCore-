@@ -23,6 +23,11 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Verify Naming Boundaries (Anti-Rename checks)
         run: |
           python .github/workflows/scripts/validate_governance.py --check naming
@@ -30,3 +35,6 @@ jobs:
       - name: Safety Scan for Prohibited Destructive Operations
         run: |
           python .github/workflows/scripts/validate_governance.py --check safety
+
+      - name: Enforce release publishing boundaries
+        run: node scripts/release/check-release-workflow-boundaries.mjs
