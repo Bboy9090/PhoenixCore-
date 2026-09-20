@@ -298,6 +298,7 @@ def build_capture_receipt(
     expected_destination_stable_identity_sha256: str,
     destination_stable_identity_sha256: str,
     logical_sector_size: int,
+    rollback_contract_sha256: str,
     artifacts: dict[str, Any],
     gpt_geometry: dict[str, Any],
     captured_at: str | None = None,
@@ -330,6 +331,11 @@ def build_capture_receipt(
     observed_stable = require_sha256(
         str(disk.get("stable_identity_sha256") or ""),
         "Observed target stable identity",
+    )
+
+    contract_sha256 = require_sha256(
+        rollback_contract_sha256,
+        "Rollback contract SHA-256",
     )
 
     if observed_snapshot != expected_snapshot:
@@ -385,6 +391,7 @@ def build_capture_receipt(
         "target_snapshot_identity_sha256": observed_snapshot,
         "target_stable_identity_sha256": observed_stable,
         "rollback_destination_stable_identity_sha256": observed_destination,
+        "rollback_contract_sha256": contract_sha256,
         "output_directory": str(output_dir.resolve()),
         "captured_requirements": [
             "target_partition_table_backup",
@@ -420,6 +427,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-target-stable-identity-sha256", required=True)
     parser.add_argument("--expected-destination-stable-identity-sha256", required=True)
     parser.add_argument("--destination-stable-identity-sha256", required=True)
+    parser.add_argument("--rollback-contract-sha256", required=True)
     parser.add_argument("--fixture-disk-image", type=Path)
     return parser.parse_args()
 
@@ -458,6 +466,7 @@ def main() -> int:
         expected_destination_stable_identity_sha256=args.expected_destination_stable_identity_sha256,
         destination_stable_identity_sha256=args.destination_stable_identity_sha256,
         logical_sector_size=args.logical_sector_size,
+        rollback_contract_sha256=args.rollback_contract_sha256,
         artifacts=artifacts,
         gpt_geometry=geometry,
     )
