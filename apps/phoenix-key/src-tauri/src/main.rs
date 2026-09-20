@@ -32,30 +32,44 @@ use std::{
 };
 use windows_target::{resolve_target, TargetResolution};
 
+#[cfg(not(feature = "store-safe"))]
 const USB_CREATOR_SOURCE: &str = include_str!("../../../../usb_creator.py");
+#[cfg(not(feature = "store-safe"))]
 const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py");
+#[cfg(not(feature = "store-safe"))]
 const DRIVE_EVIDENCE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_drive_evidence.py");
+#[cfg(not(feature = "store-safe"))]
 const SOURCE_DISK_RESOLVER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/resolve_windows_source_disk.py");
+#[cfg(not(feature = "store-safe"))]
 const PACKAGE_TRUST_INSPECTOR_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_recovery_package_trust.py");
+#[cfg(not(feature = "store-safe"))]
 const CLOUD_STAGE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/stage_cloud_recovery_payload.py");
+#[cfg(not(feature = "store-safe"))]
 const GOOGLE_DRIVE_ACQUISITION_SOURCE: &str =
     include_str!("../../../../scripts/hardware/acquire_google_drive_recovery.py");
+#[cfg(not(feature = "store-safe"))]
 const GOOGLE_DRIVE_PICKER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/google_drive_picker_recovery.py");
+#[cfg(not(feature = "store-safe"))]
 const FAT32_WINDOWS_MEDIA_PLANNER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/plan_fat32_windows_media.py");
+#[cfg(not(feature = "store-safe"))]
 const WINDOWS_IMAGE_METADATA_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
+#[cfg(not(feature = "store-safe"))]
 const BOOTCAMP_DRIVER_INSPECTOR_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_bootcamp_driver_package.py");
+#[cfg(not(feature = "store-safe"))]
 const WINDOWS_BOOT_STATE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_boot_state.py");
+#[cfg(not(feature = "store-safe"))]
 const WINDOWS_ROLLBACK_BUNDLE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/persist_windows_rollback_bundle.py");
+#[cfg(not(feature = "store-safe"))]
 const SACRIFICIAL_WRITER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/write_windows_sacrificial_drive.py");
 const SMOKE_RECEIPT_ENV: &str = "PHOENIX_KEY_SMOKE_RECEIPT";
@@ -220,12 +234,13 @@ fn is_actionable_device(device: &DeviceInfo) -> bool {
     )
 }
 
+#[cfg(feature = "store-safe")]
 fn bridge_directory() -> Result<PathBuf, String> {
-    if STORE_SAFE_DISTRIBUTION {
-        return Err(
-            "external helper execution is disabled in the store-safe distribution".to_string(),
-        );
-    }
+    Err("external helper execution is disabled in the store-safe distribution".to_string())
+}
+
+#[cfg(not(feature = "store-safe"))]
+fn bridge_directory() -> Result<PathBuf, String> {
     let directory = std::env::temp_dir().join(format!("phoenix-key-{}", std::process::id()));
     fs::create_dir_all(&directory)
         .map_err(|error| format!("cannot create PhoenixCore bridge directory: {error}"))?;
@@ -1314,6 +1329,16 @@ mod tests {
         validate_drive_operation_id,
     };
     use serde_json::json;
+
+    #[cfg(feature = "store-safe")]
+    #[test]
+    fn store_safe_build_cannot_stage_external_helpers() {
+        let error = super::bridge_directory().unwrap_err();
+        assert_eq!(
+            error,
+            "external helper execution is disabled in the store-safe distribution"
+        );
+    }
 
     #[test]
     fn distribution_profile_matches_compile_time_channel() {
