@@ -251,6 +251,34 @@ pub fn assess_restore_readiness(
         &mut blocked,
     );
 
+    gate(
+        identity_bound_plan.get("schema").and_then(Value::as_str)
+            == Some("phoenix_key.windows_recovery_plan.v4")
+            && identity_bound_plan
+                .pointer("/execution_boundary/planner_only")
+                .and_then(Value::as_bool)
+                == Some(true)
+            && identity_bound_plan
+                .pointer("/execution_boundary/restore_executor_available")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && identity_bound_plan
+                .pointer("/execution_boundary/system_mutations_performed")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && identity_bound_plan
+                .pointer("/dry_run_summary/executable")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && identity_bound_plan
+                .pointer("/dry_run_summary/mutation_steps_executed")
+                .and_then(Value::as_u64)
+                == Some(0),
+        "structured_dry_run_boundary_intact",
+        &mut satisfied,
+        &mut blocked,
+    );
+
     RestoreReadiness {
         schema: "phoenix_key.restore_readiness.v1",
         ready_for_restore_executor_design: blocked.is_empty(),
@@ -304,6 +332,16 @@ mod tests {
         serde_json::Value,
     ) {
         let mut plan = json!({
+            "schema": "phoenix_key.windows_recovery_plan.v4",
+            "execution_boundary": {
+                "planner_only": true,
+                "restore_executor_available": false,
+                "system_mutations_performed": false
+            },
+            "dry_run_summary": {
+                "executable": false,
+                "mutation_steps_executed": 0
+            },
             "source_identity": {
                 "sha256": "a".repeat(64),
                 "complete": true,
@@ -365,6 +403,34 @@ mod tests {
         assert!(!result.executable);
         assert!(result.blocked_gates.is_empty());
         assert_eq!(result.selected_image_index, Some(2));
+    }
+
+    #[test]
+    fn executable_dry_run_claim_blocks_readiness() {
+        let (mut plan, trust, metadata, target, rollback) = evidence();
+        plan["dry_run_summary"]["executable"] = json!(true);
+        plan["plan_sha256"] =
+            Value::String(identity_bound_plan_sha256(&plan).unwrap());
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(!result.ready_for_restore_executor_design);
+        assert!(result
+            .blocked_gates
+            .contains(&"structured_dry_run_boundary_intact".to_string()));
+        assert!(!result.executable);
+    }
+
+    #[test]
+    fn reported_mutation_in_dry_run_blocks_readiness() {
+        let (mut plan, trust, metadata, target, rollback) = evidence();
+        plan["dry_run_summary"]["mutation_steps_executed"] = json!(1);
+        plan["plan_sha256"] =
+            Value::String(identity_bound_plan_sha256(&plan).unwrap());
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(result
+            .blocked_gates
+            .contains(&"structured_dry_run_boundary_intact".to_string()));
     }
 
     #[test]
