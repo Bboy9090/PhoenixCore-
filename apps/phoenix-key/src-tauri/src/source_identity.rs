@@ -365,6 +365,22 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn source_identity_rejects_root_symlink_file() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_case("root-symlink");
+        let real = root.join("real.bin");
+        let link = root.join("source.bin");
+        fs::write(&real, b"fixture").unwrap();
+        symlink(&real, &link).unwrap();
+
+        let error = capture_source_identity(&link).unwrap_err();
+        assert!(error.contains("symbolic-link") || error.contains("reparse"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn directory_identity_rejects_nested_symlink_entries() {
         use std::os::unix::fs::symlink;
 
