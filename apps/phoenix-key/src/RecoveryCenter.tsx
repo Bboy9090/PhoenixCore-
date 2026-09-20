@@ -306,6 +306,20 @@ type RecoveryEvidenceBundleV2 = {
   bundle_sha256: string;
 };
 
+type TargetDataPreservationReceipt = {
+  schema: string;
+  mode: string;
+  target_stable_identity_sha256: string;
+  rollback_contract_sha256: string;
+  acknowledgement: string;
+  resolved: boolean;
+  block_reasons: string[];
+  required_next_evidence: string[];
+  restore_unlock_ready: boolean;
+  system_mutations_performed: boolean;
+  receipt_sha256: string;
+};
+
 type RecoveryPlan = {
   schema: string;
   source: RecoveryAnalysis;
@@ -446,6 +460,9 @@ export default function RecoveryCenter({
   const [rollbackDestinationPath, setRollbackDestinationPath] = useState("");
   const [rollbackDestinationVerification, setRollbackDestinationVerification] = useState<RollbackDestinationVerification | null>(null);
   const [rollbackCaptureReceipt, setRollbackCaptureReceipt] = useState<RestoreRollbackCaptureReceipt | null>(null);
+  const [dataPreservationMode, setDataPreservationMode] = useState("preserve_existing_data");
+  const [dataPreservationAcknowledgement, setDataPreservationAcknowledgement] = useState("");
+  const [dataPreservationReceipt, setDataPreservationReceipt] = useState<TargetDataPreservationReceipt | null>(null);
   const [recoveryEvidenceBundle, setRecoveryEvidenceBundle] = useState<RecoveryEvidenceBundleV2 | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
@@ -475,6 +492,7 @@ export default function RecoveryCenter({
     rollbackDestinationVerification,
     rollbackCaptureReceipt,
     targetReenumerationReceipt,
+    dataPreservationReceipt,
   ]);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
@@ -509,6 +527,9 @@ export default function RecoveryCenter({
       setRollbackDestinationVerification(null);
       setRollbackCaptureReceipt(null);
     setRollbackDestinationPath("");
+    setDataPreservationMode("preserve_existing_data");
+    setDataPreservationAcknowledgement("");
+    setDataPreservationReceipt(null);
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
@@ -1101,6 +1122,42 @@ export default function RecoveryCenter({
     }
   }
 
+  async function createDataPreservationDecision() {
+    if (!targetSafety?.safe_to_prepare || !restoreRollbackContract || busy) return;
+
+    setBusy(true);
+    setDataPreservationReceipt(null);
+    setMessage(
+      dataPreservationMode === "explicit_discard"
+        ? "Binding the explicit data-loss decision to this exact target hardware and rollback contract. No disk mutation will run…"
+        : "Recording that target data must be preserved. This remains blocked until a real backup receipt exists…",
+    );
+    try {
+      const result = await invoke<TargetDataPreservationReceipt>(
+        "create_target_data_preservation_decision",
+        {
+          targetSafetyJson: JSON.stringify(targetSafety),
+          rollbackContractJson: JSON.stringify(restoreRollbackContract),
+          mode: dataPreservationMode,
+          acknowledgement: dataPreservationAcknowledgement,
+        },
+      );
+      setDataPreservationReceipt(result);
+      setMessage(
+        result.resolved
+          ? "Target data decision is resolved for this exact hardware and rollback contract. Restore execution remains locked."
+          : "Target data decision is still blocked. The required evidence or acknowledgement is shown below.",
+      );
+    } catch (error) {
+      setDataPreservationReceipt(null);
+      setMessage(
+        `Target data-preservation decision could not be recorded. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function buildRecoveryEvidenceBundle() {
     if (
       !plan ||
@@ -1134,7 +1191,7 @@ export default function RecoveryCenter({
             rollback_destination_verification: rollbackDestinationVerification,
             rollback_capture_receipt: rollbackCaptureReceipt,
             target_reenumeration_receipt: targetReenumerationReceipt,
-            data_preservation_receipt: null,
+            data_preservation_receipt: dataPreservationReceipt,
             boot_metadata_receipt: null,
           }),
         },
@@ -1901,6 +1958,69 @@ export default function RecoveryCenter({
                       {rollbackCaptureReceipt.remaining_requirements.map((item) => (
                         <p key={item}>— {readableToken(item)}</p>
                       ))}
+                    </div>
+                  )}
+                  {restoreRollbackContract && (
+                    <div className="recovery-list">
+                      <strong>Target data-preservation gate</strong>
+                      <p className="field-help">
+                        Choose whether existing target data must be preserved or whether you explicitly accept losing it. This records intent only; it never unlocks restore execution.
+                      </p>
+                      <label className="path-field">
+                        <span>Data handling</span>
+                        <select
+                          value={dataPreservationMode}
+                          onChange={(event) => {
+                            setDataPreservationMode(event.target.value);
+                            setDataPreservationAcknowledgement("");
+                            setDataPreservationReceipt(null);
+                          }}
+                          disabled={busy}
+                        >
+                          <option value="preserve_existing_data">Preserve existing target data</option>
+                          <option value="explicit_discard">Explicitly accept target data loss</option>
+                        </select>
+                      </label>
+                      {dataPreservationMode === "explicit_discard" ? (
+                        <label className="path-field">
+                          <span>Exact acknowledgement</span>
+                          <input
+                            value={dataPreservationAcknowledgement}
+                            onChange={(event) => {
+                              setDataPreservationAcknowledgement(event.target.value);
+                              setDataPreservationReceipt(null);
+                            }}
+                            placeholder="I ACCEPT DATA LOSS ON THIS TARGET"
+                          />
+                        </label>
+                      ) : (
+                        <p className="field-help">
+                          Preserve mode intentionally stays unresolved until Phoenix Key has a real target-data backup receipt.
+                        </p>
+                      )}
+                      <button
+                        className="plan-button"
+                        type="button"
+                        onClick={createDataPreservationDecision}
+                        disabled={busy || !targetSafety?.safe_to_prepare}
+                      >
+                        Record Data-Preservation Decision
+                      </button>
+                      {dataPreservationReceipt && (
+                        <div className={dataPreservationReceipt.resolved ? "good-list" : "warning-box"}>
+                          <p>Mode: {readableToken(dataPreservationReceipt.mode)}</p>
+                          <p>Resolved: {dataPreservationReceipt.resolved ? "yes" : "no"}</p>
+                          <p>Receipt SHA-256: {dataPreservationReceipt.receipt_sha256}</p>
+                          <p>Restore unlock ready: {dataPreservationReceipt.restore_unlock_ready ? "yes" : "no"}</p>
+                          {dataPreservationReceipt.block_reasons.map((reason) => (
+                            <p key={reason}>Blocked: {readableToken(reason)}</p>
+                          ))}
+                          {dataPreservationReceipt.required_next_evidence.map((item) => (
+                            <p key={item}>Required: {readableToken(item)}</p>
+                          ))}
+                          <p>System mutations performed: {dataPreservationReceipt.system_mutations_performed ? "yes" : "no"}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                   {targetVerification && (
