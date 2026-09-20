@@ -21,6 +21,9 @@ on:
       - "apps/phoenix-key/src-tauri/src/target_safety.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
       - "apps/phoenix-key/src-tauri/src/restore_readiness.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_preflight.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs"
+      - "apps/phoenix-key/src-tauri/src/rollback_destination.rs"
       - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
       - "apps/phoenix-key/src/main.tsx"
       - "apps/phoenix-key/src/RecoveryCenter.tsx"
@@ -43,6 +46,9 @@ on:
       - "apps/phoenix-key/src-tauri/src/target_safety.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
       - "apps/phoenix-key/src-tauri/src/restore_readiness.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_preflight.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs"
+      - "apps/phoenix-key/src-tauri/src/rollback_destination.rs"
       - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
       - "apps/phoenix-key/src/main.tsx"
       - "apps/phoenix-key/src/RecoveryCenter.tsx"
@@ -95,6 +101,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - name: Phoenix Key recovery binary unit tests
+        run: cargo test --bin phoenix-key
       - name: Recovery unit tests
         run: cargo test --example windows_recovery_probe
       - name: Recovery probe build
@@ -122,6 +130,9 @@ jobs:
             apps/phoenix-key/src-tauri/src/target_safety.rs
             apps/phoenix-key/src-tauri/src/recovery_center.rs
             apps/phoenix-key/src-tauri/src/restore_readiness.rs
+            apps/phoenix-key/src-tauri/src/restore_preflight.rs
+            apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs
+            apps/phoenix-key/src-tauri/src/rollback_destination.rs
             apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs
           )
           forbidden='execute_media_write|write_windows_sacrificial_drive|diskpart|mkfs|CreateFileW|WriteFile|DeviceIoControl|dd if=|dd of='
