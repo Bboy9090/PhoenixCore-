@@ -343,6 +343,20 @@ type RecoverySessionStateV1 = {
   destructive_authorization_persisted?: boolean;
 };
 
+type RecoveryDiagnosticsExportV1 = {
+  schema: string;
+  evidence_bundle: RecoveryEvidenceBundleV2;
+  session_state: RecoverySessionStateV1;
+  sanitized_evidence: Record<string, unknown>;
+  redacted_fields: string[];
+  destructive_authorization_included: boolean;
+  restore_executable: boolean;
+  system_mutations_performed: boolean;
+  export_sha256: string;
+  export_path?: string | null;
+  export_persisted?: boolean;
+};
+
 type RestoreTargetBootMetadataReceipt = {
   schema: string;
   target: string;
@@ -517,6 +531,7 @@ export default function RecoveryCenter({
   const [bootMetadataReceipt, setBootMetadataReceipt] = useState<RestoreTargetBootMetadataReceipt | null>(null);
   const [recoveryEvidenceBundle, setRecoveryEvidenceBundle] = useState<RecoveryEvidenceBundleV2 | null>(null);
   const [recoverySessionState, setRecoverySessionState] = useState<RecoverySessionStateV1 | null>(null);
+  const [recoveryDiagnosticsExport, setRecoveryDiagnosticsExport] = useState<RecoveryDiagnosticsExportV1 | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
@@ -551,6 +566,7 @@ export default function RecoveryCenter({
 
   useEffect(() => {
     setRecoverySessionState(null);
+    setRecoveryDiagnosticsExport(null);
   }, [recoveryEvidenceBundle]);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
@@ -591,6 +607,7 @@ export default function RecoveryCenter({
     setBootMetadataReceipt(null);
     setRecoveryEvidenceBundle(null);
     setRecoverySessionState(null);
+    setRecoveryDiagnosticsExport(null);
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
@@ -1358,6 +1375,58 @@ export default function RecoveryCenter({
       setRecoverySessionState(null);
       setMessage(
         `Recovery session state could not be persisted. Nothing was changed on the recovery source or target. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function persistRecoveryDiagnosticsExport() {
+    if (
+      !plan ||
+      !sourceVerification ||
+      !imageMetadata ||
+      !targetSafety ||
+      !targetVerification ||
+      !restoreRollbackContract ||
+      !restoreHardwarePreflight ||
+      busy
+    ) return;
+
+    setBusy(true);
+    setRecoveryDiagnosticsExport(null);
+    setMessage(
+      "Building a sanitized recovery diagnostics package. Local paths, hardware serials, provider IDs, command output, and typed acknowledgements will be redacted…",
+    );
+    try {
+      const result = await invoke<RecoveryDiagnosticsExportV1>(
+        "persist_windows_recovery_diagnostics_export",
+        {
+          evidenceJson: JSON.stringify({
+            identity_bound_plan: plan,
+            source_identity_verification: sourceVerification,
+            package_trust: packageTrust,
+            image_metadata: imageMetadata,
+            target_safety: targetSafety,
+            target_identity_verification: targetVerification,
+            rollback_contract: restoreRollbackContract,
+            hardware_preflight: restoreHardwarePreflight,
+            rollback_destination_verification: rollbackDestinationVerification,
+            rollback_capture_receipt: rollbackCaptureReceipt,
+            target_reenumeration_receipt: targetReenumerationReceipt,
+            data_preservation_receipt: dataPreservationReceipt,
+            boot_metadata_receipt: bootMetadataReceipt,
+          }),
+        },
+      );
+      setRecoveryDiagnosticsExport(result);
+      setMessage(
+        "Sanitized recovery diagnostics export persisted locally. No destructive authorization was included.",
+      );
+    } catch (error) {
+      setRecoveryDiagnosticsExport(null);
+      setMessage(
+        `Recovery diagnostics export could not be persisted. Nothing was changed on the recovery source or target. ${String(error)}`,
       );
     } finally {
       setBusy(false);
@@ -2314,6 +2383,28 @@ export default function RecoveryCenter({
                               {recoverySessionState.next_required_actions.map((item) => (
                                 <p key={item}>— {readableToken(item)}</p>
                               ))}
+                            </div>
+                          )}
+                          <button
+                            className="plan-button"
+                            type="button"
+                            onClick={persistRecoveryDiagnosticsExport}
+                            disabled={busy}
+                          >
+                            Export Sanitized Recovery Diagnostics
+                          </button>
+                          {recoveryDiagnosticsExport && (
+                            <div className="good-list">
+                              <strong>Sanitized diagnostics export</strong>
+                              <p>Export SHA-256: {recoveryDiagnosticsExport.export_sha256}</p>
+                              <p>Redacted fields: {recoveryDiagnosticsExport.redacted_fields.length}</p>
+                              <p>Destructive authorization included: {recoveryDiagnosticsExport.destructive_authorization_included ? "yes" : "no"}</p>
+                              <p>Restore executable: {recoveryDiagnosticsExport.restore_executable ? "yes" : "no"}</p>
+                              <p>Export persisted: {recoveryDiagnosticsExport.export_persisted ? "yes" : "no"}</p>
+                              {recoveryDiagnosticsExport.export_path && (
+                                <p>Saved export: {recoveryDiagnosticsExport.export_path}</p>
+                              )}
+                              <p>System mutations performed: {recoveryDiagnosticsExport.system_mutations_performed ? "yes" : "no"}</p>
                             </div>
                           )}
                         </>
