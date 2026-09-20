@@ -282,6 +282,13 @@ function readableToken(value: string) {
   return friendlyOperation[value] || value.split("_").join(" ");
 }
 
+function joinRecoveryPath(root: string, relative: string) {
+  const separator = root.includes("\\") ? "\\" : "/";
+  const cleanRoot = root.replace(/[\\/]+$/, "");
+  const cleanRelative = relative.replace(/^[\\/]+/, "").replace(/[\\/]+/g, separator);
+  return `${cleanRoot}${separator}${cleanRelative}`;
+}
+
 export default function RecoveryCenter({
   distributionProfile,
 }: {
@@ -298,6 +305,7 @@ export default function RecoveryCenter({
   const [showTechnical, setShowTechnical] = useState(false);
   const [expectedSha256, setExpectedSha256] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState("");
+  const [imagePath, setImagePath] = useState("");
   const [targetArchitecture, setTargetArchitecture] = useState("");
   const [packageTrust, setPackageTrust] = useState<PackageTrust | null>(null);
   const [imageMetadata, setImageMetadata] = useState<ImageMetadata | null>(null);
@@ -335,6 +343,7 @@ export default function RecoveryCenter({
     setShowTechnical(false);
     setExpectedSha256("");
     setSelectedImageIndex("");
+    setImagePath("");
     setTargetArchitecture("");
     setPackageTrust(null);
     setImageMetadata(null);
@@ -448,6 +457,13 @@ export default function RecoveryCenter({
         sourcePath: sourcePath.trim(),
       });
       setAnalysis(result);
+      if (result.system_image_files.length === 1) {
+        setImagePath(joinRecoveryPath(sourcePath.trim(), result.system_image_files[0]));
+      } else if (result.system_image_files.length === 0) {
+        setImagePath(sourcePath.trim());
+      } else {
+        setImagePath("");
+      }
       setMessage(
         result.restore_candidate
           ? "Analysis complete. Review what Phoenix Key found before building a plan."
@@ -471,6 +487,11 @@ export default function RecoveryCenter({
       });
       setPlan(result);
       setSourceVerification(null);
+      if (analysis.system_image_files.length === 1) {
+        setImagePath(joinRecoveryPath(sourcePath.trim(), analysis.system_image_files[0]));
+      } else if (analysis.system_image_files.length === 0) {
+        setImagePath(sourcePath.trim());
+      }
       setTargetArchitecture(result.host_arch || "");
       setPackageTrust(null);
       setImageMetadata(null);
@@ -561,6 +582,11 @@ export default function RecoveryCenter({
       return;
     }
     if (!plan || !sourceVerification?.matches || busy) return;
+    const selectedImagePath = imagePath.trim() || sourcePath.trim();
+    if (analysis?.system_image_files.length && !imagePath.trim()) {
+      setMessage("Choose the exact VHD/VHDX payload from this backup before inspecting Windows metadata.");
+      return;
+    }
     const indexText = selectedImageIndex.trim();
     const parsedIndex = indexText ? Number(indexText) : undefined;
     if (indexText && (!Number.isInteger(parsedIndex) || (parsedIndex || 0) <= 0)) {
@@ -571,7 +597,7 @@ export default function RecoveryCenter({
     setMessage("Reading Windows image index, edition, and architecture metadata with no mount or modification…");
     try {
       const result = await invoke<ImageMetadata>("inspect_windows_image_metadata", {
-        imagePath: sourcePath.trim(),
+        imagePath: selectedImagePath,
         selectedIndex: parsedIndex,
         targetArchitecture: targetArchitecture.trim() || null,
       });
@@ -1006,6 +1032,31 @@ export default function RecoveryCenter({
 
             <div className="recovery-list">
               <strong>Windows image selection</strong>
+              {analysis.system_image_files.length > 0 && (
+                <label className="path-field">
+                  <span>Verified backup image payload</span>
+                  <select
+                    value={imagePath}
+                    onChange={(event) => {
+                      setImagePath(event.target.value);
+                      setSelectedImageIndex("");
+                      setImageMetadata(null);
+                      setTargetSafety(null);
+                      setTargetVerification(null);
+                      setRestoreRollbackContract(null);
+                    }}
+                  >
+                    <option value="">Choose an exact VHD/VHDX payload</option>
+                    {analysis.system_image_files.map((relative) => {
+                      const fullPath = joinRecoveryPath(sourcePath.trim(), relative);
+                      return <option key={relative} value={fullPath}>{relative}</option>;
+                    })}
+                  </select>
+                </label>
+              )}
+              {analysis.system_image_files.length === 0 && (
+                <p className="field-help">Image source: {imagePath || sourcePath}</p>
+              )}
               <label className="path-field">
                 <span>Image index</span>
                 <input
@@ -1029,7 +1080,12 @@ export default function RecoveryCenter({
                   placeholder="x64 or arm64"
                 />
               </label>
-              <button className="plan-button" type="button" onClick={inspectImageMetadata} disabled={busy}>
+              <button
+                className="plan-button"
+                type="button"
+                onClick={inspectImageMetadata}
+                disabled={busy || !sourceVerification?.matches || (analysis.system_image_files.length > 0 && !imagePath)}
+              >
                 Inspect Edition & Architecture
               </button>
               {imageMetadata && (
