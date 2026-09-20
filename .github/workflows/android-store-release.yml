@@ -1,0 +1,135 @@
+name: PhoenixCore Android Store Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      play_track:
+        description: Google Play track
+        required: true
+        default: internal
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+      release_status:
+        description: Google Play release status
+        required: true
+        default: draft
+        type: choice
+        options:
+          - draft
+          - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phoenixcore-android-store-release
+  cancel-in-progress: false
+
+jobs:
+  build-signed-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Require Android signing credentials
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.PHOENIXCORE_ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.PHOENIXCORE_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PHOENIXCORE_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.PHOENIXCORE_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_B64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required Android signing secret: $name"
+              exit 1
+            fi
+          done
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Prepare Capacitor Android release project
+        run: |
+          npm install --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+          printf '%s\n' '{ "appId": "com.bobbysworkshop.phoenixcore", "appName": "PhoenixCore Mobile", "webDir": "dist" }' > capacitor.config.json
+          npx cap add android
+          npx cap sync android
+
+      - name: Restore release keystore
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.PHOENIXCORE_ANDROID_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > android/phoenixcore-release.jks
+          test -s android/phoenixcore-release.jks
+
+      - name: Build signed Android App Bundle
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.PHOENIXCORE_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PHOENIXCORE_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.PHOENIXCORE_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease --stacktrace \
+            -Pandroid.injected.signing.store.file="$PWD/phoenixcore-release.jks" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab
+          sha256sum app/build/outputs/bundle/release/app-release.aab > app/build/outputs/bundle/release/AAB-SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhoenixCore-Mobile-android-store-aab
+          path: |
+            dashboard/android/app/build/outputs/bundle/release/app-release.aab
+            dashboard/android/app/build/outputs/bundle/release/AAB-SHA256.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Require Google Play service account
+        shell: bash
+        env:
+          PLAY_JSON: ${{ secrets.PHOENIXCORE_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PLAY_JSON:-}" ]; then
+            echo "::error::Missing PHOENIXCORE_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON; signed AAB was built but Play submission is blocked."
+            exit 1
+          fi
+          printf '%s' "$PLAY_JSON" > "$RUNNER_TEMP/google-play-service-account.json"
+
+      - name: Upload to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJson: ${{ runner.temp }}/google-play-service-account.json
+          packageName: com.bobbysworkshop.phoenixcore
+          releaseFiles: dashboard/android/app/build/outputs/bundle/release/app-release.aab
+          track: ${{ inputs.play_track }}
+          status: ${{ inputs.release_status }}
