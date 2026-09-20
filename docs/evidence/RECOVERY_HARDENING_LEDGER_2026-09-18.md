@@ -2,8 +2,10 @@
 
 Branch: `convergence/windows-recovery-forge-macos-v2`  
 PR: #150  
-Status: DRAFT / ACTIVE HARDENING  
+Status: DRAFT PR / SOFTWARE CONVERGENCE VERIFIED  
 Rule: implementation is not a PASS until exact-head CI completes.
+
+> Historical sweep entries below retain the status recorded when they were written. The current verification record at the end of this ledger supersedes earlier "exact-head CI pending" notes.
 
 ## Sweep 12 — Source identity binding
 
@@ -288,3 +290,220 @@ Primary files:
 - `apps/phoenix-key/src/recovery-center.css`
 
 Status: IMPLEMENTED / exact-head CI pending.
+
+
+## Sweep 23 — Restore rollback contract + software hardware-preflight boundary
+
+Implemented:
+
+- canonical full-restore rollback contract
+- source identity binding
+- target snapshot identity binding
+- target stable hardware identity binding
+- target capacity binding
+- separate-physical-device rollback destination requirement
+- explicit required artifact list
+- `apply_system_image` always blocked
+- `restore_unlock_ready=false`
+- software-only hardware preflight proving whether evidence collection may begin
+
+Primary files:
+
+- `apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs`
+- `apps/phoenix-key/src-tauri/src/restore_preflight.rs`
+
+Status: IMPLEMENTED / CI-GATED.
+
+## Sweep 24 — Separate rollback destination + read-only GPT capture
+
+Implemented:
+
+- rollback destination physical-device resolution
+- stable-identity proof that destination is not the target
+- fresh target revalidation
+- protective MBR capture
+- primary/backup GPT headers
+- primary/backup partition arrays
+- GPT/header CRC validation
+- partition-array CRC validation
+- primary/backup cross-reference validation
+- partition manifest
+- artifact hashes
+- rollback-contract binding
+- zero target-write receipt
+- capture output only to a separate rollback folder
+
+Primary files:
+
+- `apps/phoenix-key/src-tauri/src/rollback_destination.rs`
+- `scripts/hardware/capture_windows_restore_rollback.py`
+- `tests/test_windows_restore_rollback_capture.py`
+
+Status: IMPLEMENTED / FIXTURE-VERIFIED / REAL-HARDWARE PROOF STILL REQUIRED.
+
+## Sweep 25 — Stable target re-enumeration proof
+
+Implemented:
+
+- durable checksum-verifiable re-enumeration receipt
+- stable hardware identity locator across `PHYSICALDRIVE<n>` renumbering
+- exact snapshot mismatch classification
+- stale authorization rejection
+- hardware substitution detection
+- ambiguous stable-ID match blocking
+- local persisted receipt
+- Recovery Center reconnect workflow
+
+Primary files:
+
+- `apps/phoenix-key/src-tauri/src/target_reenumeration.rs`
+- `scripts/hardware/find_windows_drive_by_stable_identity.py`
+- `tests/test_windows_stable_target_locator.py`
+- `apps/phoenix-key/src/RecoveryCenter.tsx`
+
+Status: IMPLEMENTED / FIXTURE-VERIFIED / REAL UNPLUG-REPLUG PROOF STILL REQUIRED.
+
+## Sweep 26 — External-target boot metadata + data-preservation decision
+
+Implemented:
+
+External target boot metadata:
+
+- fresh target identity recheck before capture
+- partition inventory
+- EFI tree capture only when already accessible
+- BCD files where already accessible
+- WinRE image/config where already accessible
+- no partition mount/assignment
+- inaccessible EFI/Recovery partitions remain unresolved
+- zero target writes
+
+Data-preservation decision:
+
+- preserve mode requires real backup receipt
+- explicit discard requires exact acknowledgement
+- receipt bound to target stable identity
+- receipt bound to rollback contract
+- never unlocks restore
+
+Primary files:
+
+- `scripts/hardware/capture_windows_restore_target_boot_metadata.py`
+- `tests/test_windows_restore_target_boot_metadata.py`
+- `apps/phoenix-key/src-tauri/src/data_preservation.rs`
+
+Status: IMPLEMENTED / CI-GATED / REAL-HARDWARE CAPTURE STILL REQUIRED.
+
+## Sweep 27 — Recovery Evidence Bundle v2 + durable session state
+
+Implemented:
+
+Evidence bundle:
+
+- one checksum-bound record for all current evidence classes
+- per-component presence / schema / digest / trust
+- separate software-chain and hardware-chain completeness
+- explicit outstanding requirements
+- stale re-enumeration rejected as hardware-complete
+- hardware substitution rejected
+- `restore_executable=false`
+
+Persistent session:
+
+- deterministic read-only resume phase
+- target-reanalysis-required override
+- hardware-substitution-blocked override
+- local collision-safe persistence
+- destructive authorization never persisted
+- automatic destructive resume disabled
+- restore executable remains false
+
+Primary files:
+
+- `apps/phoenix-key/src-tauri/src/recovery_evidence_bundle.rs`
+- `apps/phoenix-key/src-tauri/src/recovery_session.rs`
+
+Status: IMPLEMENTED / CI-GATED.
+
+## Sweep 28 — Sanitized recovery diagnostics
+
+Implemented:
+
+- checksum-bound diagnostics export
+- component bundle + session state included
+- sensitive paths redacted
+- hardware serial/unique ID redacted
+- provider file IDs redacted
+- raw command stdout/stderr/arguments redacted
+- typed destructive acknowledgement redacted
+- destructive authorization never included
+- restore executable remains false
+- local collision-safe persistence
+
+Primary files:
+
+- `apps/phoenix-key/src-tauri/src/recovery_diagnostics.rs`
+- `apps/phoenix-key/src/RecoveryCenter.tsx`
+
+Status: IMPLEMENTED / CI-GATED.
+
+## Verified software checkpoint — 2026-09-20
+
+Exact head:
+
+`d78e2a90854f133d771d993b40d63b1429f55a07`
+
+Result:
+
+**24 / 24 GitHub Actions workflows successful.**
+
+This included:
+
+- Windows Recovery Forge
+- Verify Repository
+- Phoenix Key Desktop
+- Phoenix Key Windows Lifecycle
+- Phoenix Key Signed Windows Release
+- Phoenix Key macOS Signed Release
+- Phoenix Key Mac App Store
+- Phoenix Key Microsoft Store
+- Windows Drive Evidence
+- Windows Sacrificial Writer
+- Recovery Package Trust
+- Windows Image Metadata
+- Windows FAT32 Media Plan
+- Boot Camp Driver Manifest
+- Cloud Recovery Staging
+- Validate Governance
+- Validate Artifacts
+- Validate Boot Matrix
+- Release Gate
+- App Reality Matrix
+- Launch Boundary Audit
+- PhoenixCore Foundation
+- PhoenixCore Android Store Release
+- PhoenixCore Mobile APK Candidate
+
+The documentation-refresh commits after this checkpoint require their own exact-head CI pass. They do not invalidate the verified software checkpoint, but they are not considered merge-ready until the refreshed head is green.
+
+## Current remaining blocker
+
+The remaining Recovery Forge blocker is physical Windows hardware evidence:
+
+- sacrificial target observation
+- separate physical rollback destination
+- real read-only GPT capture with zero target writes
+- physical unplug/replug/re-enumeration
+- stable identity continuity
+- stale snapshot rejection
+- hardware-substitution rejection
+- real external-target boot metadata behavior
+- real target-data backup receipt if preserve mode is chosen
+
+No fixture may be promoted to hardware proof.
+
+## Restore executor boundary
+
+No full Windows restore executor exists in Recovery Center.
+
+Any future restore executor requires a separate architecture gate and implementation lane. It must not be inferred from this PR, from the sacrificial removable-media writer, or from evidence-chain completeness.
