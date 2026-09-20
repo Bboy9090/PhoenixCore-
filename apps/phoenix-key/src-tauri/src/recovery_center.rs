@@ -1,4 +1,6 @@
-use crate::source_identity::build_identity_bound_recovery_plan;
+use crate::source_identity::{
+    build_identity_bound_recovery_plan, verify_source_identity, SourceIdentityVerification,
+};
 use crate::windows_recovery::{analyze_backup_path, WindowsBackupAnalysis};
 use crate::windows_recovery_guard::harden_analysis;
 use serde_json::Value;
@@ -38,9 +40,33 @@ pub fn plan_windows_recovery_source(source_path: String) -> Result<Value, String
     })
 }
 
+#[tauri::command]
+pub fn verify_windows_recovery_source_identity(
+    source_path: String,
+    expected_sha256: String,
+) -> Result<SourceIdentityVerification, String> {
+    let source_path = require_source_path(source_path)?;
+    let expected_sha256 = expected_sha256.trim();
+    if expected_sha256.len() != 64
+        || !expected_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err("Expected source identity must be a 64-character SHA-256.".to_string());
+    }
+    verify_source_identity(source_path, expected_sha256).map_err(|error| {
+        format!(
+            "Phoenix Key could not freshly verify the recovery source identity. Nothing was changed. {error}"
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{analyze_windows_recovery_source, plan_windows_recovery_source};
+    use super::{
+        analyze_windows_recovery_source, plan_windows_recovery_source,
+        verify_windows_recovery_source_identity,
+    };
     use std::fs;
 
     fn temp_case(name: &str) -> std::path::PathBuf {
@@ -77,6 +103,16 @@ mod tests {
         assert!(!analysis.restore_candidate);
         assert_eq!(analysis.kind, "wim_structurally_invalid");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn source_identity_verification_rejects_invalid_expected_digest() {
+        let error = verify_windows_recovery_source_identity(
+            "fixture.wim".to_string(),
+            "bad".to_string(),
+        )
+        .unwrap_err();
+        assert!(error.contains("64-character SHA-256"));
     }
 
     #[test]
