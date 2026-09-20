@@ -11,6 +11,7 @@ pub struct RecoveryTargetIdentityVerification {
     pub snapshot_matches: bool,
     pub stable_identity_matches: bool,
     pub matches: bool,
+    pub classification: &'static str,
     pub reanalysis_required: bool,
     pub system_mutations_performed: bool,
 }
@@ -61,6 +62,16 @@ pub fn verify_recovery_target_identity(
             is_sha256(value) && value.eq_ignore_ascii_case(&expected_stable)
         });
     let matches = snapshot_matches && stable_identity_matches;
+    let expectations_valid = is_sha256(&expected_snapshot) && is_sha256(&expected_stable);
+    let classification = if !expectations_valid {
+        "invalid_expectation"
+    } else if matches {
+        "exact_match"
+    } else if stable_identity_matches {
+        "same_hardware_reenumerated"
+    } else {
+        "hardware_substitution_or_unproven"
+    };
 
     RecoveryTargetIdentityVerification {
         schema: "phoenix_key.recovery_target_identity_verification.v1",
@@ -71,6 +82,7 @@ pub fn verify_recovery_target_identity(
         snapshot_matches,
         stable_identity_matches,
         matches,
+        classification,
         reanalysis_required: !matches,
         system_mutations_performed: false,
     }
@@ -220,6 +232,7 @@ mod tests {
             &"b".repeat(64),
         );
         assert!(result.matches);
+        assert_eq!(result.classification, "exact_match");
         assert!(!result.reanalysis_required);
         assert!(!result.system_mutations_performed);
     }
@@ -235,6 +248,7 @@ mod tests {
         assert!(!result.matches);
         assert!(!result.snapshot_matches);
         assert!(result.stable_identity_matches);
+        assert_eq!(result.classification, "same_hardware_reenumerated");
         assert!(result.reanalysis_required);
     }
 
@@ -249,6 +263,20 @@ mod tests {
         assert!(!result.matches);
         assert!(result.snapshot_matches);
         assert!(!result.stable_identity_matches);
+        assert_eq!(
+            result.classification,
+            "hardware_substitution_or_unproven"
+        );
+        assert!(result.reanalysis_required);
+    }
+
+    #[test]
+    fn invalid_expected_identity_is_classified_and_blocked() {
+        let evidence = safe_evidence();
+        let result =
+            verify_recovery_target_identity(&evidence, "bad", &"b".repeat(64));
+        assert!(!result.matches);
+        assert_eq!(result.classification, "invalid_expectation");
         assert!(result.reanalysis_required);
     }
 
