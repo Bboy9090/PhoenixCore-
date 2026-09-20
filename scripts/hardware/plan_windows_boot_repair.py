@@ -94,6 +94,16 @@ def verify_readiness(readiness: dict[str, Any]) -> None:
         raise RepairPlanError(
             "Destructive restore must remain locked during repair planning."
         )
+    for field in (
+        "source_identity_sha256",
+        "target_identity_sha256",
+        "target_stable_identity_sha256",
+        "boot_state_snapshot_sha256",
+        "rollback_bundle_sha256",
+    ):
+        value = str(readiness.get(field) or "")
+        if not SHA256_RE.fullmatch(value):
+            raise RepairPlanError(f"{field} is missing or invalid.")
 
 
 def build_repair_plan(
@@ -114,13 +124,17 @@ def build_repair_plan(
         "summary": definition["summary"],
         "source_identity_sha256": readiness.get("source_identity_sha256"),
         "target_identity_sha256": readiness.get("target_identity_sha256"),
+        "target_stable_identity_sha256": readiness.get(
+            "target_stable_identity_sha256"
+        ),
         "boot_state_snapshot_sha256": readiness.get("boot_state_snapshot_sha256"),
         "rollback_bundle_sha256": readiness.get("rollback_bundle_sha256"),
         "required_rollback_artifacts": definition["required_artifacts"],
         "planned_actions": definition["actions"],
         "checkpoints": [
             "recheck_source_identity_immediately_before_repair",
-            "recheck_target_identity_immediately_before_repair",
+            "recheck_target_snapshot_identity_immediately_before_repair",
+            "recheck_target_stable_identity_immediately_before_repair",
             "recapture_boot_state_and_compare_snapshot",
             "revalidate_rollback_bundle_and_artifact_hashes",
             "verify_repair_specific_source_and_boot_mode_compatibility",
