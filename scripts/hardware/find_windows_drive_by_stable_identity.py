@@ -62,9 +62,7 @@ def normalize_candidates(
     classification = (
         "unique_match"
         if len(matches) == 1
-        else "not_found"
-        if not matches
-        else "ambiguous_multiple_matches"
+        else "not_found" if not matches else "ambiguous_multiple_matches"
     )
     return {
         "schema": "phoenix_key.stable_target_locator.v1",
@@ -84,7 +82,9 @@ def normalize_candidates(
 
 def query_all_windows_disks() -> list[dict[str, Any]]:
     if sys.platform != "win32":
-        raise StableIdentityLocatorError("Live stable-identity location requires Windows.")
+        raise StableIdentityLocatorError(
+            "Live stable-identity location requires Windows."
+        )
 
     script = r"""
 $ErrorActionPreference = 'Stop'
@@ -167,6 +167,11 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (StableIdentityLocatorError, OSError, ValueError, json.JSONDecodeError) as exc:
+    except (
+        StableIdentityLocatorError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+    ) as exc:
         print(f"STABLE_TARGET_LOCATOR_FAILED: {exc}", file=sys.stderr)
         raise SystemExit(2) from exc
