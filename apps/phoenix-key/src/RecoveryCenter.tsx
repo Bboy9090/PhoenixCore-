@@ -284,6 +284,28 @@ type RestoreRollbackCaptureReceipt = {
   receipt_sha256: string;
 };
 
+type RecoveryEvidenceBundleV2 = {
+  schema: string;
+  source_identity_sha256?: string | null;
+  target_identity_sha256?: string | null;
+  target_stable_identity_sha256?: string | null;
+  rollback_contract_sha256?: string | null;
+  components: Record<string, {
+    present: boolean;
+    schema?: string | null;
+    sha256?: string | null;
+    trusted: boolean;
+  }>;
+  software_chain_complete: boolean;
+  hardware_chain_complete: boolean;
+  data_preservation_resolved: boolean;
+  boot_metadata_resolved: boolean;
+  outstanding_requirements: string[];
+  restore_executable: boolean;
+  system_mutations_performed: boolean;
+  bundle_sha256: string;
+};
+
 type RecoveryPlan = {
   schema: string;
   source: RecoveryAnalysis;
@@ -424,6 +446,7 @@ export default function RecoveryCenter({
   const [rollbackDestinationPath, setRollbackDestinationPath] = useState("");
   const [rollbackDestinationVerification, setRollbackDestinationVerification] = useState<RollbackDestinationVerification | null>(null);
   const [rollbackCaptureReceipt, setRollbackCaptureReceipt] = useState<RestoreRollbackCaptureReceipt | null>(null);
+  const [recoveryEvidenceBundle, setRecoveryEvidenceBundle] = useState<RecoveryEvidenceBundleV2 | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
@@ -437,6 +460,22 @@ export default function RecoveryCenter({
       .then(setDrivePickerStatus)
       .catch(() => setDrivePickerStatus(null));
   }, [storeSafe]);
+
+  useEffect(() => {
+    setRecoveryEvidenceBundle(null);
+  }, [
+    plan,
+    sourceVerification,
+    packageTrust,
+    imageMetadata,
+    targetSafety,
+    targetVerification,
+    restoreRollbackContract,
+    restoreHardwarePreflight,
+    rollbackDestinationVerification,
+    rollbackCaptureReceipt,
+    targetReenumerationReceipt,
+  ]);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
   const sourceState = useMemo(() => {
@@ -1056,6 +1095,60 @@ export default function RecoveryCenter({
       setRollbackCaptureReceipt(null);
       setMessage(
         `Restore rollback capture could not complete. The restore target was not intentionally modified. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function buildRecoveryEvidenceBundle() {
+    if (
+      !plan ||
+      !sourceVerification ||
+      !imageMetadata ||
+      !targetSafety ||
+      !targetVerification ||
+      !restoreRollbackContract ||
+      !restoreHardwarePreflight ||
+      busy
+    ) return;
+
+    setBusy(true);
+    setRecoveryEvidenceBundle(null);
+    setMessage(
+      "Binding the current recovery evidence into one checksummed session bundle. No disk or source mutation will run…",
+    );
+    try {
+      const result = await invoke<RecoveryEvidenceBundleV2>(
+        "build_windows_recovery_evidence_bundle_v2",
+        {
+          evidenceJson: JSON.stringify({
+            identity_bound_plan: plan,
+            source_identity_verification: sourceVerification,
+            package_trust: packageTrust,
+            image_metadata: imageMetadata,
+            target_safety: targetSafety,
+            target_identity_verification: targetVerification,
+            rollback_contract: restoreRollbackContract,
+            hardware_preflight: restoreHardwarePreflight,
+            rollback_destination_verification: rollbackDestinationVerification,
+            rollback_capture_receipt: rollbackCaptureReceipt,
+            target_reenumeration_receipt: targetReenumerationReceipt,
+            data_preservation_receipt: null,
+            boot_metadata_receipt: null,
+          }),
+        },
+      );
+      setRecoveryEvidenceBundle(result);
+      setMessage(
+        result.hardware_chain_complete
+          ? "Recovery evidence bundle is complete for the currently implemented evidence classes. Restore execution remains intentionally unavailable."
+          : "Recovery evidence bundle created. Missing evidence is listed explicitly; restore execution remains unavailable.",
+      );
+    } catch (error) {
+      setRecoveryEvidenceBundle(null);
+      setMessage(
+        `Recovery evidence bundle could not be created. Nothing was changed. ${String(error)}`,
       );
     } finally {
       setBusy(false);
@@ -1844,6 +1937,48 @@ export default function RecoveryCenter({
                         <p>Saved receipt: {targetReenumerationReceipt.receipt_path}</p>
                       )}
                       <p>System mutations performed: {targetReenumerationReceipt.system_mutations_performed ? "yes" : "no"}</p>
+                    </div>
+                  )}
+                  {restoreHardwarePreflight && (
+                    <div className="recovery-list">
+                      <strong>Recovery evidence bundle v2</strong>
+                      <p className="field-help">
+                        Bind the current plan, identities, image metadata, rollback contract, and any captured hardware receipts into one checksummed session record.
+                      </p>
+                      <button
+                        className="plan-button"
+                        type="button"
+                        onClick={buildRecoveryEvidenceBundle}
+                        disabled={
+                          busy ||
+                          !sourceVerification ||
+                          !imageMetadata ||
+                          !targetSafety ||
+                          !targetVerification ||
+                          !restoreRollbackContract
+                        }
+                      >
+                        Build Recovery Evidence Bundle
+                      </button>
+                      {recoveryEvidenceBundle && (
+                        <div className={
+                          recoveryEvidenceBundle.software_chain_complete
+                            ? "good-list"
+                            : "warning-box"
+                        }>
+                          <p>Bundle SHA-256: {recoveryEvidenceBundle.bundle_sha256}</p>
+                          <p>Software chain complete: {recoveryEvidenceBundle.software_chain_complete ? "yes" : "no"}</p>
+                          <p>Hardware chain complete: {recoveryEvidenceBundle.hardware_chain_complete ? "yes" : "no"}</p>
+                          <p>Restore executable: {recoveryEvidenceBundle.restore_executable ? "yes" : "no"}</p>
+                          <p>System mutations performed: {recoveryEvidenceBundle.system_mutations_performed ? "yes" : "no"}</p>
+                          <strong>Outstanding requirements</strong>
+                          {recoveryEvidenceBundle.outstanding_requirements.length === 0 ? (
+                            <p>None for the currently modeled evidence classes.</p>
+                          ) : recoveryEvidenceBundle.outstanding_requirements.map((item) => (
+                            <p key={item}>— {readableToken(item)}</p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
