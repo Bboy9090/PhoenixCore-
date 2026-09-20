@@ -6,6 +6,7 @@ mod intel_mac_restore_gate;
 mod mac_bootcamp_compat;
 mod recovery_center;
 mod recovery_evidence_bundle;
+mod recovery_session;
 mod restore_preflight;
 mod rollback_destination;
 mod restore_readiness;
@@ -33,6 +34,7 @@ use recovery_center::{
     verify_windows_recovery_source_identity,
 };
 use recovery_evidence_bundle::build_windows_recovery_evidence_bundle_v2;
+use recovery_session::build_windows_recovery_session_state;
 use serde::Serialize;
 use serde_json::{json, Value};
 use source_identity::capture_source_identity;
@@ -683,6 +685,51 @@ fn persist_windows_recovery_rollback_bundle(
     })();
     let _ = fs::remove_dir_all(&directory);
     result
+}
+
+#[tauri::command]
+fn persist_windows_recovery_session_state(
+    evidence_json: String,
+) -> Result<Value, String> {
+    let state = build_windows_recovery_session_state(evidence_json)?;
+    let root = receipt_directory()?;
+    let final_path = root.join(format!("recovery-session-{}.json", state.session_id));
+    let final_path_text = final_path.to_string_lossy().to_string();
+
+    let mut value = serde_json::to_value(&state)
+        .map_err(|error| format!("cannot serialize recovery session state: {error}"))?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| "recovery session state is not a JSON object".to_string())?;
+    object.insert(
+        "session_path".to_string(),
+        Value::String(final_path_text.clone()),
+    );
+    object.insert("session_persisted".to_string(), Value::Bool(true));
+    object.insert(
+        "destructive_authorization_persisted".to_string(),
+        Value::Bool(false),
+    );
+
+    let mut bytes = serde_json::to_vec_pretty(&value)
+        .map_err(|error| format!("cannot encode recovery session state: {error}"))?;
+    bytes.push(b'\n');
+
+    if final_path.exists() {
+        let existing = fs::read(&final_path)
+            .map_err(|error| format!("cannot read existing recovery session state: {error}"))?;
+        if existing != bytes {
+            return Err("recovery session path collision".to_string());
+        }
+        return Ok(value);
+    }
+
+    let temporary_path = final_path.with_extension("json.tmp");
+    fs::write(&temporary_path, &bytes)
+        .map_err(|error| format!("cannot persist recovery session state: {error}"))?;
+    fs::rename(&temporary_path, &final_path)
+        .map_err(|error| format!("cannot finalize recovery session state: {error}"))?;
+    Ok(value)
 }
 
 fn google_drive_client_id() -> Option<String> {
@@ -1820,6 +1867,8 @@ fn main() {
         plan_windows_recovery_source,
         verify_windows_recovery_source_identity,
         build_windows_recovery_evidence_bundle_v2,
+        build_windows_recovery_session_state,
+        persist_windows_recovery_session_state,
         plan_windows_boot_repair,
         create_target_data_preservation_decision,
         inspect_mac_bootcamp_host,
