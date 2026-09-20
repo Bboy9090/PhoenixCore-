@@ -50,6 +50,8 @@ jobs:
           tests/test_windows_rollback_bundle.py
           tests/test_windows_recovery_readiness.py
           tests/test_windows_boot_repair_plan.py
+          tests/test_windows_recovery_readiness.py
+          tests/test_windows_boot_repair_plan.py
 
       - name: Compile collector and tests
         run: >-
@@ -70,6 +72,8 @@ jobs:
           tests/test_windows_source_disk_resolution.py
           tests/test_windows_boot_state.py
           tests/test_windows_rollback_bundle.py
+          tests/test_windows_recovery_readiness.py
+          tests/test_windows_boot_repair_plan.py
           -v
 
       - name: Reject mutation APIs in evidence collectors
