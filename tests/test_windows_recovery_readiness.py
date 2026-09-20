@@ -29,6 +29,7 @@ class WindowsRecoveryReadinessTests(unittest.TestCase):
             "disk": {
                 "target": r"\\.\PHYSICALDRIVE7",
                 "identity_sha256": "2" * 64,
+                "stable_identity_sha256": "3" * 64,
                 "size_bytes": 4096,
                 "write_candidate": True,
                 "write_block_reasons": [],
@@ -52,6 +53,9 @@ class WindowsRecoveryReadinessTests(unittest.TestCase):
             "complete": True,
             "repair_unlock_ready": True,
             "boot_state_snapshot_sha256": boot_sha,
+            "source_identity_sha256": "1" * 64,
+            "target_identity_sha256": "2" * 64,
+            "target_stable_identity_sha256": "3" * 64,
             "artifacts": {
                 "partition_layout": {"status": "persisted"},
                 "efi_inventory": {"status": "persisted"},
@@ -88,6 +92,81 @@ class WindowsRecoveryReadinessTests(unittest.TestCase):
         self.assertFalse(result["destructive_restore_unlocked"])
         self.assertEqual("build-checkpointed-repair-plan", result["allowed_next_stage"])
         self.assertEqual([], result["block_reasons"])
+        self.assertEqual("3" * 64, result["target_stable_identity_sha256"])
+
+    def test_missing_stable_target_identity_blocks(self):
+        target = self.target()
+        target["disk"]["stable_identity_sha256"] = None
+        boot = self.boot()
+        result = windows_recovery_readiness.build_recovery_readiness(
+            source_identity=self.source(),
+            target_evidence=target,
+            boot_state=boot,
+            rollback_bundle=self.bundle(boot["snapshot_sha256"]),
+            collision_check=self.collision(),
+        )
+        self.assertFalse(result["repair_planning_ready"])
+        self.assertIn(
+            "target-stable-identity-sha256-invalid",
+            result["block_reasons"],
+        )
+
+    def test_rollback_source_identity_mismatch_blocks(self):
+        boot = self.boot()
+        bundle = self.bundle(boot["snapshot_sha256"])
+        bundle["source_identity_sha256"] = "a" * 64
+        bundle.pop("bundle_sha256")
+        bundle["bundle_sha256"] = windows_recovery_readiness.sha256_payload(bundle)
+        result = windows_recovery_readiness.build_recovery_readiness(
+            source_identity=self.source(),
+            target_evidence=self.target(),
+            boot_state=boot,
+            rollback_bundle=bundle,
+            collision_check=self.collision(),
+        )
+        self.assertFalse(result["repair_planning_ready"])
+        self.assertIn(
+            "rollback-bundle-source-identity-mismatch",
+            result["block_reasons"],
+        )
+
+    def test_rollback_target_identity_mismatch_blocks(self):
+        boot = self.boot()
+        bundle = self.bundle(boot["snapshot_sha256"])
+        bundle["target_identity_sha256"] = "a" * 64
+        bundle.pop("bundle_sha256")
+        bundle["bundle_sha256"] = windows_recovery_readiness.sha256_payload(bundle)
+        result = windows_recovery_readiness.build_recovery_readiness(
+            source_identity=self.source(),
+            target_evidence=self.target(),
+            boot_state=boot,
+            rollback_bundle=bundle,
+            collision_check=self.collision(),
+        )
+        self.assertFalse(result["repair_planning_ready"])
+        self.assertIn(
+            "rollback-bundle-target-identity-mismatch",
+            result["block_reasons"],
+        )
+
+    def test_rollback_stable_target_identity_mismatch_blocks(self):
+        boot = self.boot()
+        bundle = self.bundle(boot["snapshot_sha256"])
+        bundle["target_stable_identity_sha256"] = "a" * 64
+        bundle.pop("bundle_sha256")
+        bundle["bundle_sha256"] = windows_recovery_readiness.sha256_payload(bundle)
+        result = windows_recovery_readiness.build_recovery_readiness(
+            source_identity=self.source(),
+            target_evidence=self.target(),
+            boot_state=boot,
+            rollback_bundle=bundle,
+            collision_check=self.collision(),
+        )
+        self.assertFalse(result["repair_planning_ready"])
+        self.assertIn(
+            "rollback-bundle-target-stable-identity-mismatch",
+            result["block_reasons"],
+        )
 
     def test_same_device_blocks(self):
         collision = self.collision()
