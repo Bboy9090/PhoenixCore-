@@ -124,6 +124,28 @@ jobs:
           }
           $rows | Set-Content "src-tauri/target/release/bundle/SHA256SUMS.txt"
 
+      - name: Emit signed Windows provenance receipt
+        shell: pwsh
+        run: |
+          $files = @()
+          $files += Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi"
+          $files += Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe"
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $args = @(
+            "../../scripts/release/emit-release-provenance.mjs",
+            "--product", "phoenix-key",
+            "--channel", "windows-direct",
+            "--version", $version,
+            "--source-commit", "${{ github.sha }}"
+          )
+          foreach ($file in $files) {
+            $args += "--artifact"
+            $args += $file.FullName
+          }
+          $args += "--output"
+          $args += (Join-Path (Resolve-Path "src-tauri/target/release/bundle") "RELEASE-PROVENANCE.json")
+          node @args
+
       - name: Upload signed Windows release artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -132,6 +154,8 @@ jobs:
             apps/phoenix-key/src-tauri/target/release/bundle/msi/*.msi
             apps/phoenix-key/src-tauri/target/release/bundle/nsis/*.exe
             apps/phoenix-key/src-tauri/target/release/bundle/SHA256SUMS.txt
+            apps/phoenix-key/src-tauri/target/release/bundle/RELEASE-PROVENANCE.json
+            apps/phoenix-key/src-tauri/target/release/bundle/RELEASE-PROVENANCE.json.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -146,3 +170,5 @@ jobs:
             apps/phoenix-key/src-tauri/target/release/bundle/msi/*.msi
             apps/phoenix-key/src-tauri/target/release/bundle/nsis/*.exe
             apps/phoenix-key/src-tauri/target/release/bundle/SHA256SUMS.txt
+            apps/phoenix-key/src-tauri/target/release/bundle/RELEASE-PROVENANCE.json
+            apps/phoenix-key/src-tauri/target/release/bundle/RELEASE-PROVENANCE.json.sha256
