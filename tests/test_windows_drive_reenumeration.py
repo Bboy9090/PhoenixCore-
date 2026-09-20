@@ -78,6 +78,27 @@ class WindowsDriveReenumerationTests(unittest.TestCase):
             result["required_action"],
         )
 
+    def test_different_capture_code_revisions_require_recapture(self):
+        before = self.receipt(1)
+        after = self.receipt(7)
+        after["source_commit"] = "b" * 40
+        canonical = dict(after)
+        canonical.pop("receipt_sha256", None)
+        after["receipt_sha256"] = windows_drive_reenumeration.sha256_payload(canonical)
+
+        result = windows_drive_reenumeration.compare_receipts(before, after)
+        self.assertEqual(
+            "evidence-software-version-mismatch",
+            result["classification"],
+        )
+        self.assertFalse(result["source_commit_matches"])
+        self.assertFalse(result["comparison_trusted"])
+        self.assertFalse(result["hardware_validation_complete"])
+        self.assertEqual(
+            "recapture-before-and-after-with-same-code-revision",
+            result["required_action"],
+        )
+
     def test_hardware_substitution_is_blocked(self):
         before = self.receipt(1)
         after = self.receipt(1, serial="DIFFERENT-DEVICE-SERIAL")
