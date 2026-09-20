@@ -164,6 +164,25 @@ type RecoveryTargetIdentityVerification = {
   system_mutations_performed: boolean;
 };
 
+type RecoveryTargetReenumerationReceipt = {
+  schema: string;
+  expected_target?: string | null;
+  observed_target?: string | null;
+  expected_snapshot_identity_sha256: string;
+  observed_snapshot_identity_sha256?: string | null;
+  expected_stable_identity_sha256: string;
+  observed_stable_identity_sha256?: string | null;
+  same_stable_hardware: boolean;
+  snapshot_changed: boolean;
+  target_path_changed: boolean;
+  stale_authorization_rejected: boolean;
+  reanalysis_required: boolean;
+  substitution_detected: boolean;
+  classification: string;
+  system_mutations_performed: boolean;
+  receipt_sha256: string;
+};
+
 type RestoreRollbackContract = {
   schema: string;
   source_identity_sha256: string;
@@ -369,6 +388,8 @@ export default function RecoveryCenter({
   const [targetDrive, setTargetDrive] = useState("");
   const [targetSafety, setTargetSafety] = useState<RecoveryTargetSafety | null>(null);
   const [targetVerification, setTargetVerification] = useState<RecoveryTargetIdentityVerification | null>(null);
+  const [reenumeratedTargetDrive, setReenumeratedTargetDrive] = useState("");
+  const [targetReenumerationReceipt, setTargetReenumerationReceipt] = useState<RecoveryTargetReenumerationReceipt | null>(null);
   const [restoreRollbackContract, setRestoreRollbackContract] = useState<RestoreRollbackContract | null>(null);
   const [restoreHardwarePreflight, setRestoreHardwarePreflight] = useState<RestoreHardwarePreflight | null>(null);
   const [rollbackDestinationPath, setRollbackDestinationPath] = useState("");
@@ -412,6 +433,8 @@ export default function RecoveryCenter({
     setTargetDrive("");
     setTargetSafety(null);
     setTargetVerification(null);
+    setReenumeratedTargetDrive("");
+    setTargetReenumerationReceipt(null);
     setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
@@ -768,6 +791,8 @@ export default function RecoveryCenter({
       });
       setTargetSafety(result);
       setTargetVerification(null);
+      setReenumeratedTargetDrive(result.target || targetDrive.trim());
+      setTargetReenumerationReceipt(null);
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
@@ -1006,6 +1031,61 @@ export default function RecoveryCenter({
     }
   }
 
+  async function inspectTargetReenumeration() {
+    if (storeSafe) {
+      setMessage("Physical-target re-enumeration inspection is disabled in the store-safe distribution.");
+      return;
+    }
+    if (
+      !targetSafety?.safe_to_prepare ||
+      !targetSafety.target_identity_sha256 ||
+      !targetSafety.target_stable_identity_sha256 ||
+      !reenumeratedTargetDrive.trim() ||
+      busy
+    ) return;
+
+    setBusy(true);
+    setTargetReenumerationReceipt(null);
+    setMessage(
+      "Capturing the current Windows disk identity and comparing it with the frozen target baseline. No disk mutation will run…",
+    );
+    try {
+      const result = await invoke<RecoveryTargetReenumerationReceipt>(
+        "inspect_windows_recovery_target_reenumeration",
+        {
+          currentTargetDrive: reenumeratedTargetDrive.trim(),
+          expectedTargetDrive: targetSafety.target || targetDrive.trim(),
+          expectedSnapshotIdentitySha256: targetSafety.target_identity_sha256,
+          expectedStableIdentitySha256: targetSafety.target_stable_identity_sha256,
+        },
+      );
+      setTargetReenumerationReceipt(result);
+      if (result.reanalysis_required) {
+        setTargetVerification(null);
+        setRestoreRollbackContract(null);
+        setRestoreHardwarePreflight(null);
+        setRollbackDestinationVerification(null);
+        setRollbackCaptureReceipt(null);
+      }
+      setMessage(
+        result.classification === "same_hardware_reenumerated"
+          ? "Same physical hardware verified after Windows re-enumeration. The old snapshot authorization was rejected; run full target safety analysis again before proceeding."
+          : result.classification === "hardware_substitution_detected"
+            ? "A different physical device was detected. Restore planning remains blocked."
+            : result.classification === "exact_snapshot_match"
+              ? "Target still has the exact same snapshot and stable hardware identity."
+              : "Target identity could not be fully proven. Reanalysis is required.",
+      );
+    } catch (error) {
+      setTargetReenumerationReceipt(null);
+      setMessage(
+        `Target re-enumeration inspection could not complete. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function reverifyTargetIdentity() {
     if (storeSafe) {
       setMessage("Physical-target verification is disabled in the store-safe distribution.");
@@ -1020,6 +1100,7 @@ export default function RecoveryCenter({
     ) return;
     setBusy(true);
     setTargetVerification(null);
+    setTargetReenumerationReceipt(null);
     setRestoreHardwarePreflight(null);
     setRollbackDestinationVerification(null);
     setRollbackCaptureReceipt(null);
@@ -1420,6 +1501,8 @@ export default function RecoveryCenter({
                     setTargetDrive(event.target.value);
                     setTargetSafety(null);
                     setTargetVerification(null);
+                    setReenumeratedTargetDrive("");
+                    setTargetReenumerationReceipt(null);
                     setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
@@ -1460,6 +1543,38 @@ export default function RecoveryCenter({
                     >
                       Freshly Re-Verify Exact Target
                     </button>
+                  )}
+                  {targetSafety.safe_to_prepare && (
+                    <div className="recovery-list">
+                      <strong>Reconnect / re-enumeration proof</strong>
+                      <p className="field-help">
+                        After a real unplug/replug, enter the target's current PHYSICALDRIVE path here. Phoenix Key compares it against the frozen baseline without carrying old authorization forward.
+                      </p>
+                      <label className="path-field">
+                        <span>Current target after reconnect</span>
+                        <input
+                          value={reenumeratedTargetDrive}
+                          onChange={(event) => {
+                            setReenumeratedTargetDrive(event.target.value);
+                            setTargetReenumerationReceipt(null);
+                          }}
+                          placeholder="PHYSICALDRIVE9"
+                        />
+                      </label>
+                      <button
+                        className="plan-button"
+                        type="button"
+                        onClick={inspectTargetReenumeration}
+                        disabled={
+                          busy ||
+                          !reenumeratedTargetDrive.trim() ||
+                          !targetSafety.target_identity_sha256 ||
+                          !targetSafety.target_stable_identity_sha256
+                        }
+                      >
+                        Compare Re-Enumeration Identity
+                      </button>
+                    </div>
                   )}
                   {targetSafety.safe_to_prepare && (
                     <button
@@ -1607,6 +1722,27 @@ export default function RecoveryCenter({
                       <p>Observed snapshot: {targetVerification.observed_snapshot_identity_sha256 || "missing"}</p>
                       <p>Observed stable identity: {targetVerification.observed_stable_identity_sha256 || "missing"}</p>
                       <p>System mutations performed: {targetVerification.system_mutations_performed ? "yes" : "no"}</p>
+                    </div>
+                  )}
+                  {targetReenumerationReceipt && (
+                    <div className={
+                      targetReenumerationReceipt.substitution_detected ||
+                      targetReenumerationReceipt.reanalysis_required
+                        ? "warning-box"
+                        : "good-list"
+                    }>
+                      <strong>Target re-enumeration receipt</strong>
+                      <p>Classification: {readableToken(targetReenumerationReceipt.classification)}</p>
+                      <p>Expected target: {targetReenumerationReceipt.expected_target || "unproven"}</p>
+                      <p>Observed target: {targetReenumerationReceipt.observed_target || "unproven"}</p>
+                      <p>Same stable hardware: {targetReenumerationReceipt.same_stable_hardware ? "yes" : "no"}</p>
+                      <p>Snapshot changed: {targetReenumerationReceipt.snapshot_changed ? "yes" : "no"}</p>
+                      <p>Target path changed: {targetReenumerationReceipt.target_path_changed ? "yes" : "no"}</p>
+                      <p>Stale authorization rejected: {targetReenumerationReceipt.stale_authorization_rejected ? "yes" : "no"}</p>
+                      <p>Substitution detected: {targetReenumerationReceipt.substitution_detected ? "yes" : "no"}</p>
+                      <p>Reanalysis required: {targetReenumerationReceipt.reanalysis_required ? "yes" : "no"}</p>
+                      <p>Receipt SHA-256: {targetReenumerationReceipt.receipt_sha256}</p>
+                      <p>System mutations performed: {targetReenumerationReceipt.system_mutations_performed ? "yes" : "no"}</p>
                     </div>
                   )}
                 </div>
