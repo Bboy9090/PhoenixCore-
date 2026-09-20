@@ -1120,6 +1120,37 @@ fn capture_restore_target_rollback_artifacts(
         .and_then(Value::as_str)
         .ok_or_else(|| "rollback contract target stable identity is missing".to_string())?;
 
+    let valid_sha256 = |value: &str| {
+        value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    };
+    if !valid_sha256(contract_sha256)
+        || !valid_sha256(expected_snapshot)
+        || !valid_sha256(expected_stable)
+    {
+        return Err("rollback contract contains an invalid SHA-256 identity".to_string());
+    }
+    let apply_system_image_blocked = rollback_contract
+        .get("always_blocked_by_this_contract")
+        .and_then(Value::as_array)
+        .is_some_and(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .any(|item| item == "apply_system_image")
+        });
+    if !apply_system_image_blocked
+        || rollback_contract
+            .get("artifact_destination_requirement")
+            .and_then(Value::as_str)
+            != Some("separate-physical-device-from-restore-target")
+        || rollback_contract
+            .get("fresh_target_revalidation_required")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        return Err("rollback contract is missing mandatory restore safety locks".to_string());
+    }
+
     let target_resolution = resolve_target(target_drive.trim())?;
     if !target_resolution.is_windows_physical_drive() {
         return Err("restore target must be an exact Windows PHYSICALDRIVE path".to_string());
