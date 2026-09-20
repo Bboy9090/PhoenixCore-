@@ -3,7 +3,7 @@ name: Phoenix Key Signed Windows Release
 on:
   push:
     branches:
-      - "store-release/phoenix-key-v3.2.0"
+      - "store-release/phoenix-key-v*"
   pull_request:
     branches: [main]
     paths:
