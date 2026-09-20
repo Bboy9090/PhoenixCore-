@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 
+const normalizeNewlines = (value) => value.replace(/\r\n/g, "\n");
+
 const ui = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
 const rust = readFileSync(new URL("../src-tauri/src/main.rs", import.meta.url), "utf8");
 const evidence = readFileSync(new URL("../../../scripts/hardware/capture_windows_drive_evidence.py", import.meta.url), "utf8");
