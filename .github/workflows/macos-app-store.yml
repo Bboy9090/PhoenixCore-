@@ -51,7 +51,7 @@ jobs:
           npx tauri build --features store-safe --bundles app
 
   package-and-upload:
-    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'store-release/phoenix-key-v3.2.0'
+    if: github.event_name == 'workflow_dispatch'
     needs: store-safe-preflight
     runs-on: macos-latest
     defaults:
