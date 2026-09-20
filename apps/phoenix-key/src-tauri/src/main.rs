@@ -33,7 +33,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use source_identity::capture_source_identity;
 use target_reenumeration::{
-    compare_recovery_target_reenumeration, RecoveryTargetReenumerationReceipt,
+    compare_recovery_target_reenumeration,
 };
 use target_safety::{
     assess_recovery_target, verify_recovery_target_identity,
@@ -1121,7 +1121,7 @@ fn inspect_windows_recovery_target_reenumeration(
     expected_target_drive: Option<String>,
     expected_snapshot_identity_sha256: String,
     expected_stable_identity_sha256: String,
-) -> Result<RecoveryTargetReenumerationReceipt, String> {
+) -> Result<Value, String> {
     if !cfg!(windows) {
         return Err("Windows target re-enumeration inspection requires Windows.".to_string());
     }
@@ -1138,12 +1138,51 @@ fn inspect_windows_recovery_target_reenumeration(
             &resolution.canonical_path,
             "phoenix-key-target-reenumeration-evidence.json",
         )?;
-        Ok(compare_recovery_target_reenumeration(
+        let receipt = compare_recovery_target_reenumeration(
             &evidence,
             expected_target_drive.as_deref(),
             &expected_snapshot_identity_sha256,
             &expected_stable_identity_sha256,
-        ))
+        );
+
+        let root = receipt_directory()?;
+        let final_path = root.join(format!(
+            "target-reenumeration-{}-{}.json",
+            std::process::id(),
+            &receipt.receipt_sha256[..12]
+        ));
+        let final_path_text = final_path.to_string_lossy().to_string();
+
+        let mut value = serde_json::to_value(&receipt)
+            .map_err(|error| format!("cannot serialize target re-enumeration receipt: {error}"))?;
+        let object = value
+            .as_object_mut()
+            .ok_or_else(|| "target re-enumeration receipt is not a JSON object".to_string())?;
+        object.insert(
+            "receipt_path".to_string(),
+            Value::String(final_path_text.clone()),
+        );
+        object.insert("receipt_persisted".to_string(), Value::Bool(true));
+
+        let mut bytes = serde_json::to_vec_pretty(&value)
+            .map_err(|error| format!("cannot encode target re-enumeration receipt: {error}"))?;
+        bytes.push(b'\n');
+
+        if final_path.exists() {
+            let existing = fs::read(&final_path)
+                .map_err(|error| format!("cannot read existing re-enumeration receipt: {error}"))?;
+            if existing != bytes {
+                return Err("target re-enumeration receipt path collision".to_string());
+            }
+            return Ok(value);
+        }
+
+        let temporary_path = final_path.with_extension("json.tmp");
+        fs::write(&temporary_path, &bytes)
+            .map_err(|error| format!("cannot persist target re-enumeration receipt: {error}"))?;
+        fs::rename(&temporary_path, &final_path)
+            .map_err(|error| format!("cannot finalize target re-enumeration receipt: {error}"))?;
+        Ok(value)
     })();
     let _ = fs::remove_dir_all(&directory);
     result
