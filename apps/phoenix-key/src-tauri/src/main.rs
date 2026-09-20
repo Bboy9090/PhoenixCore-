@@ -95,6 +95,9 @@ const WINDOWS_ROLLBACK_BUNDLE_SOURCE: &str =
 const RESTORE_ROLLBACK_CAPTURE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_restore_rollback.py");
 #[cfg(not(feature = "store-safe"))]
+const RESTORE_TARGET_BOOT_METADATA_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/capture_windows_restore_target_boot_metadata.py");
+#[cfg(not(feature = "store-safe"))]
 const SACRIFICIAL_WRITER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/write_windows_sacrificial_drive.py");
 const SMOKE_RECEIPT_ENV: &str = "PHOENIX_KEY_SMOKE_RECEIPT";
@@ -338,6 +341,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         RESTORE_ROLLBACK_CAPTURE_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded restore rollback-capture helper: {error}"))?;
+    fs::write(
+        directory.join("capture_windows_restore_target_boot_metadata.py"),
+        RESTORE_TARGET_BOOT_METADATA_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded restore target boot-metadata helper: {error}"))?;
     fs::write(
         directory.join("write_windows_sacrificial_drive.py"),
         SACRIFICIAL_WRITER_SOURCE,
@@ -1359,6 +1367,162 @@ fn capture_restore_target_rollback_artifacts(
 }
 
 #[tauri::command]
+fn capture_restore_target_boot_metadata(
+    rollback_capture_receipt_json: String,
+    rollback_contract_json: String,
+) -> Result<Value, String> {
+    if !cfg!(windows) {
+        return Err("Restore target boot-metadata capture requires Windows.".to_string());
+    }
+
+    let rollback_capture: Value = serde_json::from_str(&rollback_capture_receipt_json)
+        .map_err(|error| format!("invalid rollback capture receipt JSON: {error}"))?;
+    let rollback_contract: Value = serde_json::from_str(&rollback_contract_json)
+        .map_err(|error| format!("invalid rollback contract JSON: {error}"))?;
+
+    if !verify_restore_target_rollback_contract_sha256(&rollback_contract) {
+        return Err("rollback contract checksum is invalid".to_string());
+    }
+    if rollback_capture.get("schema").and_then(Value::as_str)
+        != Some("phoenix_key.restore_target_rollback_capture.v1")
+        || rollback_capture
+            .get("target_bytes_written")
+            .and_then(Value::as_u64)
+            != Some(0)
+        || rollback_capture
+            .get("target_write_attempted")
+            .and_then(Value::as_bool)
+            != Some(false)
+        || rollback_capture
+            .get("restore_unlock_ready")
+            .and_then(Value::as_bool)
+            != Some(false)
+    {
+        return Err("rollback capture receipt does not preserve required safety locks".to_string());
+    }
+
+    let target = rollback_capture
+        .get("target")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback capture target is missing".to_string())?;
+    let expected_snapshot = rollback_capture
+        .get("target_snapshot_identity_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback capture target snapshot identity is missing".to_string())?;
+    let expected_stable = rollback_capture
+        .get("target_stable_identity_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback capture target stable identity is missing".to_string())?;
+    let capture_contract_sha = rollback_capture
+        .get("rollback_contract_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback capture contract SHA-256 is missing".to_string())?;
+    let contract_sha = rollback_contract
+        .get("contract_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback contract SHA-256 is missing".to_string())?;
+    let contract_snapshot = rollback_contract
+        .get("target_identity_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback contract target snapshot identity is missing".to_string())?;
+    let contract_stable = rollback_contract
+        .get("target_stable_identity_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback contract target stable identity is missing".to_string())?;
+
+    let valid_sha256 = |value: &str| {
+        value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    };
+    if !valid_sha256(expected_snapshot)
+        || !valid_sha256(expected_stable)
+        || !valid_sha256(capture_contract_sha)
+        || !valid_sha256(contract_sha)
+        || !valid_sha256(contract_snapshot)
+        || !valid_sha256(contract_stable)
+        || !capture_contract_sha.eq_ignore_ascii_case(contract_sha)
+        || !expected_snapshot.eq_ignore_ascii_case(contract_snapshot)
+        || !expected_stable.eq_ignore_ascii_case(contract_stable)
+    {
+        return Err("rollback capture and rollback contract identities do not match".to_string());
+    }
+
+    let target_resolution = resolve_target(target)?;
+    if !target_resolution.is_windows_physical_drive() {
+        return Err("restore target must remain an exact Windows PHYSICALDRIVE path".to_string());
+    }
+
+    let rollback_output = rollback_capture
+        .get("output_directory")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback capture output directory is missing".to_string())?;
+    let rollback_output = PathBuf::from(rollback_output);
+    if !rollback_output.is_dir() {
+        return Err("rollback capture output directory is not available".to_string());
+    }
+    let output_dir = rollback_output.join("boot-metadata");
+    if output_dir.exists() {
+        return Err("boot-metadata output directory already exists".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let evidence_name = "phoenix-key-boot-metadata-target-evidence.json";
+        let evidence = capture_write_evidence(
+            &directory,
+            &target_resolution.canonical_path,
+            evidence_name,
+        )?;
+        let observed_snapshot = evidence
+            .pointer("/disk/identity_sha256")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "fresh target snapshot identity is missing".to_string())?;
+        let observed_stable = evidence
+            .pointer("/disk/stable_identity_sha256")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "fresh target stable identity is missing".to_string())?;
+        if !observed_snapshot.eq_ignore_ascii_case(expected_snapshot)
+            || !observed_stable.eq_ignore_ascii_case(expected_stable)
+        {
+            return Err(
+                "restore target identity changed after GPT rollback capture; reanalysis required"
+                    .to_string(),
+            );
+        }
+
+        let rollback_receipt_path = directory.join("restore-rollback-capture.json");
+        let mut rollback_bytes = serde_json::to_vec_pretty(&rollback_capture)
+            .map_err(|error| format!("cannot encode rollback capture receipt: {error}"))?;
+        rollback_bytes.push(b'\n');
+        fs::write(&rollback_receipt_path, rollback_bytes)
+            .map_err(|error| format!("cannot stage rollback capture receipt: {error}"))?;
+
+        let script = directory.join("capture_windows_restore_target_boot_metadata.py");
+        let evidence_path = directory.join(evidence_name);
+        let evidence_text = evidence_path.to_string_lossy().to_string();
+        let rollback_text = rollback_receipt_path.to_string_lossy().to_string();
+        let output_text = output_dir.to_string_lossy().to_string();
+        run_python_json(
+            &script,
+            &[
+                "--target",
+                &target_resolution.canonical_path,
+                "--drive-evidence",
+                &evidence_text,
+                "--rollback-capture-receipt",
+                &rollback_text,
+                "--rollback-contract-sha256",
+                contract_sha,
+                "--output-dir",
+                &output_text,
+            ],
+            &[],
+        )
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn inspect_restore_rollback_destination(
     target_drive: String,
     rollback_destination_path: String,
@@ -1668,6 +1832,7 @@ fn main() {
         inspect_recovery_target_safety,
         inspect_restore_rollback_destination,
         capture_restore_target_rollback_artifacts,
+        capture_restore_target_boot_metadata,
         verify_windows_recovery_target_identity,
         locate_windows_recovery_target_by_stable_identity,
         inspect_windows_recovery_target_reenumeration,
