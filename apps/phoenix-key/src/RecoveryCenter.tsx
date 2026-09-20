@@ -194,6 +194,7 @@ type RecoveryPlan = {
   destructive_actions_performed: boolean;
   source_identity?: SourceIdentity;
   source_identity_gate?: string;
+  plan_sha256?: string;
 };
 
 const isDesktopRuntime = () => "__TAURI__" in window;
@@ -811,6 +812,9 @@ export default function RecoveryCenter({
             </div>
             <div>
               Pre-mutation rule: {plan.source_identity_gate || "Fresh identity recheck required"}
+            </div>
+            <div>
+              Dry-run plan SHA-256: {plan.plan_sha256 || "Plan integrity digest unavailable"}
             </div>
           </div>
 
