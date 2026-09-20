@@ -68,9 +68,14 @@ class WindowsRecoveryReadinessTests(unittest.TestCase):
 
     def collision(self):
         return {
-            "schema": "phoenix_key.source_target_collision_check.v1",
+            "schema": "phoenix_key.source_target_collision_check.v2",
             "source_physical_target": r"\\.\PHYSICALDRIVE8",
             "target_physical_target": r"\\.\PHYSICALDRIVE7",
+            "source_stable_identity_sha256": "4" * 64,
+            "target_stable_identity_sha256": "3" * 64,
+            "path_distinct": True,
+            "stable_identity_proven": True,
+            "stable_identity_distinct": True,
             "source_target_distinct": True,
             "blocked": False,
             "block_reason": None,
@@ -165,6 +170,41 @@ class WindowsRecoveryReadinessTests(unittest.TestCase):
         self.assertFalse(result["repair_planning_ready"])
         self.assertIn(
             "rollback-bundle-target-stable-identity-mismatch",
+            result["block_reasons"],
+        )
+
+    def test_collision_proof_without_stable_identity_blocks(self):
+        collision = self.collision()
+        collision["stable_identity_proven"] = False
+        collision["stable_identity_distinct"] = None
+        boot = self.boot()
+        result = windows_recovery_readiness.build_recovery_readiness(
+            source_identity=self.source(),
+            target_evidence=self.target(),
+            boot_state=boot,
+            rollback_bundle=self.bundle(boot["snapshot_sha256"]),
+            collision_check=collision,
+        )
+        self.assertFalse(result["repair_planning_ready"])
+        self.assertIn(
+            "source-target-stable-identity-not-proven",
+            result["block_reasons"],
+        )
+
+    def test_collision_stable_target_must_match_target_evidence(self):
+        collision = self.collision()
+        collision["target_stable_identity_sha256"] = "a" * 64
+        boot = self.boot()
+        result = windows_recovery_readiness.build_recovery_readiness(
+            source_identity=self.source(),
+            target_evidence=self.target(),
+            boot_state=boot,
+            rollback_bundle=self.bundle(boot["snapshot_sha256"]),
+            collision_check=collision,
+        )
+        self.assertFalse(result["repair_planning_ready"])
+        self.assertIn(
+            "collision-proof-target-stable-identity-mismatch",
             result["block_reasons"],
         )
 
