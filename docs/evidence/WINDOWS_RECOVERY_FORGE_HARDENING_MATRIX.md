@@ -1,142 +1,350 @@
 # Windows Recovery Forge — Hardening Matrix
 
-Status: active convergence work on `convergence/windows-recovery-forge-macos-v2`.
+Status: software convergence complete on
+`convergence/windows-recovery-forge-macos-v2`; PR #150 remains draft.
+
+Last fully verified software checkpoint before this documentation refresh:
+`d78e2a90854f133d771d993b40d63b1429f55a07` — **24/24 PR workflows successful**.
 
 ## Product rule
 
-Recovery Forge must be understandable before it is powerful. Analysis and planning are read-only. No destructive restore path may become reachable until its source, host, target, rollback, identity, and explicit-authorization gates have independent evidence.
+Recovery Forge must be understandable before it is powerful.
 
-## User journey
+Analysis, planning, identity verification, rollback capture, session persistence, and diagnostics export remain non-destructive. No Windows restore executor is reachable from Recovery Center.
 
-1. **Choose source** — local file/folder first; cloud sources are staged locally before analysis.
-2. **Understand what Phoenix Key found** — plain-language type, confidence, warnings, and what is missing.
-3. **Understand this computer** — Intel Mac, Apple Silicon Mac, Windows, or analysis-only host.
-4. **Choose an outcome** — repair existing Windows, restore an exact system image, create recovery media, create clean install media, or inspect/export only.
-5. **Review dry-run** — source, target, partitions, capacity, boot mode, drivers, rollback data, and exact changes.
-6. **Authorize separately** — destructive execution remains a distinct phase and must re-enumerate the target immediately before writing.
-7. **Verify and report** — checksums/readback, boot/recovery validation, receipts, and recovery/rollback instructions.
+The existing Phoenix Key sacrificial removable-media writer is a separate subsystem with its own destructive authorization and safety contract. Recovery Forge does not inherit that authorization.
+
+## Current user journey
+
+1. **Choose source**
+   - local file/folder, or
+   - stage a Google Drive file locally through the guarded acquisition flow.
+2. **Analyze source**
+   - type/signature
+   - completeness
+   - source identity
+   - warnings and host route.
+3. **Verify source**
+   - fresh identity
+   - package trust
+   - exact image/index metadata
+   - architecture compatibility.
+4. **Analyze target**
+   - source != target physical device
+   - boot/system protection
+   - capacity
+   - snapshot identity
+   - stable hardware identity.
+5. **Create rollback contract**
+   - binds source + both target identities
+   - remains non-executable.
+6. **Run hardware preflight**
+   - proves the software evidence chain is coherent enough to collect hardware rollback evidence.
+7. **Verify rollback destination**
+   - must be a different physical device.
+8. **Capture GPT rollback artifacts**
+   - target remains read-only.
+9. **Capture target boot metadata**
+   - only from already-accessible partitions; inaccessible EFI/Recovery partitions remain blocked.
+10. **Resolve target data handling**
+    - preserve mode requires a real backup receipt
+    - explicit discard requires an exact acknowledgement.
+11. **Handle re-enumeration**
+    - locate same stable hardware
+    - reject stale snapshot authorization
+    - require full reanalysis.
+12. **Build evidence bundle**
+    - one checksummed view of all current evidence.
+13. **Persist read-only session**
+    - safe resume state only
+    - no destructive authorization persisted.
+14. **Export sanitized diagnostics**
+    - paths, hardware IDs, provider IDs, command output, and acknowledgements redacted.
 
 ## Source coverage
 
-| Source | Detection | User-facing result | Restore state |
-| --- | --- | --- | --- |
-| Windows ISO | ISO9660 signature | Windows disc image detected; inspect contents before use | Plan only |
-| WIM / ESD | MSWIM signature | Windows image payload verified | Plan only |
-| Split WIM / SWM | Contiguous segment-set validation + read-only DISM metadata on complete sets | Explain missing/gapped segments and require exact image selection | Plan only when complete and metadata-compatible |
-| VHD | `conectix` footer | Legacy virtual disk image verified | Plan only |
-| VHDX | `vhdxfile` signature | Virtual disk image verified | Plan only |
-| WindowsImageBackup | Backup structure + VHD/VHDX payload | Windows system-image backup detected | Plan only |
-| Incomplete WindowsImageBackup | Backup metadata without VHD/VHDX | Explain missing payload/download | Blocked |
-| WinRE tree | Winre.wim / recovery layout | Windows recovery environment detected, not a full OS backup | Repair planning only |
-| Extracted installer tree | Sources image + setup/boot evidence | Extracted Windows media detected | Media/repair planning |
-| FFU | Signature validation not yet implemented | Extension alone is insufficient | Blocked |
-| Unknown file/folder | No supported evidence | Explain supported choices | Blocked |
+| Source | Detection / validation | Current state |
+| --- | --- | --- |
+| ISO | ISO9660 signature + content planning | Analysis / planning |
+| WIM | MSWIM signature + DISM metadata | Analysis / planning |
+| ESD | DISM metadata | Analysis / planning |
+| Split WIM | contiguous set validation + DISM metadata | Analysis / planning when complete |
+| VHD | `conectix` footer + checksum-aware validation | Analysis / planning |
+| VHDX | `vhdxfile` signature | Analysis / planning |
+| WindowsImageBackup | structure + VHD/VHDX payload discovery | Analysis / planning when payload visible |
+| Incomplete WindowsImageBackup | metadata without payload | Blocked with explanation |
+| WinRE tree | recovery layout / Winre.wim | Repair planning |
+| Extracted installer | Sources + EFI/BCD/setup evidence | Media / repair planning |
+| FFU | extension alone insufficient | Blocked |
+| Unknown | unsupported or insufficient evidence | Blocked |
 
 ## Host routing
 
-| Host | Allowed route | Explicit block |
+| Host | Current route | Explicit boundary |
 | --- | --- | --- |
-| Intel Mac | Analyze; plan Boot Camp repair/restore after exact-model and partition checks | No automatic internal write |
-| Apple Silicon Mac | Analyze; Windows ARM media/VHDX/VM recovery planning | Traditional Boot Camp creation/restore is blocked |
-| Windows | Analyze and plan native recovery workflows | Destructive execution still separately gated |
-| Linux/other | Analyze, validate, export plans/media where supported | Machine-specific internal restore blocked without supported target workflow |
+| Windows | full read-only Recovery Center evidence workflow | no system-image restore executor |
+| Intel Mac | analysis + exact-model Boot Camp planning | no internal destructive restore |
+| Apple Silicon Mac | Windows ARM / VM-oriented planning | traditional Boot Camp blocked |
+| Linux / other | analysis / validation / export | machine-specific internal restore blocked |
 
-## Mandatory source gates
+## Source identity gates
 
-- File/directory exists and is readable.
-- Format is identified from internal evidence, not filename alone where a signature exists.
-- Source is non-empty.
-- Integrity hash/manifest is captured before execution work.
-- Windows architecture and edition are identified when possible.
-- Multi-file sets are complete.
-- Windows system-image backups expose their actual VHD/VHDX payloads before restore planning.
-- Source remains immutable during target preparation; a changed source invalidates the plan.
+Status: **implemented and CI-gated**.
 
-## Mandatory target gates
+- file SHA-256 identity
+- deterministic bounded directory manifest
+- unsafe symlink/reparse traversal rejection
+- source plan binding
+- fresh re-verification
+- changed source invalidates planning
+- package trust
+- exact Windows image index selection
+- architecture compatibility
+- complete split-WIM requirement
 
-- Fresh device enumeration.
-- Canonical target identity.
-- Source and target cannot resolve to the same physical device.
-- System/internal/boot disk protection by default.
-- Capacity and required free-space validation.
-- Existing GPT/MBR and partition manifest captured before changes.
-- EFI/UEFI/legacy boot compatibility determined.
-- Exact Intel Mac model identified before Boot Camp restore.
-- Correct Boot Camp driver package matched to model and Windows version before driver injection.
-- Fresh identity recheck immediately before the first write.
+## Target identity gates
 
-## Rollback and evidence gates
+Status: **implemented and CI-gated**.
 
-Before an internal restore is ever enabled, capture:
+- exact Windows `PHYSICALDRIVE<n>` normalization
+- source != target proof
+- system / boot disk protection
+- capacity check
+- snapshot identity
+- stable hardware identity
+- fresh identity verification
+- stable-ID target locator
+- ambiguous locator match blocked
+- re-enumeration classification
+- hardware substitution classification
+- stale snapshot authorization rejected
 
-- disk identifier and stable identity
-- complete partition table / GPT metadata
-- partition GUIDs and filesystem identifiers
-- EFI directory inventory where readable
-- Windows BCD metadata where readable
-- WinRE configuration where readable
-- source hash and source-analysis receipt
-- intended-operation manifest
-- app/source commit
-- timestamps and target capacity
+## Rollback contract
 
-Every execution must emit a durable receipt. A failed operation must preserve enough evidence to explain what completed and what did not.
+Status: **implemented and CI-gated**.
 
-## UX requirements
+The full-restore rollback contract requires:
 
-The default screen must never lead with raw JSON, drive GUIDs, or recovery jargon. Show:
+- target partition table backup
+- target partition manifest
+- target boot metadata if present
+- data-preservation receipt or explicit discard decision
+- artifact checksums
+- separate physical rollback destination
+- fresh target revalidation
 
-- **What we found**
-- **How confident we are**
-- **What you can safely do next**
-- **What is blocked and why**
-- **What will happen to your data**
+The contract always blocks `apply_system_image`.
 
-Advanced technical evidence may be shown behind an explicit details control.
+## GPT rollback capture
 
-Dangerous buttons must use verb + consequence language, for example `Erase USB and create recovery media`, not vague labels such as `Continue`.
+Status: **implemented in software / fixture-tested / real hardware still required**.
 
-The product must distinguish these jobs instead of collapsing them into one Restore button:
+Software evidence covers:
 
-- Repair Windows boot/recovery
-- Restore my exact old Windows installation
-- Create Windows recovery media
-- Create a clean Windows installer
-- Inspect/export my backup without changing disks
+- primary GPT header CRC
+- backup GPT header CRC
+- primary/backup cross references
+- partition-array CRC
+- primary/backup partition-array equality
+- protective MBR
+- artifact hashes
+- partition manifest
+- zero target writes
+- rollback-contract binding
+- target snapshot + stable identity binding
+- separate destination identity
 
-## Failure-state requirements
+Real-hardware proof remains required.
 
-For every error, Phoenix Key should answer three questions:
+## External-target boot metadata
 
-1. What failed?
-2. Was anything changed?
-3. What should I do next?
+Status: **implemented in software / fixture-tested / real hardware still required**.
 
-Cancellation before the first write must be guaranteed non-destructive. Cancellation after execution begins must produce an interrupted-operation receipt rather than pretending rollback automatically succeeded.
+Supported read-only capture where already accessible:
 
-## Google Drive / cloud-source rule
+- EFI file tree
+- EFI / Boot BCD files
+- WinRE image
+- ReAgent.xml
+- partition inventory
 
-Cloud data must never be restored directly from a transient stream. Stage the selected backup locally or to a verified external workspace, support resumable transfer, verify size/hash after transfer, preserve the cloud original, and analyze the staged copy. If a cloud connector exposes only folder metadata and not the VHD/VHDX payload, report the source as incomplete rather than enabling restore.
+Safety boundary:
 
-## Release gates
+- no drive-letter assignment
+- no partition mount
+- no target writes
+- inaccessible EFI/Recovery partition remains unresolved
 
-Recovery Forge does not leave draft status until all applicable items are evidenced:
+## Data-preservation decision
 
-- Linux/macOS/Windows recovery probe tests green
-- destructive-boundary scan green
-- malformed/empty/truncated fixtures rejected
-- WindowsImageBackup complete/incomplete fixtures tested
-- Apple Silicon Boot Camp block tested
-- Intel Mac route tested without internal writes
-- source=target rejection tested
-- unplug/replug target identity change tested in the guarded writer lane
-- insufficient capacity tested
-- interrupted transfer and interrupted write receipts tested
-- UI keyboard/focus/readability pass
-- first-run copy understandable without specialist terminology
-- advanced details separated from the default workflow
-- signed/notarized desktop build evidence for release edition
+Status: **implemented and CI-gated**.
 
-## Current known limitation
+`preserve_existing_data`:
 
-The connected Google Drive hierarchy includes a real `WindowsImageBackup/bj-90-PC/Backup 2025-02-13 104757` path, but the available Drive connector has not exposed the underlying binary system-image payload. That backup must remain analysis-incomplete until the actual VHD/VHDX files can be read or staged. No repository code should claim otherwise.
+- cannot resolve without a real target-data backup receipt.
+
+`explicit_discard`:
+
+- exact acknowledgement required:
+  `I ACCEPT DATA LOSS ON THIS TARGET`
+- bound to target stable identity
+- bound to rollback contract
+- never unlocks restore execution.
+
+## Recovery Evidence Bundle v2
+
+Status: **implemented and CI-gated**.
+
+The bundle:
+
+- checksums each supplied evidence component
+- verifies component trust
+- distinguishes software-chain vs hardware-chain completeness
+- lists outstanding requirements
+- rejects stale re-enumeration as hardware-complete
+- rejects hardware substitution
+- always reports `restore_executable: false`
+
+## Persistent recovery session
+
+Status: **implemented and CI-gated**.
+
+Session phases include:
+
+- source pending
+- source verified
+- image verified
+- target verified
+- rollback planned
+- software preflight complete
+- rollback destination verified
+- rollback captured
+- awaiting boot metadata
+- awaiting data preservation
+- target reanalysis required
+- hardware substitution blocked
+- hardware evidence complete
+
+Hard invariants:
+
+- destructive authorization is not persisted
+- automatic destructive resume is false
+- restore executable is false
+- hardware substitution blocks resume
+- stale target evidence forces reanalysis
+
+## Sanitized diagnostics export
+
+Status: **implemented and CI-gated**.
+
+Redacted fields include:
+
+- local paths
+- hardware serials / unique IDs
+- provider file IDs
+- command stdout / stderr
+- command arguments
+- typed data-loss acknowledgement
+
+Preserved diagnostic value includes:
+
+- evidence hashes
+- trust status
+- gate results
+- session phase
+- outstanding requirements
+
+The export never includes destructive authorization.
+
+## Google Drive acquisition
+
+Status: **implemented read-only acquisition path; production credential/configuration evidence remains environment-dependent**.
+
+Implemented:
+
+- system-browser Picker
+- `drive.file`-scoped access
+- PKCE/state
+- one-file selection
+- local staging
+- resumable ranged download
+- safe cancellation
+- provider size/hash validation where available
+- local SHA-256 identity lock
+- cloud original preserved
+
+Downloaded data must still enter normal Recovery Center analysis and identity gates.
+
+## CI gates
+
+At verified head
+`d78e2a90854f133d771d993b40d63b1429f55a07`,
+**24/24 workflows succeeded**.
+
+Recovery-specific CI covers:
+
+- Windows/macOS/Ubuntu full binary tests
+- recovery probe tests
+- recovery probe build
+- clippy
+- Recovery Center UI build
+- destructive-command boundary scan
+- target-locator fixtures
+- GPT rollback fixtures
+- target boot-metadata fixtures
+
+Repository/release CI also covers:
+
+- Verify Repository
+- governance
+- artifacts
+- release gate
+- application reality
+- boot matrix
+- desktop packaging
+- Windows lifecycle
+- signed Windows candidate
+- signed macOS candidate
+- Mac App Store
+- Microsoft Store
+- mobile release candidates
+- drive evidence
+- sacrificial writer
+- package trust
+- Windows image metadata
+- FAT32 media planning
+- Boot Camp driver manifest
+- cloud recovery staging
+
+## Remaining real-hardware campaign
+
+These are **not** satisfied by fixture tests:
+
+- observe a real sacrificial target as exact `PHYSICALDRIVE<n>`
+- record snapshot + stable identities
+- verify rollback output is a separate physical disk
+- run GPT capture against real hardware
+- prove target write count is zero
+- physically unplug/replug the target
+- prove stable identity survives re-enumeration
+- prove stale snapshot authorization is rejected
+- substitute another sacrificial disk
+- prove stable identity mismatch is rejected
+- capture target boot metadata where partitions are already accessible
+- exercise target-data backup/preservation evidence if preserve mode is chosen
+
+## Merge boundary
+
+PR #150 may converge the software-only Recovery Forge architecture without enabling destructive Windows restore.
+
+A future restore executor requires:
+
+- a separate architecture gate
+- a separate implementation lane / PR
+- explicit destructive authorization design
+- final source + target identity rechecks
+- rollback preconditions
+- power-loss and interruption semantics
+- real hardware evidence
+
+Merging this PR is not authorization to create that executor.
