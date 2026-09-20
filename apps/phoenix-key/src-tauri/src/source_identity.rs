@@ -36,6 +36,47 @@ pub struct SourceIdentityVerification {
     pub reanalysis_required: bool,
 }
 
+fn canonicalize_json(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut keys: Vec<&String> = map.keys().collect();
+            keys.sort();
+            let mut sorted = serde_json::Map::new();
+            for key in keys {
+                if key == "plan_sha256" {
+                    continue;
+                }
+                if let Some(child) = map.get(key) {
+                    sorted.insert(key.clone(), canonicalize_json(child));
+                }
+            }
+            Value::Object(sorted)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonicalize_json).collect()),
+        _ => value.clone(),
+    }
+}
+
+pub fn identity_bound_plan_sha256(value: &Value) -> Result<String, String> {
+    let canonical = canonicalize_json(value);
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| format!("cannot serialize canonical recovery plan: {error}"))?;
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+pub fn verify_identity_bound_plan_sha256(value: &Value) -> bool {
+    let Some(expected) = value.get("plan_sha256").and_then(Value::as_str) else {
+        return false;
+    };
+    if expected.len() != 64 || !expected.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return false;
+    }
+    identity_bound_plan_sha256(value)
+        .is_ok_and(|actual| actual.eq_ignore_ascii_case(expected))
+}
+
 fn metadata_is_link_or_reparse(metadata: &fs::Metadata) -> bool {
     if metadata.file_type().is_symlink() {
         return true;
@@ -223,6 +264,11 @@ pub fn build_identity_bound_recovery_plan(path: impl AsRef<Path>) -> Result<Valu
         "source_identity_gate".to_string(),
         Value::String("recheck_immediately_before_any_mutation".to_string()),
     );
+    let plan_sha256 = identity_bound_plan_sha256(&value)?;
+    value
+        .as_object_mut()
+        .ok_or_else(|| "recovery plan did not serialize as an object".to_string())?
+        .insert("plan_sha256".to_string(), Value::String(plan_sha256));
     Ok(value)
 }
 
@@ -243,7 +289,10 @@ pub fn verify_source_identity(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_identity_bound_recovery_plan, capture_source_identity, verify_source_identity};
+    use super::{
+        build_identity_bound_recovery_plan, capture_source_identity,
+        verify_identity_bound_plan_sha256, verify_source_identity,
+    };
     use std::{fs, path::PathBuf};
 
     fn temp_case(name: &str) -> PathBuf {
@@ -310,6 +359,17 @@ mod tests {
     }
 
     #[test]
+    fn tampered_identity_bound_plan_hash_is_rejected() {
+        let root = temp_case("plan-tamper");
+        let source = root.join("fake.wim");
+        fs::write(&source, b"MSWIM\0\0\0fixture").unwrap();
+        let mut plan = build_identity_bound_recovery_plan(&source).unwrap();
+        plan["host_route"] = Value::String("tampered-route".to_string());
+        assert!(!verify_identity_bound_plan_sha256(&plan));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn guarded_plan_contains_source_identity() {
         let root = temp_case("plan");
         let source = root.join("fake.wim");
@@ -320,6 +380,8 @@ mod tests {
             plan["source_identity_gate"],
             "recheck_immediately_before_any_mutation"
         );
+        assert_eq!(plan["plan_sha256"].as_str().map(str::len), Some(64));
+        assert!(verify_identity_bound_plan_sha256(&plan));
         fs::remove_dir_all(root).unwrap();
     }
 }
