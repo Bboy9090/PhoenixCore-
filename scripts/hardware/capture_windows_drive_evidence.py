@@ -122,6 +122,8 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
         "unique_id": _clean_text(raw.get("UniqueId")),
         "bus_type": (_clean_text(raw.get("BusType")) or "UNKNOWN").upper(),
         "size_bytes": size_bytes,
+        "logical_sector_size": int(raw.get("LogicalSectorSize") or 0),
+        "physical_sector_size": int(raw.get("PhysicalSectorSize") or 0),
         "partition_style": _clean_text(raw.get("PartitionStyle")),
         "is_boot": _coerce_bool(raw.get("IsBoot")),
         "is_system": _coerce_bool(raw.get("IsSystem")),
@@ -195,6 +197,8 @@ $partitions = @(
   UniqueId = [string]$disk.UniqueId
   BusType = [string]$disk.BusType
   SizeBytes = [uint64]$disk.Size
+  LogicalSectorSize = [uint32]$disk.LogicalSectorSize
+  PhysicalSectorSize = [uint32]$disk.PhysicalSectorSize
   PartitionStyle = [string]$disk.PartitionStyle
   IsBoot = [bool]$disk.IsBoot
   IsSystem = [bool]$disk.IsSystem
