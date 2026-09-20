@@ -368,7 +368,7 @@ export default function RecoveryCenter({
     setTargetSafety(null);
     setTargetVerification(null);
     setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
@@ -516,7 +516,7 @@ export default function RecoveryCenter({
       setTargetSafety(null);
       setTargetVerification(null);
       setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
       setMessage("Recovery plan created and bound to the current source identity. No disk was changed.");
     } catch (error) {
       setPlan(null);
@@ -530,6 +530,7 @@ export default function RecoveryCenter({
     if (!plan?.source_identity?.sha256 || busy) return;
     setBusy(true);
     setSourceVerification(null);
+    setRestoreHardwarePreflight(null);
     setMessage("Freshly re-hashing the recovery source and comparing it with the identity-bound plan…");
     try {
       const result = await invoke<SourceIdentityVerification>(
@@ -546,7 +547,7 @@ export default function RecoveryCenter({
         setTargetSafety(null);
         setTargetVerification(null);
         setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
       }
       setMessage(
         result.matches
@@ -560,7 +561,7 @@ export default function RecoveryCenter({
       setTargetSafety(null);
       setTargetVerification(null);
       setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
       setMessage(
         `Fresh source identity verification could not complete. Downstream evidence was cleared. Nothing was changed. ${String(error)}`,
       );
@@ -576,6 +577,7 @@ export default function RecoveryCenter({
     }
     if (!plan || !sourceVerification?.matches || !expectedSha256.trim() || busy) return;
     setBusy(true);
+    setRestoreHardwarePreflight(null);
     setMessage("Hashing the recovery package and checking signature evidence read-only…");
     try {
       const result = await invoke<PackageTrust>("inspect_recovery_package_trust", {
@@ -591,6 +593,7 @@ export default function RecoveryCenter({
       );
     } catch (error) {
       setPackageTrust(null);
+      setRestoreHardwarePreflight(null);
       setMessage(`Package trust inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -615,6 +618,10 @@ export default function RecoveryCenter({
       return;
     }
     setBusy(true);
+    setTargetSafety(null);
+    setTargetVerification(null);
+    setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
     setMessage("Reading Windows image index, edition, and architecture metadata with no mount or modification…");
     try {
       const result = await invoke<ImageMetadata>("inspect_windows_image_metadata", {
@@ -633,6 +640,10 @@ export default function RecoveryCenter({
       );
     } catch (error) {
       setImageMetadata(null);
+      setTargetSafety(null);
+      setTargetVerification(null);
+      setRestoreRollbackContract(null);
+      setRestoreHardwarePreflight(null);
       setMessage(`Windows image metadata inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -694,7 +705,7 @@ export default function RecoveryCenter({
       setTargetSafety(result);
       setTargetVerification(null);
       setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
       setMessage(
         result.safe_to_prepare
           ? "Target identity, capacity, and source/target separation are verified for planning."
@@ -704,7 +715,7 @@ export default function RecoveryCenter({
       setTargetSafety(null);
       setTargetVerification(null);
       setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
       setMessage(`Target safety inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -725,7 +736,7 @@ export default function RecoveryCenter({
     ) return;
     setBusy(true);
     setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
     setMessage("Building an identity-bound rollback requirements contract. No target data is being changed…");
     try {
       const result = await invoke<RestoreRollbackContract>(
@@ -742,7 +753,7 @@ export default function RecoveryCenter({
       );
     } catch (error) {
       setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
       setMessage(
         `Restore rollback requirements could not be planned. Nothing was changed. ${String(error)}`,
       );
@@ -769,7 +780,7 @@ export default function RecoveryCenter({
     ) return;
 
     setBusy(true);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
     setMessage(
       "Assessing the complete software evidence chain up to the physical rollback-capture boundary. No restore or disk mutation will run…",
     );
@@ -816,6 +827,7 @@ export default function RecoveryCenter({
     ) return;
     setBusy(true);
     setTargetVerification(null);
+    setRestoreHardwarePreflight(null);
     setMessage("Freshly re-scanning the target and checking both snapshot and stable hardware identity…");
     try {
       const result = await invoke<RecoveryTargetIdentityVerification>(
@@ -1121,7 +1133,7 @@ export default function RecoveryCenter({
                       setTargetSafety(null);
                       setTargetVerification(null);
                       setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
                     }}
                   >
                     <option value="">Choose an exact VHD/VHDX payload</option>
@@ -1142,6 +1154,10 @@ export default function RecoveryCenter({
                   onChange={(event) => {
                     setSelectedImageIndex(event.target.value);
                     setImageMetadata(null);
+                    setTargetSafety(null);
+                    setTargetVerification(null);
+                    setRestoreRollbackContract(null);
+                    setRestoreHardwarePreflight(null);
                   }}
                   inputMode="numeric"
                   placeholder="Leave blank to enumerate"
@@ -1154,6 +1170,10 @@ export default function RecoveryCenter({
                   onChange={(event) => {
                     setTargetArchitecture(event.target.value);
                     setImageMetadata(null);
+                    setTargetSafety(null);
+                    setTargetVerification(null);
+                    setRestoreRollbackContract(null);
+                    setRestoreHardwarePreflight(null);
                   }}
                   placeholder="x64 or arm64"
                 />
@@ -1200,7 +1220,7 @@ export default function RecoveryCenter({
                     setTargetSafety(null);
                     setTargetVerification(null);
                     setRestoreRollbackContract(null);
-    setRestoreHardwarePreflight(null);
+      setRestoreHardwarePreflight(null);
                   }}
                   placeholder="PHYSICALDRIVE7"
                 />
