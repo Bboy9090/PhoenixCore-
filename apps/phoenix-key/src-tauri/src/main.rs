@@ -4,6 +4,7 @@ mod boot_repair_contract;
 mod intel_mac_restore_gate;
 mod mac_bootcamp_compat;
 mod recovery_center;
+mod recovery_evidence_bundle;
 mod restore_preflight;
 mod rollback_destination;
 mod restore_readiness;
@@ -29,6 +30,7 @@ use recovery_center::{
     analyze_windows_recovery_source, plan_windows_recovery_source,
     verify_windows_recovery_source_identity,
 };
+use recovery_evidence_bundle::build_windows_recovery_evidence_bundle_v2;
 use serde::Serialize;
 use serde_json::{json, Value};
 use source_identity::capture_source_identity;
@@ -1651,6 +1653,7 @@ fn main() {
         analyze_windows_recovery_source,
         plan_windows_recovery_source,
         verify_windows_recovery_source_identity,
+        build_windows_recovery_evidence_bundle_v2,
         plan_windows_boot_repair,
         inspect_mac_bootcamp_host,
         inspect_recovery_package_trust,
