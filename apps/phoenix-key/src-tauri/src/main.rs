@@ -20,7 +20,9 @@ use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
 use restore_preflight::assess_windows_restore_hardware_preflight;
 use restore_readiness::assess_windows_restore_readiness;
-use restore_rollback_contract::plan_restore_target_rollback_contract;
+use restore_rollback_contract::{
+    plan_restore_target_rollback_contract, verify_restore_target_rollback_contract_sha256,
+};
 use rollback_destination::{assess_rollback_destination, RollbackDestinationVerification};
 use recovery_center::{
     analyze_windows_recovery_source, plan_windows_recovery_source,
@@ -78,6 +80,9 @@ const WINDOWS_BOOT_STATE_SOURCE: &str =
 #[cfg(not(feature = "store-safe"))]
 const WINDOWS_ROLLBACK_BUNDLE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/persist_windows_rollback_bundle.py");
+#[cfg(not(feature = "store-safe"))]
+const RESTORE_ROLLBACK_CAPTURE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/capture_windows_restore_rollback.py");
 #[cfg(not(feature = "store-safe"))]
 const SACRIFICIAL_WRITER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/write_windows_sacrificial_drive.py");
@@ -312,6 +317,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         WINDOWS_ROLLBACK_BUNDLE_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded rollback-bundle helper: {error}"))?;
+    fs::write(
+        directory.join("capture_windows_restore_rollback.py"),
+        RESTORE_ROLLBACK_CAPTURE_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded restore rollback-capture helper: {error}"))?;
     fs::write(
         directory.join("write_windows_sacrificial_drive.py"),
         SACRIFICIAL_WRITER_SOURCE,
@@ -1070,6 +1080,141 @@ fn verify_windows_recovery_target_identity(
 }
 
 #[tauri::command]
+fn capture_restore_target_rollback_artifacts(
+    target_drive: String,
+    rollback_destination_path: String,
+    rollback_contract_json: String,
+) -> Result<Value, String> {
+    if !cfg!(windows) {
+        return Err("Restore rollback artifact capture requires Windows.".to_string());
+    }
+
+    let rollback_contract: Value = serde_json::from_str(&rollback_contract_json)
+        .map_err(|error| format!("invalid rollback contract JSON: {error}"))?;
+    if !verify_restore_target_rollback_contract_sha256(&rollback_contract) {
+        return Err("rollback contract checksum is invalid".to_string());
+    }
+    if rollback_contract.get("schema").and_then(Value::as_str)
+        != Some("phoenix_key.restore_target_rollback_contract.v1")
+        || rollback_contract
+            .get("restore_unlock_ready")
+            .and_then(Value::as_bool)
+            != Some(false)
+        || rollback_contract
+            .get("system_mutations_performed")
+            .and_then(Value::as_bool)
+            != Some(false)
+    {
+        return Err("rollback contract is not in the required locked planning state".to_string());
+    }
+    let contract_sha256 = rollback_contract
+        .get("contract_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback contract SHA-256 is missing".to_string())?;
+    let expected_snapshot = rollback_contract
+        .get("target_identity_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback contract target snapshot identity is missing".to_string())?;
+    let expected_stable = rollback_contract
+        .get("target_stable_identity_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "rollback contract target stable identity is missing".to_string())?;
+
+    let target_resolution = resolve_target(target_drive.trim())?;
+    if !target_resolution.is_windows_physical_drive() {
+        return Err("restore target must be an exact Windows PHYSICALDRIVE path".to_string());
+    }
+
+    let destination_root = PathBuf::from(rollback_destination_path.trim());
+    if !destination_root.is_dir() {
+        return Err("rollback destination must be an existing directory".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let target_evidence_name = "phoenix-key-restore-rollback-target-evidence.json";
+        let target_evidence = capture_write_evidence(
+            &directory,
+            &target_resolution.canonical_path,
+            target_evidence_name,
+        )?;
+        let target_evidence_path = directory.join(target_evidence_name);
+
+        let resolver = directory.join("resolve_windows_source_disk.py");
+        let destination_text = destination_root.to_string_lossy().to_string();
+        let destination_resolution = run_python_json(
+            &resolver,
+            &["--source", &destination_text],
+            &[],
+        )?;
+        let destination_verification = assess_rollback_destination(
+            &target_evidence,
+            &destination_resolution,
+            &destination_text,
+            expected_stable,
+        );
+        if !destination_verification.ready_for_hardware_rollback_capture {
+            return Err(format!(
+                "rollback destination is not safely separated from the restore target: {:?}",
+                destination_verification.block_reasons
+            ));
+        }
+
+        let destination_stable = destination_verification
+            .destination_stable_identity_sha256
+            .as_deref()
+            .ok_or_else(|| "rollback destination stable identity is missing".to_string())?;
+        let logical_sector_size = target_evidence
+            .pointer("/disk/logical_sector_size")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| "target logical sector size is missing from drive evidence".to_string())?;
+        if !(512..=4096).contains(&logical_sector_size) {
+            return Err("target logical sector size is outside the supported 512-4096 range".to_string());
+        }
+
+        let output_root = destination_root.join(format!(
+            "phoenix-key-restore-rollback-{}-{}",
+            std::process::id(),
+            &expected_snapshot[..12]
+        ));
+        if output_root.exists() {
+            return Err("dedicated rollback capture directory already exists".to_string());
+        }
+
+        let script = directory.join("capture_windows_restore_rollback.py");
+        let evidence_text = target_evidence_path.to_string_lossy().to_string();
+        let output_text = output_root.to_string_lossy().to_string();
+        let sector_text = logical_sector_size.to_string();
+        run_python_json(
+            &script,
+            &[
+                "--target",
+                &target_resolution.canonical_path,
+                "--drive-evidence",
+                &evidence_text,
+                "--output-dir",
+                &output_text,
+                "--logical-sector-size",
+                &sector_text,
+                "--expected-target-snapshot-identity-sha256",
+                expected_snapshot,
+                "--expected-target-stable-identity-sha256",
+                expected_stable,
+                "--expected-destination-stable-identity-sha256",
+                destination_stable,
+                "--destination-stable-identity-sha256",
+                destination_stable,
+                "--rollback-contract-sha256",
+                contract_sha256,
+            ],
+            &[],
+        )
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn inspect_restore_rollback_destination(
     target_drive: String,
     rollback_destination_path: String,
@@ -1376,6 +1521,7 @@ fn main() {
         inspect_bootcamp_driver_package,
         inspect_recovery_target_safety,
         inspect_restore_rollback_destination,
+        capture_restore_target_rollback_artifacts,
         verify_windows_recovery_target_identity,
         assess_intel_mac_restore_readiness,
         google_drive_picker_status,
