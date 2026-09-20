@@ -67,7 +67,9 @@ def verify_receipt(receipt: dict[str, Any], label: str) -> dict[str, Any]:
     if not SHA256_RE.fullmatch(snapshot):
         raise ComparisonError(f"{label} receipt is missing a valid snapshot identity.")
     if not SHA256_RE.fullmatch(stable):
-        raise ComparisonError(f"{label} receipt is missing a valid stable hardware identity.")
+        raise ComparisonError(
+            f"{label} receipt is missing a valid stable hardware identity."
+        )
 
     return disk
 
@@ -182,5 +184,7 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except (ComparisonError, OSError, ValueError) as exc:
-        print(f"DRIVE_REENUMERATION_COMPARE_FAILED: {exc}", file=__import__("sys").stderr)
+        print(
+            f"DRIVE_REENUMERATION_COMPARE_FAILED: {exc}", file=__import__("sys").stderr
+        )
         raise SystemExit(2) from exc
