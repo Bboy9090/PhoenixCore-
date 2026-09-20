@@ -165,6 +165,21 @@ jobs:
           xcrun stapler validate "$DMG"
           shasum -a 256 "$DMG" > src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
 
+      - name: Emit notarized macOS provenance receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$DMG"
+          VERSION="$(node -p "require('./package.json').version")"
+          node ../../scripts/release/emit-release-provenance.mjs \
+            --product phoenix-key \
+            --channel macos-direct \
+            --version "$VERSION" \
+            --source-commit "${{ github.sha }}" \
+            --artifact "$DMG" \
+            --output src-tauri/target/release/bundle/dmg/RELEASE-PROVENANCE.json
+
       - name: Upload notarized macOS release artifact
         uses: actions/upload-artifact@v4
         with:
@@ -172,6 +187,8 @@ jobs:
           path: |
             apps/phoenix-key/src-tauri/target/release/bundle/dmg/*.dmg
             apps/phoenix-key/src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
+            apps/phoenix-key/src-tauri/target/release/bundle/dmg/RELEASE-PROVENANCE.json
+            apps/phoenix-key/src-tauri/target/release/bundle/dmg/RELEASE-PROVENANCE.json.sha256
             apps/phoenix-key/src-tauri/target/release/bundle/macos/CODESIGN.txt
           if-no-files-found: error
           retention-days: 30
@@ -186,3 +203,5 @@ jobs:
           files: |
             apps/phoenix-key/src-tauri/target/release/bundle/dmg/*.dmg
             apps/phoenix-key/src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
+            apps/phoenix-key/src-tauri/target/release/bundle/dmg/RELEASE-PROVENANCE.json
+            apps/phoenix-key/src-tauri/target/release/bundle/dmg/RELEASE-PROVENANCE.json.sha256
