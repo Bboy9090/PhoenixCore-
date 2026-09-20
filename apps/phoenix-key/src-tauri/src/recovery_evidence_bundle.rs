@@ -253,6 +253,7 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                 verify_recovery_target_reenumeration_receipt_sha256(&receipt)
                     && receipt.system_mutations_performed == false
                     && receipt.substitution_detected == false
+                    && receipt.reanalysis_required == false
             })
     });
 
@@ -529,6 +530,34 @@ mod tests {
         let second = build_recovery_evidence_bundle_v2(&evidence);
         assert_ne!(first.bundle_sha256, second.bundle_sha256);
         assert_eq!(first.bundle_sha256, build_bundle_sha256(&first));
+    }
+
+    #[test]
+    fn reenumeration_that_requires_reanalysis_cannot_complete_hardware_chain() {
+        let mut evidence = software_evidence();
+        evidence["target_reenumeration_receipt"] = json!({
+            "schema": "phoenix_key.recovery_target_reenumeration_receipt.v1",
+            "expected_target": "\\\\.\\PHYSICALDRIVE7",
+            "observed_target": "\\\\.\\PHYSICALDRIVE9",
+            "expected_snapshot_identity_sha256": "b".repeat(64),
+            "observed_snapshot_identity_sha256": "f".repeat(64),
+            "expected_stable_identity_sha256": "c".repeat(64),
+            "observed_stable_identity_sha256": "c".repeat(64),
+            "same_stable_hardware": true,
+            "snapshot_changed": true,
+            "target_path_changed": true,
+            "stale_authorization_rejected": true,
+            "reanalysis_required": true,
+            "substitution_detected": false,
+            "classification": "same_hardware_reenumerated",
+            "system_mutations_performed": false,
+            "receipt_sha256": "0".repeat(64)
+        });
+        let bundle = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(!bundle.hardware_chain_complete);
+        assert!(bundle
+            .outstanding_requirements
+            .contains(&"target_reenumeration_or_exact_snapshot_receipt".to_string()));
     }
 
     #[test]
