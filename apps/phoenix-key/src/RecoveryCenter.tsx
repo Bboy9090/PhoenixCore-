@@ -320,6 +320,29 @@ type TargetDataPreservationReceipt = {
   receipt_sha256: string;
 };
 
+type RecoverySessionStateV1 = {
+  schema: string;
+  session_id: string;
+  phase: string;
+  bundle_sha256: string;
+  source_identity_sha256?: string | null;
+  target_stable_identity_sha256?: string | null;
+  rollback_contract_sha256?: string | null;
+  software_chain_complete: boolean;
+  hardware_chain_complete: boolean;
+  stale_evidence_detected: boolean;
+  hardware_substitution_detected: boolean;
+  read_only_resume_allowed: boolean;
+  automatic_destructive_resume_allowed: boolean;
+  restore_executable: boolean;
+  next_required_actions: string[];
+  system_mutations_performed: boolean;
+  state_sha256: string;
+  session_path?: string | null;
+  session_persisted?: boolean;
+  destructive_authorization_persisted?: boolean;
+};
+
 type RestoreTargetBootMetadataReceipt = {
   schema: string;
   target: string;
@@ -493,6 +516,7 @@ export default function RecoveryCenter({
   const [dataPreservationReceipt, setDataPreservationReceipt] = useState<TargetDataPreservationReceipt | null>(null);
   const [bootMetadataReceipt, setBootMetadataReceipt] = useState<RestoreTargetBootMetadataReceipt | null>(null);
   const [recoveryEvidenceBundle, setRecoveryEvidenceBundle] = useState<RecoveryEvidenceBundleV2 | null>(null);
+  const [recoverySessionState, setRecoverySessionState] = useState<RecoverySessionStateV1 | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
@@ -524,6 +548,10 @@ export default function RecoveryCenter({
     dataPreservationReceipt,
     bootMetadataReceipt,
   ]);
+
+  useEffect(() => {
+    setRecoverySessionState(null);
+  }, [recoveryEvidenceBundle]);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
   const sourceState = useMemo(() => {
@@ -561,6 +589,8 @@ export default function RecoveryCenter({
     setDataPreservationAcknowledgement("");
     setDataPreservationReceipt(null);
     setBootMetadataReceipt(null);
+    setRecoveryEvidenceBundle(null);
+    setRecoverySessionState(null);
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
@@ -1274,6 +1304,60 @@ export default function RecoveryCenter({
       setRecoveryEvidenceBundle(null);
       setMessage(
         `Recovery evidence bundle could not be created. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function persistRecoverySessionState() {
+    if (
+      !plan ||
+      !sourceVerification ||
+      !imageMetadata ||
+      !targetSafety ||
+      !targetVerification ||
+      !restoreRollbackContract ||
+      !restoreHardwarePreflight ||
+      busy
+    ) return;
+
+    setBusy(true);
+    setRecoverySessionState(null);
+    setMessage(
+      "Persisting the current read-only recovery session state. No destructive authorization or disk mutation will be saved…",
+    );
+    try {
+      const result = await invoke<RecoverySessionStateV1>(
+        "persist_windows_recovery_session_state",
+        {
+          evidenceJson: JSON.stringify({
+            identity_bound_plan: plan,
+            source_identity_verification: sourceVerification,
+            package_trust: packageTrust,
+            image_metadata: imageMetadata,
+            target_safety: targetSafety,
+            target_identity_verification: targetVerification,
+            rollback_contract: restoreRollbackContract,
+            hardware_preflight: restoreHardwarePreflight,
+            rollback_destination_verification: rollbackDestinationVerification,
+            rollback_capture_receipt: rollbackCaptureReceipt,
+            target_reenumeration_receipt: targetReenumerationReceipt,
+            data_preservation_receipt: dataPreservationReceipt,
+            boot_metadata_receipt: bootMetadataReceipt,
+          }),
+        },
+      );
+      setRecoverySessionState(result);
+      setMessage(
+        result.stale_evidence_detected || result.hardware_substitution_detected
+          ? "Recovery session persisted in a blocked state. Fresh hardware analysis is required before continuing."
+          : "Read-only recovery session persisted. Destructive authorization was not saved.",
+      );
+    } catch (error) {
+      setRecoverySessionState(null);
+      setMessage(
+        `Recovery session state could not be persisted. Nothing was changed on the recovery source or target. ${String(error)}`,
       );
     } finally {
       setBusy(false);
@@ -2196,6 +2280,43 @@ export default function RecoveryCenter({
                             <p key={item}>— {readableToken(item)}</p>
                           ))}
                         </div>
+                      )}
+                      {recoveryEvidenceBundle && (
+                        <>
+                          <button
+                            className="plan-button"
+                            type="button"
+                            onClick={persistRecoverySessionState}
+                            disabled={busy}
+                          >
+                            Persist Read-Only Recovery Session
+                          </button>
+                          {recoverySessionState && (
+                            <div className={
+                              recoverySessionState.stale_evidence_detected ||
+                              recoverySessionState.hardware_substitution_detected
+                                ? "warning-box"
+                                : "good-list"
+                            }>
+                              <strong>Recovery session state</strong>
+                              <p>Session: {recoverySessionState.session_id}</p>
+                              <p>Phase: {readableToken(recoverySessionState.phase)}</p>
+                              <p>State SHA-256: {recoverySessionState.state_sha256}</p>
+                              <p>Read-only resume allowed: {recoverySessionState.read_only_resume_allowed ? "yes" : "no"}</p>
+                              <p>Automatic destructive resume allowed: {recoverySessionState.automatic_destructive_resume_allowed ? "yes" : "no"}</p>
+                              <p>Destructive authorization persisted: {recoverySessionState.destructive_authorization_persisted ? "yes" : "no"}</p>
+                              <p>Restore executable: {recoverySessionState.restore_executable ? "yes" : "no"}</p>
+                              <p>Session persisted: {recoverySessionState.session_persisted ? "yes" : "no"}</p>
+                              {recoverySessionState.session_path && (
+                                <p>Saved session: {recoverySessionState.session_path}</p>
+                              )}
+                              <strong>Next required actions</strong>
+                              {recoverySessionState.next_required_actions.map((item) => (
+                                <p key={item}>— {readableToken(item)}</p>
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
