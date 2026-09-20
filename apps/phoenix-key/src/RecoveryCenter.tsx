@@ -211,6 +211,32 @@ type RollbackDestinationVerification = {
   system_mutations_performed: boolean;
 };
 
+type RestoreRollbackCaptureReceipt = {
+  schema: string;
+  target: string;
+  target_snapshot_identity_sha256: string;
+  target_stable_identity_sha256: string;
+  rollback_destination_stable_identity_sha256: string;
+  rollback_contract_sha256: string;
+  output_directory: string;
+  captured_requirements: string[];
+  remaining_requirements: string[];
+  artifacts: Record<string, {
+    path: string;
+    size_bytes: number;
+    sha256: string;
+  }>;
+  partition_manifest_sha256: string;
+  restore_unlock_ready: boolean;
+  restore_unlock_scope: string[];
+  always_blocked_by_this_capture: string[];
+  target_bytes_written: number;
+  target_write_attempted: boolean;
+  rollback_destination_files_written: boolean;
+  system_mutations_performed: boolean;
+  receipt_sha256: string;
+};
+
 type RecoveryPlan = {
   schema: string;
   source: RecoveryAnalysis;
@@ -347,6 +373,7 @@ export default function RecoveryCenter({
   const [restoreHardwarePreflight, setRestoreHardwarePreflight] = useState<RestoreHardwarePreflight | null>(null);
   const [rollbackDestinationPath, setRollbackDestinationPath] = useState("");
   const [rollbackDestinationVerification, setRollbackDestinationVerification] = useState<RollbackDestinationVerification | null>(null);
+  const [rollbackCaptureReceipt, setRollbackCaptureReceipt] = useState<RestoreRollbackCaptureReceipt | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
@@ -388,6 +415,7 @@ export default function RecoveryCenter({
     setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
     setRollbackDestinationPath("");
     setDriveReceipt(null);
     setDriveProgress(null);
@@ -538,6 +566,7 @@ export default function RecoveryCenter({
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage("Recovery plan created and bound to the current source identity. No disk was changed.");
     } catch (error) {
       setPlan(null);
@@ -553,6 +582,7 @@ export default function RecoveryCenter({
     setSourceVerification(null);
     setRestoreHardwarePreflight(null);
     setRollbackDestinationVerification(null);
+    setRollbackCaptureReceipt(null);
     setMessage("Freshly re-hashing the recovery source and comparing it with the identity-bound plan…");
     try {
       const result = await invoke<SourceIdentityVerification>(
@@ -571,6 +601,7 @@ export default function RecoveryCenter({
         setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       }
       setMessage(
         result.matches
@@ -586,6 +617,7 @@ export default function RecoveryCenter({
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(
         `Fresh source identity verification could not complete. Downstream evidence was cleared. Nothing was changed. ${String(error)}`,
       );
@@ -603,6 +635,7 @@ export default function RecoveryCenter({
     setBusy(true);
     setRestoreHardwarePreflight(null);
     setRollbackDestinationVerification(null);
+    setRollbackCaptureReceipt(null);
     setMessage("Hashing the recovery package and checking signature evidence read-only…");
     try {
       const result = await invoke<PackageTrust>("inspect_recovery_package_trust", {
@@ -620,6 +653,7 @@ export default function RecoveryCenter({
       setPackageTrust(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(`Package trust inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -649,6 +683,7 @@ export default function RecoveryCenter({
     setRestoreRollbackContract(null);
     setRestoreHardwarePreflight(null);
     setRollbackDestinationVerification(null);
+    setRollbackCaptureReceipt(null);
     setMessage("Reading Windows image index, edition, and architecture metadata with no mount or modification…");
     try {
       const result = await invoke<ImageMetadata>("inspect_windows_image_metadata", {
@@ -672,6 +707,7 @@ export default function RecoveryCenter({
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(`Windows image metadata inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -735,6 +771,7 @@ export default function RecoveryCenter({
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(
         result.safe_to_prepare
           ? "Target identity, capacity, and source/target separation are verified for planning."
@@ -746,6 +783,7 @@ export default function RecoveryCenter({
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(`Target safety inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -768,6 +806,7 @@ export default function RecoveryCenter({
     setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
     setMessage("Building an identity-bound rollback requirements contract. No target data is being changed…");
     try {
       const result = await invoke<RestoreRollbackContract>(
@@ -780,6 +819,7 @@ export default function RecoveryCenter({
       setRestoreRollbackContract(result);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(
         "Restore rollback requirements are now identity-bound to this source and target. Execution remains locked until real backup artifacts exist.",
       );
@@ -787,6 +827,7 @@ export default function RecoveryCenter({
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(
         `Restore rollback requirements could not be planned. Nothing was changed. ${String(error)}`,
       );
@@ -815,6 +856,7 @@ export default function RecoveryCenter({
     setBusy(true);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
     setMessage(
       "Assessing the complete software evidence chain up to the physical rollback-capture boundary. No restore or disk mutation will run…",
     );
@@ -833,6 +875,7 @@ export default function RecoveryCenter({
       );
       setRestoreHardwarePreflight(result);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(
         result.ready_to_capture_hardware_rollback_evidence
           ? "Software preflight passed. The next legitimate boundary is real rollback evidence captured from the physical target; restore execution remains unavailable."
@@ -841,6 +884,7 @@ export default function RecoveryCenter({
     } catch (error) {
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(
         `Restore hardware preflight could not complete. Nothing was changed. ${String(error)}`,
       );
@@ -860,6 +904,7 @@ export default function RecoveryCenter({
       if (typeof selected !== "string") return;
       setRollbackDestinationPath(selected);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(
         "Rollback folder selected. Verify its physical disk is different from the restore target before capturing any evidence.",
       );
@@ -887,6 +932,7 @@ export default function RecoveryCenter({
 
     setBusy(true);
     setRollbackDestinationVerification(null);
+    setRollbackCaptureReceipt(null);
     setMessage(
       "Proving the rollback folder is on a different physical disk from the restore target. No files or disks are being modified…",
     );
@@ -900,6 +946,7 @@ export default function RecoveryCenter({
         },
       );
       setRollbackDestinationVerification(result);
+      setRollbackCaptureReceipt(null);
       setMessage(
         result.ready_for_hardware_rollback_capture
           ? "Rollback destination is physically separate and target identity is still current. Real hardware rollback capture is now the next boundary."
@@ -907,8 +954,52 @@ export default function RecoveryCenter({
       );
     } catch (error) {
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
       setMessage(
         `Rollback destination verification could not complete. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function captureRollbackArtifacts() {
+    if (storeSafe) {
+      setMessage("Restore rollback artifact capture is disabled in the store-safe distribution.");
+      return;
+    }
+    if (
+      !rollbackDestinationVerification?.ready_for_hardware_rollback_capture ||
+      !restoreRollbackContract ||
+      !targetDrive.trim() ||
+      !rollbackDestinationPath.trim() ||
+      busy
+    ) return;
+
+    setBusy(true);
+    setRollbackCaptureReceipt(null);
+    setMessage(
+      "Reading GPT partition metadata from the restore target and writing rollback artifacts only to the verified separate folder. The restore target remains read-only…",
+    );
+    try {
+      const result = await invoke<RestoreRollbackCaptureReceipt>(
+        "capture_restore_target_rollback_artifacts",
+        {
+          targetDrive: targetDrive.trim(),
+          rollbackDestinationPath: rollbackDestinationPath.trim(),
+          rollbackContractJson: JSON.stringify(restoreRollbackContract),
+        },
+      );
+      setRollbackCaptureReceipt(result);
+      setMessage(
+        result.target_bytes_written === 0 && !result.target_write_attempted
+          ? "GPT rollback artifacts captured with zero target writes. Restore remains locked until the remaining hardware/data-preservation requirements are satisfied."
+          : "Rollback capture returned an unsafe write observation and must not be trusted.",
+      );
+    } catch (error) {
+      setRollbackCaptureReceipt(null);
+      setMessage(
+        `Restore rollback capture could not complete. The restore target was not intentionally modified. ${String(error)}`,
       );
     } finally {
       setBusy(false);
@@ -931,6 +1022,7 @@ export default function RecoveryCenter({
     setTargetVerification(null);
     setRestoreHardwarePreflight(null);
     setRollbackDestinationVerification(null);
+    setRollbackCaptureReceipt(null);
     setMessage("Freshly re-scanning the target and checking both snapshot and stable hardware identity…");
     try {
       const result = await invoke<RecoveryTargetIdentityVerification>(
@@ -1238,6 +1330,7 @@ export default function RecoveryCenter({
                       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
                     }}
                   >
                     <option value="">Choose an exact VHD/VHDX payload</option>
@@ -1263,6 +1356,7 @@ export default function RecoveryCenter({
                     setRestoreRollbackContract(null);
                     setRestoreHardwarePreflight(null);
                     setRollbackDestinationVerification(null);
+                    setRollbackCaptureReceipt(null);
                   }}
                   inputMode="numeric"
                   placeholder="Leave blank to enumerate"
@@ -1280,6 +1374,7 @@ export default function RecoveryCenter({
                     setRestoreRollbackContract(null);
                     setRestoreHardwarePreflight(null);
                     setRollbackDestinationVerification(null);
+                    setRollbackCaptureReceipt(null);
                   }}
                   placeholder="x64 or arm64"
                 />
@@ -1328,6 +1423,7 @@ export default function RecoveryCenter({
                     setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
       setRollbackDestinationVerification(null);
+      setRollbackCaptureReceipt(null);
                   }}
                   placeholder="PHYSICALDRIVE7"
                 />
@@ -1465,6 +1561,40 @@ export default function RecoveryCenter({
                       <p>System mutations performed: {rollbackDestinationVerification.system_mutations_performed ? "yes" : "no"}</p>
                       {rollbackDestinationVerification.block_reasons.map((reason) => (
                         <p key={reason}>— {readableToken(reason)}</p>
+                      ))}
+                      {rollbackDestinationVerification.ready_for_hardware_rollback_capture && (
+                        <button
+                          className="plan-button"
+                          type="button"
+                          onClick={captureRollbackArtifacts}
+                          disabled={busy}
+                        >
+                          Capture Read-Only GPT Rollback Artifacts
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {rollbackCaptureReceipt && (
+                    <div className={
+                      rollbackCaptureReceipt.target_bytes_written === 0 &&
+                      !rollbackCaptureReceipt.target_write_attempted
+                        ? "good-list"
+                        : "warning-box"
+                    }>
+                      <strong>GPT rollback capture receipt</strong>
+                      <p>Output: {rollbackCaptureReceipt.output_directory}</p>
+                      <p>Receipt SHA-256: {rollbackCaptureReceipt.receipt_sha256}</p>
+                      <p>Target bytes written: {rollbackCaptureReceipt.target_bytes_written}</p>
+                      <p>Target write attempted: {rollbackCaptureReceipt.target_write_attempted ? "yes" : "no"}</p>
+                      <p>Rollback files written: {rollbackCaptureReceipt.rollback_destination_files_written ? "yes" : "no"}</p>
+                      <p>Restore unlock ready: {rollbackCaptureReceipt.restore_unlock_ready ? "yes" : "no"}</p>
+                      <strong>Captured</strong>
+                      {rollbackCaptureReceipt.captured_requirements.map((item) => (
+                        <p key={item}>— {readableToken(item)}</p>
+                      ))}
+                      <strong>Still required</strong>
+                      {rollbackCaptureReceipt.remaining_requirements.map((item) => (
+                        <p key={item}>— {readableToken(item)}</p>
                       ))}
                     </div>
                   )}
