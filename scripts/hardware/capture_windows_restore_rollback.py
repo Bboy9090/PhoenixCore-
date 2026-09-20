@@ -468,6 +468,53 @@ def main() -> int:
     if disk_size <= 0:
         raise RollbackCaptureError("Drive evidence target size is missing or invalid.")
 
+    expected_snapshot = require_sha256(
+        args.expected_target_snapshot_identity_sha256,
+        "Expected target snapshot identity",
+    )
+    expected_stable = require_sha256(
+        args.expected_target_stable_identity_sha256,
+        "Expected target stable identity",
+    )
+    expected_destination = require_sha256(
+        args.expected_destination_stable_identity_sha256,
+        "Expected rollback destination stable identity",
+    )
+    observed_destination = require_sha256(
+        args.destination_stable_identity_sha256,
+        "Observed rollback destination stable identity",
+    )
+    observed_snapshot = require_sha256(
+        str(disk.get("identity_sha256") or ""),
+        "Observed target snapshot identity",
+    )
+    observed_stable = require_sha256(
+        str(disk.get("stable_identity_sha256") or ""),
+        "Observed target stable identity",
+    )
+    require_sha256(args.rollback_contract_sha256, "Rollback contract SHA-256")
+
+    if observed_snapshot != expected_snapshot:
+        raise RollbackCaptureError(
+            "Restore target snapshot identity changed before capture."
+        )
+    if observed_stable != expected_stable:
+        raise RollbackCaptureError(
+            "Restore target stable identity changed before capture."
+        )
+    if observed_destination != expected_destination:
+        raise RollbackCaptureError(
+            "Rollback destination stable identity changed before capture."
+        )
+    if observed_destination == observed_stable:
+        raise RollbackCaptureError(
+            "Rollback destination is the restore target physical device."
+        )
+    if str(disk.get("partition_style") or "").upper() != "GPT":
+        raise RollbackCaptureError(
+            "Full partition-table rollback capture currently requires a GPT target."
+        )
+
     output_dir = args.output_dir.resolve()
     if output_dir.exists() and any(output_dir.iterdir()):
         raise RollbackCaptureError(
