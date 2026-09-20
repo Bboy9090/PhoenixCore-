@@ -24,6 +24,45 @@ Phoenix Key permits writing only when all of these conditions pass:
 
 Failures remain blocked. Phoenix Key never selects a target automatically, accepts a generic filesystem path for raw writing, formats or repartitions a disk, or silently changes a blocked device into an eligible device.
 
+## Windows Recovery Forge
+
+Recovery Forge is a separate Recovery Center workflow for Windows backup/recovery analysis. It does **not** reuse the removable-media writer's destructive authorization.
+
+Current Recovery Forge capabilities are read-only or evidence-only:
+
+- inspect Windows recovery sources and bind their SHA-256 / manifest identity
+- inspect package trust and exact Windows image/index metadata
+- prove source/target physical separation
+- bind target snapshot and stable hardware identities
+- create a non-executable restore rollback contract
+- verify a separate physical rollback destination
+- capture read-only GPT rollback artifacts
+- locate the same target after Windows `PHYSICALDRIVE<n>` re-enumeration
+- reject stale target authorization and hardware substitution
+- capture external-target EFI/BCD/WinRE metadata only from partitions already accessible to Windows
+- record preserve-vs-explicit-discard target-data intent
+- create a checksummed Recovery Evidence Bundle v2
+- persist a read-only recovery session state
+- export sanitized recovery diagnostics
+
+Recovery Forge does not currently:
+
+- erase or repartition a restore target
+- apply a Windows system image
+- write EFI/BCD/WinRE
+- destructively inject drivers
+- mount or assign inaccessible target partitions
+- persist destructive authorization
+- automatically resume destructive work
+- expose a restore executor
+
+A complete evidence bundle still reports `restore_executable: false`. Real hardware rollback/re-enumeration evidence is a separate validation campaign and is not replaced by fixture tests.
+
+See:
+
+- `docs/evidence/WINDOWS_RECOVERY_FORGE_CONVERGENCE_V2.md`
+- `docs/evidence/WINDOWS_RECOVERY_FORGE_HARDENING_MATRIX.md`
+
 ## Development
 
 ```bash
