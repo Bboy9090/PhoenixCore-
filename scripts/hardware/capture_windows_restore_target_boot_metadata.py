@@ -83,9 +83,7 @@ def verify_embedded_sha256(
         )
     expected = str(payload.get(digest_field) or "")
     if not SHA256_RE.fullmatch(expected):
-        raise RestoreTargetBootMetadataError(
-            f"{digest_field} is missing or invalid."
-        )
+        raise RestoreTargetBootMetadataError(f"{digest_field} is missing or invalid.")
     body = dict(payload)
     body.pop(digest_field, None)
     if sha256_payload(body) != expected.lower():
@@ -295,9 +293,7 @@ def capture_partition_metadata(
         role = (
             "efi_system"
             if gpt_type == EFI_GUID
-            else "windows_recovery"
-            if gpt_type == RECOVERY_GUID
-            else "other"
+            else "windows_recovery" if gpt_type == RECOVERY_GUID else "other"
         )
         record = {
             "partition_number": number,
@@ -357,10 +353,7 @@ def capture_partition_metadata(
         for label, source in known_files.items():
             artifact = copy_file_artifact(
                 source,
-                output_dir
-                / f"partition-{number}"
-                / label
-                / source.name,
+                output_dir / f"partition-{number}" / label / source.name,
             )
             if artifact["status"] == "persisted":
                 artifacts[f"{label}_partition_{number}"] = artifact
@@ -402,9 +395,7 @@ def build_receipt(
     if (
         str(rollback_capture.get("target_snapshot_identity_sha256") or "").lower()
         != target_snapshot
-        or str(
-            rollback_capture.get("target_stable_identity_sha256") or ""
-        ).lower()
+        or str(rollback_capture.get("target_stable_identity_sha256") or "").lower()
         != target_stable
     ):
         raise RestoreTargetBootMetadataError(
