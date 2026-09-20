@@ -93,6 +93,9 @@ def build_recovery_readiness(
     target_sha = str(target_disk.get("identity_sha256") or "")
     if not SHA256_RE.fullmatch(target_sha):
         block_reasons.append("target-identity-sha256-invalid")
+    target_stable_sha = str(target_disk.get("stable_identity_sha256") or "")
+    if not SHA256_RE.fullmatch(target_stable_sha):
+        block_reasons.append("target-stable-identity-sha256-invalid")
 
     if boot_state.get("schema") != BOOT_SCHEMA:
         block_reasons.append("boot-state-schema-invalid")
@@ -117,6 +120,12 @@ def build_recovery_readiness(
         block_reasons.append("rollback-bundle-sha256-mismatch")
     if rollback_bundle.get("boot_state_snapshot_sha256") != boot_sha:
         block_reasons.append("rollback-bundle-boot-state-mismatch")
+    if rollback_bundle.get("source_identity_sha256") != source_sha:
+        block_reasons.append("rollback-bundle-source-identity-mismatch")
+    if rollback_bundle.get("target_identity_sha256") != target_sha:
+        block_reasons.append("rollback-bundle-target-identity-mismatch")
+    if rollback_bundle.get("target_stable_identity_sha256") != target_stable_sha:
+        block_reasons.append("rollback-bundle-target-stable-identity-mismatch")
 
     if collision_check.get("schema") != COLLISION_SCHEMA:
         block_reasons.append("source-target-collision-schema-invalid")
@@ -149,6 +158,7 @@ def build_recovery_readiness(
         ),
         "source_identity_sha256": source_sha or None,
         "target_identity_sha256": target_sha or None,
+        "target_stable_identity_sha256": target_stable_sha or None,
         "boot_state_snapshot_sha256": boot_sha or None,
         "rollback_bundle_sha256": bundle_sha or None,
         "block_reasons": block_reasons,
