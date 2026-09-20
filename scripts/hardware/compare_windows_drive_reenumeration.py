@@ -50,7 +50,7 @@ def verify_receipt(receipt: dict[str, Any], label: str) -> dict[str, Any]:
     canonical = dict(receipt)
     canonical.pop("receipt_sha256", None)
     actual = sha256_payload(canonical)
-    if not actual.eq_ignore_ascii_case(expected):
+    if actual.lower() != expected.lower():
         raise ComparisonError(f"{label} receipt checksum does not match its content.")
 
     if receipt.get("physical_write_attempted") is not False:
