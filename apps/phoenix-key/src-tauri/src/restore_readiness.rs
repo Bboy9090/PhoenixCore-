@@ -73,6 +73,7 @@ pub fn assess_restore_readiness(
     package_trust: &Value,
     image_metadata: &Value,
     target_safety: &Value,
+    target_identity_verification: &Value,
     rollback_bundle: &Value,
 ) -> RestoreReadiness {
     let mut satisfied = Vec::new();
@@ -216,6 +217,56 @@ pub fn assess_restore_readiness(
     );
 
     gate(
+        target_identity_verification
+            .get("matches")
+            .and_then(Value::as_bool)
+            == Some(true)
+            && target_identity_verification
+                .get("snapshot_matches")
+                .and_then(Value::as_bool)
+                == Some(true)
+            && target_identity_verification
+                .get("stable_identity_matches")
+                .and_then(Value::as_bool)
+                == Some(true)
+            && target_identity_verification
+                .get("reanalysis_required")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && target_identity_verification
+                .get("system_mutations_performed")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && same_sha256(
+                target_identity,
+                target_identity_verification
+                    .get("expected_snapshot_identity_sha256")
+                    .and_then(Value::as_str),
+            )
+            && same_sha256(
+                target_identity,
+                target_identity_verification
+                    .get("observed_snapshot_identity_sha256")
+                    .and_then(Value::as_str),
+            )
+            && same_sha256(
+                target_stable_identity,
+                target_identity_verification
+                    .get("expected_stable_identity_sha256")
+                    .and_then(Value::as_str),
+            )
+            && same_sha256(
+                target_stable_identity,
+                target_identity_verification
+                    .get("observed_stable_identity_sha256")
+                    .and_then(Value::as_str),
+            ),
+        "fresh_target_identity_revalidated",
+        &mut satisfied,
+        &mut blocked,
+    );
+
+    gate(
         rollback_bundle.get("complete").and_then(Value::as_bool) == Some(true)
             && rollback_bundle
                 .get("restore_unlock_ready")
@@ -325,6 +376,7 @@ pub fn assess_windows_restore_readiness(
     package_trust_json: String,
     image_metadata_json: String,
     target_safety_json: String,
+    target_identity_verification_json: String,
     rollback_bundle_json: String,
 ) -> Result<RestoreReadiness, String> {
     let parse = |label: &str, text: String| -> Result<Value, String> {
@@ -336,6 +388,10 @@ pub fn assess_windows_restore_readiness(
         &parse("package trust", package_trust_json)?,
         &parse("image metadata", image_metadata_json)?,
         &parse("target safety", target_safety_json)?,
+        &parse(
+            "target identity verification",
+            target_identity_verification_json,
+        )?,
         &parse("rollback bundle", rollback_bundle_json)?,
     ))
 }
@@ -347,6 +403,7 @@ mod tests {
     use serde_json::{json, Value};
 
     fn evidence() -> (
+        serde_json::Value,
         serde_json::Value,
         serde_json::Value,
         serde_json::Value,
@@ -405,6 +462,17 @@ mod tests {
                 "source_size_bytes": 4096
             }),
             json!({
+                "matches": true,
+                "snapshot_matches": true,
+                "stable_identity_matches": true,
+                "reanalysis_required": false,
+                "system_mutations_performed": false,
+                "expected_snapshot_identity_sha256": "b".repeat(64),
+                "observed_snapshot_identity_sha256": "b".repeat(64),
+                "expected_stable_identity_sha256": "d".repeat(64),
+                "observed_stable_identity_sha256": "d".repeat(64)
+            }),
+            json!({
                 "complete": true,
                 "restore_unlock_ready": true,
                 "restore_unlock_scope": ["apply_system_image"],
@@ -420,9 +488,16 @@ mod tests {
 
     #[test]
     fn all_evidence_can_reach_design_readiness_but_never_execution() {
-        let (plan, trust, metadata, target, rollback) = evidence();
+        let (plan, trust, metadata, target, verification, rollback) = evidence();
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result.ready_for_restore_executor_design);
         assert!(!result.executable);
         assert!(result.blocked_gates.is_empty());
@@ -430,8 +505,30 @@ mod tests {
     }
 
     #[test]
+    fn stale_target_revalidation_blocks_readiness() {
+        let (plan, trust, metadata, target, mut verification, rollback) = evidence();
+        verification["matches"] = json!(false);
+        verification["snapshot_matches"] = json!(false);
+        verification["reanalysis_required"] = json!(true);
+        verification["observed_snapshot_identity_sha256"] = json!("e".repeat(64));
+        let result = assess_restore_readiness(
+            &plan,
+            &trust,
+            &metadata,
+            &target,
+            &verification,
+            &rollback,
+        );
+        assert!(!result.ready_for_restore_executor_design);
+        assert!(result
+            .blocked_gates
+            .contains(&"fresh_target_identity_revalidated".to_string()));
+        assert!(!result.executable);
+    }
+
+    #[test]
     fn repair_only_rollback_bundle_cannot_unlock_system_image_restore() {
-        let (plan, trust, metadata, target, mut rollback) = evidence();
+        let (plan, trust, metadata, target, verification, mut rollback) = evidence();
         rollback["restore_unlock_ready"] = json!(false);
         rollback["restore_unlock_scope"] = json!([]);
         rollback["repair_unlock_ready"] = json!(true);
@@ -439,7 +536,14 @@ mod tests {
             json!(["bcd_repair", "winre_repair", "efi_file_repair"]);
         rollback["always_blocked_by_this_bundle"] = json!(["apply_system_image"]);
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(!result.ready_for_restore_executor_design);
         assert!(result
             .blocked_gates
@@ -449,12 +553,19 @@ mod tests {
 
     #[test]
     fn executable_dry_run_claim_blocks_readiness() {
-        let (mut plan, trust, metadata, target, rollback) = evidence();
+        let (mut plan, trust, metadata, target, verification, rollback) = evidence();
         plan["dry_run_summary"]["executable"] = json!(true);
         plan["plan_sha256"] =
             Value::String(identity_bound_plan_sha256(&plan).unwrap());
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(!result.ready_for_restore_executor_design);
         assert!(result
             .blocked_gates
@@ -464,12 +575,19 @@ mod tests {
 
     #[test]
     fn reported_mutation_in_dry_run_blocks_readiness() {
-        let (mut plan, trust, metadata, target, rollback) = evidence();
+        let (mut plan, trust, metadata, target, verification, rollback) = evidence();
         plan["dry_run_summary"]["mutation_steps_executed"] = json!(1);
         plan["plan_sha256"] =
             Value::String(identity_bound_plan_sha256(&plan).unwrap());
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"structured_dry_run_boundary_intact".to_string()));
@@ -477,10 +595,17 @@ mod tests {
 
     #[test]
     fn tampered_identity_bound_plan_blocks_readiness() {
-        let (mut plan, trust, metadata, target, rollback) = evidence();
+        let (mut plan, trust, metadata, target, verification, rollback) = evidence();
         plan["destructive_actions_performed"] = json!(true);
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(!result.ready_for_restore_executor_design);
         assert!(result
             .blocked_gates
@@ -489,10 +614,17 @@ mod tests {
 
     #[test]
     fn missing_package_trust_blocks_readiness() {
-        let (plan, mut trust, metadata, target, rollback) = evidence();
+        let (plan, mut trust, metadata, target, verification, rollback) = evidence();
         trust["verified_for_use"] = json!(false);
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(!result.ready_for_restore_executor_design);
         assert!(result
             .blocked_gates
@@ -502,11 +634,18 @@ mod tests {
 
     #[test]
     fn missing_exact_image_selection_blocks_readiness() {
-        let (plan, trust, mut metadata, target, rollback) = evidence();
+        let (plan, trust, mut metadata, target, verification, rollback) = evidence();
         metadata["selected_index"] = Value::Null;
         metadata["selected_image"] = Value::Null;
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"exact_windows_image_bound_to_source".to_string()));
@@ -514,10 +653,17 @@ mod tests {
 
     #[test]
     fn architecture_mismatch_blocks_readiness() {
-        let (plan, trust, mut metadata, target, rollback) = evidence();
+        let (plan, trust, mut metadata, target, verification, rollback) = evidence();
         metadata["architecture_compatibility"]["compatible"] = json!(false);
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"source_target_architecture_compatible".to_string()));
@@ -525,10 +671,17 @@ mod tests {
 
     #[test]
     fn compressed_source_size_alone_cannot_pass_capacity_gate() {
-        let (plan, trust, metadata, mut target, rollback) = evidence();
+        let (plan, trust, metadata, mut target, verification, rollback) = evidence();
         target["target_size_bytes"] = json!(8_000);
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"target_safety_bound_to_source_and_deployed_size".to_string()));
@@ -536,10 +689,17 @@ mod tests {
 
     #[test]
     fn same_device_target_blocks_readiness() {
-        let (plan, trust, metadata, mut target, rollback) = evidence();
+        let (plan, trust, metadata, mut target, verification, rollback) = evidence();
         target["source_target_distinct"] = json!(false);
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"target_safety_bound_to_source_and_deployed_size".to_string()));
@@ -547,10 +707,17 @@ mod tests {
 
     #[test]
     fn mismatched_package_identity_blocks_readiness() {
-        let (plan, mut trust, metadata, target, rollback) = evidence();
+        let (plan, mut trust, metadata, target, verification, rollback) = evidence();
         trust["observed_sha256"] = json!("d".repeat(64));
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"source_package_trust_bound_to_identity".to_string()));
@@ -558,10 +725,17 @@ mod tests {
 
     #[test]
     fn mismatched_image_path_blocks_readiness() {
-        let (plan, trust, mut metadata, target, rollback) = evidence();
+        let (plan, trust, mut metadata, target, verification, rollback) = evidence();
         metadata["path"] = json!("C:/other/install.wim");
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"exact_windows_image_bound_to_source".to_string()));
@@ -569,10 +743,17 @@ mod tests {
 
     #[test]
     fn rollback_bundle_from_different_target_is_rejected() {
-        let (plan, trust, metadata, target, mut rollback) = evidence();
+        let (plan, trust, metadata, target, verification, mut rollback) = evidence();
         rollback["target_identity_sha256"] = json!("e".repeat(64));
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"rollback_bundle_bound_to_source_and_target".to_string()));
@@ -580,10 +761,17 @@ mod tests {
 
     #[test]
     fn mismatched_stable_target_identity_blocks_readiness() {
-        let (plan, trust, metadata, target, mut rollback) = evidence();
+        let (plan, trust, metadata, target, verification, mut rollback) = evidence();
         rollback["target_stable_identity_sha256"] = json!("e".repeat(64));
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"rollback_bundle_bound_to_source_and_target".to_string()));
@@ -591,10 +779,17 @@ mod tests {
 
     #[test]
     fn missing_windows_edition_blocks_readiness() {
-        let (plan, trust, mut metadata, target, rollback) = evidence();
+        let (plan, trust, mut metadata, target, verification, rollback) = evidence();
         metadata["selected_image"]["edition_id"] = Value::Null;
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"source_windows_edition_identified".to_string()));
@@ -602,10 +797,17 @@ mod tests {
 
     #[test]
     fn incomplete_rollback_bundle_blocks_readiness() {
-        let (plan, trust, metadata, target, mut rollback) = evidence();
+        let (plan, trust, metadata, target, verification, mut rollback) = evidence();
         rollback["complete"] = json!(false);
         let result =
-            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+            assess_restore_readiness(
+                &plan,
+                &trust,
+                &metadata,
+                &target,
+                &verification,
+                &rollback,
+            );
         assert!(result
             .blocked_gates
             .contains(&"rollback_bundle_bound_to_source_and_target".to_string()));
