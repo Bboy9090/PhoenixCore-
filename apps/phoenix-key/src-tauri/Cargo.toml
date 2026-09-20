@@ -22,3 +22,4 @@ tauri = { version = "1.5", features = ["dialog-open"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+store-safe = []
