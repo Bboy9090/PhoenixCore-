@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod boot_repair_contract;
+mod data_preservation;
 mod intel_mac_restore_gate;
 mod mac_bootcamp_compat;
 mod recovery_center;
@@ -17,6 +18,7 @@ mod windows_recovery_guard;
 mod windows_target;
 
 use boot_repair_contract::plan_windows_boot_repair;
+use data_preservation::create_target_data_preservation_decision;
 use intel_mac_restore_gate::assess_intel_mac_restore_readiness;
 use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
@@ -1655,6 +1657,7 @@ fn main() {
         verify_windows_recovery_source_identity,
         build_windows_recovery_evidence_bundle_v2,
         plan_windows_boot_repair,
+        create_target_data_preservation_decision,
         inspect_mac_bootcamp_host,
         inspect_recovery_package_trust,
         inspect_windows_image_metadata,
