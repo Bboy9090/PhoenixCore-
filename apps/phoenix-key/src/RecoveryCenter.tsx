@@ -334,6 +334,7 @@ export default function RecoveryCenter({
     if (analysis.restore_candidate) return "Plan with warnings";
     return "Blocked until fixed";
   }, [analysis]);
+  const systemImageFiles = analysis?.system_image_files ?? [];
 
   function resetResult(nextPath: string) {
     setSourcePath(nextPath);
@@ -487,9 +488,9 @@ export default function RecoveryCenter({
       });
       setPlan(result);
       setSourceVerification(null);
-      if (analysis.system_image_files.length === 1) {
-        setImagePath(joinRecoveryPath(sourcePath.trim(), analysis.system_image_files[0]));
-      } else if (analysis.system_image_files.length === 0) {
+      if (systemImageFiles.length === 1) {
+        setImagePath(joinRecoveryPath(sourcePath.trim(), systemImageFiles[0]));
+      } else if (systemImageFiles.length === 0) {
         setImagePath(sourcePath.trim());
       }
       setTargetArchitecture(result.host_arch || "");
@@ -887,7 +888,7 @@ export default function RecoveryCenter({
           <div className="recovery-facts">
             <div><span>Current state</span><strong>{sourceState}</strong></div>
             <div><span>System image</span><strong>{analysis.has_windows_image_backup ? "Detected" : "No"}</strong></div>
-            <div><span>Disk image files</span><strong>{analysis.system_image_files.length}</strong></div>
+            <div><span>Disk image files</span><strong>{systemImageFiles.length}</strong></div>
           </div>
 
           {analysis.warnings.length > 0 && (
@@ -897,10 +898,10 @@ export default function RecoveryCenter({
             </div>
           )}
 
-          {analysis.system_image_files.length > 0 && (
+          {systemImageFiles.length > 0 && (
             <div className="recovery-list">
               <strong>Backup disk images found</strong>
-              {analysis.system_image_files.map((path) => <div key={path}>{path}</div>)}
+              {systemImageFiles.map((path) => <div key={path}>{path}</div>)}
             </div>
           )}
 
@@ -1032,7 +1033,7 @@ export default function RecoveryCenter({
 
             <div className="recovery-list">
               <strong>Windows image selection</strong>
-              {analysis.system_image_files.length > 0 && (
+              {systemImageFiles.length > 0 && (
                 <label className="path-field">
                   <span>Verified backup image payload</span>
                   <select
@@ -1047,14 +1048,14 @@ export default function RecoveryCenter({
                     }}
                   >
                     <option value="">Choose an exact VHD/VHDX payload</option>
-                    {analysis.system_image_files.map((relative) => {
+                    {systemImageFiles.map((relative) => {
                       const fullPath = joinRecoveryPath(sourcePath.trim(), relative);
                       return <option key={relative} value={fullPath}>{relative}</option>;
                     })}
                   </select>
                 </label>
               )}
-              {analysis.system_image_files.length === 0 && (
+              {systemImageFiles.length === 0 && (
                 <p className="field-help">Image source: {imagePath || sourcePath}</p>
               )}
               <label className="path-field">
@@ -1084,7 +1085,7 @@ export default function RecoveryCenter({
                 className="plan-button"
                 type="button"
                 onClick={inspectImageMetadata}
-                disabled={busy || !sourceVerification?.matches || (analysis.system_image_files.length > 0 && !imagePath)}
+                disabled={busy || !sourceVerification?.matches || (systemImageFiles.length > 0 && !imagePath)}
               >
                 Inspect Edition & Architecture
               </button>
