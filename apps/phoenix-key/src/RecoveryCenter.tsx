@@ -189,6 +189,34 @@ type RecoveryPlan = {
     automatic_destructive_resume_allowed: boolean;
     system_mutations_performed: boolean;
   };
+  source_contract: {
+    source_kind: string;
+    restore_candidate: boolean;
+    content_identity_required: boolean;
+    metadata_validation_required: boolean;
+    complete_split_set_required: boolean;
+    fat32_single_file_limit_check_required: boolean;
+  };
+  boot_contract: {
+    boot_mode: string;
+    efi_files_required: boolean;
+    bcd_required: boolean;
+    partition_manifest_required: boolean;
+    expected_boot_files: string[];
+    expected_partition_roles: string[];
+  };
+  remediation_required: string[];
+  block_reasons: string[];
+  dry_run_summary: {
+    source_ready_for_planning: boolean;
+    target_selected: boolean;
+    target_identity_verified: boolean;
+    rollback_evidence_persisted: boolean;
+    destructive_authorization_present: boolean;
+    mutation_steps_planned: number;
+    mutation_steps_executed: number;
+    executable: boolean;
+  };
   next_steps: string[];
   dry_run: boolean;
   destructive_actions_performed: boolean;
@@ -971,6 +999,57 @@ export default function RecoveryCenter({
               )}
             </div>
           )}
+
+          <div className="recovery-columns">
+            <div className="recovery-list">
+              <strong>Dry-run contract</strong>
+              <div>Source ready for planning: {plan.dry_run_summary.source_ready_for_planning ? "yes" : "no"}</div>
+              <div>Target selected: {plan.dry_run_summary.target_selected ? "yes" : "no"}</div>
+              <div>Target identity verified: {plan.dry_run_summary.target_identity_verified ? "yes" : "no"}</div>
+              <div>Rollback evidence persisted: {plan.dry_run_summary.rollback_evidence_persisted ? "yes" : "no"}</div>
+              <div>Destructive authorization present: {plan.dry_run_summary.destructive_authorization_present ? "yes" : "no"}</div>
+              <div>Mutation steps planned: {plan.dry_run_summary.mutation_steps_planned}</div>
+              <div>Mutation steps executed: {plan.dry_run_summary.mutation_steps_executed}</div>
+              <div>Executable now: {plan.dry_run_summary.executable ? "yes" : "no"}</div>
+            </div>
+            <div className="recovery-list">
+              <strong>Source & boot contract</strong>
+              <div>Source kind: {friendlyKind[plan.source_contract.source_kind] || readableToken(plan.source_contract.source_kind)}</div>
+              <div>Content identity required: {plan.source_contract.content_identity_required ? "yes" : "no"}</div>
+              <div>Metadata validation required: {plan.source_contract.metadata_validation_required ? "yes" : "no"}</div>
+              <div>Complete SWM set required: {plan.source_contract.complete_split_set_required ? "yes" : "no"}</div>
+              <div>FAT32 single-file limit check: {plan.source_contract.fat32_single_file_limit_check_required ? "required" : "not applicable"}</div>
+              <div>Boot mode: {plan.boot_contract.boot_mode.toUpperCase()}</div>
+              <div>EFI files required: {plan.boot_contract.efi_files_required ? "yes" : "no"}</div>
+              <div>BCD required: {plan.boot_contract.bcd_required ? "yes" : "no"}</div>
+            </div>
+          </div>
+
+          {(plan.remediation_required.length > 0 || plan.block_reasons.length > 0) && (
+            <div className="recovery-columns">
+              <div className="recovery-list">
+                <strong>Required remediation</strong>
+                {plan.remediation_required.length === 0
+                  ? <div>None identified at source-analysis stage</div>
+                  : plan.remediation_required.map((item) => <div key={item}>— {item}</div>)}
+              </div>
+              <div className="recovery-list blocked-list">
+                <strong>Current execution blocks</strong>
+                {plan.block_reasons.map((reason) => <div key={reason}>— {readableToken(reason)}</div>)}
+              </div>
+            </div>
+          )}
+
+          <div className="recovery-columns">
+            <div className="recovery-list">
+              <strong>Expected boot artifacts</strong>
+              {plan.boot_contract.expected_boot_files.map((item) => <div key={item}>{item}</div>)}
+            </div>
+            <div className="recovery-list">
+              <strong>Expected partition roles</strong>
+              {plan.boot_contract.expected_partition_roles.map((item) => <div key={item}>{readableToken(item)}</div>)}
+            </div>
+          </div>
 
           <div className="recovery-columns">
             <div className="recovery-list">
