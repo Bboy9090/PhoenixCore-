@@ -97,6 +97,29 @@ fn build_bundle_sha256(bundle: &RecoveryEvidenceBundleV2) -> String {
     value_sha256(&value)
 }
 
+pub fn recovery_evidence_bundle_v2_sha256(value: &Value) -> Result<String, String> {
+    let mut value = value.clone();
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| "recovery evidence bundle is not a JSON object".to_string())?;
+    object.remove("bundle_sha256");
+    Ok(value_sha256(&value))
+}
+
+pub fn verify_recovery_evidence_bundle_v2_sha256(value: &Value) -> bool {
+    if value.get("schema").and_then(Value::as_str)
+        != Some("phoenix_key.recovery_evidence_bundle.v2")
+    {
+        return false;
+    }
+    let Some(expected) = value.get("bundle_sha256").and_then(Value::as_str) else {
+        return false;
+    };
+    valid_sha256(expected)
+        && recovery_evidence_bundle_v2_sha256(value)
+            .is_ok_and(|actual| actual.eq_ignore_ascii_case(expected))
+}
+
 pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundleV2 {
     let plan = root.get("identity_bound_plan").unwrap_or(&Value::Null);
     let source_verification = root.get("source_identity_verification").unwrap_or(&Value::Null);
@@ -407,7 +430,10 @@ pub fn build_windows_recovery_evidence_bundle_v2(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_bundle_sha256, build_recovery_evidence_bundle_v2};
+    use super::{
+        build_bundle_sha256, build_recovery_evidence_bundle_v2,
+        verify_recovery_evidence_bundle_v2_sha256,
+    };
     use crate::restore_preflight::assess_restore_hardware_preflight;
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
     use crate::source_identity::identity_bound_plan_sha256;
@@ -521,6 +547,15 @@ mod tests {
         assert!(bundle
             .outstanding_requirements
             .contains(&"target_data_preservation_receipt_or_explicit_discard_decision".to_string()));
+    }
+
+    #[test]
+    fn serialized_bundle_digest_verifies_and_detects_tampering() {
+        let bundle = build_recovery_evidence_bundle_v2(&software_evidence());
+        let mut value = serde_json::to_value(bundle).unwrap();
+        assert!(verify_recovery_evidence_bundle_v2_sha256(&value));
+        value["software_chain_complete"] = json!(false);
+        assert!(!verify_recovery_evidence_bundle_v2_sha256(&value));
     }
 
     #[test]
