@@ -66,7 +66,7 @@ if (!writer.includes("byte_cap")) failures.push("image-sized write cap is missin
 if (tauri.tauri.allowlist.all || tauri.tauri.allowlist.shell.all) failures.push("Tauri shell allowlist is open");
 if (!ui.includes("Erase, Write and Verify")) failures.push("guarded physical write action is missing");
 if (!ui.includes("authorization !== writePreparation.authorization_phrase")) failures.push("UI identity-bound authorization gate is missing");
-const recoveryUi = readFileSync(new URL("../src/RecoveryCenter.tsx", import.meta.url), "utf8");
+const recoveryUi = normalizeNewlines(readFileSync(new URL("../src/RecoveryCenter.tsx", import.meta.url), "utf8"));
 if (!recoveryUi.includes("target_stable_identity_sha256")) failures.push("Recovery Center does not expose stable target identity");
 if (!recoveryUi.includes('"verify_windows_recovery_target_identity"')) failures.push("Recovery Center fresh target revalidation is not wired");
 if (!recoveryUi.includes("Freshly Re-Verify Exact Target")) failures.push("Recovery Center revalidation action is missing");
