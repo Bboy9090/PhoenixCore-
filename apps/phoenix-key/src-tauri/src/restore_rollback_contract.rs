@@ -24,20 +24,51 @@ fn valid_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-fn hash_contract_without_digest(
-    contract: &RestoreTargetRollbackContract,
-) -> Result<String, String> {
-    let mut value = serde_json::to_value(contract)
-        .map_err(|error| format!("cannot serialize restore rollback contract: {error}"))?;
-    value
-        .as_object_mut()
-        .ok_or_else(|| "restore rollback contract did not serialize as an object".to_string())?
-        .remove("contract_sha256");
-    let bytes = serde_json::to_vec(&value)
+fn canonicalize_json(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut keys: Vec<&String> = map.keys().collect();
+            keys.sort();
+            let mut sorted = serde_json::Map::new();
+            for key in keys {
+                if key == "contract_sha256" {
+                    continue;
+                }
+                if let Some(child) = map.get(key) {
+                    sorted.insert(key.clone(), canonicalize_json(child));
+                }
+            }
+            Value::Object(sorted)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonicalize_json).collect()),
+        _ => value.clone(),
+    }
+}
+
+pub fn restore_target_rollback_contract_sha256(value: &Value) -> Result<String, String> {
+    let canonical = canonicalize_json(value);
+    let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| format!("cannot canonicalize restore rollback contract: {error}"))?;
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     Ok(format!("{:x}", hasher.finalize()))
+}
+
+pub fn verify_restore_target_rollback_contract_sha256(value: &Value) -> bool {
+    let Some(expected) = value.get("contract_sha256").and_then(Value::as_str) else {
+        return false;
+    };
+    valid_sha256(expected)
+        && restore_target_rollback_contract_sha256(value)
+            .is_ok_and(|actual| actual.eq_ignore_ascii_case(expected))
+}
+
+fn hash_contract_without_digest(
+    contract: &RestoreTargetRollbackContract,
+) -> Result<String, String> {
+    let value = serde_json::to_value(contract)
+        .map_err(|error| format!("cannot serialize restore rollback contract: {error}"))?;
+    restore_target_rollback_contract_sha256(&value)
 }
 
 pub fn build_restore_target_rollback_contract(
@@ -129,7 +160,10 @@ pub fn plan_restore_target_rollback_contract(
 
 #[cfg(test)]
 mod tests {
-    use super::build_restore_target_rollback_contract;
+    use super::{
+        build_restore_target_rollback_contract,
+        verify_restore_target_rollback_contract_sha256,
+    };
     use crate::source_identity::identity_bound_plan_sha256;
     use serde_json::{json, Value};
 
@@ -176,6 +210,15 @@ mod tests {
         assert_eq!(contract.target_stable_identity_sha256, "d".repeat(64));
         assert_eq!(contract.contract_sha256.len(), 64);
         assert!(contract.fresh_target_revalidation_required);
+    }
+
+    #[test]
+    fn contract_digest_detects_tampering() {
+        let contract = build_restore_target_rollback_contract(&plan(), &target()).unwrap();
+        let mut value = serde_json::to_value(contract).unwrap();
+        assert!(verify_restore_target_rollback_contract_sha256(&value));
+        value["target_size_bytes"] = json!(128_000);
+        assert!(!verify_restore_target_rollback_contract_sha256(&value));
     }
 
     #[test]
