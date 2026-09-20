@@ -4,6 +4,7 @@ mod boot_repair_contract;
 mod intel_mac_restore_gate;
 mod mac_bootcamp_compat;
 mod recovery_center;
+mod restore_preflight;
 mod restore_readiness;
 mod restore_rollback_contract;
 mod source_identity;
@@ -16,6 +17,7 @@ use boot_repair_contract::plan_windows_boot_repair;
 use intel_mac_restore_gate::assess_intel_mac_restore_readiness;
 use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
+use restore_preflight::assess_windows_restore_hardware_preflight;
 use restore_readiness::assess_windows_restore_readiness;
 use restore_rollback_contract::plan_restore_target_rollback_contract;
 use recovery_center::{
@@ -1320,6 +1322,7 @@ fn main() {
         inspect_recovery_package_trust,
         inspect_windows_image_metadata,
         assess_windows_restore_readiness,
+        assess_windows_restore_hardware_preflight,
         plan_restore_target_rollback_contract,
         inspect_bootcamp_driver_package,
         inspect_recovery_target_safety,
