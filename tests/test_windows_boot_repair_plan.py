@@ -23,6 +23,7 @@ class WindowsBootRepairPlanTests(unittest.TestCase):
             "allowed_next_stage": "build-checkpointed-repair-plan",
             "source_identity_sha256": "1" * 64,
             "target_identity_sha256": "2" * 64,
+            "target_stable_identity_sha256": "5" * 64,
             "boot_state_snapshot_sha256": "3" * 64,
             "rollback_bundle_sha256": "4" * 64,
             "block_reasons": [],
@@ -40,8 +41,16 @@ class WindowsBootRepairPlanTests(unittest.TestCase):
         self.assertFalse(plan["destructive_restore_unlocked"])
         self.assertFalse(plan["system_mutations_performed"])
         self.assertIn(
-            "recheck_target_identity_immediately_before_repair",
+            "recheck_target_snapshot_identity_immediately_before_repair",
             plan["checkpoints"],
+        )
+        self.assertIn(
+            "recheck_target_stable_identity_immediately_before_repair",
+            plan["checkpoints"],
+        )
+        self.assertEqual(
+            "5" * 64,
+            plan["target_stable_identity_sha256"],
         )
         self.assertIn("bcd_store_export", plan["required_rollback_artifacts"])
 
@@ -60,6 +69,19 @@ class WindowsBootRepairPlanTests(unittest.TestCase):
         )
         self.assertIn("verify_signed_windows_boot_files", plan["planned_actions"])
         self.assertIn("verify_secure_boot_compatibility", plan["planned_actions"])
+
+    def test_missing_stable_target_identity_is_rejected(self):
+        readiness = self.readiness()
+        readiness["target_stable_identity_sha256"] = None
+        readiness.pop("readiness_sha256")
+        readiness["readiness_sha256"] = windows_boot_repair_plan.sha256_payload(
+            readiness
+        )
+        with self.assertRaises(windows_boot_repair_plan.RepairPlanError):
+            windows_boot_repair_plan.build_repair_plan(
+                readiness=readiness,
+                repair_kind="bcd_repair",
+            )
 
     def test_tampered_readiness_is_rejected(self):
         readiness = self.readiness()
