@@ -124,9 +124,7 @@ def build_repair_plan(
         "summary": definition["summary"],
         "source_identity_sha256": readiness.get("source_identity_sha256"),
         "target_identity_sha256": readiness.get("target_identity_sha256"),
-        "target_stable_identity_sha256": readiness.get(
-            "target_stable_identity_sha256"
-        ),
+        "target_stable_identity_sha256": readiness.get("target_stable_identity_sha256"),
         "boot_state_snapshot_sha256": readiness.get("boot_state_snapshot_sha256"),
         "rollback_bundle_sha256": readiness.get("rollback_bundle_sha256"),
         "required_rollback_artifacts": definition["required_artifacts"],
