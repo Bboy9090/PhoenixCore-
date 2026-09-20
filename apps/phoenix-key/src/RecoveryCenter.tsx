@@ -181,6 +181,8 @@ type RecoveryTargetReenumerationReceipt = {
   classification: string;
   system_mutations_performed: boolean;
   receipt_sha256: string;
+  receipt_path?: string | null;
+  receipt_persisted?: boolean;
 };
 
 type StableTargetLocatorResult = {
@@ -1837,6 +1839,10 @@ export default function RecoveryCenter({
                       <p>Substitution detected: {targetReenumerationReceipt.substitution_detected ? "yes" : "no"}</p>
                       <p>Reanalysis required: {targetReenumerationReceipt.reanalysis_required ? "yes" : "no"}</p>
                       <p>Receipt SHA-256: {targetReenumerationReceipt.receipt_sha256}</p>
+                      <p>Receipt persisted: {targetReenumerationReceipt.receipt_persisted ? "yes" : "no"}</p>
+                      {targetReenumerationReceipt.receipt_path && (
+                        <p>Saved receipt: {targetReenumerationReceipt.receipt_path}</p>
+                      )}
                       <p>System mutations performed: {targetReenumerationReceipt.system_mutations_performed ? "yes" : "no"}</p>
                     </div>
                   )}
