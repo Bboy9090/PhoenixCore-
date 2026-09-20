@@ -1,3 +1,4 @@
+use crate::source_identity::verify_identity_bound_plan_sha256;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -64,6 +65,13 @@ pub fn assess_restore_readiness(
 ) -> RestoreReadiness {
     let mut satisfied = Vec::new();
     let mut blocked = Vec::new();
+
+    gate(
+        verify_identity_bound_plan_sha256(identity_bound_plan),
+        "identity_bound_plan_integrity",
+        &mut satisfied,
+        &mut blocked,
+    );
 
     let source_identity = identity_bound_plan
         .pointer("/source_identity/sha256")
@@ -285,6 +293,7 @@ pub fn assess_windows_restore_readiness(
 #[cfg(test)]
 mod tests {
     use super::assess_restore_readiness;
+    use crate::source_identity::identity_bound_plan_sha256;
     use serde_json::{json, Value};
 
     fn evidence() -> (
@@ -294,17 +303,19 @@ mod tests {
         serde_json::Value,
         serde_json::Value,
     ) {
+        let mut plan = json!({
+            "source_identity": {
+                "sha256": "a".repeat(64),
+                "complete": true,
+                "source_kind": "file_sha256",
+                "canonical_path": "C:/recovery/install.wim",
+                "size_bytes": 4096
+            },
+            "destructive_actions_performed": false
+        });
+        plan["plan_sha256"] = Value::String(identity_bound_plan_sha256(&plan).unwrap());
         (
-            json!({
-                "source_identity": {
-                    "sha256": "a".repeat(64),
-                    "complete": true,
-                    "source_kind": "file_sha256",
-                    "canonical_path": "C:/recovery/install.wim",
-                    "size_bytes": 4096
-                },
-                "destructive_actions_performed": false
-            }),
+            plan,
             json!({
                 "verified_for_use": true,
                 "sha256_matches": true,
@@ -354,6 +365,18 @@ mod tests {
         assert!(!result.executable);
         assert!(result.blocked_gates.is_empty());
         assert_eq!(result.selected_image_index, Some(2));
+    }
+
+    #[test]
+    fn tampered_identity_bound_plan_blocks_readiness() {
+        let (mut plan, trust, metadata, target, rollback) = evidence();
+        plan["destructive_actions_performed"] = json!(true);
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(!result.ready_for_restore_executor_design);
+        assert!(result
+            .blocked_gates
+            .contains(&"identity_bound_plan_integrity".to_string()));
     }
 
     #[test]
