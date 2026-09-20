@@ -94,12 +94,14 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
     def _resolve_source_disk(self, source_path):
         self.assertTrue(source_path)
         return {
-            "schema": "phoenix_key.windows_source_disk.v1",
+            "schema": "phoenix_key.windows_source_disk.v2",
             "source_path": source_path,
             "drive_letter": "E",
             "disk_number": 2,
             "partition_number": 1,
             "physical_target": r"\\.\PHYSICALDRIVE2",
+            "stable_identity_sha256": "c" * 64,
+            "stable_identity_available": True,
             "resolved": True,
             "read_only": True,
         }
@@ -156,6 +158,11 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 self.evidence["disk"]["identity_sha256"],
                 plan["identity_sha256"],
             )
+            self.assertEqual(
+                self.evidence["disk"]["stable_identity_sha256"],
+                plan["target_stable_identity_sha256"],
+            )
+            self.assertEqual("c" * 64, plan["source_stable_identity_sha256"])
 
     def test_request_rejects_missing_unlock(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -224,6 +231,33 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     admin=True,
                     query_disk=self._query_disk,
                     resolve_source_disk=same_disk,
+                )
+
+    def test_request_rejects_same_hardware_after_disk_renumbering(self):
+        def renumbered_same_hardware(source_path):
+            record = self._resolve_source_disk(source_path)
+            record["disk_number"] = 9
+            record["physical_target"] = r"\\.\PHYSICALDRIVE9"
+            record["stable_identity_sha256"] = self.evidence["disk"][
+                "stable_identity_sha256"
+            ]
+            return record
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"x")
+            with self.assertRaisesRegex(writer.WriteGateError, "same physical device"):
+                writer.validate_write_request(
+                    evidence=self.evidence,
+                    image_path=image,
+                    target=self.target,
+                    authorization=self._authorization_for(image),
+                    source_commit="6" * 40,
+                    execute=True,
+                    environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                    admin=True,
+                    query_disk=self._query_disk,
+                    resolve_source_disk=renumbered_same_hardware,
                 )
 
     def test_request_rejects_identity_drift(self):
@@ -303,6 +337,37 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     plan=plan,
                     image_path=image,
                     resolve_source_disk=moved_source,
+                )
+
+    def test_prewrite_recheck_rejects_source_stable_identity_change(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"stable-source")
+            plan = writer.validate_write_request(
+                evidence=self.evidence,
+                image_path=image,
+                target=self.target,
+                authorization=self._authorization_for(image),
+                source_commit="5" * 40,
+                execute=True,
+                environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                admin=True,
+                query_disk=self._query_disk,
+                resolve_source_disk=self._resolve_source_disk,
+            )
+
+            def substituted_source(source_path):
+                record = self._resolve_source_disk(source_path)
+                record["stable_identity_sha256"] = "d" * 64
+                return record
+
+            with self.assertRaisesRegex(
+                writer.WriteGateError, "stable hardware identity changed"
+            ):
+                writer.revalidate_source_before_raw_open(
+                    plan=plan,
+                    image_path=image,
+                    resolve_source_disk=substituted_source,
                 )
 
     def test_file_backed_write_and_full_readback_pass(self):
