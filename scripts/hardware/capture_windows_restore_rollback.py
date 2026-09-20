@@ -442,6 +442,10 @@ def main() -> int:
         raise RollbackCaptureError("Drive evidence target size is missing or invalid.")
 
     output_dir = args.output_dir.resolve()
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise RollbackCaptureError(
+            "Rollback capture output directory already contains files; refusing to overwrite evidence."
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.fixture_disk_image:
