@@ -64,6 +64,53 @@ const WRITE_UNLOCK_ENV: &str = "BWS_ENABLE_SACRIFICIAL_DRIVE_WRITE";
 const WRITE_UNLOCK_VALUE: &str = "I_ACCEPT_COMPLETE_DESTRUCTION_OF_NAMED_TEST_DRIVE";
 const GOOGLE_DRIVE_CLIENT_ID_ENV: &str = "PHOENIX_KEY_GOOGLE_DRIVE_CLIENT_ID";
 const GOOGLE_DRIVE_FILE_SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
+const STORE_SAFE_DISTRIBUTION: bool = cfg!(feature = "store-safe");
+
+#[derive(Debug, Serialize)]
+struct DistributionProfile {
+    schema: &'static str,
+    channel: &'static str,
+    store_safe: bool,
+    hardware_scan: bool,
+    media_planning: bool,
+    physical_media_write: bool,
+    external_helper_execution: bool,
+    cloud_acquisition: bool,
+    native_recovery_analysis: bool,
+}
+
+fn current_distribution_profile() -> DistributionProfile {
+    if STORE_SAFE_DISTRIBUTION {
+        DistributionProfile {
+            schema: "phoenix_key.distribution_profile.v1",
+            channel: "store-safe",
+            store_safe: true,
+            hardware_scan: false,
+            media_planning: false,
+            physical_media_write: false,
+            external_helper_execution: false,
+            cloud_acquisition: false,
+            native_recovery_analysis: true,
+        }
+    } else {
+        DistributionProfile {
+            schema: "phoenix_key.distribution_profile.v1",
+            channel: "direct",
+            store_safe: false,
+            hardware_scan: true,
+            media_planning: true,
+            physical_media_write: true,
+            external_helper_execution: true,
+            cloud_acquisition: true,
+            native_recovery_analysis: true,
+        }
+    }
+}
+
+#[tauri::command]
+fn distribution_profile() -> DistributionProfile {
+    current_distribution_profile()
+}
 
 #[derive(Debug, Serialize)]
 struct SmokeSafetyBoundary {
@@ -143,6 +190,9 @@ fn run_smoke_mode_if_requested() -> Result<bool, String> {
 
 #[tauri::command]
 fn scan_connected_devices() -> Result<Vec<DeviceInfo>, String> {
+    if STORE_SAFE_DISTRIBUTION {
+        return Err("hardware scanning is disabled in the store-safe distribution".to_string());
+    }
     scan_devices()
         .map(|devices| {
             devices
@@ -171,6 +221,11 @@ fn is_actionable_device(device: &DeviceInfo) -> bool {
 }
 
 fn bridge_directory() -> Result<PathBuf, String> {
+    if STORE_SAFE_DISTRIBUTION {
+        return Err(
+            "external helper execution is disabled in the store-safe distribution".to_string(),
+        );
+    }
     let directory = std::env::temp_dir().join(format!("phoenix-key-{}", std::process::id()));
     fs::create_dir_all(&directory)
         .map_err(|error| format!("cannot create PhoenixCore bridge directory: {error}"))?;
@@ -582,7 +637,7 @@ fn google_drive_client_id() -> Option<String> {
 
 #[tauri::command]
 fn google_drive_picker_status() -> Value {
-    let configured = google_drive_client_id().is_some();
+    let configured = !STORE_SAFE_DISTRIBUTION && google_drive_client_id().is_some();
     json!({
         "schema": "phoenix_key.google_drive_picker_status.v1",
         "configured": configured,
@@ -1221,6 +1276,7 @@ fn main() {
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
+            distribution_profile,
             scan_connected_devices,
             scan_media_targets,
             plan_media_build,
@@ -1253,10 +1309,21 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        attach_target_resolution, expected_authorization, installed_smoke_receipt,
-        require_write_candidate, resolve_target, validate_drive_operation_id,
+        attach_target_resolution, current_distribution_profile, expected_authorization,
+        installed_smoke_receipt, require_write_candidate, resolve_target,
+        validate_drive_operation_id,
     };
     use serde_json::json;
+
+    #[test]
+    fn distribution_profile_matches_compile_time_channel() {
+        let profile = current_distribution_profile();
+        assert_eq!(profile.schema, "phoenix_key.distribution_profile.v1");
+        assert_eq!(profile.store_safe, cfg!(feature = "store-safe"));
+        assert_eq!(profile.native_recovery_analysis, true);
+        assert_eq!(profile.physical_media_write, !cfg!(feature = "store-safe"));
+        assert_eq!(profile.external_helper_execution, !cfg!(feature = "store-safe"));
+    }
 
     #[test]
     fn drive_operation_id_blocks_path_traversal() {
