@@ -171,17 +171,52 @@ $disk = Get-Disk -Number $partition.DiskNumber
 
 
 def compare_source_and_target(
-    source_record: dict[str, Any], target: str
+    source_record: dict[str, Any],
+    target: str,
+    target_stable_identity_sha256: str | None = None,
 ) -> dict[str, Any]:
     source_target = str(source_record.get("physical_target") or "")
-    distinct = source_target.upper() != target.strip().upper()
+    target_normalized = target.strip().upper()
+    path_distinct = source_target.upper() != target_normalized
+
+    source_stable = str(source_record.get("stable_identity_sha256") or "").lower()
+    target_stable = str(target_stable_identity_sha256 or "").strip().lower()
+    stable_proof_requested = bool(target_stable)
+    source_stable_valid = bool(re.fullmatch(r"[0-9a-f]{64}", source_stable))
+    target_stable_valid = bool(re.fullmatch(r"[0-9a-f]{64}", target_stable))
+    stable_identity_proven = (
+        stable_proof_requested and source_stable_valid and target_stable_valid
+    )
+    stable_identity_distinct = (
+        source_stable != target_stable if stable_identity_proven else None
+    )
+
+    if stable_proof_requested:
+        distinct = path_distinct and stable_identity_distinct is True
+    else:
+        distinct = path_distinct
+
+    if not path_distinct:
+        block_reason = "source-and-target-same-physical-device"
+    elif stable_proof_requested and not stable_identity_proven:
+        block_reason = "stable-source-target-identity-not-proven"
+    elif stable_identity_distinct is False:
+        block_reason = "source-and-target-same-physical-device"
+    else:
+        block_reason = None
+
     return {
-        "schema": "phoenix_key.source_target_collision_check.v1",
+        "schema": "phoenix_key.source_target_collision_check.v2",
         "source_physical_target": source_target,
-        "target_physical_target": target.strip().upper(),
+        "target_physical_target": target_normalized,
+        "source_stable_identity_sha256": source_stable or None,
+        "target_stable_identity_sha256": target_stable or None,
+        "path_distinct": path_distinct,
+        "stable_identity_proven": stable_identity_proven,
+        "stable_identity_distinct": stable_identity_distinct,
         "source_target_distinct": distinct,
         "blocked": not distinct,
-        "block_reason": None if distinct else "source-and-target-same-physical-device",
+        "block_reason": block_reason,
     }
 
 
@@ -189,6 +224,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True)
     parser.add_argument("--target")
+    parser.add_argument("--target-stable-identity-sha256")
     return parser.parse_args()
 
 
@@ -197,7 +233,11 @@ def main() -> int:
     source = query_source_disk(args.source)
     payload: dict[str, Any] = {"source": source}
     if args.target:
-        payload["collision_check"] = compare_source_and_target(source, args.target)
+        payload["collision_check"] = compare_source_and_target(
+            source,
+            args.target,
+            args.target_stable_identity_sha256,
+        )
     print(json.dumps(payload, sort_keys=True))
     return 0
 
