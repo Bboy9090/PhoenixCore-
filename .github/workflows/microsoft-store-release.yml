@@ -110,6 +110,20 @@ jobs:
           "$($hash.Hash.ToLower())  $($exe[0].Name)" | Set-Content "src-tauri/target/release/bundle/nsis/SHA256SUMS.txt"
           "MSSTORE_INSTALLER_NAME=$($exe[0].Name)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Emit Microsoft Store provenance receipt
+        shell: pwsh
+        run: |
+          $exe = @(Get-ChildItem "src-tauri/target/release/bundle/nsis/*setup.exe")
+          if ($exe.Count -ne 1) { throw "Expected exactly one NSIS installer" }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          node ../../scripts/release/emit-release-provenance.mjs `
+            --product phoenix-key `
+            --channel microsoft-store `
+            --version $version `
+            --source-commit "${{ github.sha }}" `
+            --artifact "$($exe[0].FullName)" `
+            --output "$env:RUNNER_TEMP/MSSTORE-RELEASE-PROVENANCE.json"
+
       - name: Publish immutable installer URL
         uses: softprops/action-gh-release@v2
         with:
@@ -120,6 +134,8 @@ jobs:
           files: |
             apps/phoenix-key/src-tauri/target/release/bundle/nsis/*setup.exe
             apps/phoenix-key/src-tauri/target/release/bundle/nsis/SHA256SUMS.txt
+            ${{ runner.temp }}/MSSTORE-RELEASE-PROVENANCE.json
+            ${{ runner.temp }}/MSSTORE-RELEASE-PROVENANCE.json.sha256
 
       - name: Prepare Partner Center package JSON
         shell: pwsh
