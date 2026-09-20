@@ -6,6 +6,8 @@ mod windows_recovery_guard;
 mod platform_recovery;
 #[path = "../src/source_identity.rs"]
 mod source_identity;
+#[path = "../src/target_reenumeration.rs"]
+mod target_reenumeration;
 #[path = "../src/target_safety.rs"]
 mod target_safety;
 #[cfg(test)]
@@ -31,6 +33,7 @@ use source_identity::{
     verify_identity_bound_plan_sha256, verify_source_identity,
 };
 use std::{env, fs, process};
+use target_reenumeration::compare_recovery_target_reenumeration;
 use target_safety::{assess_recovery_target, verify_recovery_target_identity};
 use windows_recovery::{analyze_backup_path, fixture_candidates};
 use windows_recovery_guard::harden_analysis;
@@ -51,7 +54,7 @@ fn emit<T: Serialize>(value: &T) -> Result<(), String> {
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- identity <path>\n  cargo run --example windows_recovery_probe -- verify <path> <expected-sha256>\n  cargo run --example windows_recovery_probe -- target-check <evidence-json> <source-size-bytes> <source-physical-target|unknown> <source-stable-identity-sha256|unknown>\n  cargo run --example windows_recovery_probe -- target-verify <evidence-json> <expected-snapshot-sha256> <expected-stable-sha256>\n  cargo run --example windows_recovery_probe -- plan-verify <plan-json>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
+        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- identity <path>\n  cargo run --example windows_recovery_probe -- verify <path> <expected-sha256>\n  cargo run --example windows_recovery_probe -- target-check <evidence-json> <source-size-bytes> <source-physical-target|unknown> <source-stable-identity-sha256|unknown>\n  cargo run --example windows_recovery_probe -- target-verify <evidence-json> <expected-snapshot-sha256> <expected-stable-sha256>\n  cargo run --example windows_recovery_probe -- target-reenumeration <evidence-json> <expected-target|unknown> <expected-snapshot-sha256> <expected-stable-sha256>\n  cargo run --example windows_recovery_probe -- plan-verify <plan-json>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
     );
     process::exit(64);
 }
@@ -107,6 +110,31 @@ fn run() -> Result<(), String> {
             .map_err(|error| format!("target evidence is not valid JSON: {error}"))?;
         return emit(&verify_recovery_target_identity(
             &evidence,
+            &expected_snapshot,
+            &expected_stable,
+        ));
+    }
+
+    if command == "target-reenumeration" {
+        let evidence_path = args.next().unwrap_or_else(|| usage());
+        let expected_target = args.next().unwrap_or_else(|| usage());
+        let expected_snapshot = args.next().unwrap_or_else(|| usage());
+        let expected_stable = args.next().unwrap_or_else(|| usage());
+        if args.next().is_some() {
+            usage();
+        }
+        let evidence_bytes = fs::read(&evidence_path)
+            .map_err(|error| format!("cannot read target evidence JSON: {error}"))?;
+        let evidence: serde_json::Value = serde_json::from_slice(&evidence_bytes)
+            .map_err(|error| format!("target evidence is not valid JSON: {error}"))?;
+        let expected_target = if expected_target.eq_ignore_ascii_case("unknown") {
+            None
+        } else {
+            Some(expected_target.as_str())
+        };
+        return emit(&compare_recovery_target_reenumeration(
+            &evidence,
+            expected_target,
             &expected_snapshot,
             &expected_stable,
         ));
