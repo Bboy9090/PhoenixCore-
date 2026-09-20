@@ -55,6 +55,9 @@ const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py"
 const DRIVE_EVIDENCE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_drive_evidence.py");
 #[cfg(not(feature = "store-safe"))]
+const STABLE_TARGET_LOCATOR_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/find_windows_drive_by_stable_identity.py");
+#[cfg(not(feature = "store-safe"))]
 const SOURCE_DISK_RESOLVER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/resolve_windows_source_disk.py");
 #[cfg(not(feature = "store-safe"))]
@@ -271,6 +274,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         DRIVE_EVIDENCE_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded drive evidence collector: {error}"))?;
+    fs::write(
+        directory.join("find_windows_drive_by_stable_identity.py"),
+        STABLE_TARGET_LOCATOR_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded stable-target locator: {error}"))?;
     fs::write(
         directory.join("resolve_windows_source_disk.py"),
         SOURCE_DISK_RESOLVER_SOURCE,
@@ -1084,6 +1092,30 @@ fn verify_windows_recovery_target_identity(
 }
 
 #[tauri::command]
+fn locate_windows_recovery_target_by_stable_identity(
+    expected_stable_identity_sha256: String,
+) -> Result<Value, String> {
+    if !cfg!(windows) {
+        return Err("Stable target discovery requires Windows.".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("find_windows_drive_by_stable_identity.py");
+        run_python_json(
+            &script,
+            &[
+                "--expected-stable-identity-sha256",
+                expected_stable_identity_sha256.trim(),
+            ],
+            &[],
+        )
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn inspect_windows_recovery_target_reenumeration(
     current_target_drive: String,
     expected_target_drive: Option<String>,
@@ -1592,6 +1624,7 @@ fn main() {
         inspect_restore_rollback_destination,
         capture_restore_target_rollback_artifacts,
         verify_windows_recovery_target_identity,
+        locate_windows_recovery_target_by_stable_identity,
         inspect_windows_recovery_target_reenumeration,
         assess_intel_mac_restore_readiness,
         google_drive_picker_status,
