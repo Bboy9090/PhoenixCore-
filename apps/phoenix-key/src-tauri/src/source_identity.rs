@@ -293,6 +293,7 @@ mod tests {
         build_identity_bound_recovery_plan, capture_source_identity,
         verify_identity_bound_plan_sha256, verify_source_identity,
     };
+    use serde_json::Value;
     use std::{fs, path::PathBuf};
 
     fn temp_case(name: &str) -> PathBuf {
