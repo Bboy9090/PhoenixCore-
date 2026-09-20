@@ -1,10 +1,10 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RecoveryTargetReenumerationReceipt {
-    pub schema: &'static str,
+    pub schema: String,
     pub expected_target: Option<String>,
     pub observed_target: Option<String>,
     pub expected_snapshot_identity_sha256: String,
@@ -17,14 +17,14 @@ pub struct RecoveryTargetReenumerationReceipt {
     pub stale_authorization_rejected: bool,
     pub reanalysis_required: bool,
     pub substitution_detected: bool,
-    pub classification: &'static str,
+    pub classification: String,
     pub system_mutations_performed: bool,
     pub receipt_sha256: String,
 }
 
 #[derive(Debug, Serialize)]
 struct UnsignedRecoveryTargetReenumerationReceipt<'a> {
-    schema: &'static str,
+    schema: &'a str,
     expected_target: &'a Option<String>,
     observed_target: &'a Option<String>,
     expected_snapshot_identity_sha256: &'a str,
@@ -37,7 +37,7 @@ struct UnsignedRecoveryTargetReenumerationReceipt<'a> {
     stale_authorization_rejected: bool,
     reanalysis_required: bool,
     substitution_detected: bool,
-    classification: &'static str,
+    classification: &'a str,
     system_mutations_performed: bool,
 }
 
@@ -48,6 +48,35 @@ fn is_sha256(value: &str) -> bool {
 fn sha256_hex<T: Serialize>(value: &T) -> String {
     let bytes = serde_json::to_vec(value).expect("reenumeration receipt serialization cannot fail");
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn unsigned_receipt(
+    receipt: &RecoveryTargetReenumerationReceipt,
+) -> UnsignedRecoveryTargetReenumerationReceipt<'_> {
+    UnsignedRecoveryTargetReenumerationReceipt {
+        schema: &receipt.schema,
+        expected_target: &receipt.expected_target,
+        observed_target: &receipt.observed_target,
+        expected_snapshot_identity_sha256: &receipt.expected_snapshot_identity_sha256,
+        observed_snapshot_identity_sha256: &receipt.observed_snapshot_identity_sha256,
+        expected_stable_identity_sha256: &receipt.expected_stable_identity_sha256,
+        observed_stable_identity_sha256: &receipt.observed_stable_identity_sha256,
+        same_stable_hardware: receipt.same_stable_hardware,
+        snapshot_changed: receipt.snapshot_changed,
+        target_path_changed: receipt.target_path_changed,
+        stale_authorization_rejected: receipt.stale_authorization_rejected,
+        reanalysis_required: receipt.reanalysis_required,
+        substitution_detected: receipt.substitution_detected,
+        classification: &receipt.classification,
+        system_mutations_performed: receipt.system_mutations_performed,
+    }
+}
+
+pub fn verify_recovery_target_reenumeration_receipt_sha256(
+    receipt: &RecoveryTargetReenumerationReceipt,
+) -> bool {
+    is_sha256(&receipt.receipt_sha256)
+        && sha256_hex(&unsigned_receipt(receipt)).eq_ignore_ascii_case(&receipt.receipt_sha256)
 }
 
 pub fn compare_recovery_target_reenumeration(
@@ -123,7 +152,7 @@ pub fn compare_recovery_target_reenumeration(
     };
 
     let mut receipt = RecoveryTargetReenumerationReceipt {
-        schema: "phoenix_key.recovery_target_reenumeration_receipt.v1",
+        schema: "phoenix_key.recovery_target_reenumeration_receipt.v1".to_string(),
         expected_target,
         observed_target,
         expected_snapshot_identity_sha256: expected_snapshot,
@@ -136,35 +165,21 @@ pub fn compare_recovery_target_reenumeration(
         stale_authorization_rejected,
         reanalysis_required,
         substitution_detected,
-        classification,
+        classification: classification.to_string(),
         system_mutations_performed: false,
         receipt_sha256: String::new(),
     };
 
-    let unsigned = UnsignedRecoveryTargetReenumerationReceipt {
-        schema: receipt.schema,
-        expected_target: &receipt.expected_target,
-        observed_target: &receipt.observed_target,
-        expected_snapshot_identity_sha256: &receipt.expected_snapshot_identity_sha256,
-        observed_snapshot_identity_sha256: &receipt.observed_snapshot_identity_sha256,
-        expected_stable_identity_sha256: &receipt.expected_stable_identity_sha256,
-        observed_stable_identity_sha256: &receipt.observed_stable_identity_sha256,
-        same_stable_hardware: receipt.same_stable_hardware,
-        snapshot_changed: receipt.snapshot_changed,
-        target_path_changed: receipt.target_path_changed,
-        stale_authorization_rejected: receipt.stale_authorization_rejected,
-        reanalysis_required: receipt.reanalysis_required,
-        substitution_detected: receipt.substitution_detected,
-        classification: receipt.classification,
-        system_mutations_performed: receipt.system_mutations_performed,
-    };
-    receipt.receipt_sha256 = sha256_hex(&unsigned);
+    receipt.receipt_sha256 = sha256_hex(&unsigned_receipt(&receipt));
     receipt
 }
 
 #[cfg(test)]
 mod tests {
-    use super::compare_recovery_target_reenumeration;
+    use super::{
+        compare_recovery_target_reenumeration,
+        verify_recovery_target_reenumeration_receipt_sha256,
+    };
     use serde_json::json;
 
     fn evidence(target: &str, snapshot: &str, stable: &str) -> serde_json::Value {
@@ -197,6 +212,23 @@ mod tests {
         assert!(!receipt.substitution_detected);
         assert_eq!(receipt.classification, "exact_snapshot_match");
         assert_eq!(receipt.receipt_sha256.len(), 64);
+        assert!(verify_recovery_target_reenumeration_receipt_sha256(&receipt));
+    }
+
+    #[test]
+    fn tampered_receipt_checksum_is_rejected() {
+        let mut receipt = compare_recovery_target_reenumeration(
+            &evidence(
+                "\\\\.\\PHYSICALDRIVE7",
+                &"a".repeat(64),
+                &"b".repeat(64),
+            ),
+            Some("\\\\.\\PHYSICALDRIVE7"),
+            &"a".repeat(64),
+            &"b".repeat(64),
+        );
+        receipt.observed_target = Some("\\\\.\\PHYSICALDRIVE8".to_string());
+        assert!(!verify_recovery_target_reenumeration_receipt_sha256(&receipt));
     }
 
     #[test]
