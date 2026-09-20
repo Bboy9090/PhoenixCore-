@@ -320,6 +320,34 @@ type TargetDataPreservationReceipt = {
   receipt_sha256: string;
 };
 
+type RestoreTargetBootMetadataReceipt = {
+  schema: string;
+  target: string;
+  target_snapshot_identity_sha256: string;
+  target_stable_identity_sha256: string;
+  rollback_contract_sha256: string;
+  rollback_capture_receipt_sha256: string;
+  output_directory: string;
+  partition_inventory: Array<{
+    partition_number: number;
+    gpt_type?: string | null;
+    role: string;
+    drive_letter?: string | null;
+    offset_bytes: number;
+    size_bytes: number;
+    already_accessible: boolean;
+  }>;
+  artifacts: Record<string, unknown>;
+  resolved: boolean;
+  missing_or_unverified: string[];
+  restore_unlock_ready: boolean;
+  target_bytes_written: number;
+  target_write_attempted: boolean;
+  partition_mount_or_assignment_attempted: boolean;
+  system_mutations_performed: boolean;
+  receipt_sha256: string;
+};
+
 type RecoveryPlan = {
   schema: string;
   source: RecoveryAnalysis;
@@ -463,6 +491,7 @@ export default function RecoveryCenter({
   const [dataPreservationMode, setDataPreservationMode] = useState("preserve_existing_data");
   const [dataPreservationAcknowledgement, setDataPreservationAcknowledgement] = useState("");
   const [dataPreservationReceipt, setDataPreservationReceipt] = useState<TargetDataPreservationReceipt | null>(null);
+  const [bootMetadataReceipt, setBootMetadataReceipt] = useState<RestoreTargetBootMetadataReceipt | null>(null);
   const [recoveryEvidenceBundle, setRecoveryEvidenceBundle] = useState<RecoveryEvidenceBundleV2 | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
@@ -493,6 +522,7 @@ export default function RecoveryCenter({
     rollbackCaptureReceipt,
     targetReenumerationReceipt,
     dataPreservationReceipt,
+    bootMetadataReceipt,
   ]);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
@@ -530,6 +560,7 @@ export default function RecoveryCenter({
     setDataPreservationMode("preserve_existing_data");
     setDataPreservationAcknowledgement("");
     setDataPreservationReceipt(null);
+    setBootMetadataReceipt(null);
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
@@ -1107,6 +1138,7 @@ export default function RecoveryCenter({
         },
       );
       setRollbackCaptureReceipt(result);
+      setBootMetadataReceipt(null);
       setMessage(
         result.target_bytes_written === 0 && !result.target_write_attempted
           ? "GPT rollback artifacts captured with zero target writes. Restore remains locked until the remaining hardware/data-preservation requirements are satisfied."
@@ -1116,6 +1148,42 @@ export default function RecoveryCenter({
       setRollbackCaptureReceipt(null);
       setMessage(
         `Restore rollback capture could not complete. The restore target was not intentionally modified. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function captureTargetBootMetadata() {
+    if (storeSafe) {
+      setMessage("External target boot-metadata capture is disabled in the store-safe distribution.");
+      return;
+    }
+    if (!rollbackCaptureReceipt || !restoreRollbackContract || busy) return;
+
+    setBusy(true);
+    setBootMetadataReceipt(null);
+    setMessage(
+      "Capturing boot metadata only from target partitions Windows already exposes. Phoenix Key will not mount, assign, or write any target partition…",
+    );
+    try {
+      const result = await invoke<RestoreTargetBootMetadataReceipt>(
+        "capture_restore_target_boot_metadata",
+        {
+          rollbackCaptureReceiptJson: JSON.stringify(rollbackCaptureReceipt),
+          rollbackContractJson: JSON.stringify(restoreRollbackContract),
+        },
+      );
+      setBootMetadataReceipt(result);
+      setMessage(
+        result.resolved
+          ? "Accessible target boot metadata was backed up to the separate rollback folder. Restore execution remains locked."
+          : "Boot-metadata capture is incomplete because one or more boot/recovery partitions are not already accessible. Phoenix Key did not mount them.",
+      );
+    } catch (error) {
+      setBootMetadataReceipt(null);
+      setMessage(
+        `External target boot-metadata capture could not complete. No target partition was mounted or modified. ${String(error)}`,
       );
     } finally {
       setBusy(false);
@@ -1192,7 +1260,7 @@ export default function RecoveryCenter({
             rollback_capture_receipt: rollbackCaptureReceipt,
             target_reenumeration_receipt: targetReenumerationReceipt,
             data_preservation_receipt: dataPreservationReceipt,
-            boot_metadata_receipt: null,
+            boot_metadata_receipt: bootMetadataReceipt,
           }),
         },
       );
@@ -1958,6 +2026,36 @@ export default function RecoveryCenter({
                       {rollbackCaptureReceipt.remaining_requirements.map((item) => (
                         <p key={item}>— {readableToken(item)}</p>
                       ))}
+                    </div>
+                  )}
+                  {rollbackCaptureReceipt && (
+                    <div className="recovery-list">
+                      <strong>External target boot-metadata backup</strong>
+                      <p className="field-help">
+                        Back up EFI/BCD/WinRE metadata only where the target partitions are already accessible. Phoenix Key will not mount or assign an inaccessible partition just to satisfy this gate.
+                      </p>
+                      <button
+                        className="plan-button"
+                        type="button"
+                        onClick={captureTargetBootMetadata}
+                        disabled={busy || !restoreRollbackContract}
+                      >
+                        Capture Target Boot Metadata
+                      </button>
+                      {bootMetadataReceipt && (
+                        <div className={bootMetadataReceipt.resolved ? "good-list" : "warning-box"}>
+                          <p>Resolved: {bootMetadataReceipt.resolved ? "yes" : "no"}</p>
+                          <p>Receipt SHA-256: {bootMetadataReceipt.receipt_sha256}</p>
+                          <p>Output: {bootMetadataReceipt.output_directory}</p>
+                          <p>Target bytes written: {bootMetadataReceipt.target_bytes_written}</p>
+                          <p>Partition mount/assignment attempted: {bootMetadataReceipt.partition_mount_or_assignment_attempted ? "yes" : "no"}</p>
+                          <p>Restore unlock ready: {bootMetadataReceipt.restore_unlock_ready ? "yes" : "no"}</p>
+                          {bootMetadataReceipt.missing_or_unverified.map((item) => (
+                            <p key={item}>Blocked: {readableToken(item)}</p>
+                          ))}
+                          <p>System mutations performed: {bootMetadataReceipt.system_mutations_performed ? "yes" : "no"}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                   {restoreRollbackContract && (
