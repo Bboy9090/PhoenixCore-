@@ -167,6 +167,27 @@ type RecoveryPlan = {
   allowed_operations: string[];
   blocked_operations: string[];
   required_gates: string[];
+  proposed_actions: Array<{
+    id: string;
+    phase: string;
+    mutates_system: boolean;
+    requires_authorization: boolean;
+    status: string;
+  }>;
+  target_contract: {
+    snapshot_identity_required: boolean;
+    stable_identity_required: boolean;
+    source_target_separation_required: boolean;
+    capacity_check_required: boolean;
+    fresh_revalidation_required: boolean;
+  };
+  execution_boundary: {
+    planner_only: boolean;
+    restore_executor_available: boolean;
+    destructive_authorization_required: boolean;
+    automatic_destructive_resume_allowed: boolean;
+    system_mutations_performed: boolean;
+  };
   next_steps: string[];
   dry_run: boolean;
   destructive_actions_performed: boolean;
@@ -942,6 +963,35 @@ export default function RecoveryCenter({
               )}
             </div>
           )}
+
+          <div className="recovery-columns">
+            <div className="recovery-list">
+              <strong>Execution boundary</strong>
+              <div>Planner only: {plan.execution_boundary.planner_only ? "yes" : "no"}</div>
+              <div>Restore executor available: {plan.execution_boundary.restore_executor_available ? "yes" : "no"}</div>
+              <div>Explicit destructive authorization required: {plan.execution_boundary.destructive_authorization_required ? "yes" : "no"}</div>
+              <div>Automatic destructive resume after restart: {plan.execution_boundary.automatic_destructive_resume_allowed ? "allowed" : "forbidden"}</div>
+              <div>System mutations performed: {plan.execution_boundary.system_mutations_performed ? "yes" : "no"}</div>
+            </div>
+            <div className="recovery-list">
+              <strong>Target contract</strong>
+              <div>Snapshot identity required: {plan.target_contract.snapshot_identity_required ? "yes" : "no"}</div>
+              <div>Stable hardware identity required: {plan.target_contract.stable_identity_required ? "yes" : "no"}</div>
+              <div>Source/target separation required: {plan.target_contract.source_target_separation_required ? "yes" : "no"}</div>
+              <div>Capacity proof required: {plan.target_contract.capacity_check_required ? "yes" : "no"}</div>
+              <div>Fresh pre-mutation revalidation required: {plan.target_contract.fresh_revalidation_required ? "yes" : "no"}</div>
+            </div>
+          </div>
+
+          <div className="recovery-list">
+            <strong>Auditable proposed actions</strong>
+            {plan.proposed_actions.map((action) => (
+              <div key={action.id}>
+                {action.mutates_system ? "BLOCKED" : "READ-ONLY"} · {readableToken(action.id)} · {readableToken(action.phase)} · {readableToken(action.status)}
+                {action.requires_authorization ? " · authorization required" : ""}
+              </div>
+            ))}
+          </div>
 
           <div className="recovery-columns">
             <div className="recovery-list good-list">
