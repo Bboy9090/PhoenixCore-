@@ -119,8 +119,9 @@ def compare_receipts(
         "after_snapshot_identity_sha256": after_snapshot,
         "stable_identity_sha256": before_stable if same_hardware else None,
         "reenumerated": same_hardware and not snapshot_identity_matches,
-        "stale_authorization_reusable": same_hardware and snapshot_identity_matches,
-        "fresh_snapshot_authorization_required": not snapshot_identity_matches,
+        "snapshot_continuity_verified": same_hardware and snapshot_identity_matches,
+        "stale_authorization_reusable": False,
+        "fresh_snapshot_authorization_required": True,
         "real_hardware_evidence": real_hardware_evidence,
         "hardware_validation_complete": (
             real_hardware_evidence
