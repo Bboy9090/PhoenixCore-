@@ -33,7 +33,11 @@ use source_identity::{
     verify_identity_bound_plan_sha256, verify_source_identity,
 };
 use std::{env, fs, process};
-use target_reenumeration::compare_recovery_target_reenumeration;
+use target_reenumeration::{
+    compare_recovery_target_reenumeration,
+    verify_recovery_target_reenumeration_receipt_sha256,
+    RecoveryTargetReenumerationReceipt,
+};
 use target_safety::{assess_recovery_target, verify_recovery_target_identity};
 use windows_recovery::{analyze_backup_path, fixture_candidates};
 use windows_recovery_guard::harden_analysis;
@@ -54,7 +58,7 @@ fn emit<T: Serialize>(value: &T) -> Result<(), String> {
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- identity <path>\n  cargo run --example windows_recovery_probe -- verify <path> <expected-sha256>\n  cargo run --example windows_recovery_probe -- target-check <evidence-json> <source-size-bytes> <source-physical-target|unknown> <source-stable-identity-sha256|unknown>\n  cargo run --example windows_recovery_probe -- target-verify <evidence-json> <expected-snapshot-sha256> <expected-stable-sha256>\n  cargo run --example windows_recovery_probe -- target-reenumeration <evidence-json> <expected-target|unknown> <expected-snapshot-sha256> <expected-stable-sha256>\n  cargo run --example windows_recovery_probe -- plan-verify <plan-json>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
+        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- identity <path>\n  cargo run --example windows_recovery_probe -- verify <path> <expected-sha256>\n  cargo run --example windows_recovery_probe -- target-check <evidence-json> <source-size-bytes> <source-physical-target|unknown> <source-stable-identity-sha256|unknown>\n  cargo run --example windows_recovery_probe -- target-verify <evidence-json> <expected-snapshot-sha256> <expected-stable-sha256>\n  cargo run --example windows_recovery_probe -- target-reenumeration <evidence-json> <expected-target|unknown> <expected-snapshot-sha256> <expected-stable-sha256>\n  cargo run --example windows_recovery_probe -- target-reenumeration-verify <receipt-json>\n  cargo run --example windows_recovery_probe -- plan-verify <plan-json>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
     );
     process::exit(64);
 }
@@ -138,6 +142,24 @@ fn run() -> Result<(), String> {
             &expected_snapshot,
             &expected_stable,
         ));
+    }
+
+    if command == "target-reenumeration-verify" {
+        let receipt_path = args.next().unwrap_or_else(|| usage());
+        if args.next().is_some() {
+            usage();
+        }
+        let receipt_bytes = fs::read(&receipt_path)
+            .map_err(|error| format!("cannot read target re-enumeration receipt JSON: {error}"))?;
+        let receipt: RecoveryTargetReenumerationReceipt =
+            serde_json::from_slice(&receipt_bytes).map_err(|error| {
+                format!("target re-enumeration receipt is not valid JSON: {error}")
+            })?;
+        return emit(&serde_json::json!({
+            "schema": "phoenix_key.recovery_target_reenumeration_receipt_verification.v1",
+            "checksum_verified": verify_recovery_target_reenumeration_receipt_sha256(&receipt),
+            "system_mutations_performed": false
+        }));
     }
 
     if command == "target-check" {
