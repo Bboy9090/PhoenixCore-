@@ -1,0 +1,183 @@
+name: Phoenix Key macOS Signed Release
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/phoenix-key/**"
+      - ".github/workflows/macos-signed-release.yml"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: GitHub release tag to attach notarized macOS artifacts to
+        required: true
+        default: phoenix-key-v3.2.0-macos
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phoenix-key-macos-signed-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/phoenix-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/phoenix-key/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run check:boundaries
+      - run: npm run test:artifact-receipt
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  build-sign-notarize:
+    if: github.event_name == 'workflow_dispatch'
+    needs: preflight
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/phoenix-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/phoenix-key/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Require Apple signing and notarization credentials
+        shell: bash
+        env:
+          CERT_B64: ${{ secrets.PHOENIX_KEY_APPLE_CERT_P12_B64 }}
+          CERT_PASSWORD: ${{ secrets.PHOENIX_KEY_APPLE_CERT_P12_PASSWORD }}
+          SIGNING_IDENTITY: ${{ secrets.PHOENIX_KEY_APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.PHOENIX_KEY_APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.PHOENIX_KEY_APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.PHOENIX_KEY_APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for name in CERT_B64 CERT_PASSWORD SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required Apple release secret: $name"
+              exit 1
+            fi
+          done
+
+      - run: npm ci
+
+      - name: Import Apple signing certificate
+        shell: bash
+        env:
+          CERT_B64: ${{ secrets.PHOENIX_KEY_APPLE_CERT_P12_B64 }}
+          CERT_PASSWORD: ${{ secrets.PHOENIX_KEY_APPLE_CERT_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          P12="$RUNNER_TEMP/phoenix-key-release.p12"
+          KEYCHAIN="$RUNNER_TEMP/phoenix-key-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          printf '%s' "$CERT_B64" | base64 --decode > "$P12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$P12" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          echo "KEYCHAIN_PATH=$KEYCHAIN" >> "$GITHUB_ENV"
+
+      - name: Generate macOS icon set
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tauri icon src-tauri/icons/128x128@2x.png
+          test -s src-tauri/icons/icon.icns
+
+      - name: Create macOS release config
+        shell: bash
+        env:
+          SIGNING_IDENTITY: ${{ secrets.PHOENIX_KEY_APPLE_SIGNING_IDENTITY }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const config = {
+            tauri: {
+              bundle: {
+                targets: ["app", "dmg"],
+                icon: [
+                  "icons/32x32.png",
+                  "icons/128x128.png",
+                  "icons/128x128@2x.png",
+                  "icons/icon.icns"
+                ],
+                macOS: {
+                  signingIdentity: process.env.SIGNING_IDENTITY
+                }
+              }
+            }
+          };
+          fs.writeFileSync(
+            "src-tauri/tauri.macos-release.conf.json",
+            JSON.stringify(config, null, 2)
+          );
+          NODE
+
+      - name: Build signed macOS app and DMG
+        env:
+          PHOENIX_KEY_SOURCE_COMMIT: ${{ github.sha }}
+        run: npx tauri build --config src-tauri/tauri.macos-release.conf.json --bundles app,dmg
+
+      - name: Verify application signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)"
+          DMG="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$APP"
+          test -n "$DMG"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv --verbose=4 "$APP" 2>&1 | tee src-tauri/target/release/bundle/macos/CODESIGN.txt
+
+      - name: Submit DMG for Apple notarization
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.PHOENIX_KEY_APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.PHOENIX_KEY_APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.PHOENIX_KEY_APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          DMG="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          xcrun notarytool submit "$DMG"             --apple-id "$APPLE_ID"             --password "$APPLE_PASSWORD"             --team-id "$APPLE_TEAM_ID"             --wait
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          shasum -a 256 "$DMG" > src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
+
+      - name: Upload notarized macOS release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-key-macos-notarized-release
+          path: |
+            apps/phoenix-key/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/phoenix-key/src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
+            apps/phoenix-key/src-tauri/target/release/bundle/macos/CODESIGN.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: Phoenix Key ${{ inputs.release_tag }}
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            apps/phoenix-key/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/phoenix-key/src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
