@@ -57,8 +57,9 @@ class WindowsDriveReenumerationTests(unittest.TestCase):
         self.assertTrue(result["same_hardware"])
         self.assertTrue(result["snapshot_identity_matches"])
         self.assertTrue(result["stable_identity_matches"])
-        self.assertTrue(result["stale_authorization_reusable"])
-        self.assertFalse(result["fresh_snapshot_authorization_required"])
+        self.assertTrue(result["snapshot_continuity_verified"])
+        self.assertFalse(result["stale_authorization_reusable"])
+        self.assertTrue(result["fresh_snapshot_authorization_required"])
         self.assertFalse(result["system_mutations_performed"])
 
     def test_reenumeration_keeps_hardware_but_invalidates_snapshot_authorization(self):
