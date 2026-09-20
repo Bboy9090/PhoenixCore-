@@ -3,6 +3,13 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { open } from "@tauri-apps/api/dialog";
 import "./recovery-center.css";
 
+type DistributionProfile = {
+  store_safe: boolean;
+  external_helper_execution: boolean;
+  cloud_acquisition: boolean;
+  native_recovery_analysis: boolean;
+};
+
 type RecoveryAnalysis = {
   schema: string;
   path: string;
@@ -187,7 +194,11 @@ function readableToken(value: string) {
   return friendlyOperation[value] || value.split("_").join(" ");
 }
 
-export default function RecoveryCenter() {
+export default function RecoveryCenter({
+  distributionProfile,
+}: {
+  distributionProfile: DistributionProfile | null;
+}) {
   const [sourcePath, setSourcePath] = useState("");
   const [analysis, setAnalysis] = useState<RecoveryAnalysis | null>(null);
   const [plan, setPlan] = useState<RecoveryPlan | null>(null);
@@ -208,13 +219,14 @@ export default function RecoveryCenter() {
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
   const [driveProgress, setDriveProgress] = useState<GoogleDriveProgress | null>(null);
   const [fat32MediaPlan, setFat32MediaPlan] = useState<Fat32MediaPlan | null>(null);
+  const storeSafe = distributionProfile?.store_safe === true;
 
   useEffect(() => {
-    if (!isDesktopRuntime()) return;
+    if (!isDesktopRuntime() || storeSafe) return;
     invoke<GoogleDrivePickerStatus>("google_drive_picker_status")
       .then(setDrivePickerStatus)
       .catch(() => setDrivePickerStatus(null));
-  }, []);
+  }, [storeSafe]);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
   const sourceState = useMemo(() => {
@@ -261,6 +273,10 @@ export default function RecoveryCenter() {
   }
 
   async function chooseGoogleDriveSource() {
+    if (storeSafe) {
+      setMessage("Google Drive acquisition is disabled in the store-safe distribution.");
+      return;
+    }
     if (!isDesktopRuntime() || busy || !drivePickerStatus?.configured) return;
     try {
       const selected = await open({
@@ -373,6 +389,10 @@ export default function RecoveryCenter() {
   }
 
   async function verifyPackageTrust() {
+    if (storeSafe) {
+      setMessage("External package-trust helpers are disabled in the store-safe distribution.");
+      return;
+    }
     if (!plan || !expectedSha256.trim() || busy) return;
     setBusy(true);
     setMessage("Hashing the recovery package and checking signature evidence read-only…");
@@ -397,6 +417,10 @@ export default function RecoveryCenter() {
   }
 
   async function inspectImageMetadata() {
+    if (storeSafe) {
+      setMessage("External image-metadata helpers are disabled in the store-safe distribution.");
+      return;
+    }
     if (!plan || busy) return;
     const indexText = selectedImageIndex.trim();
     const parsedIndex = indexText ? Number(indexText) : undefined;
@@ -430,6 +454,10 @@ export default function RecoveryCenter() {
   }
 
   async function inspectFat32MediaReadiness() {
+    if (storeSafe) {
+      setMessage("FAT32 helper execution is disabled in the store-safe distribution.");
+      return;
+    }
     if (!analysis || analysis.kind !== "extracted_windows_media" || busy) return;
     setBusy(true);
     setFat32MediaPlan(null);
@@ -459,6 +487,10 @@ export default function RecoveryCenter() {
   }
 
   async function inspectTargetSafety() {
+    if (storeSafe) {
+      setMessage("Physical-target inspection is disabled in the store-safe distribution.");
+      return;
+    }
     if (!plan || plan.host_os !== "windows" || !targetDrive.trim() || busy) return;
     setBusy(true);
     setMessage("Re-enumerating the Windows target and proving source/target separation read-only…");
@@ -495,6 +527,12 @@ export default function RecoveryCenter() {
         <p className="recovery-lead">
           Phoenix Key inspects the source first, explains what it is, and tells you what this computer can safely do with it. Restore execution is intentionally separate.
         </p>
+        {storeSafe && (
+          <div className="warning-box">
+            <strong>Store-safe edition</strong>
+            <p>Native recovery-source analysis and planning remain available. Hardware scans, cloud acquisition, external helpers, and physical media writing are disabled in this sandboxed distribution.</p>
+          </div>
+        )}
         {!isDesktopRuntime() && (
           <div className="warning-box">
             <strong>Desktop app required</strong>
@@ -508,8 +546,8 @@ export default function RecoveryCenter() {
             className="plan-button"
             type="button"
             onClick={chooseGoogleDriveSource}
-            disabled={!isDesktopRuntime() || busy || !drivePickerStatus?.configured}
-            title={drivePickerStatus?.configured ? "Open Google Picker in your system browser" : "This build is missing its Google Drive desktop OAuth client ID"}
+            disabled={storeSafe || !isDesktopRuntime() || busy || !drivePickerStatus?.configured}
+            title={storeSafe ? "Disabled in the store-safe distribution" : drivePickerStatus?.configured ? "Open Google Picker in your system browser" : "This build is missing its Google Drive desktop OAuth client ID"}
           >
             Choose from Google Drive
           </button>
