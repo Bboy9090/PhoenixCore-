@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/tauri";
 import RecoveryCenter from "./RecoveryCenter";
@@ -44,6 +44,18 @@ interface MediaScan {
   scan_warnings?: string[];
 }
 
+interface DistributionProfile {
+  schema: string;
+  channel: string;
+  store_safe: boolean;
+  hardware_scan: boolean;
+  media_planning: boolean;
+  physical_media_write: boolean;
+  external_helper_execution: boolean;
+  cloud_acquisition: boolean;
+  native_recovery_analysis: boolean;
+}
+
 interface WritePreparation {
   schema: string;
   target: string;
@@ -72,6 +84,22 @@ function App() {
   const [writeReceipt, setWriteReceipt] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("Desktop engine required for live hardware results.");
+  const [distributionProfile, setDistributionProfile] = useState<DistributionProfile | null>(null);
+
+  useEffect(() => {
+    if (!isDesktopRuntime()) return;
+    invoke<DistributionProfile>("distribution_profile")
+      .then((profile) => {
+        setDistributionProfile(profile);
+        if (profile.store_safe) {
+          setView("recovery");
+          setMessage(
+            "Store-safe edition: native recovery analysis is available; hardware scans, media writing, and external helpers are disabled.",
+          );
+        }
+      })
+      .catch(() => setDistributionProfile(null));
+  }, []);
 
   const activeDevice = selectedDevice === null ? undefined : devices[selectedDevice];
   const activeMedia = selectedMedia === null ? undefined : media[selectedMedia];
@@ -81,6 +109,10 @@ function App() {
   );
 
   async function scanDevices() {
+    if (distributionProfile?.hardware_scan === false) {
+      setMessage("Hardware scanning is disabled in this store-safe distribution.");
+      return;
+    }
     if (!isDesktopRuntime()) {
       setMessage("Live USB scanning is unavailable in a browser. Open Phoenix Key Desktop.");
       return;
@@ -104,6 +136,10 @@ function App() {
   }
 
   async function scanMedia() {
+    if (distributionProfile?.media_planning === false) {
+      setMessage("Media planning is disabled in this store-safe distribution.");
+      return;
+    }
     if (!isDesktopRuntime()) {
       setMessage("Live media scanning is unavailable in a browser. Open Phoenix Key Desktop.");
       return;
@@ -151,6 +187,10 @@ function App() {
   }
 
   async function prepareWrite() {
+    if (distributionProfile?.physical_media_write === false) {
+      setMessage("Physical media writing is disabled in this store-safe distribution.");
+      return;
+    }
     if (!activeMedia || !imagePath.trim()) return;
     setBusy(true);
     setAuthorization("");
@@ -173,6 +213,10 @@ function App() {
   }
 
   async function executeWrite() {
+    if (distributionProfile?.physical_media_write === false) {
+      setMessage("Physical media writing is disabled in this store-safe distribution.");
+      return;
+    }
     if (!activeMedia || !writePreparation || !destructiveAcknowledgement) return;
     setBusy(true);
     setWriteReceipt(null);
@@ -205,19 +249,33 @@ function App() {
         <div className="brand-mark" aria-hidden="true">P</div>
         <div className="brand-copy"><span>Phoenix Key</span><small>PhoenixCore · powered by BootForge</small></div>
         <nav aria-label="Primary">
-          <button className={`nav-item ${view === "devices" ? "active" : ""}`} onClick={() => setView("devices")}><span>⌁</span> Device Forge</button>
-          <button className={`nav-item ${view === "media" ? "active" : ""}`} onClick={() => setView("media")}><span>◇</span> Media Builder</button>
+          <button className={`nav-item ${view === "devices" ? "active" : ""}`} onClick={() => setView("devices")} disabled={distributionProfile?.hardware_scan === false}><span>⌁</span> Device Forge</button>
+          <button className={`nav-item ${view === "media" ? "active" : ""}`} onClick={() => setView("media")} disabled={distributionProfile?.media_planning === false}><span>◇</span> Media Builder</button>
           <button className={`nav-item ${view === "recovery" ? "active" : ""}`} onClick={() => setView("recovery")}><span>↻</span> Recovery Center</button>
           <button className="nav-item" disabled><span>▦</span> Session History</button>
         </nav>
-        <div className="safety-card"><strong>Safe-device writer</strong><p>Only live-verified external USB, SD, or MMC targets can write. Boot, system, internal, ambiguous, or changed devices remain blocked.</p></div>
+        <div className="safety-card">
+          <strong>{distributionProfile?.store_safe ? "Store-safe recovery inspector" : "Safe-device writer"}</strong>
+          <p>
+            {distributionProfile?.store_safe
+              ? "This distribution is read-only by design: no hardware scanning, external helper execution, cloud acquisition, or physical media writing."
+              : "Only live-verified external USB, SD, or MMC targets can write. Boot, system, internal, ambiguous, or changed devices remain blocked."}
+          </p>
+        </div>
         <footer>Reignite · Rebuild · Reboot</footer>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
           <div><p className="eyebrow">{heading.eyebrow}</p><h1>{heading.title}</h1></div>
-          <div className="runtime-pill"><i className={isDesktopRuntime() ? "online" : ""} />{isDesktopRuntime() ? "Desktop engine" : "Browser shell only"}</div>
+          <div className="runtime-pill">
+            <i className={isDesktopRuntime() ? "online" : ""} />
+            {distributionProfile?.store_safe
+              ? "Store-safe desktop"
+              : isDesktopRuntime()
+                ? "Desktop engine"
+                : "Browser shell only"}
+          </div>
         </header>
 
         {view !== "recovery" && (
@@ -248,7 +306,7 @@ function App() {
             </div>
           </>
         ) : (
-          <RecoveryCenter />
+          <RecoveryCenter distributionProfile={distributionProfile} />
         )}
       </section>
     </main>
