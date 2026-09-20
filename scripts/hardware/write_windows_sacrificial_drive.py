@@ -150,6 +150,9 @@ def load_drive_evidence(path: Path) -> dict[str, Any]:
         )
     if not disk.get("identity_sha256"):
         raise WriteGateError("Drive evidence is missing its identity SHA-256.")
+    stable_identity = str(disk.get("stable_identity_sha256") or "")
+    if not re.fullmatch(r"[0-9a-f]{64}", stable_identity):
+        raise WriteGateError("Drive evidence is missing its stable identity SHA-256.")
     return receipt
 
 
@@ -189,6 +192,10 @@ def verify_live_identity(
 
     if fresh["identity_sha256"] != disk["identity_sha256"]:
         raise WriteGateError("Fresh target identity does not match the evidence lock.")
+    if fresh.get("stable_identity_sha256") != disk.get("stable_identity_sha256"):
+        raise WriteGateError(
+            "Fresh target stable identity does not match the evidence lock."
+        )
     if fresh["size_bytes"] != disk["size_bytes"]:
         raise WriteGateError("Fresh target capacity does not match the evidence lock.")
     if fresh["is_boot"] or fresh["is_system"]:
@@ -236,7 +243,12 @@ def validate_write_request(
 
     image_hash = file_sha256(image_path)
     source_disk = resolve_source_disk(str(image_path.resolve()))
-    collision = compare_source_and_target(source_disk, target)
+    target_stable_identity = str(disk.get("stable_identity_sha256") or "")
+    collision = compare_source_and_target(
+        source_disk,
+        target,
+        target_stable_identity,
+    )
     if collision.get("blocked") is True:
         raise WriteGateError(
             "Source image and destructive target resolve to the same physical device."
@@ -264,11 +276,13 @@ def validate_write_request(
     return {
         "target": target,
         "identity_sha256": fresh["identity_sha256"],
+        "target_stable_identity_sha256": fresh["stable_identity_sha256"],
         "target_size_bytes": fresh["size_bytes"],
         "image_path": str(image_path.resolve()),
         "image_size_bytes": image_size,
         "image_sha256": image_hash,
         "source_physical_target": source_disk["physical_target"],
+        "source_stable_identity_sha256": source_disk["stable_identity_sha256"],
         "source_target_distinct": True,
         "byte_cap": image_size,
         "source_commit": source_commit,
@@ -294,6 +308,13 @@ def revalidate_source_before_raw_open(
         raise WriteGateError("Source image SHA-256 changed after authorization.")
 
     source_disk = resolve_source_disk(str(image_path.resolve()))
+    expected_source_stable = str(plan["source_stable_identity_sha256"])
+    observed_source_stable = str(source_disk.get("stable_identity_sha256") or "")
+    if observed_source_stable != expected_source_stable:
+        raise WriteGateError(
+            "Source image stable hardware identity changed after authorization."
+        )
+
     expected_source_target = str(plan["source_physical_target"])
     observed_source_target = str(source_disk.get("physical_target") or "")
     if observed_source_target.casefold() != expected_source_target.casefold():
@@ -301,7 +322,11 @@ def revalidate_source_before_raw_open(
             "Source image physical device changed after authorization."
         )
 
-    collision = compare_source_and_target(source_disk, str(plan["target"]))
+    collision = compare_source_and_target(
+        source_disk,
+        str(plan["target"]),
+        str(plan["target_stable_identity_sha256"]),
+    )
     if collision.get("source_target_distinct") is not True:
         raise WriteGateError(
             "Source/target physical-device distinction failed immediately before write."
@@ -311,6 +336,7 @@ def revalidate_source_before_raw_open(
         "source_sha256": observed_sha256,
         "source_size_bytes": observed_size,
         "source_physical_target": observed_source_target,
+        "source_stable_identity_sha256": observed_source_stable,
         "source_target_distinct": True,
     }
 
