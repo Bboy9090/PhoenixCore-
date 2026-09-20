@@ -17,7 +17,7 @@ on:
         default: phoenix-key-v3.2.0-msstore
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: phoenix-key-microsoft-store-${{ github.ref }}
@@ -49,8 +49,10 @@ jobs:
           if ($exe.Count -ne 1 -or $exe[0].Length -le 0) { throw "Expected one non-empty offline NSIS installer" }
 
   publish:
-    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'store-release/phoenix-key-v3.2.0'
+    if: github.event_name == 'workflow_dispatch'
     needs: offline-installer-preflight
+    permissions:
+      contents: write
     runs-on: windows-latest
     defaults:
       run:
