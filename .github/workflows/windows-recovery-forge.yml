@@ -21,6 +21,8 @@ on:
       - "apps/phoenix-key/src-tauri/src/target_safety.rs"
       - "apps/phoenix-key/src-tauri/src/target_reenumeration.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_evidence_bundle.rs"
+      - "apps/phoenix-key/src-tauri/src/data_preservation.rs"
       - "apps/phoenix-key/src-tauri/src/restore_readiness.rs"
       - "apps/phoenix-key/src-tauri/src/restore_preflight.rs"
       - "apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs"
@@ -52,6 +54,8 @@ on:
       - "apps/phoenix-key/src-tauri/src/target_safety.rs"
       - "apps/phoenix-key/src-tauri/src/target_reenumeration.rs"
       - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_evidence_bundle.rs"
+      - "apps/phoenix-key/src-tauri/src/data_preservation.rs"
       - "apps/phoenix-key/src-tauri/src/restore_readiness.rs"
       - "apps/phoenix-key/src-tauri/src/restore_preflight.rs"
       - "apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs"
@@ -142,6 +146,8 @@ jobs:
             apps/phoenix-key/src-tauri/src/target_safety.rs
             apps/phoenix-key/src-tauri/src/target_reenumeration.rs
             apps/phoenix-key/src-tauri/src/recovery_center.rs
+            apps/phoenix-key/src-tauri/src/recovery_evidence_bundle.rs
+            apps/phoenix-key/src-tauri/src/data_preservation.rs
             apps/phoenix-key/src-tauri/src/restore_readiness.rs
             apps/phoenix-key/src-tauri/src/restore_preflight.rs
             apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs
