@@ -18,7 +18,10 @@ use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
 use restore_readiness::assess_windows_restore_readiness;
 use restore_rollback_contract::plan_restore_target_rollback_contract;
-use recovery_center::{analyze_windows_recovery_source, plan_windows_recovery_source};
+use recovery_center::{
+    analyze_windows_recovery_source, plan_windows_recovery_source,
+    verify_windows_recovery_source_identity,
+};
 use serde::Serialize;
 use serde_json::{json, Value};
 use source_identity::capture_source_identity;
@@ -1297,7 +1300,8 @@ fn main() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         distribution_profile,
         analyze_windows_recovery_source,
-        plan_windows_recovery_source
+        plan_windows_recovery_source,
+        verify_windows_recovery_source_identity
     ]);
 
     #[cfg(not(feature = "store-safe"))]
@@ -1310,6 +1314,7 @@ fn main() {
         execute_media_write,
         analyze_windows_recovery_source,
         plan_windows_recovery_source,
+        verify_windows_recovery_source_identity,
         plan_windows_boot_repair,
         inspect_mac_bootcamp_host,
         inspect_recovery_package_trust,
