@@ -31,7 +31,9 @@ on:
       - "apps/phoenix-key/src/recovery-center.css"
       - "scripts/hardware/plan_fat32_windows_media.py"
       - "scripts/hardware/capture_windows_drive_evidence.py"
+      - "scripts/hardware/find_windows_drive_by_stable_identity.py"
       - "scripts/hardware/capture_windows_restore_rollback.py"
+      - "tests/test_windows_stable_target_locator.py"
       - "tests/test_windows_restore_rollback_capture.py"
       - ".github/workflows/windows-recovery-forge.yml"
   push:
@@ -60,7 +62,9 @@ on:
       - "apps/phoenix-key/src/recovery-center.css"
       - "scripts/hardware/plan_fat32_windows_media.py"
       - "scripts/hardware/capture_windows_drive_evidence.py"
+      - "scripts/hardware/find_windows_drive_by_stable_identity.py"
       - "scripts/hardware/capture_windows_restore_rollback.py"
+      - "tests/test_windows_stable_target_locator.py"
       - "tests/test_windows_restore_rollback_capture.py"
       - ".github/workflows/windows-recovery-forge.yml"
 
@@ -150,6 +154,9 @@ jobs:
             exit 1
           fi
           echo "PASS: recovery analysis/probe core contains no destructive writer path."
+      - name: Test stable target locator fixtures
+        shell: bash
+        run: python3 -m unittest tests.test_windows_stable_target_locator -v
       - name: Test read-only GPT rollback capture fixtures
         shell: bash
         run: python3 -m unittest tests.test_windows_restore_rollback_capture -v
