@@ -102,9 +102,50 @@ fn modified_seconds(metadata: &fs::Metadata) -> Option<u64> {
         .map(|duration| duration.as_secs())
 }
 
+fn metadata_timestamp_nanos(value: Result<std::time::SystemTime, std::io::Error>) -> Option<u128> {
+    value
+        .ok()?
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_nanos())
+}
+
+fn metadata_fingerprint(metadata: &fs::Metadata) -> (u64, Option<u128>, Option<u128>, bool) {
+    (
+        metadata.len(),
+        metadata_timestamp_nanos(metadata.modified()),
+        metadata_timestamp_nanos(metadata.created()),
+        metadata.permissions().readonly(),
+    )
+}
+
+fn regular_file_metadata(path: &Path) -> Result<fs::Metadata, String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("cannot inspect recovery source for hashing: {error}"))?;
+    if metadata_is_link_or_reparse(&metadata) {
+        return Err("recovery source hashing refuses symbolic-link or reparse paths".to_string());
+    }
+    if !metadata.is_file() {
+        return Err("recovery source hashing requires a regular file".to_string());
+    }
+    Ok(metadata)
+}
+
 fn hash_file(path: &Path) -> Result<(String, u64), String> {
+    let canonical_before = fs::canonicalize(path)
+        .map_err(|error| format!("cannot canonicalize recovery source before hashing: {error}"))?;
+    let path_before = regular_file_metadata(path)?;
+    let expected_fingerprint = metadata_fingerprint(&path_before);
+
     let mut file = File::open(path)
         .map_err(|error| format!("cannot open recovery source for hashing: {error}"))?;
+    let opened_before = file
+        .metadata()
+        .map_err(|error| format!("cannot inspect opened recovery source: {error}"))?;
+    if !opened_before.is_file() || metadata_fingerprint(&opened_before) != expected_fingerprint {
+        return Err("recovery source changed between inspection and open".to_string());
+    }
+
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 1024 * 1024];
     let mut total = 0u64;
@@ -118,6 +159,22 @@ fn hash_file(path: &Path) -> Result<(String, u64), String> {
         hasher.update(&buffer[..count]);
         total = total.saturating_add(count as u64);
     }
+
+    let opened_after = file
+        .metadata()
+        .map_err(|error| format!("cannot re-inspect opened recovery source: {error}"))?;
+    let path_after = regular_file_metadata(path)?;
+    let canonical_after = fs::canonicalize(path)
+        .map_err(|error| format!("cannot canonicalize recovery source after hashing: {error}"))?;
+
+    if metadata_fingerprint(&opened_after) != expected_fingerprint
+        || metadata_fingerprint(&path_after) != expected_fingerprint
+        || canonical_after != canonical_before
+        || total != expected_fingerprint.0
+    {
+        return Err("recovery source changed while it was being hashed".to_string());
+    }
+
     Ok((format!("{:x}", hasher.finalize()), total))
 }
 
