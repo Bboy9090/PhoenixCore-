@@ -20,7 +20,7 @@ SOURCE_SCHEMA = "phoenix_key.recovery_source_identity.v1"
 TARGET_SCHEMA = "bws.physical-drive-evidence/v1"
 BOOT_SCHEMA = "phoenix_key.windows_boot_state.v1"
 BUNDLE_SCHEMA = "phoenix_key.rollback_bundle.v1"
-COLLISION_SCHEMA = "phoenix_key.source_target_collision_check.v1"
+COLLISION_SCHEMA = "phoenix_key.source_target_collision_check.v2"
 READINESS_SCHEMA = "phoenix_key.windows_recovery_readiness.v1"
 
 
@@ -133,6 +133,15 @@ def build_recovery_readiness(
         block_reasons.append("source-target-not-proven-distinct")
     if collision_check.get("blocked") is not False:
         block_reasons.append("source-target-collision-blocked")
+    if collision_check.get("stable_identity_proven") is not True:
+        block_reasons.append("source-target-stable-identity-not-proven")
+    if collision_check.get("stable_identity_distinct") is not True:
+        block_reasons.append("source-target-stable-identity-not-distinct")
+    collision_target_stable = str(
+        collision_check.get("target_stable_identity_sha256") or ""
+    )
+    if collision_target_stable.lower() != target_stable_sha.lower():
+        block_reasons.append("collision-proof-target-stable-identity-mismatch")
     if (
         collision_check.get("target_physical_target")
         and target_disk.get("target")
