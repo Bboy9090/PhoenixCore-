@@ -134,11 +134,25 @@ type RecoveryTargetSafety = {
   safe_to_prepare: boolean;
   target?: string | null;
   target_identity_sha256?: string | null;
+  target_stable_identity_sha256?: string | null;
   target_size_bytes?: number | null;
   source_size_bytes: number;
   source_physical_target?: string | null;
+  source_physical_identity_sha256?: string | null;
   source_target_distinct?: boolean | null;
   block_reasons: string[];
+};
+
+type RecoveryTargetIdentityVerification = {
+  expected_snapshot_identity_sha256: string;
+  observed_snapshot_identity_sha256?: string | null;
+  expected_stable_identity_sha256: string;
+  observed_stable_identity_sha256?: string | null;
+  snapshot_matches: boolean;
+  stable_identity_matches: boolean;
+  matches: boolean;
+  reanalysis_required: boolean;
+  system_mutations_performed: boolean;
 };
 
 
@@ -214,6 +228,7 @@ export default function RecoveryCenter({
   const [imageMetadata, setImageMetadata] = useState<ImageMetadata | null>(null);
   const [targetDrive, setTargetDrive] = useState("");
   const [targetSafety, setTargetSafety] = useState<RecoveryTargetSafety | null>(null);
+  const [targetVerification, setTargetVerification] = useState<RecoveryTargetIdentityVerification | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
@@ -248,6 +263,7 @@ export default function RecoveryCenter({
     setImageMetadata(null);
     setTargetDrive("");
     setTargetSafety(null);
+    setTargetVerification(null);
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
@@ -500,6 +516,7 @@ export default function RecoveryCenter({
         sourcePath: sourcePath.trim(),
       });
       setTargetSafety(result);
+      setTargetVerification(null);
       setMessage(
         result.safe_to_prepare
           ? "Target identity, capacity, and source/target separation are verified for planning."
@@ -507,7 +524,46 @@ export default function RecoveryCenter({
       );
     } catch (error) {
       setTargetSafety(null);
+      setTargetVerification(null);
       setMessage(`Target safety inspection could not complete. Nothing was changed. ${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reverifyTargetIdentity() {
+    if (storeSafe) {
+      setMessage("Physical-target verification is disabled in the store-safe distribution.");
+      return;
+    }
+    if (
+      !targetSafety?.safe_to_prepare ||
+      !targetSafety.target_identity_sha256 ||
+      !targetSafety.target_stable_identity_sha256 ||
+      !targetDrive.trim() ||
+      busy
+    ) return;
+    setBusy(true);
+    setTargetVerification(null);
+    setMessage("Freshly re-scanning the target and checking both snapshot and stable hardware identity…");
+    try {
+      const result = await invoke<RecoveryTargetIdentityVerification>(
+        "verify_windows_recovery_target_identity",
+        {
+          targetDrive: targetDrive.trim(),
+          expectedSnapshotIdentitySha256: targetSafety.target_identity_sha256,
+          expectedStableIdentitySha256: targetSafety.target_stable_identity_sha256,
+        },
+      );
+      setTargetVerification(result);
+      setMessage(
+        result.matches
+          ? "Fresh target revalidation passed. Snapshot and stable hardware identity both match."
+          : "Target identity changed or could not be proven. Re-run the full target safety analysis before proceeding.",
+      );
+    } catch (error) {
+      setTargetVerification(null);
+      setMessage(`Fresh target revalidation could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
     }
@@ -834,6 +890,7 @@ export default function RecoveryCenter({
                   onChange={(event) => {
                     setTargetDrive(event.target.value);
                     setTargetSafety(null);
+                    setTargetVerification(null);
                   }}
                   placeholder="PHYSICALDRIVE7"
                 />
@@ -850,11 +907,37 @@ export default function RecoveryCenter({
                 <div className={targetSafety.safe_to_prepare ? "good-list" : "warning-box"}>
                   <strong>{targetSafety.safe_to_prepare ? "Target safe for preparation" : "Target blocked"}</strong>
                   <p>Target: {targetSafety.target || "unresolved"}</p>
-                  <p>Identity: {targetSafety.target_identity_sha256 || "missing"}</p>
+                  <p>Snapshot identity: {targetSafety.target_identity_sha256 || "missing"}</p>
+                  <p>Stable hardware identity: {targetSafety.target_stable_identity_sha256 || "missing"}</p>
                   <p>Capacity: {targetSafety.target_size_bytes ?? 0} bytes · source: {targetSafety.source_size_bytes} bytes</p>
                   <p>Source device: {targetSafety.source_physical_target || "unproven"}</p>
+                  <p>Source stable identity: {targetSafety.source_physical_identity_sha256 || "unproven"}</p>
                   <p>Distinct physical devices: {targetSafety.source_target_distinct === true ? "yes" : "no / unproven"}</p>
                   {targetSafety.block_reasons.map((reason) => <p key={reason}>— {readableToken(reason)}</p>)}
+                  {targetSafety.safe_to_prepare && (
+                    <button
+                      className="plan-button"
+                      type="button"
+                      onClick={reverifyTargetIdentity}
+                      disabled={
+                        busy ||
+                        !targetSafety.target_identity_sha256 ||
+                        !targetSafety.target_stable_identity_sha256
+                      }
+                    >
+                      Freshly Re-Verify Exact Target
+                    </button>
+                  )}
+                  {targetVerification && (
+                    <div className={targetVerification.matches ? "good-list" : "warning-box"}>
+                      <strong>{targetVerification.matches ? "Fresh identity match" : "Reanalysis required"}</strong>
+                      <p>Snapshot identity match: {targetVerification.snapshot_matches ? "yes" : "no"}</p>
+                      <p>Stable hardware identity match: {targetVerification.stable_identity_matches ? "yes" : "no"}</p>
+                      <p>Observed snapshot: {targetVerification.observed_snapshot_identity_sha256 || "missing"}</p>
+                      <p>Observed stable identity: {targetVerification.observed_stable_identity_sha256 || "missing"}</p>
+                      <p>System mutations performed: {targetVerification.system_mutations_performed ? "yes" : "no"}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
