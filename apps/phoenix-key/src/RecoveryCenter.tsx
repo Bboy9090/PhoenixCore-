@@ -183,6 +183,32 @@ type RecoveryTargetReenumerationReceipt = {
   receipt_sha256: string;
 };
 
+type StableTargetLocatorResult = {
+  schema: string;
+  expected_stable_identity_sha256: string;
+  classification: string;
+  unique_match: boolean;
+  ambiguous: boolean;
+  match_count: number;
+  match?: {
+    target: string;
+    disk_number: number;
+    friendly_name?: string | null;
+    serial_number?: string | null;
+    unique_id?: string | null;
+    bus_type: string;
+    size_bytes: number;
+    identity_sha256: string;
+    stable_identity_sha256?: string | null;
+    is_boot: boolean;
+    is_system: boolean;
+    write_candidate: boolean;
+    write_block_reasons: string[];
+  } | null;
+  read_only: boolean;
+  system_mutations_performed: boolean;
+};
+
 type RestoreRollbackContract = {
   schema: string;
   source_identity_sha256: string;
@@ -389,6 +415,7 @@ export default function RecoveryCenter({
   const [targetSafety, setTargetSafety] = useState<RecoveryTargetSafety | null>(null);
   const [targetVerification, setTargetVerification] = useState<RecoveryTargetIdentityVerification | null>(null);
   const [reenumeratedTargetDrive, setReenumeratedTargetDrive] = useState("");
+  const [stableTargetLocator, setStableTargetLocator] = useState<StableTargetLocatorResult | null>(null);
   const [targetReenumerationReceipt, setTargetReenumerationReceipt] = useState<RecoveryTargetReenumerationReceipt | null>(null);
   const [restoreRollbackContract, setRestoreRollbackContract] = useState<RestoreRollbackContract | null>(null);
   const [restoreHardwarePreflight, setRestoreHardwarePreflight] = useState<RestoreHardwarePreflight | null>(null);
@@ -434,6 +461,7 @@ export default function RecoveryCenter({
     setTargetSafety(null);
     setTargetVerification(null);
     setReenumeratedTargetDrive("");
+    setStableTargetLocator(null);
     setTargetReenumerationReceipt(null);
     setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
@@ -792,6 +820,7 @@ export default function RecoveryCenter({
       setTargetSafety(result);
       setTargetVerification(null);
       setReenumeratedTargetDrive(result.target || targetDrive.trim());
+      setStableTargetLocator(null);
       setTargetReenumerationReceipt(null);
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
@@ -1025,6 +1054,51 @@ export default function RecoveryCenter({
       setRollbackCaptureReceipt(null);
       setMessage(
         `Restore rollback capture could not complete. The restore target was not intentionally modified. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function locateReenumeratedTarget() {
+    if (storeSafe) {
+      setMessage("Stable target discovery is disabled in the store-safe distribution.");
+      return;
+    }
+    if (!targetSafety?.target_stable_identity_sha256 || busy) return;
+
+    setBusy(true);
+    setStableTargetLocator(null);
+    setTargetReenumerationReceipt(null);
+    setMessage(
+      "Enumerating Windows disks read-only and locating the frozen stable hardware identity…",
+    );
+    try {
+      const result = await invoke<StableTargetLocatorResult>(
+        "locate_windows_recovery_target_by_stable_identity",
+        {
+          expectedStableIdentitySha256: targetSafety.target_stable_identity_sha256,
+        },
+      );
+      setStableTargetLocator(result);
+      if (result.unique_match && result.match?.target) {
+        setReenumeratedTargetDrive(result.match.target);
+        setMessage(
+          `Stable hardware identity found at ${result.match.target}. Compare re-enumeration identity next; old authorization is not carried forward.`,
+        );
+      } else if (result.ambiguous) {
+        setMessage(
+          "More than one disk produced the same stable identity. Automatic target selection is blocked.",
+        );
+      } else {
+        setMessage(
+          "The previously verified stable hardware identity was not found. Do not continue restore planning.",
+        );
+      }
+    } catch (error) {
+      setStableTargetLocator(null);
+      setMessage(
+        `Stable target discovery could not complete. Nothing was changed. ${String(error)}`,
       );
     } finally {
       setBusy(false);
@@ -1550,12 +1624,33 @@ export default function RecoveryCenter({
                       <p className="field-help">
                         After a real unplug/replug, enter the target's current PHYSICALDRIVE path here. Phoenix Key compares it against the frozen baseline without carrying old authorization forward.
                       </p>
+                      <button
+                        className="plan-button"
+                        type="button"
+                        onClick={locateReenumeratedTarget}
+                        disabled={busy || !targetSafety.target_stable_identity_sha256}
+                      >
+                        Locate Same Hardware Automatically
+                      </button>
+                      {stableTargetLocator && (
+                        <div className={stableTargetLocator.unique_match ? "good-list" : "warning-box"}>
+                          <p>Locator result: {readableToken(stableTargetLocator.classification)}</p>
+                          <p>Matches: {stableTargetLocator.match_count}</p>
+                          {stableTargetLocator.match && (
+                            <p>
+                              Found: {stableTargetLocator.match.target} · {stableTargetLocator.match.bus_type} · {stableTargetLocator.match.size_bytes} bytes
+                            </p>
+                          )}
+                          <p>System mutations performed: {stableTargetLocator.system_mutations_performed ? "yes" : "no"}</p>
+                        </div>
+                      )}
                       <label className="path-field">
                         <span>Current target after reconnect</span>
                         <input
                           value={reenumeratedTargetDrive}
                           onChange={(event) => {
                             setReenumeratedTargetDrive(event.target.value);
+                            setStableTargetLocator(null);
                             setTargetReenumerationReceipt(null);
                           }}
                           placeholder="PHYSICALDRIVE9"
