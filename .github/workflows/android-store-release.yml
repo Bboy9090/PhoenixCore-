@@ -1,6 +1,9 @@
 name: PhoenixCore Android Store Release
 
 on:
+  push:
+    branches:
+      - "store-release/phoenix-key-v3.2.0"
   pull_request:
     branches: [main]
     paths:
@@ -59,7 +62,7 @@ jobs:
       - run: npm run build
 
   build-signed-aab:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'store-release/phoenix-key-v3.2.0'
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -110,8 +113,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION_NAME="${{ inputs.version_name }}"
-          VERSION_CODE="${{ inputs.version_code }}"
+          VERSION_NAME="${{ inputs.version_name || '3.2.0' }}"
+          VERSION_CODE="${{ inputs.version_code || '32000' }}"
           if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::version_code must be a positive integer"
             exit 1
@@ -140,8 +143,8 @@ jobs:
           path.write_text(text, encoding="utf-8")
           PY
         env:
-          VERSION_NAME: ${{ inputs.version_name }}
-          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name || '3.2.0' }}
+          VERSION_CODE: ${{ inputs.version_code || '32000' }}
 
       - name: Restore release keystore
         shell: bash
@@ -198,5 +201,5 @@ jobs:
           serviceAccountJson: ${{ runner.temp }}/google-play-service-account.json
           packageName: com.bobbysworkshop.phoenixcore
           releaseFiles: dashboard/android/app/build/outputs/bundle/release/app-release.aab
-          track: ${{ inputs.play_track }}
-          status: ${{ inputs.release_status }}
+          track: ${{ inputs.play_track || 'production' }}
+          status: ${{ inputs.release_status || 'completed' }}
