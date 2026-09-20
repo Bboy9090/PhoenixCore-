@@ -3,7 +3,7 @@ use std::{
     collections::VecDeque,
     fs::{self, File},
     io::{Read, Seek, SeekFrom},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 const MAX_SYSTEM_IMAGE_SCAN_DEPTH: usize = 4;
@@ -123,6 +123,46 @@ struct SystemImageEvidence {
     structure_markers: Vec<String>,
     image_files: Vec<String>,
     scan_limited: bool,
+    unsafe_entry_detected: bool,
+}
+
+fn metadata_is_link_or_reparse(metadata: &fs::Metadata) -> bool {
+    if metadata.file_type().is_symlink() {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+        metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+fn safe_descendant_metadata(root: &Path, relative: &str) -> Option<fs::Metadata> {
+    let mut current = root.to_path_buf();
+    for component in Path::new(relative).components() {
+        let Component::Normal(segment) = component else {
+            return None;
+        };
+        current.push(segment);
+        let metadata = fs::symlink_metadata(&current).ok()?;
+        if metadata_is_link_or_reparse(&metadata) {
+            return None;
+        }
+    }
+    fs::symlink_metadata(current).ok()
+}
+
+fn safe_descendant_is_file(root: &Path, relative: &str) -> bool {
+    safe_descendant_metadata(root, relative).is_some_and(|metadata| metadata.is_file())
+}
+
+fn safe_descendant_is_dir(root: &Path, relative: &str) -> bool {
+    safe_descendant_metadata(root, relative).is_some_and(|metadata| metadata.is_dir())
 }
 
 fn contains_case_insensitive(haystack: &[u8], needle: &[u8]) -> bool {
@@ -167,7 +207,7 @@ fn read_tail(path: &Path, max: usize) -> Result<Vec<u8>, String> {
 fn directory_contains(root: &Path, candidates: &[&str]) -> bool {
     candidates
         .iter()
-        .any(|candidate| root.join(candidate).is_file())
+        .any(|candidate| safe_descendant_is_file(root, candidate))
 }
 
 fn push_unique(values: &mut Vec<String>, value: impl Into<String>) {
@@ -214,8 +254,19 @@ fn inspect_system_image_tree(root: &Path) -> SystemImageEvidence {
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
             let lower_name = name.to_ascii_lowercase();
+            let metadata = match fs::symlink_metadata(&path) {
+                Ok(metadata) => metadata,
+                Err(_) => {
+                    evidence.unsafe_entry_detected = true;
+                    continue;
+                }
+            };
+            if metadata_is_link_or_reparse(&metadata) {
+                evidence.unsafe_entry_detected = true;
+                continue;
+            }
 
-            if path.is_dir() {
+            if metadata.is_dir() {
                 if matches!(lower_name.as_str(), "catalog" | "logs") {
                     push_unique(
                         &mut evidence.structure_markers,
@@ -257,16 +308,24 @@ fn detect_directory(path: &Path) -> WindowsBackupAnalysis {
     let has_boot_wim = directory_contains(path, &["sources/boot.wim", "Sources/boot.wim"]);
     let has_install_wim = directory_contains(path, &["sources/install.wim", "Sources/install.wim"]);
     let has_install_esd = directory_contains(path, &["sources/install.esd", "Sources/install.esd"]);
-    let has_split_wim = fs::read_dir(path.join("sources"))
-        .or_else(|_| fs::read_dir(path.join("Sources")))
-        .ok()
+    let split_sources = ["sources", "Sources"]
+        .iter()
+        .find(|candidate| safe_descendant_is_dir(path, candidate))
+        .map(|candidate| path.join(candidate));
+    let has_split_wim = split_sources
+        .and_then(|sources| fs::read_dir(sources).ok())
         .map(|entries| {
             entries.filter_map(Result::ok).any(|entry| {
-                entry
-                    .path()
-                    .extension()
-                    .and_then(|value| value.to_str())
-                    .is_some_and(|extension| extension.eq_ignore_ascii_case("swm"))
+                let child = entry.path();
+                let metadata = fs::symlink_metadata(&child).ok();
+                metadata.is_some_and(|metadata| {
+                    !metadata_is_link_or_reparse(&metadata)
+                        && metadata.is_file()
+                        && child
+                            .extension()
+                            .and_then(|value| value.to_str())
+                            .is_some_and(|extension| extension.eq_ignore_ascii_case("swm"))
+                })
             })
         })
         .unwrap_or(false);
@@ -278,9 +337,9 @@ fn detect_directory(path: &Path) -> WindowsBackupAnalysis {
             "Recovery/WindowsRE/Winre.wim",
         ],
     );
-    let has_efi = path.join("EFI").is_dir()
-        || path.join("efi").is_dir()
-        || path.join("EFI/Microsoft/Boot").is_dir();
+    let has_efi = safe_descendant_is_dir(path, "EFI")
+        || safe_descendant_is_dir(path, "efi")
+        || safe_descendant_is_dir(path, "EFI/Microsoft/Boot");
     let has_bcd = directory_contains(
         path,
         &[
@@ -297,7 +356,9 @@ fn detect_directory(path: &Path) -> WindowsBackupAnalysis {
 
     let windows_image_present = has_install_wim || has_install_esd || has_split_wim;
     let system_image_restore_ready = !system_image.image_files.is_empty();
-    let restore_candidate = windows_image_present || has_winre || system_image_restore_ready;
+    let restore_candidate =
+        (windows_image_present || has_winre || system_image_restore_ready)
+            && !system_image.unsafe_entry_detected;
     let mut detected_by = Vec::new();
     if windows_image_present {
         detected_by.push("windows_installer_tree".to_string());
@@ -360,6 +421,12 @@ fn detect_directory(path: &Path) -> WindowsBackupAnalysis {
         warnings.push(format!(
             "system-image discovery stopped after {MAX_SYSTEM_IMAGE_SCAN_ENTRIES} entries or depth {MAX_SYSTEM_IMAGE_SCAN_DEPTH}; choose a more specific backup folder for a complete analysis"
         ));
+    }
+    if system_image.unsafe_entry_detected {
+        warnings.push(
+            "recovery source contains a symbolic link, junction, reparse point, or unreadable entry; restore planning is blocked"
+                .to_string(),
+        );
     }
     if has_windows_image_backup && !system_image_restore_ready {
         warnings.push(
@@ -513,12 +580,14 @@ fn detect_file(path: &Path) -> Result<WindowsBackupAnalysis, String> {
 
 pub fn analyze_backup_path(path: impl AsRef<Path>) -> Result<WindowsBackupAnalysis, String> {
     let path = path.as_ref();
-    if !path.exists() {
-        return Err("backup source does not exist".to_string());
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("cannot inspect backup source: {error}"))?;
+    if metadata_is_link_or_reparse(&metadata) {
+        return Err("backup source analysis refuses symbolic-link or reparse paths".to_string());
     }
-    if path.is_dir() {
+    if metadata.is_dir() {
         Ok(detect_directory(path))
-    } else if path.is_file() {
+    } else if metadata.is_file() {
         detect_file(path)
     } else {
         Err("backup source is neither a regular file nor a directory".to_string())
@@ -758,14 +827,21 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
 
 pub fn fixture_candidates(root: impl AsRef<Path>) -> Result<Vec<PathBuf>, String> {
     let root = root.as_ref();
-    if !root.is_dir() {
-        return Err("fixture root is not a directory".to_string());
+    let root_metadata = fs::symlink_metadata(root)
+        .map_err(|error| format!("cannot inspect fixture root: {error}"))?;
+    if metadata_is_link_or_reparse(&root_metadata) || !root_metadata.is_dir() {
+        return Err("fixture root must be a real directory, not a link or reparse point".to_string());
     }
     let mut candidates = Vec::new();
     for entry in fs::read_dir(root).map_err(|error| format!("cannot read fixture root: {error}"))? {
         let entry = entry.map_err(|error| format!("cannot read fixture entry: {error}"))?;
         let path = entry.path();
-        if path.is_dir() {
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| format!("cannot inspect fixture entry: {error}"))?;
+        if metadata_is_link_or_reparse(&metadata) {
+            continue;
+        }
+        if metadata.is_dir() {
             let analysis = detect_directory(&path);
             if analysis.restore_candidate
                 || analysis.has_efi
@@ -774,7 +850,7 @@ pub fn fixture_candidates(root: impl AsRef<Path>) -> Result<Vec<PathBuf>, String
             {
                 candidates.push(path);
             }
-        } else if path.is_file() {
+        } else if metadata.is_file() {
             let extension = path
                 .extension()
                 .and_then(|value| value.to_str())
@@ -805,6 +881,36 @@ mod tests {
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn analysis_rejects_root_symlink_source() {
+        use std::os::unix::fs::symlink;
+        let root = temp_case("root-symlink-source");
+        let source = root.join("source.wim");
+        let link = root.join("source-link.wim");
+        fs::write(&source, b"MSWIM\0\0\0fixture").unwrap();
+        symlink(&source, &link).unwrap();
+        let error = analyze_backup_path(&link).unwrap_err();
+        assert!(error.contains("symbolic-link") || error.contains("reparse"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn analysis_does_not_follow_symlinked_sources_directory() {
+        use std::os::unix::fs::symlink;
+        let root = temp_case("symlinked-sources");
+        let outside = temp_case("symlinked-sources-outside");
+        fs::create_dir_all(outside.join("payload")).unwrap();
+        fs::write(outside.join("payload/install.wim"), b"MSWIM\0\0\0fixture").unwrap();
+        symlink(outside.join("payload"), root.join("sources")).unwrap();
+        let analysis = analyze_backup_path(&root).unwrap();
+        assert!(!analysis.has_install_wim);
+        assert!(!analysis.restore_candidate);
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
     }
 
     #[test]
