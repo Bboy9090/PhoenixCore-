@@ -26,7 +26,10 @@ mod recovery_center;
 
 use platform_recovery::get_platform_recovery_answer;
 use serde::Serialize;
-use source_identity::{build_identity_bound_recovery_plan, capture_source_identity, verify_source_identity};
+use source_identity::{
+    build_identity_bound_recovery_plan, capture_source_identity,
+    verify_identity_bound_plan_sha256, verify_source_identity,
+};
 use std::{env, fs, process};
 use target_safety::{assess_recovery_target, verify_recovery_target_identity};
 use windows_recovery::{analyze_backup_path, fixture_candidates};
@@ -48,7 +51,7 @@ fn emit<T: Serialize>(value: &T) -> Result<(), String> {
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- identity <path>\n  cargo run --example windows_recovery_probe -- verify <path> <expected-sha256>\n  cargo run --example windows_recovery_probe -- target-check <evidence-json> <source-size-bytes> <source-physical-target|unknown> <source-stable-identity-sha256|unknown>\n  cargo run --example windows_recovery_probe -- target-verify <evidence-json> <expected-snapshot-sha256> <expected-stable-sha256>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
+        "usage:\n  cargo run --example windows_recovery_probe -- inspect <path>\n  cargo run --example windows_recovery_probe -- plan <path>\n  cargo run --example windows_recovery_probe -- identity <path>\n  cargo run --example windows_recovery_probe -- verify <path> <expected-sha256>\n  cargo run --example windows_recovery_probe -- target-check <evidence-json> <source-size-bytes> <source-physical-target|unknown> <source-stable-identity-sha256|unknown>\n  cargo run --example windows_recovery_probe -- target-verify <evidence-json> <expected-snapshot-sha256> <expected-stable-sha256>\n  cargo run --example windows_recovery_probe -- plan-verify <plan-json>\n  cargo run --example windows_recovery_probe -- fixtures <directory>\n  cargo run --example windows_recovery_probe -- answer <platform> <scenario>"
     );
     process::exit(64);
 }
@@ -73,6 +76,22 @@ fn run() -> Result<(), String> {
             usage();
         }
         return emit(&verify_source_identity(path, &expected)?);
+    }
+
+    if command == "plan-verify" {
+        let plan_path = args.next().unwrap_or_else(|| usage());
+        if args.next().is_some() {
+            usage();
+        }
+        let plan_bytes =
+            fs::read(&plan_path).map_err(|error| format!("cannot read recovery plan JSON: {error}"))?;
+        let plan: serde_json::Value = serde_json::from_slice(&plan_bytes)
+            .map_err(|error| format!("recovery plan is not valid JSON: {error}"))?;
+        return emit(&serde_json::json!({
+            "schema": "phoenix_key.identity_bound_plan_verification.v1",
+            "integrity_verified": verify_identity_bound_plan_sha256(&plan),
+            "system_mutations_performed": false
+        }));
     }
 
     if command == "target-verify" {
