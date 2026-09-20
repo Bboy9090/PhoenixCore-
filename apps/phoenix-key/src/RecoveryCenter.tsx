@@ -195,6 +195,22 @@ type RestoreHardwarePreflight = {
   system_mutations_performed: boolean;
 };
 
+type RollbackDestinationVerification = {
+  schema: string;
+  target?: string | null;
+  target_snapshot_identity_sha256?: string | null;
+  target_stable_identity_sha256?: string | null;
+  expected_target_stable_identity_sha256: string;
+  destination_path: string;
+  destination_physical_target?: string | null;
+  destination_stable_identity_sha256?: string | null;
+  target_identity_matches_expected: boolean;
+  separate_physical_device: boolean;
+  ready_for_hardware_rollback_capture: boolean;
+  block_reasons: string[];
+  system_mutations_performed: boolean;
+};
+
 type RecoveryPlan = {
   schema: string;
   source: RecoveryAnalysis;
@@ -329,6 +345,8 @@ export default function RecoveryCenter({
   const [targetVerification, setTargetVerification] = useState<RecoveryTargetIdentityVerification | null>(null);
   const [restoreRollbackContract, setRestoreRollbackContract] = useState<RestoreRollbackContract | null>(null);
   const [restoreHardwarePreflight, setRestoreHardwarePreflight] = useState<RestoreHardwarePreflight | null>(null);
+  const [rollbackDestinationPath, setRollbackDestinationPath] = useState("");
+  const [rollbackDestinationVerification, setRollbackDestinationVerification] = useState<RollbackDestinationVerification | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
@@ -369,6 +387,8 @@ export default function RecoveryCenter({
     setTargetVerification(null);
     setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
+    setRollbackDestinationPath("");
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
@@ -517,6 +537,7 @@ export default function RecoveryCenter({
       setTargetVerification(null);
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       setMessage("Recovery plan created and bound to the current source identity. No disk was changed.");
     } catch (error) {
       setPlan(null);
@@ -531,6 +552,7 @@ export default function RecoveryCenter({
     setBusy(true);
     setSourceVerification(null);
     setRestoreHardwarePreflight(null);
+    setRollbackDestinationVerification(null);
     setMessage("Freshly re-hashing the recovery source and comparing it with the identity-bound plan…");
     try {
       const result = await invoke<SourceIdentityVerification>(
@@ -548,6 +570,7 @@ export default function RecoveryCenter({
         setTargetVerification(null);
         setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       }
       setMessage(
         result.matches
@@ -562,6 +585,7 @@ export default function RecoveryCenter({
       setTargetVerification(null);
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       setMessage(
         `Fresh source identity verification could not complete. Downstream evidence was cleared. Nothing was changed. ${String(error)}`,
       );
@@ -578,6 +602,7 @@ export default function RecoveryCenter({
     if (!plan || !sourceVerification?.matches || !expectedSha256.trim() || busy) return;
     setBusy(true);
     setRestoreHardwarePreflight(null);
+    setRollbackDestinationVerification(null);
     setMessage("Hashing the recovery package and checking signature evidence read-only…");
     try {
       const result = await invoke<PackageTrust>("inspect_recovery_package_trust", {
@@ -594,6 +619,7 @@ export default function RecoveryCenter({
     } catch (error) {
       setPackageTrust(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       setMessage(`Package trust inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -622,6 +648,7 @@ export default function RecoveryCenter({
     setTargetVerification(null);
     setRestoreRollbackContract(null);
     setRestoreHardwarePreflight(null);
+    setRollbackDestinationVerification(null);
     setMessage("Reading Windows image index, edition, and architecture metadata with no mount or modification…");
     try {
       const result = await invoke<ImageMetadata>("inspect_windows_image_metadata", {
@@ -644,6 +671,7 @@ export default function RecoveryCenter({
       setTargetVerification(null);
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       setMessage(`Windows image metadata inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -706,6 +734,7 @@ export default function RecoveryCenter({
       setTargetVerification(null);
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       setMessage(
         result.safe_to_prepare
           ? "Target identity, capacity, and source/target separation are verified for planning."
@@ -716,6 +745,7 @@ export default function RecoveryCenter({
       setTargetVerification(null);
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       setMessage(`Target safety inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -737,6 +767,7 @@ export default function RecoveryCenter({
     setBusy(true);
     setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
     setMessage("Building an identity-bound rollback requirements contract. No target data is being changed…");
     try {
       const result = await invoke<RestoreRollbackContract>(
@@ -748,12 +779,14 @@ export default function RecoveryCenter({
       );
       setRestoreRollbackContract(result);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       setMessage(
         "Restore rollback requirements are now identity-bound to this source and target. Execution remains locked until real backup artifacts exist.",
       );
     } catch (error) {
       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       setMessage(
         `Restore rollback requirements could not be planned. Nothing was changed. ${String(error)}`,
       );
@@ -781,6 +814,7 @@ export default function RecoveryCenter({
 
     setBusy(true);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
     setMessage(
       "Assessing the complete software evidence chain up to the physical rollback-capture boundary. No restore or disk mutation will run…",
     );
@@ -798,6 +832,7 @@ export default function RecoveryCenter({
         },
       );
       setRestoreHardwarePreflight(result);
+      setRollbackDestinationVerification(null);
       setMessage(
         result.ready_to_capture_hardware_rollback_evidence
           ? "Software preflight passed. The next legitimate boundary is real rollback evidence captured from the physical target; restore execution remains unavailable."
@@ -805,8 +840,75 @@ export default function RecoveryCenter({
       );
     } catch (error) {
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
       setMessage(
         `Restore hardware preflight could not complete. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function chooseRollbackDestination() {
+    if (!restoreHardwarePreflight?.ready_to_capture_hardware_rollback_evidence || busy) return;
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Choose a rollback evidence folder on a different physical disk",
+      });
+      if (typeof selected !== "string") return;
+      setRollbackDestinationPath(selected);
+      setRollbackDestinationVerification(null);
+      setMessage(
+        "Rollback folder selected. Verify its physical disk is different from the restore target before capturing any evidence.",
+      );
+    } catch (error) {
+      setMessage(`Rollback destination picker could not open. Nothing was changed. ${String(error)}`);
+    }
+  }
+
+  async function verifyRollbackDestination() {
+    if (storeSafe) {
+      setMessage("Physical rollback-destination verification is disabled in the store-safe distribution.");
+      return;
+    }
+    const expectedTargetStableIdentity =
+      restoreHardwarePreflight?.target_stable_identity_sha256 ||
+      targetSafety?.target_stable_identity_sha256 ||
+      "";
+    if (
+      !restoreHardwarePreflight?.ready_to_capture_hardware_rollback_evidence ||
+      !targetDrive.trim() ||
+      !rollbackDestinationPath.trim() ||
+      !expectedTargetStableIdentity ||
+      busy
+    ) return;
+
+    setBusy(true);
+    setRollbackDestinationVerification(null);
+    setMessage(
+      "Proving the rollback folder is on a different physical disk from the restore target. No files or disks are being modified…",
+    );
+    try {
+      const result = await invoke<RollbackDestinationVerification>(
+        "inspect_restore_rollback_destination",
+        {
+          targetDrive: targetDrive.trim(),
+          rollbackDestinationPath: rollbackDestinationPath.trim(),
+          expectedTargetStableIdentitySha256: expectedTargetStableIdentity,
+        },
+      );
+      setRollbackDestinationVerification(result);
+      setMessage(
+        result.ready_for_hardware_rollback_capture
+          ? "Rollback destination is physically separate and target identity is still current. Real hardware rollback capture is now the next boundary."
+          : "Rollback destination verification is blocked. Choose a different physical disk or re-verify the restore target.",
+      );
+    } catch (error) {
+      setRollbackDestinationVerification(null);
+      setMessage(
+        `Rollback destination verification could not complete. Nothing was changed. ${String(error)}`,
       );
     } finally {
       setBusy(false);
@@ -828,6 +930,7 @@ export default function RecoveryCenter({
     setBusy(true);
     setTargetVerification(null);
     setRestoreHardwarePreflight(null);
+    setRollbackDestinationVerification(null);
     setMessage("Freshly re-scanning the target and checking both snapshot and stable hardware identity…");
     try {
       const result = await invoke<RecoveryTargetIdentityVerification>(
@@ -1134,6 +1237,7 @@ export default function RecoveryCenter({
                       setTargetVerification(null);
                       setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
                     }}
                   >
                     <option value="">Choose an exact VHD/VHDX payload</option>
@@ -1158,6 +1262,7 @@ export default function RecoveryCenter({
                     setTargetVerification(null);
                     setRestoreRollbackContract(null);
                     setRestoreHardwarePreflight(null);
+                    setRollbackDestinationVerification(null);
                   }}
                   inputMode="numeric"
                   placeholder="Leave blank to enumerate"
@@ -1174,6 +1279,7 @@ export default function RecoveryCenter({
                     setTargetVerification(null);
                     setRestoreRollbackContract(null);
                     setRestoreHardwarePreflight(null);
+                    setRollbackDestinationVerification(null);
                   }}
                   placeholder="x64 or arm64"
                 />
@@ -1221,6 +1327,7 @@ export default function RecoveryCenter({
                     setTargetVerification(null);
                     setRestoreRollbackContract(null);
       setRestoreHardwarePreflight(null);
+      setRollbackDestinationVerification(null);
                   }}
                   placeholder="PHYSICALDRIVE7"
                 />
@@ -1316,6 +1423,48 @@ export default function RecoveryCenter({
                       <strong>Physical evidence still required</strong>
                       {restoreHardwarePreflight.required_hardware_evidence.map((artifact) => (
                         <p key={artifact}>— {readableToken(artifact)}</p>
+                      ))}
+                      {restoreHardwarePreflight.ready_to_capture_hardware_rollback_evidence && (
+                        <>
+                          <button
+                            className="plan-button"
+                            type="button"
+                            onClick={chooseRollbackDestination}
+                            disabled={busy}
+                          >
+                            Choose Separate Rollback Folder
+                          </button>
+                          {rollbackDestinationPath && (
+                            <>
+                              <p>Rollback folder: {rollbackDestinationPath}</p>
+                              <button
+                                className="plan-button"
+                                type="button"
+                                onClick={verifyRollbackDestination}
+                                disabled={busy}
+                              >
+                                Verify Physical Separation
+                              </button>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {rollbackDestinationVerification && (
+                    <div className={rollbackDestinationVerification.ready_for_hardware_rollback_capture ? "good-list" : "warning-box"}>
+                      <strong>
+                        {rollbackDestinationVerification.ready_for_hardware_rollback_capture
+                          ? "Rollback destination verified"
+                          : "Rollback destination blocked"}
+                      </strong>
+                      <p>Restore target: {rollbackDestinationVerification.target || "unproven"}</p>
+                      <p>Rollback disk: {rollbackDestinationVerification.destination_physical_target || "unproven"}</p>
+                      <p>Separate physical device: {rollbackDestinationVerification.separate_physical_device ? "yes" : "no"}</p>
+                      <p>Target identity still current: {rollbackDestinationVerification.target_identity_matches_expected ? "yes" : "no"}</p>
+                      <p>System mutations performed: {rollbackDestinationVerification.system_mutations_performed ? "yes" : "no"}</p>
+                      {rollbackDestinationVerification.block_reasons.map((reason) => (
+                        <p key={reason}>— {readableToken(reason)}</p>
                       ))}
                     </div>
                   )}
