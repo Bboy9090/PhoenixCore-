@@ -62,7 +62,7 @@ jobs:
       - run: npm run build
 
   build-signed-aab:
-    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'store-release/phoenix-key-v3.2.0'
+    if: github.event_name == 'workflow_dispatch'
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -201,5 +201,5 @@ jobs:
           serviceAccountJson: ${{ runner.temp }}/google-play-service-account.json
           packageName: com.bobbysworkshop.phoenixcore
           releaseFiles: dashboard/android/app/build/outputs/bundle/release/app-release.aab
-          track: ${{ inputs.play_track || 'production' }}
-          status: ${{ inputs.release_status || 'completed' }}
+          track: ${{ inputs.play_track || 'internal' }}
+          status: ${{ inputs.release_status || 'draft' }}
