@@ -130,9 +130,7 @@ def parse_gpt_header(
         "<QQQQ", sector, 24
     )
     partition_entry_lba = struct.unpack_from("<Q", sector, 72)[0]
-    number_of_entries, entry_size, entries_crc = struct.unpack_from(
-        "<III", sector, 80
-    )
+    number_of_entries, entry_size, entries_crc = struct.unpack_from("<III", sector, 80)
 
     if number_of_entries <= 0 or entry_size < 128 or entry_size % 8:
         raise RollbackCaptureError(f"{label} GPT entry geometry is invalid.")
@@ -213,9 +211,7 @@ def capture_gpt_artifacts(
         raise RollbackCaptureError("Target disk is too small to contain a valid GPT.")
 
     protective_mbr = read_exact(handle, 0, logical_sector_size)
-    primary_header_sector = read_exact(
-        handle, logical_sector_size, logical_sector_size
-    )
+    primary_header_sector = read_exact(handle, logical_sector_size, logical_sector_size)
     primary = parse_gpt_header(primary_header_sector, logical_sector_size, "primary")
 
     disk_lbas = disk_size_bytes // logical_sector_size
@@ -237,9 +233,7 @@ def capture_gpt_artifacts(
     )
 
     backup_header_offset = primary["backup_lba"] * logical_sector_size
-    backup_header_sector = read_exact(
-        handle, backup_header_offset, logical_sector_size
-    )
+    backup_header_sector = read_exact(handle, backup_header_offset, logical_sector_size)
     backup = parse_gpt_header(backup_header_sector, logical_sector_size, "backup")
 
     if backup["current_lba"] != primary["backup_lba"] or backup["backup_lba"] != 1:
