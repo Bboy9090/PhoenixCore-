@@ -43,6 +43,18 @@ fn same_path(left: Option<&str>, right: Option<&str>) -> bool {
         .is_some_and(|(left, right)| normalized_path(left) == normalized_path(right))
 }
 
+fn string_array_contains(value: &Value, key: &str, expected: &str) -> bool {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .is_some_and(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .any(|item| item == expected)
+        })
+}
+
 fn gate(
     condition: bool,
     name: &str,
@@ -206,9 +218,19 @@ pub fn assess_restore_readiness(
     gate(
         rollback_bundle.get("complete").and_then(Value::as_bool) == Some(true)
             && rollback_bundle
-                .get("repair_unlock_ready")
+                .get("restore_unlock_ready")
                 .and_then(Value::as_bool)
                 == Some(true)
+            && string_array_contains(
+                rollback_bundle,
+                "restore_unlock_scope",
+                "apply_system_image",
+            )
+            && !string_array_contains(
+                rollback_bundle,
+                "always_blocked_by_this_bundle",
+                "apply_system_image",
+            )
             && rollback_bundle
                 .get("system_configuration_mutated")
                 .and_then(Value::as_bool)
@@ -384,7 +406,9 @@ mod tests {
             }),
             json!({
                 "complete": true,
-                "repair_unlock_ready": true,
+                "restore_unlock_ready": true,
+                "restore_unlock_scope": ["apply_system_image"],
+                "always_blocked_by_this_bundle": [],
                 "system_configuration_mutated": false,
                 "bundle_sha256": "c".repeat(64),
                 "source_identity_sha256": "a".repeat(64),
@@ -403,6 +427,24 @@ mod tests {
         assert!(!result.executable);
         assert!(result.blocked_gates.is_empty());
         assert_eq!(result.selected_image_index, Some(2));
+    }
+
+    #[test]
+    fn repair_only_rollback_bundle_cannot_unlock_system_image_restore() {
+        let (plan, trust, metadata, target, mut rollback) = evidence();
+        rollback["restore_unlock_ready"] = json!(false);
+        rollback["restore_unlock_scope"] = json!([]);
+        rollback["repair_unlock_ready"] = json!(true);
+        rollback["repair_unlock_scope"] =
+            json!(["bcd_repair", "winre_repair", "efi_file_repair"]);
+        rollback["always_blocked_by_this_bundle"] = json!(["apply_system_image"]);
+        let result =
+            assess_restore_readiness(&plan, &trust, &metadata, &target, &rollback);
+        assert!(!result.ready_for_restore_executor_design);
+        assert!(result
+            .blocked_gates
+            .contains(&"rollback_bundle_bound_to_source_and_target".to_string()));
+        assert!(!result.executable);
     }
 
     #[test]
