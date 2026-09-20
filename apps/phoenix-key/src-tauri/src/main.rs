@@ -5,6 +5,7 @@ mod intel_mac_restore_gate;
 mod mac_bootcamp_compat;
 mod recovery_center;
 mod restore_preflight;
+mod rollback_destination;
 mod restore_readiness;
 mod restore_rollback_contract;
 mod source_identity;
@@ -20,6 +21,7 @@ use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
 use restore_preflight::assess_windows_restore_hardware_preflight;
 use restore_readiness::assess_windows_restore_readiness;
 use restore_rollback_contract::plan_restore_target_rollback_contract;
+use rollback_destination::{assess_rollback_destination, RollbackDestinationVerification};
 use recovery_center::{
     analyze_windows_recovery_source, plan_windows_recovery_source,
     verify_windows_recovery_source_identity,
@@ -1068,6 +1070,53 @@ fn verify_windows_recovery_target_identity(
 }
 
 #[tauri::command]
+fn inspect_restore_rollback_destination(
+    target_drive: String,
+    rollback_destination_path: String,
+    expected_target_stable_identity_sha256: String,
+) -> Result<RollbackDestinationVerification, String> {
+    if !cfg!(windows) {
+        return Err("Rollback destination verification requires Windows.".to_string());
+    }
+
+    let target_resolution = resolve_target(target_drive.trim())?;
+    if !target_resolution.is_windows_physical_drive() {
+        return Err("restore target must be an exact Windows PHYSICALDRIVE path".to_string());
+    }
+
+    let destination = PathBuf::from(rollback_destination_path.trim());
+    if !destination.is_dir() {
+        return Err("rollback destination must be an existing directory".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let target_evidence = capture_write_evidence(
+            &directory,
+            &target_resolution.canonical_path,
+            "phoenix-key-rollback-destination-target-evidence.json",
+        )?;
+
+        let resolver = directory.join("resolve_windows_source_disk.py");
+        let destination_text = destination.to_string_lossy().to_string();
+        let destination_resolution = run_python_json(
+            &resolver,
+            &["--source", &destination_text],
+            &[],
+        )?;
+
+        Ok(assess_rollback_destination(
+            &target_evidence,
+            &destination_resolution,
+            &destination_text,
+            &expected_target_stable_identity_sha256,
+        ))
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn inspect_recovery_target_safety(
     target_drive: String,
     source_path: String,
@@ -1326,6 +1375,7 @@ fn main() {
         plan_restore_target_rollback_contract,
         inspect_bootcamp_driver_package,
         inspect_recovery_target_safety,
+        inspect_restore_rollback_destination,
         verify_windows_recovery_target_identity,
         assess_intel_mac_restore_readiness,
         google_drive_picker_status,
