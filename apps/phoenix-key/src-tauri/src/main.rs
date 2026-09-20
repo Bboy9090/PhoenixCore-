@@ -9,6 +9,7 @@ mod rollback_destination;
 mod restore_readiness;
 mod restore_rollback_contract;
 mod source_identity;
+mod target_reenumeration;
 mod target_safety;
 mod windows_recovery;
 mod windows_recovery_guard;
@@ -31,6 +32,9 @@ use recovery_center::{
 use serde::Serialize;
 use serde_json::{json, Value};
 use source_identity::capture_source_identity;
+use target_reenumeration::{
+    compare_recovery_target_reenumeration, RecoveryTargetReenumerationReceipt,
+};
 use target_safety::{
     assess_recovery_target, verify_recovery_target_identity,
     RecoveryTargetIdentityVerification, RecoveryTargetSafety,
@@ -1080,6 +1084,40 @@ fn verify_windows_recovery_target_identity(
 }
 
 #[tauri::command]
+fn inspect_windows_recovery_target_reenumeration(
+    current_target_drive: String,
+    expected_target_drive: Option<String>,
+    expected_snapshot_identity_sha256: String,
+    expected_stable_identity_sha256: String,
+) -> Result<RecoveryTargetReenumerationReceipt, String> {
+    if !cfg!(windows) {
+        return Err("Windows target re-enumeration inspection requires Windows.".to_string());
+    }
+
+    let resolution = resolve_target(current_target_drive.trim())?;
+    if !resolution.is_windows_physical_drive() {
+        return Err("current recovery target must be an exact Windows PHYSICALDRIVE path".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let evidence = capture_write_evidence(
+            &directory,
+            &resolution.canonical_path,
+            "phoenix-key-target-reenumeration-evidence.json",
+        )?;
+        Ok(compare_recovery_target_reenumeration(
+            &evidence,
+            expected_target_drive.as_deref(),
+            &expected_snapshot_identity_sha256,
+            &expected_stable_identity_sha256,
+        ))
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn capture_restore_target_rollback_artifacts(
     target_drive: String,
     rollback_destination_path: String,
@@ -1554,6 +1592,7 @@ fn main() {
         inspect_restore_rollback_destination,
         capture_restore_target_rollback_artifacts,
         verify_windows_recovery_target_identity,
+        inspect_windows_recovery_target_reenumeration,
         assess_intel_mac_restore_readiness,
         google_drive_picker_status,
         google_drive_acquisition_status,
