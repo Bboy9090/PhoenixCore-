@@ -90,7 +90,14 @@ def compare_receipts(
     snapshot_identity_matches = before_snapshot == after_snapshot
     same_hardware = stable_identity_matches
 
-    if not stable_identity_matches:
+    before_commit = str(before.get("source_commit") or "").strip()
+    after_commit = str(after.get("source_commit") or "").strip()
+    source_commit_matches = bool(before_commit) and before_commit == after_commit
+
+    if not source_commit_matches:
+        classification = "evidence-software-version-mismatch"
+        required_action = "recapture-before-and-after-with-same-code-revision"
+    elif not stable_identity_matches:
         classification = "hardware-substitution-or-mismatch"
         required_action = "block-and-select-original-hardware"
     elif snapshot_identity_matches:
@@ -111,6 +118,10 @@ def compare_receipts(
         "schema": COMPARISON_SCHEMA,
         "classification": classification,
         "same_hardware": same_hardware,
+        "source_commit_matches": source_commit_matches,
+        "before_source_commit": before_commit,
+        "after_source_commit": after_commit,
+        "comparison_trusted": source_commit_matches,
         "snapshot_identity_matches": snapshot_identity_matches,
         "stable_identity_matches": stable_identity_matches,
         "before_target": before_disk.get("target"),
@@ -124,7 +135,8 @@ def compare_receipts(
         "fresh_snapshot_authorization_required": True,
         "real_hardware_evidence": real_hardware_evidence,
         "hardware_validation_complete": (
-            real_hardware_evidence
+            source_commit_matches
+            and real_hardware_evidence
             and same_hardware
             and before.get("hardware_validated") is True
             and after.get("hardware_validated") is True
