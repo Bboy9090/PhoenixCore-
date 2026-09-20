@@ -114,7 +114,8 @@ pub fn build_boot_repair_contract(
         ],
         required_rechecks: vec![
             "source_identity".to_string(),
-            "target_identity".to_string(),
+            "target_snapshot_identity".to_string(),
+            "target_stable_hardware_identity".to_string(),
             "source_target_distinct_physical_device".to_string(),
             "rollback_manifest_integrity".to_string(),
             "secure_boot_and_boot_mode_compatibility".to_string(),
@@ -161,6 +162,17 @@ mod tests {
         assert!(contract
             .blocked_operations
             .contains(&"modify_bcd_store".to_string()));
+    }
+
+    #[test]
+    fn repair_contract_requires_snapshot_and_stable_target_rechecks() {
+        let contract = build_boot_repair_contract(&snapshot(true, 1, 0), true).unwrap();
+        assert!(contract
+            .required_rechecks
+            .contains(&"target_snapshot_identity".to_string()));
+        assert!(contract
+            .required_rechecks
+            .contains(&"target_stable_hardware_identity".to_string()));
     }
 
     #[test]
