@@ -5,6 +5,7 @@ mod intel_mac_restore_gate;
 mod mac_bootcamp_compat;
 mod recovery_center;
 mod restore_readiness;
+mod restore_rollback_contract;
 mod source_identity;
 mod target_safety;
 mod windows_recovery;
@@ -16,6 +17,7 @@ use intel_mac_restore_gate::assess_intel_mac_restore_readiness;
 use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
 use restore_readiness::assess_windows_restore_readiness;
+use restore_rollback_contract::plan_restore_target_rollback_contract;
 use recovery_center::{analyze_windows_recovery_source, plan_windows_recovery_source};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -1313,6 +1315,7 @@ fn main() {
         inspect_recovery_package_trust,
         inspect_windows_image_metadata,
         assess_windows_restore_readiness,
+        plan_restore_target_rollback_contract,
         inspect_bootcamp_driver_package,
         inspect_recovery_target_safety,
         verify_windows_recovery_target_identity,
