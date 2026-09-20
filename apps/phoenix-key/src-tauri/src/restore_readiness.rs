@@ -43,6 +43,24 @@ fn same_path(left: Option<&str>, right: Option<&str>) -> bool {
         .is_some_and(|(left, right)| normalized_path(left) == normalized_path(right))
 }
 
+fn descendant_path(root: Option<&str>, child: Option<&str>) -> bool {
+    root.zip(child).is_some_and(|(root, child)| {
+        let root = normalized_path(root);
+        let child = normalized_path(child);
+        if root.is_empty()
+            || child.is_empty()
+            || child.contains("/../")
+            || child.ends_with("/..")
+            || child.starts_with("../")
+        {
+            return false;
+        }
+        child
+            .strip_prefix(&(root + "/"))
+            .is_some_and(|relative| !relative.is_empty())
+    })
+}
+
 fn string_array_contains(value: &Value, key: &str, expected: &str) -> bool {
     value
         .get(key)
@@ -70,6 +88,7 @@ fn gate(
 
 pub fn assess_restore_readiness(
     identity_bound_plan: &Value,
+    source_identity_verification: &Value,
     package_trust: &Value,
     image_metadata: &Value,
     target_safety: &Value,
@@ -109,21 +128,65 @@ pub fn assess_restore_readiness(
     let source_size = identity_bound_plan
         .pointer("/source_identity/size_bytes")
         .and_then(Value::as_u64);
+
+    let source_identity_current = source_identity_verification
+        .get("matches")
+        .and_then(Value::as_bool)
+        == Some(true)
+        && source_identity_verification
+            .get("reanalysis_required")
+            .and_then(Value::as_bool)
+            == Some(false)
+        && same_sha256(
+            source_identity,
+            source_identity_verification
+                .get("expected_sha256")
+                .and_then(Value::as_str),
+        )
+        && same_sha256(
+            source_identity,
+            source_identity_verification
+                .get("observed_sha256")
+                .and_then(Value::as_str),
+        );
+    gate(
+        source_identity_current,
+        "fresh_source_identity_revalidated",
+        &mut satisfied,
+        &mut blocked,
+    );
+
     let trusted_package_sha = package_trust
         .get("observed_sha256")
         .and_then(Value::as_str);
-    gate(
-        source_kind == Some("file_sha256")
-            && package_trust
+    let source_integrity_bound = match source_kind {
+        Some("file_sha256") => {
+            package_trust
                 .get("verified_for_use")
                 .and_then(Value::as_bool)
                 == Some(true)
-            && package_trust
-                .get("sha256_matches")
-                .and_then(Value::as_bool)
-                == Some(true)
-            && same_sha256(source_identity, trusted_package_sha),
-        "source_package_trust_bound_to_identity",
+                && package_trust
+                    .get("sha256_matches")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && same_sha256(source_identity, trusted_package_sha)
+        }
+        Some("directory_manifest") => {
+            source_identity_current
+                && identity_bound_plan
+                    .pointer("/source_identity/scan_limited")
+                    .and_then(Value::as_bool)
+                    == Some(false)
+                && identity_bound_plan
+                    .pointer("/source_identity/entry_count")
+                    .and_then(Value::as_u64)
+                    .is_some_and(|count| count > 0)
+        }
+        _ => false,
+    };
+    gate(
+        source_integrity_bound,
+        "source_integrity_bound_to_identity",
         &mut satisfied,
         &mut blocked,
     );
@@ -139,10 +202,17 @@ pub fn assess_restore_readiness(
             == Some(true)
             && selected_index.is_some()
             && selected_image.is_some_and(|value| !value.is_null())
-            && same_path(
-                source_path,
-                image_metadata.get("path").and_then(Value::as_str),
-            ),
+            && match source_kind {
+                Some("file_sha256") => same_path(
+                    source_path,
+                    image_metadata.get("path").and_then(Value::as_str),
+                ),
+                Some("directory_manifest") => descendant_path(
+                    source_path,
+                    image_metadata.get("path").and_then(Value::as_str),
+                ),
+                _ => false,
+            },
         "exact_windows_image_bound_to_source",
         &mut satisfied,
         &mut blocked,
@@ -373,6 +443,7 @@ pub fn assess_restore_readiness(
 #[tauri::command]
 pub fn assess_windows_restore_readiness(
     identity_bound_plan_json: String,
+    source_identity_verification_json: String,
     package_trust_json: String,
     image_metadata_json: String,
     target_safety_json: String,
@@ -385,6 +456,10 @@ pub fn assess_windows_restore_readiness(
     };
     Ok(assess_restore_readiness(
         &parse("identity-bound plan", identity_bound_plan_json)?,
+        &parse(
+            "source identity verification",
+            source_identity_verification_json,
+        )?,
         &parse("package trust", package_trust_json)?,
         &parse("image metadata", image_metadata_json)?,
         &parse("target safety", target_safety_json)?,
@@ -403,6 +478,7 @@ mod tests {
     use serde_json::{json, Value};
 
     fn evidence() -> (
+        serde_json::Value,
         serde_json::Value,
         serde_json::Value,
         serde_json::Value,
@@ -433,6 +509,12 @@ mod tests {
         plan["plan_sha256"] = Value::String(identity_bound_plan_sha256(&plan).unwrap());
         (
             plan,
+            json!({
+                "matches": true,
+                "reanalysis_required": false,
+                "expected_sha256": "a".repeat(64),
+                "observed_sha256": "a".repeat(64)
+            }),
             json!({
                 "verified_for_use": true,
                 "sha256_matches": true,
@@ -488,10 +570,11 @@ mod tests {
 
     #[test]
     fn all_evidence_can_reach_design_readiness_but_never_execution() {
-        let (plan, trust, metadata, target, verification, rollback) = evidence();
+        let (plan, source_verification, trust, metadata, target, verification, rollback) = evidence();
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -505,14 +588,73 @@ mod tests {
     }
 
     #[test]
+    fn stale_source_revalidation_blocks_readiness() {
+        let (plan, mut source_verification, trust, metadata, target, verification, rollback) =
+            evidence();
+        source_verification["matches"] = json!(false);
+        source_verification["reanalysis_required"] = json!(true);
+        source_verification["observed_sha256"] = json!("e".repeat(64));
+        let result = assess_restore_readiness(
+            &plan,
+            &source_verification,
+            &trust,
+            &metadata,
+            &target,
+            &verification,
+            &rollback,
+        );
+        assert!(!result.ready_for_restore_executor_design);
+        assert!(result
+            .blocked_gates
+            .contains(&"fresh_source_identity_revalidated".to_string()));
+    }
+
+    #[test]
+    fn directory_manifest_source_uses_fresh_manifest_identity_not_package_signature() {
+        let (
+            mut plan,
+            source_verification,
+            _trust,
+            mut metadata,
+            target,
+            verification,
+            rollback,
+        ) = evidence();
+        plan["source_identity"]["source_kind"] = json!("directory_manifest");
+        plan["source_identity"]["canonical_path"] =
+            json!("C:/recovery/WindowsImageBackup");
+        plan["source_identity"]["entry_count"] = json!(4);
+        plan["source_identity"]["scan_limited"] = json!(false);
+        plan["plan_sha256"] = Value::String(identity_bound_plan_sha256(&plan).unwrap());
+        metadata["path"] =
+            json!("C:/recovery/WindowsImageBackup/PC/Backup/system.vhdx");
+        let result = assess_restore_readiness(
+            &plan,
+            &source_verification,
+            &json!({}),
+            &metadata,
+            &target,
+            &verification,
+            &rollback,
+        );
+        assert!(result
+            .satisfied_gates
+            .contains(&"source_integrity_bound_to_identity".to_string()));
+        assert!(result
+            .satisfied_gates
+            .contains(&"exact_windows_image_bound_to_source".to_string()));
+    }
+
+    #[test]
     fn stale_target_revalidation_blocks_readiness() {
-        let (plan, trust, metadata, target, mut verification, rollback) = evidence();
+        let (plan, source_verification, trust, metadata, target, mut verification, rollback) = evidence();
         verification["matches"] = json!(false);
         verification["snapshot_matches"] = json!(false);
         verification["reanalysis_required"] = json!(true);
         verification["observed_snapshot_identity_sha256"] = json!("e".repeat(64));
         let result = assess_restore_readiness(
             &plan,
+            &source_verification,
             &trust,
             &metadata,
             &target,
@@ -528,7 +670,7 @@ mod tests {
 
     #[test]
     fn repair_only_rollback_bundle_cannot_unlock_system_image_restore() {
-        let (plan, trust, metadata, target, verification, mut rollback) = evidence();
+        let (plan, source_verification, trust, metadata, target, verification, mut rollback) = evidence();
         rollback["restore_unlock_ready"] = json!(false);
         rollback["restore_unlock_scope"] = json!([]);
         rollback["repair_unlock_ready"] = json!(true);
@@ -538,6 +680,7 @@ mod tests {
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -553,13 +696,14 @@ mod tests {
 
     #[test]
     fn executable_dry_run_claim_blocks_readiness() {
-        let (mut plan, trust, metadata, target, verification, rollback) = evidence();
+        let (mut plan, source_verification, trust, metadata, target, verification, rollback) = evidence();
         plan["dry_run_summary"]["executable"] = json!(true);
         plan["plan_sha256"] =
             Value::String(identity_bound_plan_sha256(&plan).unwrap());
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -575,13 +719,14 @@ mod tests {
 
     #[test]
     fn reported_mutation_in_dry_run_blocks_readiness() {
-        let (mut plan, trust, metadata, target, verification, rollback) = evidence();
+        let (mut plan, source_verification, trust, metadata, target, verification, rollback) = evidence();
         plan["dry_run_summary"]["mutation_steps_executed"] = json!(1);
         plan["plan_sha256"] =
             Value::String(identity_bound_plan_sha256(&plan).unwrap());
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -595,11 +740,12 @@ mod tests {
 
     #[test]
     fn tampered_identity_bound_plan_blocks_readiness() {
-        let (mut plan, trust, metadata, target, verification, rollback) = evidence();
+        let (mut plan, source_verification, trust, metadata, target, verification, rollback) = evidence();
         plan["destructive_actions_performed"] = json!(true);
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -614,11 +760,12 @@ mod tests {
 
     #[test]
     fn missing_package_trust_blocks_readiness() {
-        let (plan, mut trust, metadata, target, verification, rollback) = evidence();
+        let (plan, source_verification, mut trust, metadata, target, verification, rollback) = evidence();
         trust["verified_for_use"] = json!(false);
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -628,18 +775,19 @@ mod tests {
         assert!(!result.ready_for_restore_executor_design);
         assert!(result
             .blocked_gates
-            .contains(&"source_package_trust_bound_to_identity".to_string()));
+            .contains(&"source_integrity_bound_to_identity".to_string()));
         assert!(!result.executable);
     }
 
     #[test]
     fn missing_exact_image_selection_blocks_readiness() {
-        let (plan, trust, mut metadata, target, verification, rollback) = evidence();
+        let (plan, source_verification, trust, mut metadata, target, verification, rollback) = evidence();
         metadata["selected_index"] = Value::Null;
         metadata["selected_image"] = Value::Null;
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -653,11 +801,12 @@ mod tests {
 
     #[test]
     fn architecture_mismatch_blocks_readiness() {
-        let (plan, trust, mut metadata, target, verification, rollback) = evidence();
+        let (plan, source_verification, trust, mut metadata, target, verification, rollback) = evidence();
         metadata["architecture_compatibility"]["compatible"] = json!(false);
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -671,11 +820,12 @@ mod tests {
 
     #[test]
     fn compressed_source_size_alone_cannot_pass_capacity_gate() {
-        let (plan, trust, metadata, mut target, verification, rollback) = evidence();
+        let (plan, source_verification, trust, metadata, mut target, verification, rollback) = evidence();
         target["target_size_bytes"] = json!(8_000);
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -689,11 +839,12 @@ mod tests {
 
     #[test]
     fn same_device_target_blocks_readiness() {
-        let (plan, trust, metadata, mut target, verification, rollback) = evidence();
+        let (plan, source_verification, trust, metadata, mut target, verification, rollback) = evidence();
         target["source_target_distinct"] = json!(false);
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -707,11 +858,12 @@ mod tests {
 
     #[test]
     fn mismatched_package_identity_blocks_readiness() {
-        let (plan, mut trust, metadata, target, verification, rollback) = evidence();
+        let (plan, source_verification, mut trust, metadata, target, verification, rollback) = evidence();
         trust["observed_sha256"] = json!("d".repeat(64));
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -720,16 +872,17 @@ mod tests {
             );
         assert!(result
             .blocked_gates
-            .contains(&"source_package_trust_bound_to_identity".to_string()));
+            .contains(&"source_integrity_bound_to_identity".to_string()));
     }
 
     #[test]
     fn mismatched_image_path_blocks_readiness() {
-        let (plan, trust, mut metadata, target, verification, rollback) = evidence();
+        let (plan, source_verification, trust, mut metadata, target, verification, rollback) = evidence();
         metadata["path"] = json!("C:/other/install.wim");
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -743,11 +896,12 @@ mod tests {
 
     #[test]
     fn rollback_bundle_from_different_target_is_rejected() {
-        let (plan, trust, metadata, target, verification, mut rollback) = evidence();
+        let (plan, source_verification, trust, metadata, target, verification, mut rollback) = evidence();
         rollback["target_identity_sha256"] = json!("e".repeat(64));
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -761,11 +915,12 @@ mod tests {
 
     #[test]
     fn mismatched_stable_target_identity_blocks_readiness() {
-        let (plan, trust, metadata, target, verification, mut rollback) = evidence();
+        let (plan, source_verification, trust, metadata, target, verification, mut rollback) = evidence();
         rollback["target_stable_identity_sha256"] = json!("e".repeat(64));
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -779,11 +934,12 @@ mod tests {
 
     #[test]
     fn missing_windows_edition_blocks_readiness() {
-        let (plan, trust, mut metadata, target, verification, rollback) = evidence();
+        let (plan, source_verification, trust, mut metadata, target, verification, rollback) = evidence();
         metadata["selected_image"]["edition_id"] = Value::Null;
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
@@ -797,11 +953,12 @@ mod tests {
 
     #[test]
     fn incomplete_rollback_bundle_blocks_readiness() {
-        let (plan, trust, metadata, target, verification, mut rollback) = evidence();
+        let (plan, source_verification, trust, metadata, target, verification, mut rollback) = evidence();
         rollback["complete"] = json!(false);
         let result =
             assess_restore_readiness(
                 &plan,
+                &source_verification,
                 &trust,
                 &metadata,
                 &target,
