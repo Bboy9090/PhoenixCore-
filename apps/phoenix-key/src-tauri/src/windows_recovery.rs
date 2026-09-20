@@ -68,7 +68,7 @@ pub struct RecoverySourceContract {
     pub content_identity_required: bool,
     pub metadata_validation_required: bool,
     pub complete_split_set_required: bool,
-    pub oversized_fat32_remediation_required: bool,
+    pub fat32_single_file_limit_check_required: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -641,6 +641,25 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
         ]
     };
 
+    let source_contract = RecoverySourceContract {
+        source_kind: source.kind.clone(),
+        restore_candidate: source.restore_candidate,
+        content_identity_required: true,
+        metadata_validation_required: true,
+        complete_split_set_required: source.has_split_wim,
+        fat32_single_file_limit_check_required: source.has_install_wim || source.has_install_esd,
+    };
+    let dry_run_summary = RecoveryDryRunSummary {
+        source_ready_for_planning: source.restore_candidate,
+        target_selected: false,
+        target_identity_verified: false,
+        rollback_evidence_persisted: false,
+        destructive_authorization_present: false,
+        mutation_steps_planned: 1,
+        mutation_steps_executed: 0,
+        executable: false,
+    };
+
     Ok(WindowsRecoveryPlan {
         schema: "phoenix_key.windows_recovery_plan.v4",
         source,
@@ -715,14 +734,7 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
             automatic_destructive_resume_allowed: false,
             system_mutations_performed: false,
         },
-        source_contract: RecoverySourceContract {
-            source_kind: source.kind.clone(),
-            restore_candidate: source.restore_candidate,
-            content_identity_required: true,
-            metadata_validation_required: true,
-            complete_split_set_required: source.has_split_wim,
-            oversized_fat32_remediation_required: source.has_install_wim,
-        },
+        source_contract,
         boot_contract: RecoveryBootContract {
             boot_mode: "uefi",
             efi_files_required: true,
@@ -737,16 +749,7 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
         },
         remediation_required,
         block_reasons,
-        dry_run_summary: RecoveryDryRunSummary {
-            source_ready_for_planning: source.restore_candidate,
-            target_selected: false,
-            target_identity_verified: false,
-            rollback_evidence_persisted: false,
-            destructive_authorization_present: false,
-            mutation_steps_planned: 1,
-            mutation_steps_executed: 0,
-            executable: false,
-        },
+        dry_run_summary,
         next_steps,
         dry_run: true,
         destructive_actions_performed: false,
