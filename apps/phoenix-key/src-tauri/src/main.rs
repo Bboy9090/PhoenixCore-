@@ -1289,34 +1289,45 @@ fn main() {
         Err(_) => std::process::exit(70),
     }
 
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![
-            distribution_profile,
-            scan_connected_devices,
-            scan_media_targets,
-            plan_media_build,
-            prepare_media_write,
-            execute_media_write,
-            analyze_windows_recovery_source,
-            plan_windows_recovery_source,
-            plan_windows_boot_repair,
-            inspect_mac_bootcamp_host,
-            inspect_recovery_package_trust,
-            inspect_windows_image_metadata,
-            assess_windows_restore_readiness,
-            inspect_bootcamp_driver_package,
-            inspect_recovery_target_safety,
-            verify_windows_recovery_target_identity,
-            assess_intel_mac_restore_readiness,
-            google_drive_picker_status,
-            google_drive_acquisition_status,
-            cancel_google_drive_acquisition,
-            acquire_google_drive_picker_recovery,
-            plan_fat32_windows_media,
-            stage_cloud_recovery_payload,
-            capture_windows_recovery_baseline,
-            persist_windows_recovery_rollback_bundle
-        ])
+    let builder = tauri::Builder::default();
+
+    #[cfg(feature = "store-safe")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        distribution_profile,
+        analyze_windows_recovery_source,
+        plan_windows_recovery_source
+    ]);
+
+    #[cfg(not(feature = "store-safe"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        distribution_profile,
+        scan_connected_devices,
+        scan_media_targets,
+        plan_media_build,
+        prepare_media_write,
+        execute_media_write,
+        analyze_windows_recovery_source,
+        plan_windows_recovery_source,
+        plan_windows_boot_repair,
+        inspect_mac_bootcamp_host,
+        inspect_recovery_package_trust,
+        inspect_windows_image_metadata,
+        assess_windows_restore_readiness,
+        inspect_bootcamp_driver_package,
+        inspect_recovery_target_safety,
+        verify_windows_recovery_target_identity,
+        assess_intel_mac_restore_readiness,
+        google_drive_picker_status,
+        google_drive_acquisition_status,
+        cancel_google_drive_acquisition,
+        acquire_google_drive_picker_recovery,
+        plan_fat32_windows_media,
+        stage_cloud_recovery_payload,
+        capture_windows_recovery_baseline,
+        persist_windows_recovery_rollback_bundle
+    ]);
+
+    builder
         .run(tauri::generate_context!())
         .expect("failed to run Phoenix Key desktop application");
 }
