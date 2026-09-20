@@ -156,6 +156,21 @@ type RecoveryTargetIdentityVerification = {
   system_mutations_performed: boolean;
 };
 
+type RestoreRollbackContract = {
+  schema: string;
+  source_identity_sha256: string;
+  target_identity_sha256: string;
+  target_stable_identity_sha256: string;
+  target_size_bytes: number;
+  required_artifacts: string[];
+  artifact_destination_requirement: string;
+  fresh_target_revalidation_required: boolean;
+  restore_unlock_ready: boolean;
+  restore_unlock_scope: string[];
+  always_blocked_by_this_contract: string[];
+  system_mutations_performed: boolean;
+  contract_sha256: string;
+};
 
 type RecoveryPlan = {
   schema: string;
@@ -280,6 +295,7 @@ export default function RecoveryCenter({
   const [targetDrive, setTargetDrive] = useState("");
   const [targetSafety, setTargetSafety] = useState<RecoveryTargetSafety | null>(null);
   const [targetVerification, setTargetVerification] = useState<RecoveryTargetIdentityVerification | null>(null);
+  const [restoreRollbackContract, setRestoreRollbackContract] = useState<RestoreRollbackContract | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
@@ -315,6 +331,7 @@ export default function RecoveryCenter({
     setTargetDrive("");
     setTargetSafety(null);
     setTargetVerification(null);
+    setRestoreRollbackContract(null);
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
@@ -568,6 +585,7 @@ export default function RecoveryCenter({
       });
       setTargetSafety(result);
       setTargetVerification(null);
+      setRestoreRollbackContract(null);
       setMessage(
         result.safe_to_prepare
           ? "Target identity, capacity, and source/target separation are verified for planning."
@@ -576,7 +594,39 @@ export default function RecoveryCenter({
     } catch (error) {
       setTargetSafety(null);
       setTargetVerification(null);
+      setRestoreRollbackContract(null);
       setMessage(`Target safety inspection could not complete. Nothing was changed. ${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function planRestoreRollbackRequirements() {
+    if (storeSafe) {
+      setMessage("Restore-target rollback planning is disabled in the store-safe distribution.");
+      return;
+    }
+    if (!plan || !targetSafety?.safe_to_prepare || busy) return;
+    setBusy(true);
+    setRestoreRollbackContract(null);
+    setMessage("Building an identity-bound rollback requirements contract. No target data is being changed…");
+    try {
+      const result = await invoke<RestoreRollbackContract>(
+        "plan_restore_target_rollback_contract",
+        {
+          identityBoundPlanJson: JSON.stringify(plan),
+          targetSafetyJson: JSON.stringify(targetSafety),
+        },
+      );
+      setRestoreRollbackContract(result);
+      setMessage(
+        "Restore rollback requirements are now identity-bound to this source and target. Execution remains locked until real backup artifacts exist.",
+      );
+    } catch (error) {
+      setRestoreRollbackContract(null);
+      setMessage(
+        `Restore rollback requirements could not be planned. Nothing was changed. ${String(error)}`,
+      );
     } finally {
       setBusy(false);
     }
@@ -607,6 +657,7 @@ export default function RecoveryCenter({
         },
       );
       setTargetVerification(result);
+      if (!result.matches) setRestoreRollbackContract(null);
       setMessage(
         result.matches
           ? "Fresh target revalidation passed. Snapshot and stable hardware identity both match."
@@ -947,6 +998,7 @@ export default function RecoveryCenter({
                     setTargetDrive(event.target.value);
                     setTargetSafety(null);
                     setTargetVerification(null);
+                    setRestoreRollbackContract(null);
                   }}
                   placeholder="PHYSICALDRIVE7"
                 />
@@ -983,6 +1035,33 @@ export default function RecoveryCenter({
                     >
                       Freshly Re-Verify Exact Target
                     </button>
+                  )}
+                  {targetSafety.safe_to_prepare && (
+                    <button
+                      className="plan-button"
+                      type="button"
+                      onClick={planRestoreRollbackRequirements}
+                      disabled={busy}
+                    >
+                      Plan Full-Restore Rollback Requirements
+                    </button>
+                  )}
+                  {restoreRollbackContract && (
+                    <div className="warning-box">
+                      <strong>Full-restore rollback remains locked</strong>
+                      <p>Contract: {restoreRollbackContract.contract_sha256}</p>
+                      <p>Artifact destination: {readableToken(restoreRollbackContract.artifact_destination_requirement)}</p>
+                      <p>Fresh target revalidation required: {restoreRollbackContract.fresh_target_revalidation_required ? "yes" : "no"}</p>
+                      <p>Restore unlock ready: {restoreRollbackContract.restore_unlock_ready ? "yes" : "no"}</p>
+                      <p>System mutations performed: {restoreRollbackContract.system_mutations_performed ? "yes" : "no"}</p>
+                      <strong>Required before full restore can ever unlock</strong>
+                      {restoreRollbackContract.required_artifacts.map((artifact) => (
+                        <p key={artifact}>— {readableToken(artifact)}</p>
+                      ))}
+                      {restoreRollbackContract.always_blocked_by_this_contract.map((operation) => (
+                        <p key={operation}>Blocked now: {readableToken(operation)}</p>
+                      ))}
+                    </div>
                   )}
                   {targetVerification && (
                     <div className={targetVerification.matches ? "good-list" : "warning-box"}>
