@@ -98,6 +98,26 @@ mod tests {
                 .map(str::len),
             Some(64)
         );
+        assert_eq!(
+            plan["target_contract"]["stable_identity_required"],
+            true
+        );
+        assert_eq!(
+            plan["target_contract"]["fresh_revalidation_required"],
+            true
+        );
+        assert_eq!(
+            plan["execution_boundary"]["planner_only"],
+            true
+        );
+        assert_eq!(
+            plan["execution_boundary"]["restore_executor_available"],
+            false
+        );
+        assert_eq!(
+            plan["execution_boundary"]["automatic_destructive_resume_allowed"],
+            false
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }
