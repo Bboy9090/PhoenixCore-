@@ -1,6 +1,9 @@
 name: Phoenix Key Mac App Store
 
 on:
+  push:
+    branches:
+      - "store-release/phoenix-key-v3.2.0"
   pull_request:
     branches: [main]
     paths:
@@ -48,7 +51,7 @@ jobs:
           npx tauri build --features store-safe --bundles app
 
   package-and-upload:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'store-release/phoenix-key-v3.2.0'
     needs: store-safe-preflight
     runs-on: macos-latest
     defaults:
@@ -130,8 +133,8 @@ jobs:
           </dict>
           </plist>
           PLIST
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ inputs.version }}" "$APP/Contents/Info.plist"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ inputs.build_number }}" "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ inputs.version || '3.2.0' }}" "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ inputs.build_number || '32000' }}" "$APP/Contents/Info.plist"
           echo "APP_PATH=$APP" >> "$GITHUB_ENV"
 
       - name: Sign and verify store-safe app
@@ -151,7 +154,7 @@ jobs:
           INSTALLER_IDENTITY: ${{ secrets.PHOENIX_KEY_APP_STORE_INSTALLER_IDENTITY }}
         run: |
           set -euo pipefail
-          PKG="$RUNNER_TEMP/Phoenix-Key-${{ inputs.version }}-${{ inputs.build_number }}.pkg"
+          PKG="$RUNNER_TEMP/Phoenix-Key-${{ inputs.version || '3.2.0' }}-${{ inputs.build_number || '32000' }}.pkg"
           productbuild             --component "$APP_PATH" /Applications             --sign "$INSTALLER_IDENTITY"             "$PKG"
           pkgutil --check-signature "$PKG"
           shasum -a 256 "$PKG" > "$RUNNER_TEMP/MAC_APP_STORE_SHA256.txt"
