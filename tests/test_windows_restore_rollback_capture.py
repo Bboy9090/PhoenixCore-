@@ -144,6 +144,7 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
                 expected_destination_stable_identity_sha256=destination_identity,
                 destination_stable_identity_sha256=destination_identity,
                 logical_sector_size=SECTOR,
+                rollback_contract_sha256="e" * 64,
                 artifacts=artifacts,
                 gpt_geometry=geometry,
                 captured_at="2026-09-20T12:01:00Z",
@@ -162,6 +163,7 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
                 "target_data_preservation_receipt_or_explicit_discard_decision",
                 result["remaining_requirements"],
             )
+            self.assertEqual("e" * 64, result["rollback_contract_sha256"])
             self.assertEqual(64, len(result["receipt_sha256"]))
             self.assertEqual(5, len([name for name in artifacts if name != "target_partition_manifest"]))
             for artifact in result["artifacts"].values():
@@ -208,6 +210,7 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
                     expected_destination_stable_identity_sha256=stable,
                     destination_stable_identity_sha256=stable,
                     logical_sector_size=SECTOR,
+                    rollback_contract_sha256="e" * 64,
                     artifacts=artifacts,
                     gpt_geometry=geometry,
                 )
