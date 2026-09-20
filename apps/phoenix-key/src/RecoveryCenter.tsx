@@ -151,6 +151,7 @@ type RecoveryTargetIdentityVerification = {
   snapshot_matches: boolean;
   stable_identity_matches: boolean;
   matches: boolean;
+  classification: string;
   reanalysis_required: boolean;
   system_mutations_performed: boolean;
 };
@@ -580,7 +581,9 @@ export default function RecoveryCenter({
       setMessage(
         result.matches
           ? "Fresh target revalidation passed. Snapshot and stable hardware identity both match."
-          : "Target identity changed or could not be proven. Re-run the full target safety analysis before proceeding.",
+          : result.classification === "same_hardware_reenumerated"
+            ? "The same physical hardware appears to have been re-enumerated under a different snapshot identity. Re-run full target safety analysis before proceeding."
+            : "Target hardware changed or could not be proven. Stop and re-run the full target safety analysis before proceeding.",
       );
     } catch (error) {
       setTargetVerification(null);
@@ -954,6 +957,7 @@ export default function RecoveryCenter({
                       <strong>{targetVerification.matches ? "Fresh identity match" : "Reanalysis required"}</strong>
                       <p>Snapshot identity match: {targetVerification.snapshot_matches ? "yes" : "no"}</p>
                       <p>Stable hardware identity match: {targetVerification.stable_identity_matches ? "yes" : "no"}</p>
+                      <p>Classification: {readableToken(targetVerification.classification)}</p>
                       <p>Observed snapshot: {targetVerification.observed_snapshot_identity_sha256 || "missing"}</p>
                       <p>Observed stable identity: {targetVerification.observed_stable_identity_sha256 || "missing"}</p>
                       <p>System mutations performed: {targetVerification.system_mutations_performed ? "yes" : "no"}</p>
