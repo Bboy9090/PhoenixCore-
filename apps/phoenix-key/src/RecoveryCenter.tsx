@@ -31,6 +31,14 @@ type SourceIdentity = {
   complete: boolean;
 };
 
+type SourceIdentityVerification = {
+  schema: string;
+  expected_sha256: string;
+  observed_sha256: string;
+  matches: boolean;
+  reanalysis_required: boolean;
+};
+
 type PackageTrust = {
   verified_for_use: boolean;
   observed_sha256: string;
@@ -282,6 +290,7 @@ export default function RecoveryCenter({
   const [sourcePath, setSourcePath] = useState("");
   const [analysis, setAnalysis] = useState<RecoveryAnalysis | null>(null);
   const [plan, setPlan] = useState<RecoveryPlan | null>(null);
+  const [sourceVerification, setSourceVerification] = useState<SourceIdentityVerification | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(
     "Choose the Windows backup or recovery source you want Phoenix Key to inspect. Analysis does not change disks.",
@@ -322,6 +331,7 @@ export default function RecoveryCenter({
     setSourcePath(nextPath);
     setAnalysis(null);
     setPlan(null);
+    setSourceVerification(null);
     setShowTechnical(false);
     setExpectedSha256("");
     setSelectedImageIndex("");
@@ -460,13 +470,58 @@ export default function RecoveryCenter({
         sourcePath: sourcePath.trim(),
       });
       setPlan(result);
+      setSourceVerification(null);
       setTargetArchitecture(result.host_arch || "");
       setPackageTrust(null);
       setImageMetadata(null);
+      setTargetSafety(null);
+      setTargetVerification(null);
+      setRestoreRollbackContract(null);
       setMessage("Recovery plan created and bound to the current source identity. No disk was changed.");
     } catch (error) {
       setPlan(null);
       setMessage(String(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reverifySourceIdentity() {
+    if (!plan?.source_identity?.sha256 || busy) return;
+    setBusy(true);
+    setSourceVerification(null);
+    setMessage("Freshly re-hashing the recovery source and comparing it with the identity-bound plan…");
+    try {
+      const result = await invoke<SourceIdentityVerification>(
+        "verify_windows_recovery_source_identity",
+        {
+          sourcePath: sourcePath.trim(),
+          expectedSha256: plan.source_identity.sha256,
+        },
+      );
+      setSourceVerification(result);
+      if (!result.matches) {
+        setPackageTrust(null);
+        setImageMetadata(null);
+        setTargetSafety(null);
+        setTargetVerification(null);
+        setRestoreRollbackContract(null);
+      }
+      setMessage(
+        result.matches
+          ? "Fresh source identity revalidation passed. The recovery source still matches the plan."
+          : "Recovery source identity changed. All downstream trust and target evidence was invalidated; rebuild the plan before proceeding.",
+      );
+    } catch (error) {
+      setSourceVerification(null);
+      setPackageTrust(null);
+      setImageMetadata(null);
+      setTargetSafety(null);
+      setTargetVerification(null);
+      setRestoreRollbackContract(null);
+      setMessage(
+        `Fresh source identity verification could not complete. Downstream evidence was cleared. Nothing was changed. ${String(error)}`,
+      );
     } finally {
       setBusy(false);
     }
@@ -477,7 +532,7 @@ export default function RecoveryCenter({
       setMessage("External package-trust helpers are disabled in the store-safe distribution.");
       return;
     }
-    if (!plan || !expectedSha256.trim() || busy) return;
+    if (!plan || !sourceVerification?.matches || !expectedSha256.trim() || busy) return;
     setBusy(true);
     setMessage("Hashing the recovery package and checking signature evidence read-only…");
     try {
@@ -505,7 +560,7 @@ export default function RecoveryCenter({
       setMessage("External image-metadata helpers are disabled in the store-safe distribution.");
       return;
     }
-    if (!plan || busy) return;
+    if (!plan || !sourceVerification?.matches || busy) return;
     const indexText = selectedImageIndex.trim();
     const parsedIndex = indexText ? Number(indexText) : undefined;
     if (indexText && (!Number.isInteger(parsedIndex) || (parsedIndex || 0) <= 0)) {
@@ -575,7 +630,13 @@ export default function RecoveryCenter({
       setMessage("Physical-target inspection is disabled in the store-safe distribution.");
       return;
     }
-    if (!plan || plan.host_os !== "windows" || !targetDrive.trim() || busy) return;
+    if (
+      !plan ||
+      !sourceVerification?.matches ||
+      plan.host_os !== "windows" ||
+      !targetDrive.trim() ||
+      busy
+    ) return;
     setBusy(true);
     setMessage("Re-enumerating the Windows target and proving source/target separation read-only…");
     try {
@@ -606,7 +667,13 @@ export default function RecoveryCenter({
       setMessage("Restore-target rollback planning is disabled in the store-safe distribution.");
       return;
     }
-    if (!plan || !targetSafety?.safe_to_prepare || busy) return;
+    if (
+      !plan ||
+      !sourceVerification?.matches ||
+      !targetSafety?.safe_to_prepare ||
+      !targetVerification?.matches ||
+      busy
+    ) return;
     setBusy(true);
     setRestoreRollbackContract(null);
     setMessage("Building an identity-bound rollback requirements contract. No target data is being changed…");
@@ -1074,6 +1141,30 @@ export default function RecoveryCenter({
                       <p>System mutations performed: {targetVerification.system_mutations_performed ? "yes" : "no"}</p>
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {plan.source_identity && (
+            <div className="recovery-list">
+              <strong>Fresh source identity gate</strong>
+              <p>Planned identity: {plan.source_identity.sha256}</p>
+              <p>Source kind: {readableToken(plan.source_identity.source_kind)}</p>
+              <button
+                className="plan-button"
+                type="button"
+                onClick={reverifySourceIdentity}
+                disabled={busy || !plan.source_identity.sha256}
+              >
+                Freshly Re-Verify Source Identity
+              </button>
+              {sourceVerification && (
+                <div className={sourceVerification.matches ? "good-list" : "warning-box"}>
+                  <strong>{sourceVerification.matches ? "Fresh source identity match" : "Source changed — reanalysis required"}</strong>
+                  <p>Expected: {sourceVerification.expected_sha256}</p>
+                  <p>Observed: {sourceVerification.observed_sha256}</p>
+                  <p>Reanalysis required: {sourceVerification.reanalysis_required ? "yes" : "no"}</p>
                 </div>
               )}
             </div>
