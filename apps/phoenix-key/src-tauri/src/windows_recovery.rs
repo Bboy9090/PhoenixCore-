@@ -35,6 +35,33 @@ pub struct WindowsBackupAnalysis {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RecoveryPlanAction {
+    pub id: &'static str,
+    pub phase: &'static str,
+    pub mutates_system: bool,
+    pub requires_authorization: bool,
+    pub status: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RecoveryTargetContract {
+    pub snapshot_identity_required: bool,
+    pub stable_identity_required: bool,
+    pub source_target_separation_required: bool,
+    pub capacity_check_required: bool,
+    pub fresh_revalidation_required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RecoveryExecutionBoundary {
+    pub planner_only: bool,
+    pub restore_executor_available: bool,
+    pub destructive_authorization_required: bool,
+    pub automatic_destructive_resume_allowed: bool,
+    pub system_mutations_performed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct WindowsRecoveryPlan {
     pub schema: &'static str,
     pub source: WindowsBackupAnalysis,
@@ -46,6 +73,9 @@ pub struct WindowsRecoveryPlan {
     pub allowed_operations: Vec<String>,
     pub blocked_operations: Vec<String>,
     pub required_gates: Vec<String>,
+    pub proposed_actions: Vec<RecoveryPlanAction>,
+    pub target_contract: RecoveryTargetContract,
+    pub execution_boundary: RecoveryExecutionBoundary,
     pub next_steps: Vec<String>,
     pub dry_run: bool,
     pub destructive_actions_performed: bool,
@@ -526,8 +556,14 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
         next_steps.push("Do not create or label an internal partition as Boot Camp on Apple Silicon.".to_string());
     }
 
+    let restore_action_status = if source.restore_candidate {
+        "blocked_executor_unavailable"
+    } else {
+        "blocked_source_not_verified"
+    };
+
     Ok(WindowsRecoveryPlan {
-        schema: "phoenix_key.windows_recovery_plan.v2",
+        schema: "phoenix_key.windows_recovery_plan.v3",
         source,
         host_arch,
         host_os,
@@ -549,6 +585,57 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
             "explicit_destructive_authorization".to_string(),
             "fresh_prewrite_identity_recheck".to_string(),
         ],
+        proposed_actions: vec![
+            RecoveryPlanAction {
+                id: "inspect_source",
+                phase: "analysis",
+                mutates_system: false,
+                requires_authorization: false,
+                status: "complete",
+            },
+            RecoveryPlanAction {
+                id: "verify_source_integrity",
+                phase: "validation",
+                mutates_system: false,
+                requires_authorization: false,
+                status: "required",
+            },
+            RecoveryPlanAction {
+                id: "verify_target_identity",
+                phase: "target_validation",
+                mutates_system: false,
+                requires_authorization: false,
+                status: "required",
+            },
+            RecoveryPlanAction {
+                id: "capture_rollback_evidence",
+                phase: "rollback",
+                mutates_system: false,
+                requires_authorization: false,
+                status: "required",
+            },
+            RecoveryPlanAction {
+                id: "restore_execution",
+                phase: "execution",
+                mutates_system: true,
+                requires_authorization: true,
+                status: restore_action_status,
+            },
+        ],
+        target_contract: RecoveryTargetContract {
+            snapshot_identity_required: true,
+            stable_identity_required: true,
+            source_target_separation_required: true,
+            capacity_check_required: true,
+            fresh_revalidation_required: true,
+        },
+        execution_boundary: RecoveryExecutionBoundary {
+            planner_only: true,
+            restore_executor_available: false,
+            destructive_authorization_required: true,
+            automatic_destructive_resume_allowed: false,
+            system_mutations_performed: false,
+        },
         next_steps,
         dry_run: true,
         destructive_actions_performed: false,
@@ -710,6 +797,20 @@ mod tests {
             .required_gates
             .contains(&"target_not_source".to_string()));
         assert!(!plan.host_route.is_empty());
+        assert_eq!(plan.schema, "phoenix_key.windows_recovery_plan.v3");
+        assert!(plan.target_contract.stable_identity_required);
+        assert!(plan.target_contract.fresh_revalidation_required);
+        assert!(plan.execution_boundary.planner_only);
+        assert!(!plan.execution_boundary.restore_executor_available);
+        assert!(!plan.execution_boundary.automatic_destructive_resume_allowed);
+        let restore = plan
+            .proposed_actions
+            .iter()
+            .find(|action| action.id == "restore_execution")
+            .expect("restore execution boundary must be explicit");
+        assert!(restore.mutates_system);
+        assert!(restore.requires_authorization);
+        assert_eq!(restore.status, "blocked_executor_unavailable");
         fs::remove_dir_all(root).unwrap();
     }
 }
