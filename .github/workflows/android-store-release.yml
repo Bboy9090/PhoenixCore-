@@ -174,12 +174,26 @@ jobs:
           jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab
           sha256sum app/build/outputs/bundle/release/app-release.aab > app/build/outputs/bundle/release/AAB-SHA256.txt
 
+      - name: Emit Google Play provenance receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          node ../scripts/release/emit-release-provenance.mjs \
+            --product phoenixcore-mobile \
+            --channel google-play \
+            --version "${{ inputs.version_name || '3.2.0' }}" \
+            --source-commit "${{ github.sha }}" \
+            --artifact android/app/build/outputs/bundle/release/app-release.aab \
+            --output android/app/build/outputs/bundle/release/RELEASE-PROVENANCE.json
+
       - uses: actions/upload-artifact@v4
         with:
           name: PhoenixCore-Mobile-android-store-aab
           path: |
             dashboard/android/app/build/outputs/bundle/release/app-release.aab
             dashboard/android/app/build/outputs/bundle/release/AAB-SHA256.txt
+            dashboard/android/app/build/outputs/bundle/release/RELEASE-PROVENANCE.json
+            dashboard/android/app/build/outputs/bundle/release/RELEASE-PROVENANCE.json.sha256
           if-no-files-found: error
           retention-days: 30
 
