@@ -8,14 +8,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DRIVE_MODULE_PATH = ROOT / "scripts" / "hardware" / "capture_windows_drive_evidence.py"
-CAPTURE_MODULE_PATH = ROOT / "scripts" / "hardware" / "capture_windows_restore_rollback.py"
+CAPTURE_MODULE_PATH = (
+    ROOT / "scripts" / "hardware" / "capture_windows_restore_rollback.py"
+)
 
-drive_spec = importlib.util.spec_from_file_location("windows_drive_evidence", DRIVE_MODULE_PATH)
+drive_spec = importlib.util.spec_from_file_location(
+    "windows_drive_evidence", DRIVE_MODULE_PATH
+)
 assert drive_spec and drive_spec.loader
 windows_drive_evidence = importlib.util.module_from_spec(drive_spec)
 drive_spec.loader.exec_module(windows_drive_evidence)
 
-capture_spec = importlib.util.spec_from_file_location("windows_restore_rollback", CAPTURE_MODULE_PATH)
+capture_spec = importlib.util.spec_from_file_location(
+    "windows_restore_rollback", CAPTURE_MODULE_PATH
+)
 assert capture_spec and capture_spec.loader
 windows_restore_rollback = importlib.util.module_from_spec(capture_spec)
 capture_spec.loader.exec_module(windows_restore_rollback)
@@ -139,8 +145,12 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
                 target=TARGET,
                 drive_evidence=receipt,
                 output_dir=output,
-                expected_target_snapshot_identity_sha256=receipt["disk"]["identity_sha256"],
-                expected_target_stable_identity_sha256=receipt["disk"]["stable_identity_sha256"],
+                expected_target_snapshot_identity_sha256=receipt["disk"][
+                    "identity_sha256"
+                ],
+                expected_target_stable_identity_sha256=receipt["disk"][
+                    "stable_identity_sha256"
+                ],
                 expected_destination_stable_identity_sha256=destination_identity,
                 destination_stable_identity_sha256=destination_identity,
                 logical_sector_size=SECTOR,
@@ -156,7 +166,9 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
             self.assertFalse(result["target_write_attempted"])
             self.assertTrue(result["rollback_destination_files_written"])
             self.assertFalse(result["system_mutations_performed"])
-            self.assertIn("target_partition_table_backup", result["captured_requirements"])
+            self.assertIn(
+                "target_partition_table_backup", result["captured_requirements"]
+            )
             self.assertIn("target_partition_manifest", result["captured_requirements"])
             self.assertIn("artifact_checksums", result["captured_requirements"])
             self.assertIn(
@@ -165,7 +177,12 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
             )
             self.assertEqual("e" * 64, result["rollback_contract_sha256"])
             self.assertEqual(64, len(result["receipt_sha256"]))
-            self.assertEqual(5, len([name for name in artifacts if name != "target_partition_manifest"]))
+            self.assertEqual(
+                5,
+                len(
+                    [name for name in artifacts if name != "target_partition_manifest"]
+                ),
+            )
             for artifact in result["artifacts"].values():
                 self.assertEqual(64, len(artifact["sha256"]))
                 self.assertGreater(artifact["size_bytes"], 0)
@@ -205,7 +222,9 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
                     target=TARGET,
                     drive_evidence=receipt,
                     output_dir=root / "rollback",
-                    expected_target_snapshot_identity_sha256=receipt["disk"]["identity_sha256"],
+                    expected_target_snapshot_identity_sha256=receipt["disk"][
+                        "identity_sha256"
+                    ],
                     expected_target_stable_identity_sha256=stable,
                     expected_destination_stable_identity_sha256=stable,
                     destination_stable_identity_sha256=stable,
