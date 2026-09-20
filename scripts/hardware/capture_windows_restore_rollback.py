@@ -83,8 +83,13 @@ def verify_drive_evidence(receipt: dict[str, Any]) -> dict[str, Any]:
     unsigned.pop("receipt_sha256", None)
     if sha256_payload(unsigned).lower() != expected.lower():
         raise RollbackCaptureError("Drive evidence receipt checksum is invalid.")
-    if receipt.get("bytes_written") != 0 or receipt.get("physical_write_attempted") is not False:
-        raise RollbackCaptureError("Drive evidence does not prove a read-only target inspection.")
+    if (
+        receipt.get("bytes_written") != 0
+        or receipt.get("physical_write_attempted") is not False
+    ):
+        raise RollbackCaptureError(
+            "Drive evidence does not prove a read-only target inspection."
+        )
     disk = receipt.get("disk")
     if not isinstance(disk, dict):
         raise RollbackCaptureError("Drive evidence is missing the disk record.")
@@ -101,7 +106,9 @@ def read_exact(handle: BinaryIO, offset: int, length: int) -> bytes:
     return data
 
 
-def parse_gpt_header(sector: bytes, logical_sector_size: int, label: str) -> dict[str, Any]:
+def parse_gpt_header(
+    sector: bytes, logical_sector_size: int, label: str
+) -> dict[str, Any]:
     if len(sector) != logical_sector_size:
         raise RollbackCaptureError(f"{label} GPT header sector has the wrong size.")
     if sector[:8] != b"EFI PART":
@@ -123,13 +130,17 @@ def parse_gpt_header(sector: bytes, logical_sector_size: int, label: str) -> dic
         "<QQQQ", sector, 24
     )
     partition_entry_lba = struct.unpack_from("<Q", sector, 72)[0]
-    number_of_entries, entry_size, entries_crc = struct.unpack_from("<III", sector, 80)
+    number_of_entries, entry_size, entries_crc = struct.unpack_from(
+        "<III", sector, 80
+    )
 
     if number_of_entries <= 0 or entry_size < 128 or entry_size % 8:
         raise RollbackCaptureError(f"{label} GPT entry geometry is invalid.")
     table_bytes = number_of_entries * entry_size
     if table_bytes <= 0 or table_bytes > MAX_GPT_TABLE_BYTES:
-        raise RollbackCaptureError(f"{label} GPT entry array exceeds the bounded capture limit.")
+        raise RollbackCaptureError(
+            f"{label} GPT entry array exceeds the bounded capture limit."
+        )
 
     return {
         "revision": revision,
@@ -195,12 +206,16 @@ def capture_gpt_artifacts(
     output_dir: Path,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     if logical_sector_size < 512 or logical_sector_size > 4096:
-        raise RollbackCaptureError("Logical sector size is outside the supported 512-4096 range.")
+        raise RollbackCaptureError(
+            "Logical sector size is outside the supported 512-4096 range."
+        )
     if disk_size_bytes < logical_sector_size * 34:
         raise RollbackCaptureError("Target disk is too small to contain a valid GPT.")
 
     protective_mbr = read_exact(handle, 0, logical_sector_size)
-    primary_header_sector = read_exact(handle, logical_sector_size, logical_sector_size)
+    primary_header_sector = read_exact(
+        handle, logical_sector_size, logical_sector_size
+    )
     primary = parse_gpt_header(primary_header_sector, logical_sector_size, "primary")
 
     disk_lbas = disk_size_bytes // logical_sector_size
@@ -222,14 +237,20 @@ def capture_gpt_artifacts(
     )
 
     backup_header_offset = primary["backup_lba"] * logical_sector_size
-    backup_header_sector = read_exact(handle, backup_header_offset, logical_sector_size)
+    backup_header_sector = read_exact(
+        handle, backup_header_offset, logical_sector_size
+    )
     backup = parse_gpt_header(backup_header_sector, logical_sector_size, "backup")
 
     if backup["current_lba"] != primary["backup_lba"] or backup["backup_lba"] != 1:
-        raise RollbackCaptureError("Primary and backup GPT headers do not cross-reference correctly.")
+        raise RollbackCaptureError(
+            "Primary and backup GPT headers do not cross-reference correctly."
+        )
     for key in ("disk_guid_hex", "number_of_entries", "entry_size"):
         if backup[key] != primary[key]:
-            raise RollbackCaptureError(f"Primary and backup GPT {key} values do not match.")
+            raise RollbackCaptureError(
+                f"Primary and backup GPT {key} values do not match."
+            )
 
     backup_entries_offset = backup["partition_entry_lba"] * logical_sector_size
     backup_entries = read_exact(
@@ -278,7 +299,9 @@ def capture_gpt_artifacts(
 
 def open_target_read_only(target: str) -> BinaryIO:
     if sys.platform != "win32":
-        raise RollbackCaptureError("Live physical-drive rollback capture requires Windows.")
+        raise RollbackCaptureError(
+            "Live physical-drive rollback capture requires Windows."
+        )
     parse_raw_target(target)
     try:
         return open(target, "rb", buffering=0)
@@ -306,7 +329,9 @@ def build_capture_receipt(
     disk = verify_drive_evidence(drive_evidence)
     observed_target = str(disk.get("target") or "")
     if observed_target.upper() != target.strip().upper():
-        raise RollbackCaptureError("Drive evidence target does not match the requested target.")
+        raise RollbackCaptureError(
+            "Drive evidence target does not match the requested target."
+        )
 
     expected_snapshot = require_sha256(
         expected_target_snapshot_identity_sha256,
@@ -339,13 +364,21 @@ def build_capture_receipt(
     )
 
     if observed_snapshot != expected_snapshot:
-        raise RollbackCaptureError("Restore target snapshot identity changed before capture.")
+        raise RollbackCaptureError(
+            "Restore target snapshot identity changed before capture."
+        )
     if observed_stable != expected_stable:
-        raise RollbackCaptureError("Restore target stable identity changed before capture.")
+        raise RollbackCaptureError(
+            "Restore target stable identity changed before capture."
+        )
     if observed_destination != expected_destination:
-        raise RollbackCaptureError("Rollback destination stable identity changed before capture.")
+        raise RollbackCaptureError(
+            "Rollback destination stable identity changed before capture."
+        )
     if observed_destination == observed_stable:
-        raise RollbackCaptureError("Rollback destination is the restore target physical device.")
+        raise RollbackCaptureError(
+            "Rollback destination is the restore target physical device."
+        )
 
     partition_style = str(disk.get("partition_style") or "").upper()
     if partition_style != "GPT":
@@ -444,7 +477,8 @@ def main() -> int:
     output_dir = args.output_dir.resolve()
     if output_dir.exists() and any(output_dir.iterdir()):
         raise RollbackCaptureError(
-            "Rollback capture output directory already contains files; refusing to overwrite evidence."
+            "Rollback capture output directory already contains files; "
+            "refusing to overwrite evidence."
         )
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -465,9 +499,15 @@ def main() -> int:
         target=args.target,
         drive_evidence=drive_evidence,
         output_dir=output_dir,
-        expected_target_snapshot_identity_sha256=args.expected_target_snapshot_identity_sha256,
-        expected_target_stable_identity_sha256=args.expected_target_stable_identity_sha256,
-        expected_destination_stable_identity_sha256=args.expected_destination_stable_identity_sha256,
+        expected_target_snapshot_identity_sha256=(
+            args.expected_target_snapshot_identity_sha256
+        ),
+        expected_target_stable_identity_sha256=(
+            args.expected_target_stable_identity_sha256
+        ),
+        expected_destination_stable_identity_sha256=(
+            args.expected_destination_stable_identity_sha256
+        ),
         destination_stable_identity_sha256=args.destination_stable_identity_sha256,
         logical_sector_size=args.logical_sector_size,
         rollback_contract_sha256=args.rollback_contract_sha256,
