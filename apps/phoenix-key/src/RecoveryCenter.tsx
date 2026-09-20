@@ -180,6 +180,21 @@ type RestoreRollbackContract = {
   contract_sha256: string;
 };
 
+type RestoreHardwarePreflight = {
+  schema: string;
+  ready_to_capture_hardware_rollback_evidence: boolean;
+  executable: boolean;
+  satisfied_gates: string[];
+  blocked_gates: string[];
+  required_hardware_evidence: string[];
+  source_identity_sha256?: string | null;
+  image_path?: string | null;
+  target_identity_sha256?: string | null;
+  target_stable_identity_sha256?: string | null;
+  rollback_contract_sha256?: string | null;
+  system_mutations_performed: boolean;
+};
+
 type RecoveryPlan = {
   schema: string;
   source: RecoveryAnalysis;
@@ -313,6 +328,7 @@ export default function RecoveryCenter({
   const [targetSafety, setTargetSafety] = useState<RecoveryTargetSafety | null>(null);
   const [targetVerification, setTargetVerification] = useState<RecoveryTargetIdentityVerification | null>(null);
   const [restoreRollbackContract, setRestoreRollbackContract] = useState<RestoreRollbackContract | null>(null);
+  const [restoreHardwarePreflight, setRestoreHardwarePreflight] = useState<RestoreHardwarePreflight | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
   const [driveReceipt, setDriveReceipt] = useState<GoogleDriveReceipt | null>(null);
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
@@ -352,6 +368,7 @@ export default function RecoveryCenter({
     setTargetSafety(null);
     setTargetVerification(null);
     setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
@@ -499,6 +516,7 @@ export default function RecoveryCenter({
       setTargetSafety(null);
       setTargetVerification(null);
       setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
       setMessage("Recovery plan created and bound to the current source identity. No disk was changed.");
     } catch (error) {
       setPlan(null);
@@ -528,6 +546,7 @@ export default function RecoveryCenter({
         setTargetSafety(null);
         setTargetVerification(null);
         setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
       }
       setMessage(
         result.matches
@@ -541,6 +560,7 @@ export default function RecoveryCenter({
       setTargetSafety(null);
       setTargetVerification(null);
       setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
       setMessage(
         `Fresh source identity verification could not complete. Downstream evidence was cleared. Nothing was changed. ${String(error)}`,
       );
@@ -674,6 +694,7 @@ export default function RecoveryCenter({
       setTargetSafety(result);
       setTargetVerification(null);
       setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
       setMessage(
         result.safe_to_prepare
           ? "Target identity, capacity, and source/target separation are verified for planning."
@@ -683,6 +704,7 @@ export default function RecoveryCenter({
       setTargetSafety(null);
       setTargetVerification(null);
       setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
       setMessage(`Target safety inspection could not complete. Nothing was changed. ${String(error)}`);
     } finally {
       setBusy(false);
@@ -703,6 +725,7 @@ export default function RecoveryCenter({
     ) return;
     setBusy(true);
     setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
     setMessage("Building an identity-bound rollback requirements contract. No target data is being changed…");
     try {
       const result = await invoke<RestoreRollbackContract>(
@@ -713,13 +736,66 @@ export default function RecoveryCenter({
         },
       );
       setRestoreRollbackContract(result);
+      setRestoreHardwarePreflight(null);
       setMessage(
         "Restore rollback requirements are now identity-bound to this source and target. Execution remains locked until real backup artifacts exist.",
       );
     } catch (error) {
       setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
       setMessage(
         `Restore rollback requirements could not be planned. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function assessRestoreHardwarePreflight() {
+    if (storeSafe) {
+      setMessage("Physical restore preflight is disabled in the store-safe distribution.");
+      return;
+    }
+    const fileSourceRequiresTrust = plan?.source_identity?.source_kind === "file_sha256";
+    if (
+      !plan ||
+      !sourceVerification?.matches ||
+      !imageMetadata ||
+      !targetSafety?.safe_to_prepare ||
+      !targetVerification?.matches ||
+      !restoreRollbackContract ||
+      (fileSourceRequiresTrust && !packageTrust?.verified_for_use) ||
+      busy
+    ) return;
+
+    setBusy(true);
+    setRestoreHardwarePreflight(null);
+    setMessage(
+      "Assessing the complete software evidence chain up to the physical rollback-capture boundary. No restore or disk mutation will run…",
+    );
+    try {
+      const result = await invoke<RestoreHardwarePreflight>(
+        "assess_windows_restore_hardware_preflight",
+        {
+          identityBoundPlanJson: JSON.stringify(plan),
+          sourceIdentityVerificationJson: JSON.stringify(sourceVerification),
+          packageTrustJson: JSON.stringify(packageTrust ?? {}),
+          imageMetadataJson: JSON.stringify(imageMetadata),
+          targetSafetyJson: JSON.stringify(targetSafety),
+          targetIdentityVerificationJson: JSON.stringify(targetVerification),
+          rollbackContractJson: JSON.stringify(restoreRollbackContract),
+        },
+      );
+      setRestoreHardwarePreflight(result);
+      setMessage(
+        result.ready_to_capture_hardware_rollback_evidence
+          ? "Software preflight passed. The next legitimate boundary is real rollback evidence captured from the physical target; restore execution remains unavailable."
+          : "Software preflight is blocked. Resolve the listed evidence gates before capturing target rollback artifacts.",
+      );
+    } catch (error) {
+      setRestoreHardwarePreflight(null);
+      setMessage(
+        `Restore hardware preflight could not complete. Nothing was changed. ${String(error)}`,
       );
     } finally {
       setBusy(false);
@@ -1045,6 +1121,7 @@ export default function RecoveryCenter({
                       setTargetSafety(null);
                       setTargetVerification(null);
                       setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
                     }}
                   >
                     <option value="">Choose an exact VHD/VHDX payload</option>
@@ -1123,6 +1200,7 @@ export default function RecoveryCenter({
                     setTargetSafety(null);
                     setTargetVerification(null);
                     setRestoreRollbackContract(null);
+    setRestoreHardwarePreflight(null);
                   }}
                   placeholder="PHYSICALDRIVE7"
                 />
@@ -1184,6 +1262,40 @@ export default function RecoveryCenter({
                       ))}
                       {restoreRollbackContract.always_blocked_by_this_contract.map((operation) => (
                         <p key={operation}>Blocked now: {readableToken(operation)}</p>
+                      ))}
+                      <button
+                        className="plan-button"
+                        type="button"
+                        onClick={assessRestoreHardwarePreflight}
+                        disabled={
+                          busy ||
+                          !sourceVerification?.matches ||
+                          !imageMetadata ||
+                          !targetVerification?.matches ||
+                          (plan.source_identity?.source_kind === "file_sha256" && !packageTrust?.verified_for_use)
+                        }
+                      >
+                        Assess Restore Hardware Preflight
+                      </button>
+                    </div>
+                  )}
+                  {restoreHardwarePreflight && (
+                    <div className={restoreHardwarePreflight.ready_to_capture_hardware_rollback_evidence ? "good-list" : "warning-box"}>
+                      <strong>
+                        {restoreHardwarePreflight.ready_to_capture_hardware_rollback_evidence
+                          ? "Software gates passed — hardware evidence is next"
+                          : "Restore preflight blocked"}
+                      </strong>
+                      <p>Executable: {restoreHardwarePreflight.executable ? "yes" : "no"}</p>
+                      <p>System mutations performed: {restoreHardwarePreflight.system_mutations_performed ? "yes" : "no"}</p>
+                      <p>Image: {restoreHardwarePreflight.image_path || "unproven"}</p>
+                      <p>Rollback contract: {restoreHardwarePreflight.rollback_contract_sha256 || "unproven"}</p>
+                      {restoreHardwarePreflight.blocked_gates.map((gate) => (
+                        <p key={gate}>Blocked: {readableToken(gate)}</p>
+                      ))}
+                      <strong>Physical evidence still required</strong>
+                      {restoreHardwarePreflight.required_hardware_evidence.map((artifact) => (
+                        <p key={artifact}>— {readableToken(artifact)}</p>
                       ))}
                     </div>
                   )}
