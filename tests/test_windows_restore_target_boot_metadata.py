@@ -6,10 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULE_PATH = (
-    ROOT
-    / "scripts"
-    / "hardware"
-    / "capture_windows_restore_target_boot_metadata.py"
+    ROOT / "scripts" / "hardware" / "capture_windows_restore_target_boot_metadata.py"
 )
 
 SPEC = importlib.util.spec_from_file_location(
@@ -75,12 +72,7 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
             efi_bcd.write_bytes(b"fixture-bcd")
 
             winre = recovery_root / "Recovery" / "WindowsRE" / "Winre.wim"
-            reagent = (
-                recovery_root
-                / "Recovery"
-                / "WindowsRE"
-                / "ReAgent.xml"
-            )
+            reagent = recovery_root / "Recovery" / "WindowsRE" / "ReAgent.xml"
             winre.parent.mkdir(parents=True)
             winre.write_bytes(b"fixture-winre")
             reagent.write_text("<fixture />", encoding="utf-8")
@@ -114,12 +106,8 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
 
             self.assertEqual([], missing)
             self.assertEqual(2, len(inventory))
-            self.assertEqual(
-                "persisted", artifacts["efi_partition_1"]["status"]
-            )
-            self.assertEqual(
-                "persisted", artifacts["winre_wim_partition_4"]["status"]
-            )
+            self.assertEqual("persisted", artifacts["efi_partition_1"]["status"])
+            self.assertEqual("persisted", artifacts["winre_wim_partition_4"]["status"])
             self.assertEqual(
                 "persisted", artifacts["winre_config_partition_4"]["status"]
             )
@@ -138,9 +126,7 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
             self.assertFalse(receipt["restore_unlock_ready"])
             self.assertEqual(0, receipt["target_bytes_written"])
             self.assertFalse(receipt["target_write_attempted"])
-            self.assertFalse(
-                receipt["partition_mount_or_assignment_attempted"]
-            )
+            self.assertFalse(receipt["partition_mount_or_assignment_attempted"])
             self.assertFalse(receipt["system_mutations_performed"])
             self.assertEqual(64, len(receipt["receipt_sha256"]))
 
