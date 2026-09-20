@@ -79,7 +79,9 @@ class WindowsStableTargetLocatorTests(unittest.TestCase):
         duplicate = dict(first)
         duplicate["Number"] = 9
 
-        result = stable_target_locator.normalize_candidates([first, duplicate], expected)
+        result = stable_target_locator.normalize_candidates(
+            [first, duplicate], expected
+        )
 
         self.assertFalse(result["unique_match"])
         self.assertTrue(result["ambiguous"])
