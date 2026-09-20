@@ -159,6 +159,52 @@ jobs:
           print("DRIVE_EVIDENCE_FIXTURE=pass")
           PY
 
+      - name: Generate deterministic re-enumeration comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          source = Path("tests/fixtures/windows_disk_usb.json")
+          fixture = json.loads(source.read_text(encoding="utf-8"))
+          fixture["Number"] = 7
+          Path("evidence-output/windows-disk-usb-renumbered.json").write_text(
+              json.dumps(fixture, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          python scripts/hardware/capture_windows_drive_evidence.py \
+            --target '\\.\PHYSICALDRIVE7' \
+            --fixture-json evidence-output/windows-disk-usb-renumbered.json \
+            --output evidence-output/windows-disk-fixture-renumbered.json \
+            --source-commit "$GITHUB_SHA" \
+            > evidence-output/renumbered-stdout.json
+          python scripts/hardware/compare_windows_drive_reenumeration.py \
+            --before evidence-output/windows-disk-fixture.json \
+            --after evidence-output/windows-disk-fixture-renumbered.json \
+            --output evidence-output/windows-disk-reenumeration-comparison.json \
+            > evidence-output/comparison-stdout.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          comparison = json.loads(
+              Path("evidence-output/windows-disk-reenumeration-comparison.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          assert comparison["classification"] == "same-hardware-reenumerated"
+          assert comparison["same_hardware"] is True
+          assert comparison["stable_identity_matches"] is True
+          assert comparison["snapshot_identity_matches"] is False
+          assert comparison["stale_authorization_reusable"] is False
+          assert comparison["fresh_snapshot_authorization_required"] is True
+          assert comparison["system_mutations_performed"] is False
+          print("DRIVE_REENUMERATION_FIXTURE=pass")
+          PY
+
       - name: Upload fixture receipt
         if: always()
         uses: actions/upload-artifact@v4
