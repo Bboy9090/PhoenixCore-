@@ -91,6 +91,51 @@ class WindowsSourceDiskResolutionTests(unittest.TestCase):
             "source-and-target-same-physical-device", result["block_reason"]
         )
 
+    def test_same_stable_hardware_is_blocked_after_disk_renumbering(self):
+        source = windows_source_disk_resolution.normalize_source_disk_record(
+            source_path=r"E:\\image.wim",
+            drive_letter="E",
+            disk_number=7,
+            partition_number=1,
+            serial_number="SERIAL-123",
+            unique_id="UNIQUE-123",
+            bus_type="USB",
+            size_bytes=64_000,
+        )
+        result = windows_source_disk_resolution.compare_source_and_target(
+            source,
+            r"\\.\PHYSICALDRIVE9",
+            source["stable_identity_sha256"],
+        )
+        self.assertTrue(result["blocked"])
+        self.assertFalse(result["source_target_distinct"])
+        self.assertTrue(result["path_distinct"])
+        self.assertTrue(result["stable_identity_proven"])
+        self.assertFalse(result["stable_identity_distinct"])
+        self.assertEqual(
+            "source-and-target-same-physical-device",
+            result["block_reason"],
+        )
+
+    def test_requested_stable_proof_fails_closed_when_source_identity_missing(self):
+        source = windows_source_disk_resolution.normalize_source_disk_record(
+            source_path=r"E:\\image.wim",
+            drive_letter="E",
+            disk_number=7,
+            partition_number=1,
+        )
+        result = windows_source_disk_resolution.compare_source_and_target(
+            source,
+            r"\\.\PHYSICALDRIVE8",
+            "a" * 64,
+        )
+        self.assertTrue(result["blocked"])
+        self.assertFalse(result["stable_identity_proven"])
+        self.assertEqual(
+            "stable-source-target-identity-not-proven",
+            result["block_reason"],
+        )
+
     def test_different_physical_device_is_allowed_by_collision_check(self):
         record = windows_source_disk_resolution.normalize_source_disk_record(
             source_path=r"E:\image.wim",
