@@ -160,6 +160,18 @@ jobs:
           shasum -a 256 "$PKG" > "$RUNNER_TEMP/MAC_APP_STORE_SHA256.txt"
           echo "PKG_PATH=$PKG" >> "$GITHUB_ENV"
 
+      - name: Emit Mac App Store provenance receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          node ../../scripts/release/emit-release-provenance.mjs \
+            --product phoenix-key \
+            --channel mac-app-store \
+            --version "${{ inputs.version || '3.2.0' }}" \
+            --source-commit "${{ github.sha }}" \
+            --artifact "$PKG_PATH" \
+            --output "$RUNNER_TEMP/MAC-APP-STORE-RELEASE-PROVENANCE.json"
+
       - name: Upload Mac App Store package artifact
         uses: actions/upload-artifact@v4
         with:
@@ -168,6 +180,8 @@ jobs:
             ${{ runner.temp }}/Phoenix-Key-*.pkg
             ${{ runner.temp }}/MAC_APP_STORE_SHA256.txt
             ${{ runner.temp }}/effective-entitlements.plist
+            ${{ runner.temp }}/MAC-APP-STORE-RELEASE-PROVENANCE.json
+            ${{ runner.temp }}/MAC-APP-STORE-RELEASE-PROVENANCE.json.sha256
           if-no-files-found: error
           retention-days: 30
 
