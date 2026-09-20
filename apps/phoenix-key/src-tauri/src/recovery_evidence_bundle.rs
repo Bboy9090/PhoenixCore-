@@ -411,6 +411,7 @@ mod tests {
     use crate::restore_preflight::assess_restore_hardware_preflight;
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
     use crate::source_identity::identity_bound_plan_sha256;
+    use crate::target_reenumeration::compare_recovery_target_reenumeration;
     use serde_json::{json, Value};
 
     fn software_evidence() -> Value {
@@ -535,24 +536,20 @@ mod tests {
     #[test]
     fn reenumeration_that_requires_reanalysis_cannot_complete_hardware_chain() {
         let mut evidence = software_evidence();
-        evidence["target_reenumeration_receipt"] = json!({
-            "schema": "phoenix_key.recovery_target_reenumeration_receipt.v1",
-            "expected_target": "\\\\.\\PHYSICALDRIVE7",
-            "observed_target": "\\\\.\\PHYSICALDRIVE9",
-            "expected_snapshot_identity_sha256": "b".repeat(64),
-            "observed_snapshot_identity_sha256": "f".repeat(64),
-            "expected_stable_identity_sha256": "c".repeat(64),
-            "observed_stable_identity_sha256": "c".repeat(64),
-            "same_stable_hardware": true,
-            "snapshot_changed": true,
-            "target_path_changed": true,
-            "stale_authorization_rejected": true,
-            "reanalysis_required": true,
-            "substitution_detected": false,
-            "classification": "same_hardware_reenumerated",
-            "system_mutations_performed": false,
-            "receipt_sha256": "0".repeat(64)
-        });
+        let receipt = compare_recovery_target_reenumeration(
+            &json!({
+                "disk": {
+                    "target": "\\\\.\\PHYSICALDRIVE9",
+                    "identity_sha256": "f".repeat(64),
+                    "stable_identity_sha256": "c".repeat(64)
+                }
+            }),
+            Some("\\\\.\\PHYSICALDRIVE7"),
+            &"b".repeat(64),
+            &"c".repeat(64),
+        );
+        evidence["target_reenumeration_receipt"] =
+            serde_json::to_value(receipt).unwrap();
         let bundle = build_recovery_evidence_bundle_v2(&evidence);
         assert!(!bundle.hardware_chain_complete);
         assert!(bundle
