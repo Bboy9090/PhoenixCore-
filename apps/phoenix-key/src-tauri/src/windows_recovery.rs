@@ -62,6 +62,38 @@ pub struct RecoveryExecutionBoundary {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RecoverySourceContract {
+    pub source_kind: String,
+    pub restore_candidate: bool,
+    pub content_identity_required: bool,
+    pub metadata_validation_required: bool,
+    pub complete_split_set_required: bool,
+    pub oversized_fat32_remediation_required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RecoveryBootContract {
+    pub boot_mode: &'static str,
+    pub efi_files_required: bool,
+    pub bcd_required: bool,
+    pub partition_manifest_required: bool,
+    pub expected_boot_files: Vec<String>,
+    pub expected_partition_roles: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RecoveryDryRunSummary {
+    pub source_ready_for_planning: bool,
+    pub target_selected: bool,
+    pub target_identity_verified: bool,
+    pub rollback_evidence_persisted: bool,
+    pub destructive_authorization_present: bool,
+    pub mutation_steps_planned: usize,
+    pub mutation_steps_executed: usize,
+    pub executable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct WindowsRecoveryPlan {
     pub schema: &'static str,
     pub source: WindowsBackupAnalysis,
@@ -76,6 +108,11 @@ pub struct WindowsRecoveryPlan {
     pub proposed_actions: Vec<RecoveryPlanAction>,
     pub target_contract: RecoveryTargetContract,
     pub execution_boundary: RecoveryExecutionBoundary,
+    pub source_contract: RecoverySourceContract,
+    pub boot_contract: RecoveryBootContract,
+    pub remediation_required: Vec<String>,
+    pub block_reasons: Vec<String>,
+    pub dry_run_summary: RecoveryDryRunSummary,
     pub next_steps: Vec<String>,
     pub dry_run: bool,
     pub destructive_actions_performed: bool,
@@ -562,8 +599,50 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
         "blocked_source_not_verified"
     };
 
+    let mut remediation_required = Vec::new();
+    if source.has_install_esd {
+        remediation_required.push(
+            "ESD sources must remain intact; Phoenix Key will not invent an unsupported ESD-to-WIM conversion."
+                .to_string(),
+        );
+    }
+    if source.has_split_wim {
+        remediation_required.push(
+            "Verify the complete contiguous SWM segment set before any media or restore workflow."
+                .to_string(),
+        );
+    }
+    if !source.restore_candidate {
+        remediation_required.push(
+            "Resolve source verification warnings before target selection is allowed.".to_string(),
+        );
+    }
+
+    let mut block_reasons = vec![
+        "restore_executor_not_available".to_string(),
+        "target_not_selected".to_string(),
+        "target_identity_not_verified".to_string(),
+        "rollback_evidence_not_persisted".to_string(),
+        "destructive_authorization_not_present".to_string(),
+    ];
+    if !source.restore_candidate {
+        block_reasons.push("source_not_verified_for_restore".to_string());
+    }
+
+    let expected_boot_files = if source.has_efi || source.has_bcd {
+        vec![
+            r"EFI\Microsoft\Boot\bootmgfw.efi".to_string(),
+            r"EFI\Microsoft\Boot\BCD".to_string(),
+        ]
+    } else {
+        vec![
+            r"EFI\Microsoft\Boot\bootmgfw.efi".to_string(),
+            r"EFI\Boot\bootx64.efi".to_string(),
+        ]
+    };
+
     Ok(WindowsRecoveryPlan {
-        schema: "phoenix_key.windows_recovery_plan.v3",
+        schema: "phoenix_key.windows_recovery_plan.v4",
         source,
         host_arch,
         host_os,
@@ -635,6 +714,38 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
             destructive_authorization_required: true,
             automatic_destructive_resume_allowed: false,
             system_mutations_performed: false,
+        },
+        source_contract: RecoverySourceContract {
+            source_kind: source.kind.clone(),
+            restore_candidate: source.restore_candidate,
+            content_identity_required: true,
+            metadata_validation_required: true,
+            complete_split_set_required: source.has_split_wim,
+            oversized_fat32_remediation_required: source.has_install_wim,
+        },
+        boot_contract: RecoveryBootContract {
+            boot_mode: "uefi",
+            efi_files_required: true,
+            bcd_required: true,
+            partition_manifest_required: true,
+            expected_boot_files,
+            expected_partition_roles: vec![
+                "efi_system_partition".to_string(),
+                "windows_os_partition".to_string(),
+                "recovery_partition_if_present".to_string(),
+            ],
+        },
+        remediation_required,
+        block_reasons,
+        dry_run_summary: RecoveryDryRunSummary {
+            source_ready_for_planning: source.restore_candidate,
+            target_selected: false,
+            target_identity_verified: false,
+            rollback_evidence_persisted: false,
+            destructive_authorization_present: false,
+            mutation_steps_planned: 1,
+            mutation_steps_executed: 0,
+            executable: false,
         },
         next_steps,
         dry_run: true,
@@ -797,12 +908,24 @@ mod tests {
             .required_gates
             .contains(&"target_not_source".to_string()));
         assert!(!plan.host_route.is_empty());
-        assert_eq!(plan.schema, "phoenix_key.windows_recovery_plan.v3");
+        assert_eq!(plan.schema, "phoenix_key.windows_recovery_plan.v4");
         assert!(plan.target_contract.stable_identity_required);
         assert!(plan.target_contract.fresh_revalidation_required);
         assert!(plan.execution_boundary.planner_only);
         assert!(!plan.execution_boundary.restore_executor_available);
         assert!(!plan.execution_boundary.automatic_destructive_resume_allowed);
+        assert!(plan.source_contract.content_identity_required);
+        assert!(plan.source_contract.metadata_validation_required);
+        assert_eq!(plan.boot_contract.boot_mode, "uefi");
+        assert!(plan.boot_contract.efi_files_required);
+        assert!(plan.boot_contract.bcd_required);
+        assert!(!plan.dry_run_summary.executable);
+        assert_eq!(plan.dry_run_summary.mutation_steps_planned, 1);
+        assert_eq!(plan.dry_run_summary.mutation_steps_executed, 0);
+        assert!(plan.block_reasons.contains(&"target_not_selected".to_string()));
+        assert!(plan
+            .block_reasons
+            .contains(&"restore_executor_not_available".to_string()));
         let restore = plan
             .proposed_actions
             .iter()
