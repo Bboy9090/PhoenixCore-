@@ -40,6 +40,8 @@ jobs:
       - run: npm ci
       - run: npm run check:boundaries
       - run: npm run test:artifact-receipt
+      - name: Verify release workflow signing boundaries
+        run: node ../../scripts/release/check-release-workflow-boundaries.mjs
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
   build-sign-release:
