@@ -22,6 +22,14 @@ function requireAbsent(source, needle, message) {
   if (source.includes(needle)) throw new Error(message);
 }
 
+function requireBefore(source, first, second, message) {
+  const firstIndex = source.indexOf(first);
+  const secondIndex = source.indexOf(second);
+  if (firstIndex < 0 || secondIndex < 0 || firstIndex >= secondIndex) {
+    throw new Error(message);
+  }
+}
+
 for (const path of Object.values(workflows)) {
   const source = text(path);
   requireContains(
@@ -46,6 +54,38 @@ requireContains(
   windowsDirect,
   "permissions:\n  contents: read",
   "Windows direct workflow must default to read-only repository permissions",
+);
+requireContains(
+  windowsDirect,
+  "Import-PfxCertificate",
+  "Windows direct workflow must import the signing certificate before Tauri bundles the app",
+);
+requireContains(
+  windowsDirect,
+  'certificateThumbprint = $certificate.Thumbprint',
+  "Windows direct workflow must pass the imported certificate thumbprint to Tauri",
+);
+requireContains(
+  windowsDirect,
+  'npx tauri build --config "$env:TAURI_WINDOWS_SIGNING_CONFIG"',
+  "Windows direct workflow must use Tauri signing during the application build",
+);
+requireContains(
+  windowsDirect,
+  'Get-Item "src-tauri/target/release/phoenix-key.exe"',
+  "Windows direct workflow must verify the signed application executable, not only installers",
+);
+requireBefore(
+  windowsDirect,
+  "- name: Restore and import code-signing certificate",
+  "- name: Build signed application and release installers",
+  "Windows signing certificate import must happen before Tauri build",
+);
+requireBefore(
+  windowsDirect,
+  "- name: Build signed application and release installers",
+  "- name: Verify application and installer Authenticode",
+  "Windows application and installers must be verified after the signed build",
 );
 
 const macDirect = text(workflows.macDirect);
