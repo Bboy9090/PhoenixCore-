@@ -16,7 +16,7 @@ const workflows = {
 };
 
 function text(path) {
-  return readFileSync(resolve(repositoryRoot, path), "utf8");
+  return readFileSync(resolve(repositoryRoot, path), "utf8").replace(/\r\n/g, "\n");
 }
 
 function requireContains(source, needle, message) {
