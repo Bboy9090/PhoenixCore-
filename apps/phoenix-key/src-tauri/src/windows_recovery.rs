@@ -29,6 +29,7 @@ pub struct WindowsBackupAnalysis {
     pub has_setup_exe: bool,
     pub has_windows_image_backup: bool,
     pub system_image_files: Vec<String>,
+    pub metadata_image_files: Vec<String>,
     pub restore_candidate: bool,
     pub destructive_actions_performed: bool,
     pub warnings: Vec<String>,
@@ -354,6 +355,74 @@ fn detect_directory(path: &Path) -> WindowsBackupAnalysis {
     let has_windows_image_backup = !system_image.image_files.is_empty()
         || !system_image.structure_markers.is_empty();
 
+    let mut metadata_image_files = system_image.image_files.clone();
+    if has_install_wim {
+        if safe_descendant_is_file(path, "sources/install.wim") {
+            push_unique(&mut metadata_image_files, "sources/install.wim");
+        } else if safe_descendant_is_file(path, "Sources/install.wim") {
+            push_unique(&mut metadata_image_files, "Sources/install.wim");
+        }
+    }
+    if has_install_esd {
+        if safe_descendant_is_file(path, "sources/install.esd") {
+            push_unique(&mut metadata_image_files, "sources/install.esd");
+        } else if safe_descendant_is_file(path, "Sources/install.esd") {
+            push_unique(&mut metadata_image_files, "Sources/install.esd");
+        }
+    }
+    if has_split_wim {
+        if let Some(sources) = ["sources", "Sources"]
+            .iter()
+            .find(|candidate| safe_descendant_is_dir(path, candidate))
+            .map(|candidate| path.join(candidate))
+        {
+            let mut segments = fs::read_dir(&sources)
+                .ok()
+                .into_iter()
+                .flatten()
+                .filter_map(Result::ok)
+                .filter_map(|entry| {
+                    let child = entry.path();
+                    let metadata = fs::symlink_metadata(&child).ok()?;
+                    if metadata_is_link_or_reparse(&metadata) || !metadata.is_file() {
+                        return None;
+                    }
+                    let extension = child.extension()?.to_str()?;
+                    if !extension.eq_ignore_ascii_case("swm") {
+                        return None;
+                    }
+                    child.strip_prefix(path).ok().map(|relative| relative.to_path_buf())
+                })
+                .collect::<Vec<_>>();
+            segments.sort_by_key(|relative| {
+                let name = relative
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default()
+                    .to_ascii_lowercase();
+                (if name == "install.swm" { 0 } else { 1 }, name)
+            });
+            if let Some(first) = segments.first() {
+                push_unique(
+                    &mut metadata_image_files,
+                    first.to_string_lossy().to_string(),
+                );
+            }
+        }
+    }
+    if has_winre {
+        for candidate in [
+            "Windows/System32/Recovery/Winre.wim",
+            "windows/system32/recovery/winre.wim",
+            "Recovery/WindowsRE/Winre.wim",
+        ] {
+            if safe_descendant_is_file(path, candidate) {
+                push_unique(&mut metadata_image_files, candidate);
+                break;
+            }
+        }
+    }
+
     let windows_image_present = has_install_wim || has_install_esd || has_split_wim;
     let system_image_restore_ready = !system_image.image_files.is_empty();
     let restore_candidate =
@@ -453,6 +522,7 @@ fn detect_directory(path: &Path) -> WindowsBackupAnalysis {
         has_setup_exe,
         has_windows_image_backup,
         system_image_files: system_image.image_files,
+        metadata_image_files,
         restore_candidate,
         destructive_actions_performed: false,
         warnings,
@@ -572,6 +642,7 @@ fn detect_file(path: &Path) -> Result<WindowsBackupAnalysis, String> {
         has_setup_exe: false,
         has_windows_image_backup: false,
         system_image_files: Vec::new(),
+        metadata_image_files: Vec::new(),
         restore_candidate,
         destructive_actions_performed: false,
         warnings,
@@ -957,6 +1028,29 @@ mod tests {
         assert!(analysis.has_efi);
         assert!(analysis.has_bcd);
         assert!(analysis.restore_candidate);
+        assert_eq!(
+            analysis.metadata_image_files,
+            vec!["sources/install.wim".to_string()]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn winre_tree_exposes_metadata_image_file() {
+        let root = temp_case("winre-metadata");
+        fs::create_dir_all(root.join("Recovery/WindowsRE")).unwrap();
+        fs::write(
+            root.join("Recovery/WindowsRE/Winre.wim"),
+            b"MSWIM\0\0\0fixture",
+        )
+        .unwrap();
+
+        let analysis = analyze_backup_path(&root).unwrap();
+        assert_eq!(analysis.kind, "windows_recovery_tree");
+        assert_eq!(
+            analysis.metadata_image_files,
+            vec!["Recovery/WindowsRE/Winre.wim".to_string()]
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -980,6 +1074,7 @@ mod tests {
         assert!(analysis.restore_candidate);
         assert_eq!(analysis.system_image_files.len(), 1);
         assert!(analysis.system_image_files[0].ends_with("system.vhdx"));
+        assert_eq!(analysis.metadata_image_files, analysis.system_image_files);
         fs::remove_dir_all(parent).unwrap();
     }
 
