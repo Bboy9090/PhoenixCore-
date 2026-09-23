@@ -20,6 +20,7 @@ type RecoveryAnalysis = {
   restore_candidate: boolean;
   has_windows_image_backup: boolean;
   system_image_files: string[];
+  metadata_image_files: string[];
   warnings: string[];
   detected_by: string[];
 };
@@ -494,6 +495,20 @@ function joinRecoveryPath(root: string, relative: string) {
   return `${cleanRoot}${separator}${cleanRelative}`;
 }
 
+function metadataImagePathForAnalysis(root: string, analysis: RecoveryAnalysis) {
+  const candidates = analysis.metadata_image_files ?? [];
+  if (candidates.length === 1) {
+    return joinRecoveryPath(root, candidates[0]);
+  }
+  if (candidates.length > 1) {
+    return "";
+  }
+  if (["wim", "esd", "vhd", "vhdx", "iso"].includes(analysis.kind)) {
+    return root;
+  }
+  return "";
+}
+
 export default function RecoveryCenter({
   distributionProfile,
 }: {
@@ -570,6 +585,7 @@ export default function RecoveryCenter({
   }, [recoveryEvidenceBundle]);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
+  void metadataImageCandidateCount;
   const sourceState = useMemo(() => {
     if (!analysis) return "Not analyzed";
     if (analysis.restore_candidate && analysis.warnings.length === 0) return "Ready to plan";
@@ -577,6 +593,8 @@ export default function RecoveryCenter({
     return "Blocked until fixed";
   }, [analysis]);
   const systemImageFiles = analysis?.system_image_files ?? [];
+  const metadataImageFiles = analysis?.metadata_image_files ?? [];
+  const metadataImageCandidateCount = metadataImageFiles.length;
 
   function resetResult(nextPath: string) {
     setSourcePath(nextPath);
@@ -714,13 +732,7 @@ export default function RecoveryCenter({
         sourcePath: sourcePath.trim(),
       });
       setAnalysis(result);
-      if (result.system_image_files.length === 1) {
-        setImagePath(joinRecoveryPath(sourcePath.trim(), result.system_image_files[0]));
-      } else if (result.system_image_files.length === 0) {
-        setImagePath(sourcePath.trim());
-      } else {
-        setImagePath("");
-      }
+      setImagePath(metadataImagePathForAnalysis(sourcePath.trim(), result));
       setMessage(
         result.restore_candidate
           ? "Analysis complete. Review what Phoenix Key found before building a plan."
@@ -744,11 +756,7 @@ export default function RecoveryCenter({
       });
       setPlan(result);
       setSourceVerification(null);
-      if (systemImageFiles.length === 1) {
-        setImagePath(joinRecoveryPath(sourcePath.trim(), systemImageFiles[0]));
-      } else if (systemImageFiles.length === 0) {
-        setImagePath(sourcePath.trim());
-      }
+      setImagePath(metadataImagePathForAnalysis(sourcePath.trim(), result.source));
       setTargetArchitecture(result.host_arch || "");
       setPackageTrust(null);
       setImageMetadata(null);
