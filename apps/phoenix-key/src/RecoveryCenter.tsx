@@ -585,7 +585,6 @@ export default function RecoveryCenter({
   }, [recoveryEvidenceBundle]);
 
   const canAnalyze = isDesktopRuntime() && sourcePath.trim().length > 0 && !busy;
-  void metadataImageCandidateCount;
   const sourceState = useMemo(() => {
     if (!analysis) return "Not analyzed";
     if (analysis.restore_candidate && analysis.warnings.length === 0) return "Ready to plan";
@@ -593,8 +592,6 @@ export default function RecoveryCenter({
     return "Blocked until fixed";
   }, [analysis]);
   const systemImageFiles = analysis?.system_image_files ?? [];
-  const metadataImageFiles = analysis?.metadata_image_files ?? [];
-  const metadataImageCandidateCount = metadataImageFiles.length;
 
   function resetResult(nextPath: string) {
     setSourcePath(nextPath);
