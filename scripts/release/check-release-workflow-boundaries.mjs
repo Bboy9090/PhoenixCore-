@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = resolve(scriptDirectory, "../..");
 
 const workflows = {
   windowsDirect: ".github/workflows/windows-signed-release.yml",
@@ -11,7 +16,7 @@ const workflows = {
 };
 
 function text(path) {
-  return readFileSync(path, "utf8");
+  return readFileSync(resolve(repositoryRoot, path), "utf8");
 }
 
 function requireContains(source, needle, message) {
