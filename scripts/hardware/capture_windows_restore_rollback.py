@@ -73,6 +73,21 @@ def require_sha256(value: str, label: str) -> str:
     return value
 
 
+def capture_evidence_source(
+    drive_receipt: dict[str, Any], *, fixture_disk_image: bool
+) -> str:
+    if fixture_disk_image:
+        return "fixture"
+    if (
+        drive_receipt.get("evidence_source") != "live"
+        or drive_receipt.get("hardware_observed") is not True
+    ):
+        raise RollbackCaptureError(
+            "Live rollback capture requires live target drive evidence."
+        )
+    return "live"
+
+
 def verify_drive_evidence(receipt: dict[str, Any]) -> dict[str, Any]:
     if receipt.get("schema_version") != DRIVE_EVIDENCE_SCHEMA:
         raise RollbackCaptureError("Drive evidence schema is unsupported.")
@@ -474,17 +489,10 @@ def main() -> int:
     if disk_size <= 0:
         raise RollbackCaptureError("Drive evidence target size is missing or invalid.")
 
-    if args.fixture_disk_image:
-        evidence_source = "fixture"
-    else:
-        if (
-            drive_evidence.get("evidence_source") != "live"
-            or drive_evidence.get("hardware_observed") is not True
-        ):
-            raise RollbackCaptureError(
-                "Live rollback capture requires live target drive evidence."
-            )
-        evidence_source = "live"
+    evidence_source = capture_evidence_source(
+        drive_evidence,
+        fixture_disk_image=args.fixture_disk_image is not None,
+    )
 
     expected_snapshot = require_sha256(
         args.expected_target_snapshot_identity_sha256,
