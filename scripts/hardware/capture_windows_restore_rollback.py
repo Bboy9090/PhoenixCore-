@@ -318,6 +318,7 @@ def build_capture_receipt(
     rollback_contract_sha256: str,
     artifacts: dict[str, Any],
     gpt_geometry: dict[str, Any],
+    evidence_source: str = "fixture",
     captured_at: str | None = None,
 ) -> dict[str, Any]:
     disk = verify_drive_evidence(drive_evidence)
@@ -356,6 +357,9 @@ def build_capture_receipt(
         rollback_contract_sha256,
         "Rollback contract SHA-256",
     )
+
+    if evidence_source not in {"live", "fixture"}:
+        raise RollbackCaptureError("Rollback capture evidence source is invalid.")
 
     if observed_snapshot != expected_snapshot:
         raise RollbackCaptureError(
@@ -414,6 +418,8 @@ def build_capture_receipt(
     receipt = {
         "schema": SCHEMA,
         "captured_at": captured_at or utc_now_iso(),
+        "evidence_source": evidence_source,
+        "hardware_observed": evidence_source == "live",
         "target": observed_target,
         "target_snapshot_identity_sha256": observed_snapshot,
         "target_stable_identity_sha256": observed_stable,
@@ -554,6 +560,7 @@ def main() -> int:
         rollback_contract_sha256=args.rollback_contract_sha256,
         artifacts=artifacts,
         gpt_geometry=geometry,
+        evidence_source="fixture" if args.fixture_disk_image else "live",
     )
     print(json.dumps(receipt, sort_keys=True))
     return 0
