@@ -101,7 +101,9 @@ def verify_drive_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
         receipt.get("bytes_written") != 0
         or receipt.get("physical_write_attempted") is not False
     ):
-        raise HardwareCampaignError("Drive receipt does not prove read-only inspection.")
+        raise HardwareCampaignError(
+            "Drive receipt does not prove read-only inspection."
+        )
     return disk
 
 
