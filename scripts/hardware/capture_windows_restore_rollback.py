@@ -474,6 +474,18 @@ def main() -> int:
     if disk_size <= 0:
         raise RollbackCaptureError("Drive evidence target size is missing or invalid.")
 
+    if args.fixture_disk_image:
+        evidence_source = "fixture"
+    else:
+        if (
+            drive_evidence.get("evidence_source") != "live"
+            or drive_evidence.get("hardware_observed") is not True
+        ):
+            raise RollbackCaptureError(
+                "Live rollback capture requires live target drive evidence."
+            )
+        evidence_source = "live"
+
     expected_snapshot = require_sha256(
         args.expected_target_snapshot_identity_sha256,
         "Expected target snapshot identity",
@@ -560,7 +572,7 @@ def main() -> int:
         rollback_contract_sha256=args.rollback_contract_sha256,
         artifacts=artifacts,
         gpt_geometry=geometry,
-        evidence_source="fixture" if args.fixture_disk_image else "live",
+        evidence_source=evidence_source,
     )
     print(json.dumps(receipt, sort_keys=True))
     return 0
