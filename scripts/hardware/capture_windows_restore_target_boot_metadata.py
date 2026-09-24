@@ -458,6 +458,20 @@ def main() -> int:
         args.rollback_capture_receipt.read_text(encoding="utf-8")
     )
     verify_rollback_capture(rollback_capture)
+    if (
+        drive_evidence.get("evidence_source") != "live"
+        or drive_evidence.get("hardware_observed") is not True
+    ):
+        raise RestoreTargetBootMetadataError(
+            "Live boot-metadata capture requires live target drive evidence."
+        )
+    if (
+        rollback_capture.get("evidence_source") != "live"
+        or rollback_capture.get("hardware_observed") is not True
+    ):
+        raise RestoreTargetBootMetadataError(
+            "Live boot-metadata capture requires a live rollback-capture receipt."
+        )
 
     output_dir = args.output_dir.resolve()
     if output_dir.exists() and any(output_dir.iterdir()):
