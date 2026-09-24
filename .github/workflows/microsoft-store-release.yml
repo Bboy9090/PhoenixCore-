@@ -1,0 +1,180 @@
+name: Phoenix Key Microsoft Store
+
+on:
+  push:
+    branches:
+      - "store-release/phoenix-key-v*"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/phoenix-key/**"
+      - ".github/workflows/microsoft-store-release.yml"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Versioned GitHub release tag used as the Store package URL
+        required: true
+        default: phoenix-key-v3.2.0-msstore
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phoenix-key-microsoft-store-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  offline-installer-preflight:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/phoenix-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/phoenix-key/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Build Microsoft Store offline installer candidate
+        shell: pwsh
+        run: |
+          $config = @{ tauri = @{ bundle = @{ targets = @("nsis"); windows = @{ webviewInstallMode = @{ type = "offlineInstaller"; silent = $true } } } } } | ConvertTo-Json -Depth 10
+          $config | Set-Content "src-tauri/tauri.microsoft-store.conf.json" -Encoding utf8
+          npx tauri build --config src-tauri/tauri.microsoft-store.conf.json --bundles nsis
+          $exe = @(Get-ChildItem "src-tauri/target/release/bundle/nsis/*setup.exe")
+          if ($exe.Count -ne 1 -or $exe[0].Length -le 0) { throw "Expected one non-empty offline NSIS installer" }
+
+  publish:
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline-installer-preflight
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/phoenix-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/phoenix-key/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Require Microsoft Store and signing credentials
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.PHOENIX_KEY_WINDOWS_CODESIGN_PFX_B64 }}
+          PFX_PASSWORD: ${{ secrets.PHOENIX_KEY_WINDOWS_CODESIGN_PFX_PASSWORD }}
+          TENANT_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_TENANT_ID }}
+          SELLER_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_SELLER_ID }}
+          CLIENT_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.PHOENIX_KEY_MS_STORE_CLIENT_SECRET }}
+          PRODUCT_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_PRODUCT_ID }}
+          PACKAGE_JSON_B64: ${{ secrets.PHOENIX_KEY_MS_STORE_PACKAGE_JSON_B64 }}
+        run: |
+          $required = @("PFX_B64","PFX_PASSWORD","TENANT_ID","SELLER_ID","CLIENT_ID","CLIENT_SECRET","PRODUCT_ID","PACKAGE_JSON_B64")
+          foreach ($name in $required) { if ([string]::IsNullOrWhiteSpace((Get-Item "env:$name").Value)) { throw "Missing required Microsoft Store release secret: $name" } }
+
+      - run: npm ci
+
+      - name: Build Microsoft Store offline installer
+        shell: pwsh
+        run: |
+          $config = @{ tauri = @{ bundle = @{ targets = @("nsis"); windows = @{ webviewInstallMode = @{ type = "offlineInstaller"; silent = $true } } } } } | ConvertTo-Json -Depth 10
+          $config | Set-Content "src-tauri/tauri.microsoft-store.conf.json" -Encoding utf8
+          npx tauri build --config src-tauri/tauri.microsoft-store.conf.json --bundles nsis
+
+      - name: Sign and verify Microsoft Store installer
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.PHOENIX_KEY_WINDOWS_CODESIGN_PFX_B64 }}
+          PFX_PASSWORD: ${{ secrets.PHOENIX_KEY_WINDOWS_CODESIGN_PFX_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "phoenix-key-msstore.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
+          $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signTool) { throw "signtool.exe not found" }
+          $exe = @(Get-ChildItem "src-tauri/target/release/bundle/nsis/*setup.exe")
+          if ($exe.Count -ne 1) { throw "Expected exactly one NSIS installer" }
+          & $signTool.FullName sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f "$pfx" /p "$env:PFX_PASSWORD" "$($exe[0].FullName)"
+          if ($LASTEXITCODE -ne 0) { throw "Microsoft Store installer signing failed" }
+          $signature = Get-AuthenticodeSignature $exe[0].FullName
+          if ($signature.Status -ne "Valid") { throw "Microsoft Store installer signature is invalid: $($signature.Status)" }
+          $hash = Get-FileHash -Algorithm SHA256 $exe[0].FullName
+          "$($hash.Hash.ToLower())  $($exe[0].Name)" | Set-Content "src-tauri/target/release/bundle/nsis/SHA256SUMS.txt"
+          "MSSTORE_INSTALLER_NAME=$($exe[0].Name)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Emit Microsoft Store provenance receipt
+        shell: pwsh
+        run: |
+          $exe = @(Get-ChildItem "src-tauri/target/release/bundle/nsis/*setup.exe")
+          if ($exe.Count -ne 1) { throw "Expected exactly one NSIS installer" }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          node ../../scripts/release/emit-release-provenance.mjs `
+            --product phoenix-key `
+            --channel microsoft-store `
+            --version $version `
+            --source-commit "${{ github.sha }}" `
+            --artifact "$($exe[0].FullName)" `
+            --output "$env:RUNNER_TEMP/MSSTORE-RELEASE-PROVENANCE.json"
+
+      - name: Publish immutable installer URL
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag || 'phoenix-key-v3.2.0-msstore' }}
+          name: Phoenix Key ${{ inputs.release_tag || 'phoenix-key-v3.2.0-msstore' }}
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            apps/phoenix-key/src-tauri/target/release/bundle/nsis/*setup.exe
+            apps/phoenix-key/src-tauri/target/release/bundle/nsis/SHA256SUMS.txt
+            ${{ runner.temp }}/MSSTORE-RELEASE-PROVENANCE.json
+            ${{ runner.temp }}/MSSTORE-RELEASE-PROVENANCE.json.sha256
+
+      - name: Prepare Partner Center package JSON
+        shell: pwsh
+        env:
+          PACKAGE_JSON_B64: ${{ secrets.PHOENIX_KEY_MS_STORE_PACKAGE_JSON_B64 }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'phoenix-key-v3.2.0-msstore' }}
+        run: |
+          $templateBytes = [Convert]::FromBase64String($env:PACKAGE_JSON_B64)
+          $template = [Text.Encoding]::UTF8.GetString($templateBytes)
+          $placeholder = "__PHOENIX_KEY_PACKAGE_URL__"
+          $count = ([regex]::Matches($template, [regex]::Escape($placeholder))).Count
+          if ($count -ne 1) { throw "Microsoft Store package template must contain __PHOENIX_KEY_PACKAGE_URL__ exactly once" }
+          $url = "https://github.com/${{ github.repository }}/releases/download/$env:RELEASE_TAG/$env:MSSTORE_INSTALLER_NAME"
+          $package = $template.Replace($placeholder, $url)
+          $package | ConvertFrom-Json | Out-Null
+          $package | Set-Content "$env:RUNNER_TEMP/msstore-package.json" -Encoding utf8
+          "MSSTORE_PACKAGE_URL=$url" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Configure Microsoft Store Developer CLI
+        uses: microsoft/microsoft-store-apppublisher@v1.1
+
+      - name: Authenticate Microsoft Store CLI
+        shell: pwsh
+        env:
+          TENANT_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_TENANT_ID }}
+          SELLER_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_SELLER_ID }}
+          CLIENT_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.PHOENIX_KEY_MS_STORE_CLIENT_SECRET }}
+        run: |
+          msstore reconfigure --tenantId "$env:TENANT_ID" --sellerId "$env:SELLER_ID" --clientId "$env:CLIENT_ID" --clientSecret "$env:CLIENT_SECRET"
+
+      - name: Update Microsoft Store package and publish submission
+        shell: pwsh
+        env:
+          PRODUCT_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_PRODUCT_ID }}
+        run: |
+          $package = Get-Content -Raw "$env:RUNNER_TEMP/msstore-package.json"
+          msstore submission update "$env:PRODUCT_ID" $package
+          if ($LASTEXITCODE -ne 0) { throw "Microsoft Store package update failed" }
+          msstore submission publish "$env:PRODUCT_ID"
+          if ($LASTEXITCODE -ne 0) { throw "Microsoft Store submission publish failed" }
+          msstore submission poll "$env:PRODUCT_ID"

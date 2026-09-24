@@ -4,6 +4,11 @@ version = "3.2.0"
 edition = "2021"
 description = "Phoenix Key guarded recovery-media writer and device interface"
 license = "MIT OR Apache-2.0"
+default-run = "phoenix-key"
+
+[[bin]]
+name = "phoenix-key"
+path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
@@ -12,7 +17,9 @@ tauri-build = { version = "1.5", features = [] }
 libbootforge = { git = "https://github.com/Bboy9090/Bootforge-usb", rev = "7b4b4dded69945df78b50933f052046a093d8a89" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tauri = { version = "1.5", features = [] }
+sha2 = "0.10"
+tauri = { version = "1.5", features = ["dialog-open"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+store-safe = []

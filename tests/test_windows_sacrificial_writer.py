@@ -34,6 +34,30 @@ class ShortWriteBuffer(io.BytesIO):
         return super().write(data[:-1])
 
 
+class UnplugAfterFirstWrite(io.BytesIO):
+    def __init__(self, initial_bytes: bytes):
+        super().__init__(initial_bytes)
+        self._writes = 0
+
+    def write(self, data):
+        if self._writes > 0:
+            raise OSError("simulated device removal")
+        self._writes += 1
+        return super().write(data)
+
+
+class EnospcAfterFirstWrite(io.BytesIO):
+    def __init__(self, initial_bytes: bytes):
+        super().__init__(initial_bytes)
+        self._writes = 0
+
+    def write(self, data):
+        if self._writes > 0:
+            raise OSError(28, "No space left on device")
+        self._writes += 1
+        return super().write(data)
+
+
 class WindowsSacrificialWriterTests(unittest.TestCase):
     def setUp(self):
         fixture_path = Path(__file__).parent / "fixtures" / "windows_disk_usb.json"
@@ -46,10 +70,13 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
             source_commit="a" * 40,
             captured_at="2026-07-24T02:00:00Z",
         )
-        self.authorization = writer.expected_authorization(
+
+    def _authorization_for(self, image):
+        return writer.expected_authorization(
             self.target,
             self.evidence["disk"]["identity_sha256"],
             self.evidence["disk"]["size_bytes"],
+            writer.file_sha256(image),
         )
 
     def _write_receipt(self, directory: str, receipt=None) -> Path:
@@ -63,6 +90,21 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
     def _query_disk(self, number):
         self.assertEqual(1, number)
         return dict(self.raw_disk)
+
+    def _resolve_source_disk(self, source_path):
+        self.assertTrue(source_path)
+        return {
+            "schema": "phoenix_key.windows_source_disk.v2",
+            "source_path": source_path,
+            "drive_letter": "E",
+            "disk_number": 2,
+            "partition_number": 1,
+            "physical_target": r"\\.\PHYSICALDRIVE2",
+            "stable_identity_sha256": "c" * 64,
+            "stable_identity_available": True,
+            "resolved": True,
+            "read_only": True,
+        }
 
     def test_live_receipt_loads_and_fixture_receipt_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -100,12 +142,13 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 evidence=self.evidence,
                 image_path=image,
                 target=self.target,
-                authorization=self.authorization,
+                authorization=self._authorization_for(image),
                 source_commit="c" * 40,
                 execute=True,
                 environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
                 admin=True,
                 query_disk=self._query_disk,
+                resolve_source_disk=self._resolve_source_disk,
             )
 
             self.assertEqual(image.stat().st_size, plan["byte_cap"])
@@ -115,6 +158,11 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 self.evidence["disk"]["identity_sha256"],
                 plan["identity_sha256"],
             )
+            self.assertEqual(
+                self.evidence["disk"]["stable_identity_sha256"],
+                plan["target_stable_identity_sha256"],
+            )
+            self.assertEqual("c" * 64, plan["source_stable_identity_sha256"])
 
     def test_request_rejects_missing_unlock(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -125,12 +173,13 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     evidence=self.evidence,
                     image_path=image,
                     target=self.target,
-                    authorization=self.authorization,
+                    authorization=self._authorization_for(image),
                     source_commit="d" * 40,
                     execute=True,
                     environment={},
                     admin=True,
                     query_disk=self._query_disk,
+                    resolve_source_disk=self._resolve_source_disk,
                 )
 
     def test_request_rejects_wrong_authorization_and_missing_execute(self):
@@ -145,6 +194,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 "environment": {writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
                 "admin": True,
                 "query_disk": self._query_disk,
+                "resolve_source_disk": self._resolve_source_disk,
             }
             with self.assertRaisesRegex(writer.WriteGateError, "authorization"):
                 writer.validate_write_request(
@@ -154,9 +204,60 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 )
             with self.assertRaisesRegex(writer.WriteGateError, "--execute"):
                 writer.validate_write_request(
-                    authorization=self.authorization,
+                    authorization=self._authorization_for(image),
                     execute=False,
                     **common,
+                )
+
+    def test_request_rejects_source_target_collision(self):
+        def same_disk(source_path):
+            record = self._resolve_source_disk(source_path)
+            record["disk_number"] = 1
+            record["physical_target"] = self.target
+            return record
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"x")
+            with self.assertRaisesRegex(writer.WriteGateError, "same physical device"):
+                writer.validate_write_request(
+                    evidence=self.evidence,
+                    image_path=image,
+                    target=self.target,
+                    authorization=self._authorization_for(image),
+                    source_commit="9" * 40,
+                    execute=True,
+                    environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                    admin=True,
+                    query_disk=self._query_disk,
+                    resolve_source_disk=same_disk,
+                )
+
+    def test_request_rejects_same_hardware_after_disk_renumbering(self):
+        def renumbered_same_hardware(source_path):
+            record = self._resolve_source_disk(source_path)
+            record["disk_number"] = 9
+            record["physical_target"] = r"\\.\PHYSICALDRIVE9"
+            record["stable_identity_sha256"] = self.evidence["disk"][
+                "stable_identity_sha256"
+            ]
+            return record
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"x")
+            with self.assertRaisesRegex(writer.WriteGateError, "same physical device"):
+                writer.validate_write_request(
+                    evidence=self.evidence,
+                    image_path=image,
+                    target=self.target,
+                    authorization=self._authorization_for(image),
+                    source_commit="6" * 40,
+                    execute=True,
+                    environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                    admin=True,
+                    query_disk=self._query_disk,
+                    resolve_source_disk=renumbered_same_hardware,
                 )
 
     def test_request_rejects_identity_drift(self):
@@ -173,12 +274,100 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     evidence=self.evidence,
                     image_path=image,
                     target=self.target,
-                    authorization=self.authorization,
+                    authorization=self._authorization_for(image),
                     source_commit="f" * 40,
                     execute=True,
                     environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
                     admin=True,
                     query_disk=drifted_query,
+                    resolve_source_disk=self._resolve_source_disk,
+                )
+
+    def test_prewrite_recheck_rejects_source_byte_mutation(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"original-source")
+            plan = writer.validate_write_request(
+                evidence=self.evidence,
+                image_path=image,
+                target=self.target,
+                authorization=self._authorization_for(image),
+                source_commit="7" * 40,
+                execute=True,
+                environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                admin=True,
+                query_disk=self._query_disk,
+                resolve_source_disk=self._resolve_source_disk,
+            )
+            image.write_bytes(b"mutated-source!")
+            with self.assertRaisesRegex(writer.WriteGateError, "SHA-256 changed"):
+                writer.revalidate_source_before_raw_open(
+                    plan=plan,
+                    image_path=image,
+                    resolve_source_disk=self._resolve_source_disk,
+                )
+
+    def test_prewrite_recheck_rejects_source_device_change(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"stable-source")
+            plan = writer.validate_write_request(
+                evidence=self.evidence,
+                image_path=image,
+                target=self.target,
+                authorization=self._authorization_for(image),
+                source_commit="8" * 40,
+                execute=True,
+                environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                admin=True,
+                query_disk=self._query_disk,
+                resolve_source_disk=self._resolve_source_disk,
+            )
+
+            def moved_source(source_path):
+                record = self._resolve_source_disk(source_path)
+                record["disk_number"] = 3
+                record["physical_target"] = r"\\.\PHYSICALDRIVE3"
+                return record
+
+            with self.assertRaisesRegex(
+                writer.WriteGateError, "physical device changed"
+            ):
+                writer.revalidate_source_before_raw_open(
+                    plan=plan,
+                    image_path=image,
+                    resolve_source_disk=moved_source,
+                )
+
+    def test_prewrite_recheck_rejects_source_stable_identity_change(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"stable-source")
+            plan = writer.validate_write_request(
+                evidence=self.evidence,
+                image_path=image,
+                target=self.target,
+                authorization=self._authorization_for(image),
+                source_commit="5" * 40,
+                execute=True,
+                environment={writer.UNLOCK_ENV: writer.UNLOCK_VALUE},
+                admin=True,
+                query_disk=self._query_disk,
+                resolve_source_disk=self._resolve_source_disk,
+            )
+
+            def substituted_source(source_path):
+                record = self._resolve_source_disk(source_path)
+                record["stable_identity_sha256"] = "d" * 64
+                return record
+
+            with self.assertRaisesRegex(
+                writer.WriteGateError, "stable hardware identity changed"
+            ):
+                writer.revalidate_source_before_raw_open(
+                    plan=plan,
+                    image_path=image,
+                    resolve_source_disk=substituted_source,
                 )
 
     def test_file_backed_write_and_full_readback_pass(self):
@@ -223,6 +412,91 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     byte_cap=10,
                     chunk_size=10,
                 )
+
+    def test_unplug_failure_is_nonresumable_and_receipted(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"0123456789")
+            with self.assertRaises(writer.WriteInterruptedError) as caught:
+                writer.write_and_verify(
+                    image_path=image,
+                    target_stream=UnplugAfterFirstWrite(b"\x00" * 32),
+                    byte_cap=10,
+                    chunk_size=4,
+                )
+
+            self.assertEqual("target-write", caught.exception.stage)
+            self.assertEqual(4, caught.exception.bytes_written)
+
+            plan = {
+                "source_commit": "8" * 40,
+                "target": self.target,
+                "identity_sha256": self.evidence["disk"]["identity_sha256"],
+                "target_size_bytes": self.evidence["disk"]["size_bytes"],
+                "source_physical_target": r"\\.\PHYSICALDRIVE2",
+                "source_target_distinct": True,
+                "image_path": str(image),
+                "image_size_bytes": 10,
+                "image_sha256": writer.file_sha256(image),
+                "byte_cap": 10,
+            }
+            receipt = writer.build_failure_result(
+                plan=plan,
+                error=caught.exception,
+                started_at="2026-09-17T22:10:00Z",
+                failed_at="2026-09-17T22:10:01Z",
+            )
+            self.assertEqual("hardware-write-interrupted", receipt["classification"])
+            self.assertEqual("target-write", receipt["failure_stage"])
+            self.assertEqual(4, receipt["bytes_written"])
+            self.assertFalse(receipt["resume_allowed"])
+            self.assertTrue(receipt["restart_requires_fresh_source_identity"])
+            self.assertTrue(receipt["restart_requires_fresh_target_identity"])
+            self.assertFalse(receipt["verification_passed"])
+            self.assertEqual(64, len(receipt["receipt_sha256"]))
+
+    def test_enospc_failure_is_nonresumable_and_receipted(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"0123456789")
+            with self.assertRaises(writer.WriteInterruptedError) as caught:
+                writer.write_and_verify(
+                    image_path=image,
+                    target_stream=EnospcAfterFirstWrite(b"\x00" * 32),
+                    byte_cap=10,
+                    chunk_size=4,
+                )
+
+            self.assertEqual("target-write", caught.exception.stage)
+            self.assertIn("No space left", str(caught.exception))
+            plan = {
+                "source_commit": "9" * 40,
+                "target": self.target,
+                "identity_sha256": self.evidence["disk"]["identity_sha256"],
+                "target_size_bytes": self.evidence["disk"]["size_bytes"],
+                "source_physical_target": r"\\.\PHYSICALDRIVE2",
+                "source_target_distinct": True,
+                "prewrite_source_recheck": {"source_sha256": writer.file_sha256(image)},
+                "prewrite_target_recheck": {
+                    "identity_sha256": self.evidence["disk"]["identity_sha256"]
+                },
+                "image_path": str(image),
+                "image_size_bytes": 10,
+                "image_sha256": writer.file_sha256(image),
+                "byte_cap": 10,
+            }
+            receipt = writer.build_failure_result(
+                plan=plan,
+                error=caught.exception,
+                started_at="2026-09-19T14:00:00Z",
+                failed_at="2026-09-19T14:00:01Z",
+            )
+            self.assertEqual("hardware-write-interrupted", receipt["classification"])
+            self.assertFalse(receipt["resume_allowed"])
+            self.assertEqual("target-write", receipt["failure_stage"])
+            self.assertIn("No space left", receipt["error"])
+            self.assertIsNotNone(receipt["prewrite_source_recheck"])
+            self.assertIsNotNone(receipt["prewrite_target_recheck"])
 
     def test_success_receipt_requires_boot_test_next(self):
         plan = {

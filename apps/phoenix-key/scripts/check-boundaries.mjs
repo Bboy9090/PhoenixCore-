@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 
-const ui = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
-const rust = readFileSync(new URL("../src-tauri/src/main.rs", import.meta.url), "utf8");
-const evidence = readFileSync(new URL("../../../scripts/hardware/capture_windows_drive_evidence.py", import.meta.url), "utf8");
-const writer = readFileSync(new URL("../../../scripts/hardware/write_windows_sacrificial_drive.py", import.meta.url), "utf8");
+const normalizeNewlines = (value) => value.replace(/\r\n/g, "\n");
+
+const ui = normalizeNewlines(readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8"));
+const rust = normalizeNewlines(readFileSync(new URL("../src-tauri/src/main.rs", import.meta.url), "utf8"));
+const evidence = normalizeNewlines(readFileSync(new URL("../../../scripts/hardware/capture_windows_drive_evidence.py", import.meta.url), "utf8"));
+const writer = normalizeNewlines(readFileSync(new URL("../../../scripts/hardware/write_windows_sacrificial_drive.py", import.meta.url), "utf8"));
 const tauri = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
 
 const failures = [];
@@ -18,6 +20,43 @@ if (!rust.includes("plan_media_build")) failures.push("PhoenixCore dry-run plann
 if (!rust.includes("--plan-write")) failures.push("media planner does not use PhoenixCore dry-run contract");
 if (!rust.includes("prepare_media_write")) failures.push("safe-device write preparation is not wired");
 if (!rust.includes("execute_media_write")) failures.push("safe-device physical writer is not wired");
+const storeSafeStart = rust.indexOf('#[cfg(feature = "store-safe")]\n    let builder = builder.invoke_handler');
+const directStart = rust.indexOf('#[cfg(not(feature = "store-safe"))]\n    let builder = builder.invoke_handler');
+if (storeSafeStart === -1 || directStart === -1 || directStart <= storeSafeStart) {
+  failures.push("store-safe and direct Tauri command surfaces are not separated");
+} else {
+  const storeSafeSurface = rust.slice(storeSafeStart, directStart);
+  for (const forbidden of [
+    "scan_connected_devices",
+    "scan_media_targets",
+    "prepare_media_write",
+    "execute_media_write",
+    "inspect_recovery_target_safety",
+    "verify_windows_recovery_target_identity",
+    "acquire_google_drive_picker_recovery",
+    "capture_windows_recovery_baseline",
+    "persist_windows_recovery_rollback_bundle",
+  ]) {
+    if (storeSafeSurface.includes(forbidden)) {
+      failures.push(`store-safe Tauri command surface exposes ${forbidden}`);
+    }
+  }
+  for (const required of [
+    "distribution_profile",
+    "analyze_windows_recovery_source",
+    "plan_windows_recovery_source",
+  ]) {
+    if (!storeSafeSurface.includes(required)) {
+      failures.push(`store-safe Tauri command surface is missing ${required}`);
+    }
+  }
+}
+if (!rust.includes('#[cfg(not(feature = "store-safe"))]\nconst SACRIFICIAL_WRITER_SOURCE')) {
+  failures.push("store-safe builds still compile the embedded sacrificial writer source");
+}
+if (!rust.includes("verify_windows_recovery_target_identity")) {
+  failures.push("fresh recovery target identity verification command is missing");
+}
 if (!rust.includes("destructive_acknowledgement")) failures.push("backend destructive acknowledgement is missing");
 if (!evidence.includes('EXTERNAL_BUS_TYPES = {"USB", "SD", "MMC"}')) failures.push("external bus allowlist is missing");
 if (!evidence.includes('target-is-boot-disk') || !evidence.includes('target-is-system-disk')) failures.push("boot/system target blocks are missing");
@@ -29,6 +68,10 @@ if (!writer.includes("byte_cap")) failures.push("image-sized write cap is missin
 if (tauri.tauri.allowlist.all || tauri.tauri.allowlist.shell.all) failures.push("Tauri shell allowlist is open");
 if (!ui.includes("Erase, Write and Verify")) failures.push("guarded physical write action is missing");
 if (!ui.includes("authorization !== writePreparation.authorization_phrase")) failures.push("UI identity-bound authorization gate is missing");
+const recoveryUi = normalizeNewlines(readFileSync(new URL("../src/RecoveryCenter.tsx", import.meta.url), "utf8"));
+if (!recoveryUi.includes("target_stable_identity_sha256")) failures.push("Recovery Center does not expose stable target identity");
+if (!recoveryUi.includes('"verify_windows_recovery_target_identity"')) failures.push("Recovery Center fresh target revalidation is not wired");
+if (!recoveryUi.includes("Freshly Re-Verify Exact Target")) failures.push("Recovery Center revalidation action is missing");
 
 if (failures.length) {
   console.error(failures.join("\n"));

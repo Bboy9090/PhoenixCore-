@@ -8,7 +8,11 @@
   },
   "package": { "productName": "Phoenix Key", "version": "3.2.0" },
   "tauri": {
-    "allowlist": { "all": false, "shell": { "all": false, "execute": false, "open": false, "sidecar": false } },
+    "allowlist": {
+      "all": false,
+      "dialog": { "open": true, "save": false, "message": false, "ask": false, "confirm": false },
+      "shell": { "all": false, "execute": false, "open": false, "sidecar": false }
+    },
     "bundle": {
       "active": true,
       "category": "Utility",

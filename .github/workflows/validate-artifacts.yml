@@ -1,5 +1,9 @@
 name: Validate Artifacts
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ main, dev ]
@@ -19,9 +23,17 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Verify Manifest JSON Files
         run: |
           python .github/workflows/scripts/validate_artifacts.py
+
+      - name: Verify release provenance receipt contract
+        run: node scripts/release/emit-release-provenance.test.mjs
 
       - name: Verify Downloader integrity and config parameters
         run: |

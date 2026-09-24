@@ -47,7 +47,25 @@ class WindowsDriveEvidenceTests(unittest.TestCase):
         self.assertFalse(receipt["physical_write_attempted"])
         self.assertEqual(0, receipt["bytes_written"])
         self.assertEqual(64, len(receipt["disk"]["identity_sha256"]))
+        self.assertEqual(64, len(receipt["disk"]["stable_identity_sha256"]))
         self.assertEqual(64, len(receipt["receipt_sha256"]))
+
+    def test_stable_identity_survives_physicaldrive_reenumeration(self):
+        first = windows_drive_evidence.normalize_disk_record(
+            self.fixture,
+            r"\\.\PHYSICALDRIVE1",
+        )
+        moved = dict(self.fixture)
+        moved["Number"] = 7
+        second = windows_drive_evidence.normalize_disk_record(
+            moved,
+            r"\\.\PHYSICALDRIVE7",
+        )
+        self.assertNotEqual(first["identity_sha256"], second["identity_sha256"])
+        self.assertEqual(
+            first["stable_identity_sha256"],
+            second["stable_identity_sha256"],
+        )
 
     def test_system_disk_is_never_a_write_candidate(self):
         fixture = dict(self.fixture)
@@ -84,6 +102,20 @@ class WindowsDriveEvidenceTests(unittest.TestCase):
         record = windows_drive_evidence.normalize_disk_record(fixture, self.target)
         self.assertFalse(record["write_candidate"])
         self.assertIn("stable-device-identity-missing", record["write_block_reasons"])
+
+    def test_apple_partition_blocks_destructive_candidate(self):
+        fixture = json.loads(json.dumps(self.fixture))
+        fixture["Partitions"][0]["GptType"] = "7C3457EF-0000-11AA-AA11-00306543ECAC"
+        record = windows_drive_evidence.normalize_disk_record(fixture, self.target)
+        self.assertFalse(record["write_candidate"])
+        self.assertIn(
+            "target-contains-apple-partition",
+            record["write_block_reasons"],
+        )
+        self.assertEqual(
+            "7C3457EF-0000-11AA-AA11-00306543ECAC",
+            record["partitions"][0]["gpt_type"],
+        )
 
     def test_nonzero_write_observation_is_rejected(self):
         with self.assertRaises(windows_drive_evidence.EvidenceError):

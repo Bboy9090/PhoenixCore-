@@ -25,6 +25,13 @@ SCHEMA_VERSION = "bws.physical-drive-evidence/v1"
 RAW_DEVICE_PATTERN = re.compile(r"^\\\\\.\\PHYSICALDRIVE([0-9]+)$", re.IGNORECASE)
 EXTERNAL_BUS_TYPES = {"USB", "SD", "MMC"}
 
+APPLE_PARTITION_TYPE_GUIDS = {
+    "7C3457EF-0000-11AA-AA11-00306543ECAC",  # APFS
+    "48465300-0000-11AA-AA11-00306543ECAC",  # HFS+
+    "53746F72-6167-11AA-AA11-00306543ECAC",  # CoreStorage
+    "426F6F74-0000-11AA-AA11-00306543ECAC",  # Apple Boot / Recovery HD
+}
+
 
 class EvidenceError(RuntimeError):
     """Raised when trustworthy evidence cannot be collected."""
@@ -100,6 +107,8 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
                 "offset_bytes": int(partition.get("Offset") or 0),
                 "size_bytes": int(partition.get("Size") or 0),
                 "type": _clean_text(partition.get("Type")),
+                "gpt_type": _clean_text(partition.get("GptType")),
+                "mbr_type": _clean_text(partition.get("MbrType")),
                 "is_boot": _coerce_bool(partition.get("IsBoot")),
                 "is_system": _coerce_bool(partition.get("IsSystem")),
             }
@@ -113,6 +122,8 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
         "unique_id": _clean_text(raw.get("UniqueId")),
         "bus_type": (_clean_text(raw.get("BusType")) or "UNKNOWN").upper(),
         "size_bytes": size_bytes,
+        "logical_sector_size": int(raw.get("LogicalSectorSize") or 0),
+        "physical_sector_size": int(raw.get("PhysicalSectorSize") or 0),
         "partition_style": _clean_text(raw.get("PartitionStyle")),
         "is_boot": _coerce_bool(raw.get("IsBoot")),
         "is_system": _coerce_bool(raw.get("IsSystem")),
@@ -134,6 +145,18 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
     }
     record["identity_sha256"] = sha256_payload(identity_material)
 
+    stable_identity_material = {
+        "serial_number": record["serial_number"],
+        "unique_id": record["unique_id"],
+        "bus_type": record["bus_type"],
+        "size_bytes": record["size_bytes"],
+    }
+    record["stable_identity_sha256"] = (
+        sha256_payload(stable_identity_material)
+        if (record["serial_number"] or record["unique_id"])
+        else None
+    )
+
     block_reasons = []
     if record["is_boot"]:
         block_reasons.append("target-is-boot-disk")
@@ -143,6 +166,11 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
         block_reasons.append("target-is-read-only")
     if record["bus_type"] not in EXTERNAL_BUS_TYPES:
         block_reasons.append("target-not-proven-external-removable")
+    if any(
+        str(partition.get("gpt_type") or "").upper() in APPLE_PARTITION_TYPE_GUIDS
+        for partition in record["partitions"]
+    ):
+        block_reasons.append("target-contains-apple-partition")
     if not (record["serial_number"] or record["unique_id"]):
         block_reasons.append("stable-device-identity-missing")
 
@@ -160,7 +188,7 @@ $ErrorActionPreference = 'Stop'
 $disk = Get-Disk -Number {disk_number}
 $partitions = @(
   Get-Partition -DiskNumber {disk_number} -ErrorAction SilentlyContinue |
-    Select-Object PartitionNumber, DriveLetter, Offset, Size, Type, IsBoot, IsSystem
+    Select-Object PartitionNumber, DriveLetter, Offset, Size, Type, GptType, MbrType, IsBoot, IsSystem
 )
 [pscustomobject]@{{
   Number = [int]$disk.Number
@@ -169,6 +197,8 @@ $partitions = @(
   UniqueId = [string]$disk.UniqueId
   BusType = [string]$disk.BusType
   SizeBytes = [uint64]$disk.Size
+  LogicalSectorSize = [uint32]$disk.LogicalSectorSize
+  PhysicalSectorSize = [uint32]$disk.PhysicalSectorSize
   PartitionStyle = [string]$disk.PartitionStyle
   IsBoot = [bool]$disk.IsBoot
   IsSystem = [bool]$disk.IsSystem

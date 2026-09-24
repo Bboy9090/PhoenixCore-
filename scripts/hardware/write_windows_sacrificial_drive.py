@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import hashlib
+import io
 import json
 import os
 import re
@@ -40,6 +41,17 @@ except ModuleNotFoundError:
         sha256_payload,
     )
 
+try:
+    from scripts.hardware.resolve_windows_source_disk import (
+        compare_source_and_target,
+        query_source_disk,
+    )
+except ModuleNotFoundError:
+    from resolve_windows_source_disk import (  # type: ignore
+        compare_source_and_target,
+        query_source_disk,
+    )
+
 SCHEMA_VERSION = "bws.sacrificial-drive-write/v1"
 DRIVE_EVIDENCE_SCHEMA = "bws.physical-drive-evidence/v1"
 UNLOCK_ENV = "BWS_ENABLE_SACRIFICIAL_DRIVE_WRITE"
@@ -50,6 +62,23 @@ DEFAULT_CHUNK_SIZE = 1024 * 1024
 
 class WriteGateError(RuntimeError):
     """Raised when a destructive-operation gate is not satisfied."""
+
+
+class WriteInterruptedError(WriteGateError):
+    """Raised when a write/readback started but could not complete safely."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        stage: str,
+        bytes_written: int = 0,
+        bytes_read_back: int = 0,
+    ):
+        super().__init__(message)
+        self.stage = stage
+        self.bytes_written = max(0, int(bytes_written))
+        self.bytes_read_back = max(0, int(bytes_read_back))
 
 
 def utc_now_iso() -> str:
@@ -121,13 +150,23 @@ def load_drive_evidence(path: Path) -> dict[str, Any]:
         )
     if not disk.get("identity_sha256"):
         raise WriteGateError("Drive evidence is missing its identity SHA-256.")
+    stable_identity = str(disk.get("stable_identity_sha256") or "")
+    if not re.fullmatch(r"[0-9a-f]{64}", stable_identity):
+        raise WriteGateError("Drive evidence is missing its stable identity SHA-256.")
     return receipt
 
 
-def expected_authorization(target: str, identity_sha256: str, size_bytes: int) -> str:
+def expected_authorization(
+    target: str,
+    identity_sha256: str,
+    size_bytes: int,
+    source_sha256: str,
+) -> str:
+    if not re.fullmatch(r"[0-9a-f]{64}", source_sha256):
+        raise WriteGateError("Source SHA-256 is missing or invalid.")
     return (
         f"I AUTHORIZE COMPLETE DESTRUCTION OF {target.upper()} "
-        f"IDENTITY {identity_sha256} SIZE {size_bytes}"
+        f"IDENTITY {identity_sha256} SIZE {size_bytes} SOURCE_SHA256 {source_sha256}"
     )
 
 
@@ -144,6 +183,7 @@ def verify_live_identity(
     *,
     evidence: dict[str, Any],
     query_disk: Callable[[int], dict[str, Any]] = query_windows_disk,
+    resolve_source_disk: Callable[[str], dict[str, Any]] = query_source_disk,
 ) -> dict[str, Any]:
     disk = evidence["disk"]
     target = str(disk["target"])
@@ -152,6 +192,10 @@ def verify_live_identity(
 
     if fresh["identity_sha256"] != disk["identity_sha256"]:
         raise WriteGateError("Fresh target identity does not match the evidence lock.")
+    if fresh.get("stable_identity_sha256") != disk.get("stable_identity_sha256"):
+        raise WriteGateError(
+            "Fresh target stable identity does not match the evidence lock."
+        )
     if fresh["size_bytes"] != disk["size_bytes"]:
         raise WriteGateError("Fresh target capacity does not match the evidence lock.")
     if fresh["is_boot"] or fresh["is_system"]:
@@ -174,6 +218,7 @@ def validate_write_request(
     environment: dict[str, str] | None = None,
     admin: bool | None = None,
     query_disk: Callable[[int], dict[str, Any]] = query_windows_disk,
+    resolve_source_disk: Callable[[str], dict[str, Any]] = query_source_disk,
 ) -> dict[str, Any]:
     environment = environment if environment is not None else os.environ
     disk = evidence["disk"]
@@ -196,10 +241,26 @@ def validate_write_request(
     if image_size > int(disk["size_bytes"]):
         raise WriteGateError("Source image is larger than the target drive.")
 
+    image_hash = file_sha256(image_path)
+    source_disk = resolve_source_disk(str(image_path.resolve()))
+    target_stable_identity = str(disk.get("stable_identity_sha256") or "")
+    collision = compare_source_and_target(
+        source_disk,
+        target,
+        target_stable_identity,
+    )
+    if collision.get("blocked") is True:
+        raise WriteGateError(
+            "Source image and destructive target resolve to the same physical device."
+        )
+    if collision.get("source_target_distinct") is not True:
+        raise WriteGateError("Source/target physical-device distinction is not proven.")
+
     required_authorization = expected_authorization(
         target,
         str(disk["identity_sha256"]),
         int(disk["size_bytes"]),
+        image_hash,
     )
     if authorization != required_authorization:
         raise WriteGateError("Sacrificial-drive authorization phrase does not match.")
@@ -212,18 +273,71 @@ def validate_write_request(
         raise WriteGateError("Physical write requires an elevated Windows process.")
 
     fresh = verify_live_identity(evidence=evidence, query_disk=query_disk)
-    image_hash = file_sha256(image_path)
     return {
         "target": target,
         "identity_sha256": fresh["identity_sha256"],
+        "target_stable_identity_sha256": fresh["stable_identity_sha256"],
         "target_size_bytes": fresh["size_bytes"],
         "image_path": str(image_path.resolve()),
         "image_size_bytes": image_size,
         "image_sha256": image_hash,
+        "source_physical_target": source_disk["physical_target"],
+        "source_stable_identity_sha256": source_disk["stable_identity_sha256"],
+        "source_target_distinct": True,
         "byte_cap": image_size,
         "source_commit": source_commit,
         "authorization": required_authorization,
         "fresh_scan": fresh,
+    }
+
+
+def revalidate_source_before_raw_open(
+    *,
+    plan: dict[str, Any],
+    image_path: Path,
+    resolve_source_disk: Callable[[str], dict[str, Any]] = query_source_disk,
+) -> dict[str, Any]:
+    expected_size = int(plan["image_size_bytes"])
+    observed_size = image_path.stat().st_size
+    if observed_size != expected_size:
+        raise WriteGateError("Source image size changed after authorization.")
+
+    expected_sha256 = str(plan["image_sha256"])
+    observed_sha256 = file_sha256(image_path)
+    if observed_sha256 != expected_sha256:
+        raise WriteGateError("Source image SHA-256 changed after authorization.")
+
+    source_disk = resolve_source_disk(str(image_path.resolve()))
+    expected_source_stable = str(plan["source_stable_identity_sha256"])
+    observed_source_stable = str(source_disk.get("stable_identity_sha256") or "")
+    if observed_source_stable != expected_source_stable:
+        raise WriteGateError(
+            "Source image stable hardware identity changed after authorization."
+        )
+
+    expected_source_target = str(plan["source_physical_target"])
+    observed_source_target = str(source_disk.get("physical_target") or "")
+    if observed_source_target.casefold() != expected_source_target.casefold():
+        raise WriteGateError(
+            "Source image physical device changed after authorization."
+        )
+
+    collision = compare_source_and_target(
+        source_disk,
+        str(plan["target"]),
+        str(plan["target_stable_identity_sha256"]),
+    )
+    if collision.get("source_target_distinct") is not True:
+        raise WriteGateError(
+            "Source/target physical-device distinction failed immediately before write."
+        )
+
+    return {
+        "source_sha256": observed_sha256,
+        "source_size_bytes": observed_size,
+        "source_physical_target": observed_source_target,
+        "source_stable_identity_sha256": observed_source_stable,
+        "source_target_distinct": True,
     }
 
 
@@ -288,48 +402,130 @@ def write_and_verify(
 
     source_digest = hashlib.sha256()
     bytes_written = 0
-    target_stream.seek(0)
+    try:
+        target_stream.seek(0)
+    except OSError as exc:
+        raise WriteInterruptedError(
+            f"Could not seek target before write: {exc}",
+            stage="target-seek-before-write",
+        ) from exc
+
     with image_path.open("rb") as source:
         while bytes_written < byte_cap:
-            chunk = source.read(min(chunk_size, byte_cap - bytes_written))
+            try:
+                chunk = source.read(min(chunk_size, byte_cap - bytes_written))
+            except OSError as exc:
+                raise WriteInterruptedError(
+                    f"Source read failed after {bytes_written} target bytes: {exc}",
+                    stage="source-read",
+                    bytes_written=bytes_written,
+                ) from exc
             if not chunk:
-                raise WriteGateError("Source image ended before the byte cap.")
+                raise WriteInterruptedError(
+                    "Source image ended before the byte cap.",
+                    stage="source-read",
+                    bytes_written=bytes_written,
+                )
             source_digest.update(chunk)
-            written = target_stream.write(chunk)
+            try:
+                written = target_stream.write(chunk)
+            except OSError as exc:
+                raise WriteInterruptedError(
+                    f"Target write failed after {bytes_written} bytes: {exc}",
+                    stage="target-write",
+                    bytes_written=bytes_written,
+                ) from exc
             if written != len(chunk):
-                raise WriteGateError(
+                actual = max(0, int(written or 0))
+                raise WriteInterruptedError(
                     f"Short write after {bytes_written} bytes: expected "
-                    f"{len(chunk)}, wrote {written}."
+                    f"{len(chunk)}, wrote {written}.",
+                    stage="target-write",
+                    bytes_written=bytes_written + actual,
                 )
             bytes_written += written
 
-        if source.read(1):
-            raise WriteGateError("Source image contains data beyond the byte cap.")
+        try:
+            extra = source.read(1)
+        except OSError as exc:
+            raise WriteInterruptedError(
+                f"Source final-length check failed: {exc}",
+                stage="source-read",
+                bytes_written=bytes_written,
+            ) from exc
+        if extra:
+            raise WriteInterruptedError(
+                "Source image contains data beyond the byte cap.",
+                stage="source-length-check",
+                bytes_written=bytes_written,
+            )
 
-    target_stream.flush()
+    try:
+        target_stream.flush()
+    except OSError as exc:
+        raise WriteInterruptedError(
+            f"Target flush failed after {bytes_written} bytes: {exc}",
+            stage="target-flush",
+            bytes_written=bytes_written,
+        ) from exc
     try:
         os.fsync(target_stream.fileno())
-    except (AttributeError, OSError):
+    except (AttributeError, io.UnsupportedOperation):
         pass
+    except OSError as exc:
+        raise WriteInterruptedError(
+            f"Target fsync failed after {bytes_written} bytes: {exc}",
+            stage="target-fsync",
+            bytes_written=bytes_written,
+        ) from exc
 
-    target_stream.seek(0)
+    try:
+        target_stream.seek(0)
+    except OSError as exc:
+        raise WriteInterruptedError(
+            f"Could not seek target for read-back: {exc}",
+            stage="readback-seek",
+            bytes_written=bytes_written,
+        ) from exc
+
     readback_digest = hashlib.sha256()
     bytes_read = 0
     while bytes_read < byte_cap:
-        chunk = target_stream.read(min(chunk_size, byte_cap - bytes_read))
+        try:
+            chunk = target_stream.read(min(chunk_size, byte_cap - bytes_read))
+        except OSError as exc:
+            raise WriteInterruptedError(
+                f"Read-back failed after {bytes_read} bytes: {exc}",
+                stage="readback",
+                bytes_written=bytes_written,
+                bytes_read_back=bytes_read,
+            ) from exc
         if not chunk:
-            raise WriteGateError("Read-back ended before the written byte count.")
+            raise WriteInterruptedError(
+                "Read-back ended before the written byte count.",
+                stage="readback",
+                bytes_written=bytes_written,
+                bytes_read_back=bytes_read,
+            )
         readback_digest.update(chunk)
         bytes_read += len(chunk)
 
     source_hash = source_digest.hexdigest()
     readback_hash = readback_digest.hexdigest()
     if bytes_written != byte_cap or bytes_read != byte_cap:
-        raise WriteGateError(
-            "Write or read-back byte count does not match the byte cap."
+        raise WriteInterruptedError(
+            "Write or read-back byte count does not match the byte cap.",
+            stage="readback-verify",
+            bytes_written=bytes_written,
+            bytes_read_back=bytes_read,
         )
     if source_hash != readback_hash:
-        raise WriteGateError("Full read-back SHA-256 does not match the source image.")
+        raise WriteInterruptedError(
+            "Full read-back SHA-256 does not match the source image.",
+            stage="readback-verify",
+            bytes_written=bytes_written,
+            bytes_read_back=bytes_read,
+        )
 
     return {
         "bytes_expected": byte_cap,
@@ -339,6 +535,51 @@ def write_and_verify(
         "readback_sha256": readback_hash,
         "verification_passed": True,
     }
+
+
+def build_failure_result(
+    *,
+    plan: dict[str, Any],
+    error: BaseException,
+    started_at: str,
+    failed_at: str,
+) -> dict[str, Any]:
+    stage = getattr(error, "stage", "open-or-io-failure")
+    bytes_written = int(getattr(error, "bytes_written", 0) or 0)
+    bytes_read_back = int(getattr(error, "bytes_read_back", 0) or 0)
+    receipt = {
+        "schema_version": SCHEMA_VERSION,
+        "started_at": started_at,
+        "failed_at": failed_at,
+        "source_commit": plan["source_commit"],
+        "target": plan["target"],
+        "target_identity_sha256": plan["identity_sha256"],
+        "target_size_bytes": plan["target_size_bytes"],
+        "source_physical_target": plan.get("source_physical_target"),
+        "source_target_distinct": plan.get("source_target_distinct"),
+        "prewrite_source_recheck": plan.get("prewrite_source_recheck"),
+        "prewrite_target_recheck": plan.get("prewrite_target_recheck"),
+        "image_path": plan["image_path"],
+        "image_size_bytes": plan["image_size_bytes"],
+        "image_sha256": plan["image_sha256"],
+        "byte_cap": plan["byte_cap"],
+        "failure_stage": stage,
+        "error": str(error),
+        "bytes_written": bytes_written,
+        "bytes_read_back": bytes_read_back,
+        "physical_write_attempted": True,
+        "physical_write_completed": False,
+        "readback_completed": False,
+        "verification_passed": False,
+        "hardware_validated": False,
+        "classification": "hardware-write-interrupted",
+        "resume_allowed": False,
+        "restart_requires_fresh_source_identity": True,
+        "restart_requires_fresh_target_identity": True,
+        "next_required_action": "re-enumerate-target-and-restart-from-verified-source",
+    }
+    receipt["receipt_sha256"] = sha256_payload(receipt)
+    return receipt
 
 
 def build_result(
@@ -356,6 +597,10 @@ def build_result(
         "target": plan["target"],
         "target_identity_sha256": plan["identity_sha256"],
         "target_size_bytes": plan["target_size_bytes"],
+        "source_physical_target": plan.get("source_physical_target"),
+        "source_target_distinct": plan.get("source_target_distinct"),
+        "prewrite_source_recheck": plan.get("prewrite_source_recheck"),
+        "prewrite_target_recheck": plan.get("prewrite_target_recheck"),
         "image_path": plan["image_path"],
         "image_size_bytes": plan["image_size_bytes"],
         "image_sha256": plan["image_sha256"],
@@ -414,13 +659,29 @@ def main() -> int:
         execute=args.execute,
     )
 
+    plan["prewrite_source_recheck"] = revalidate_source_before_raw_open(
+        plan=plan,
+        image_path=args.image,
+    )
+    plan["prewrite_target_recheck"] = verify_live_identity(evidence=evidence)
+
     started_at = utc_now_iso()
-    with open_windows_raw_device(plan["target"]) as target_stream:
-        write_result = write_and_verify(
-            image_path=args.image,
-            target_stream=target_stream,
-            byte_cap=plan["byte_cap"],
+    try:
+        with open_windows_raw_device(plan["target"]) as target_stream:
+            write_result = write_and_verify(
+                image_path=args.image,
+                target_stream=target_stream,
+                byte_cap=plan["byte_cap"],
+            )
+    except (WriteInterruptedError, OSError) as exc:
+        failure = build_failure_result(
+            plan=plan,
+            error=exc,
+            started_at=started_at,
+            failed_at=utc_now_iso(),
         )
+        write_json_atomic(failure, args.output)
+        raise
     completed_at = utc_now_iso()
 
     receipt = build_result(

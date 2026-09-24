@@ -1,0 +1,208 @@
+name: Phoenix Key Signed Windows Release
+
+on:
+  push:
+    branches:
+      - "store-release/phoenix-key-v*"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/phoenix-key/**"
+      - ".github/workflows/windows-signed-release.yml"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: GitHub release tag to attach signed installers to
+        required: true
+        default: phoenix-key-v3.2.0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phoenix-key-signed-windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/phoenix-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/phoenix-key/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run check:boundaries
+      - run: npm run test:artifact-receipt
+      - name: Verify release workflow signing boundaries
+        run: node ../../scripts/release/check-release-workflow-boundaries.mjs
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  build-sign-release:
+    if: github.event_name == 'workflow_dispatch'
+    needs: preflight
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/phoenix-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/phoenix-key/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Require Windows signing credentials
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.PHOENIX_KEY_WINDOWS_CODESIGN_PFX_B64 }}
+          PFX_PASSWORD: ${{ secrets.PHOENIX_KEY_WINDOWS_CODESIGN_PFX_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PFX_B64)) {
+            throw "Missing PHOENIX_KEY_WINDOWS_CODESIGN_PFX_B64"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:PFX_PASSWORD)) {
+            throw "Missing PHOENIX_KEY_WINDOWS_CODESIGN_PFX_PASSWORD"
+          }
+
+      - run: npm ci
+
+      - name: Restore and import code-signing certificate
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.PHOENIX_KEY_WINDOWS_CODESIGN_PFX_B64 }}
+          PFX_PASSWORD: ${{ secrets.PHOENIX_KEY_WINDOWS_CODESIGN_PFX_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "phoenix-key-codesign.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
+          if ((Get-Item $pfx).Length -le 0) { throw "Decoded PFX is empty" }
+
+          $password = ConvertTo-SecureString -String $env:PFX_PASSWORD -Force -AsPlainText
+          $certificate = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if (-not $certificate) { throw "Code-signing certificate import returned no certificate" }
+          if (-not $certificate.HasPrivateKey) { throw "Imported code-signing certificate has no private key" }
+          if ([string]::IsNullOrWhiteSpace($certificate.Thumbprint)) { throw "Imported certificate has no thumbprint" }
+
+          $config = @{
+            tauri = @{
+              bundle = @{
+                windows = @{
+                  certificateThumbprint = $certificate.Thumbprint
+                  digestAlgorithm = "sha256"
+                  timestampUrl = "http://timestamp.digicert.com"
+                }
+              }
+            }
+          } | ConvertTo-Json -Depth 8
+          $configPath = Join-Path $env:RUNNER_TEMP "tauri.windows.signing.json"
+          Set-Content -Path $configPath -Value $config -Encoding utf8
+
+          "PFX_PATH=$pfx" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "WINDOWS_CERT_THUMBPRINT=$($certificate.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "TAURI_WINDOWS_SIGNING_CONFIG=$configPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build signed application and release installers
+        shell: pwsh
+        env:
+          PHOENIX_KEY_SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          npx tauri build --config "$env:TAURI_WINDOWS_SIGNING_CONFIG"
+          if ($LASTEXITCODE -ne 0) { throw "Tauri signed build failed" }
+
+      - name: Verify application and installer Authenticode
+        shell: pwsh
+        run: |
+          $app = Get-Item "src-tauri/target/release/phoenix-key.exe"
+          $installers = @()
+          $installers += Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi"
+          $installers += Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe"
+          if ($installers.Count -ne 2) { throw "Expected exactly one MSI and one NSIS installer" }
+
+          $files = @($app) + $installers
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature $file.FullName
+            if ($signature.Status -ne "Valid") {
+              throw "Authenticode validation failed for $($file.FullName): $($signature.Status)"
+            }
+            if (-not $signature.SignerCertificate) {
+              throw "No signer certificate reported for $($file.FullName)"
+            }
+            if ($signature.SignerCertificate.Thumbprint -ne $env:WINDOWS_CERT_THUMBPRINT) {
+              throw "Unexpected signer certificate for $($file.FullName)"
+            }
+          }
+
+      - name: Emit release checksums
+        shell: pwsh
+        run: |
+          $files = @()
+          $files += Get-Item "src-tauri/target/release/phoenix-key.exe"
+          $files += Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi"
+          $files += Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe"
+          $rows = foreach ($file in $files) {
+            $hash = Get-FileHash -Algorithm SHA256 $file.FullName
+            "$($hash.Hash.ToLower())  $($file.Name)"
+          }
+          $rows | Set-Content "src-tauri/target/release/bundle/SHA256SUMS.txt"
+
+      - name: Emit signed Windows provenance receipt
+        shell: pwsh
+        run: |
+          $files = @()
+          $files += Get-Item "src-tauri/target/release/phoenix-key.exe"
+          $files += Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi"
+          $files += Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe"
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $args = @(
+            "../../scripts/release/emit-release-provenance.mjs",
+            "--product", "phoenix-key",
+            "--channel", "windows-direct",
+            "--version", $version,
+            "--source-commit", "${{ github.sha }}"
+          )
+          foreach ($file in $files) {
+            $args += "--artifact"
+            $args += $file.FullName
+          }
+          $args += "--output"
+          $args += (Join-Path (Resolve-Path "src-tauri/target/release/bundle") "RELEASE-PROVENANCE.json")
+          node @args
+
+      - name: Upload signed Windows release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-key-windows-signed-release
+          path: |
+            apps/phoenix-key/src-tauri/target/release/phoenix-key.exe
+            apps/phoenix-key/src-tauri/target/release/bundle/msi/*.msi
+            apps/phoenix-key/src-tauri/target/release/bundle/nsis/*.exe
+            apps/phoenix-key/src-tauri/target/release/bundle/SHA256SUMS.txt
+            apps/phoenix-key/src-tauri/target/release/bundle/RELEASE-PROVENANCE.json
+            apps/phoenix-key/src-tauri/target/release/bundle/RELEASE-PROVENANCE.json.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag || 'phoenix-key-v3.2.0' }}
+          name: Phoenix Key ${{ inputs.release_tag || 'phoenix-key-v3.2.0' }}
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            apps/phoenix-key/src-tauri/target/release/phoenix-key.exe
+            apps/phoenix-key/src-tauri/target/release/bundle/msi/*.msi
+            apps/phoenix-key/src-tauri/target/release/bundle/nsis/*.exe
+            apps/phoenix-key/src-tauri/target/release/bundle/SHA256SUMS.txt
+            apps/phoenix-key/src-tauri/target/release/bundle/RELEASE-PROVENANCE.json
+            apps/phoenix-key/src-tauri/target/release/bundle/RELEASE-PROVENANCE.json.sha256

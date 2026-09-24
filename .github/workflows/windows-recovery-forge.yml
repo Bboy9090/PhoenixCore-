@@ -1,0 +1,181 @@
+name: Windows Recovery Forge
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "apps/phoenix-key/src-tauri/Cargo.toml"
+      - "apps/phoenix-key/src-tauri/src/main.rs"
+      - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
+      - "apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs"
+      - "apps/phoenix-key/src-tauri/src/platform_recovery.rs"
+      - "apps/phoenix-key/src-tauri/src/boot_repair_contract.rs"
+      - "apps/phoenix-key/src-tauri/src/intel_mac_restore_gate.rs"
+      - "apps/phoenix-key/src-tauri/src/mac_bootcamp_compat.rs"
+      - "apps/phoenix-key/src-tauri/src/source_identity.rs"
+      - "apps/phoenix-key/src-tauri/src/target_safety.rs"
+      - "apps/phoenix-key/src-tauri/src/target_reenumeration.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_diagnostics.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_evidence_bundle.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_session.rs"
+      - "apps/phoenix-key/src-tauri/src/data_preservation.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_readiness.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_preflight.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs"
+      - "apps/phoenix-key/src-tauri/src/rollback_destination.rs"
+      - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
+      - "apps/phoenix-key/src/main.tsx"
+      - "apps/phoenix-key/src/RecoveryCenter.tsx"
+      - "apps/phoenix-key/src/recovery-center.css"
+      - "scripts/hardware/plan_fat32_windows_media.py"
+      - "scripts/hardware/capture_windows_drive_evidence.py"
+      - "scripts/hardware/find_windows_drive_by_stable_identity.py"
+      - "scripts/hardware/capture_windows_restore_rollback.py"
+      - "scripts/hardware/capture_windows_restore_target_boot_metadata.py"
+      - "tests/test_windows_stable_target_locator.py"
+      - "tests/test_windows_restore_rollback_capture.py"
+      - "tests/test_windows_restore_target_boot_metadata.py"
+      - ".github/workflows/windows-recovery-forge.yml"
+  push:
+    branches:
+      - "convergence/windows-recovery-forge-macos-v2"
+    paths:
+      - "apps/phoenix-key/src-tauri/Cargo.toml"
+      - "apps/phoenix-key/src-tauri/src/main.rs"
+      - "apps/phoenix-key/src-tauri/src/windows_recovery.rs"
+      - "apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs"
+      - "apps/phoenix-key/src-tauri/src/platform_recovery.rs"
+      - "apps/phoenix-key/src-tauri/src/boot_repair_contract.rs"
+      - "apps/phoenix-key/src-tauri/src/intel_mac_restore_gate.rs"
+      - "apps/phoenix-key/src-tauri/src/mac_bootcamp_compat.rs"
+      - "apps/phoenix-key/src-tauri/src/source_identity.rs"
+      - "apps/phoenix-key/src-tauri/src/target_safety.rs"
+      - "apps/phoenix-key/src-tauri/src/target_reenumeration.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_center.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_diagnostics.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_evidence_bundle.rs"
+      - "apps/phoenix-key/src-tauri/src/recovery_session.rs"
+      - "apps/phoenix-key/src-tauri/src/data_preservation.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_readiness.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_preflight.rs"
+      - "apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs"
+      - "apps/phoenix-key/src-tauri/src/rollback_destination.rs"
+      - "apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs"
+      - "apps/phoenix-key/src/main.tsx"
+      - "apps/phoenix-key/src/RecoveryCenter.tsx"
+      - "apps/phoenix-key/src/recovery-center.css"
+      - "scripts/hardware/plan_fat32_windows_media.py"
+      - "scripts/hardware/capture_windows_drive_evidence.py"
+      - "scripts/hardware/find_windows_drive_by_stable_identity.py"
+      - "scripts/hardware/capture_windows_restore_rollback.py"
+      - "scripts/hardware/capture_windows_restore_target_boot_metadata.py"
+      - "tests/test_windows_stable_target_locator.py"
+      - "tests/test_windows_restore_rollback_capture.py"
+      - "tests/test_windows_restore_target_boot_metadata.py"
+      - ".github/workflows/windows-recovery-forge.yml"
+
+jobs:
+  recovery-ui:
+    name: Recovery Center UI build
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: apps/phoenix-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/phoenix-key/package-lock.json
+      - run: npm ci
+      - name: Type-check and build guided recovery UI
+        run: npm run build
+
+  rust-recovery-core:
+    name: Rust recovery core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: apps/phoenix-key/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri v1 Linux prerequisites
+        if: matrix.os == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Phoenix Key recovery binary unit tests
+        run: cargo test --bin phoenix-key
+      - name: Recovery unit tests
+        run: cargo test --example windows_recovery_probe
+      - name: Recovery probe build
+        run: cargo build --example windows_recovery_probe
+      - name: Clippy recovery probe
+        run: cargo clippy --example windows_recovery_probe -- -D warnings
+
+  destructive-boundary:
+    name: Confirm recovery probe has no destructive commands
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan recovery core for forbidden writer calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            apps/phoenix-key/src-tauri/src/windows_recovery.rs
+            apps/phoenix-key/src-tauri/src/windows_recovery_guard.rs
+            apps/phoenix-key/src-tauri/src/platform_recovery.rs
+            apps/phoenix-key/src-tauri/src/boot_repair_contract.rs
+            apps/phoenix-key/src-tauri/src/mac_bootcamp_compat.rs
+            apps/phoenix-key/src-tauri/src/intel_mac_restore_gate.rs
+            apps/phoenix-key/src-tauri/src/source_identity.rs
+            apps/phoenix-key/src-tauri/src/target_safety.rs
+            apps/phoenix-key/src-tauri/src/target_reenumeration.rs
+            apps/phoenix-key/src-tauri/src/recovery_center.rs
+            apps/phoenix-key/src-tauri/src/recovery_diagnostics.rs
+            apps/phoenix-key/src-tauri/src/recovery_evidence_bundle.rs
+            apps/phoenix-key/src-tauri/src/recovery_session.rs
+            apps/phoenix-key/src-tauri/src/data_preservation.rs
+            apps/phoenix-key/src-tauri/src/restore_readiness.rs
+            apps/phoenix-key/src-tauri/src/restore_preflight.rs
+            apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs
+            apps/phoenix-key/src-tauri/src/rollback_destination.rs
+            apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs
+          )
+          forbidden='execute_media_write|write_windows_sacrificial_drive|diskpart|mkfs|CreateFileW|WriteFile|DeviceIoControl|dd if=|dd of='
+          if grep -En "$forbidden" "${files[@]}"; then
+            echo "Recovery analysis/probe core must remain non-destructive." >&2
+            exit 1
+          fi
+          echo "PASS: recovery analysis/probe core contains no destructive writer path."
+      - name: Test stable target locator fixtures
+        shell: bash
+        run: python3 -m unittest tests.test_windows_stable_target_locator -v
+      - name: Test read-only GPT rollback capture fixtures
+        shell: bash
+        run: python3 -m unittest tests.test_windows_restore_rollback_capture -v
+      - name: Test external target boot-metadata fixtures
+        shell: bash
+        run: python3 -m unittest tests.test_windows_restore_target_boot_metadata -v
