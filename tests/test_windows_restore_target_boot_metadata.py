@@ -194,6 +194,42 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
         ):
             restore_target_boot_metadata.verify_rollback_capture(receipt)
 
+    def test_live_boot_metadata_requires_live_upstream_chain(self):
+        drive_receipt = {
+            "evidence_source": "fixture",
+            "hardware_observed": False,
+        }
+        rollback_receipt = rollback_capture_receipt()
+        rollback_receipt["evidence_source"] = "fixture"
+        rollback_receipt["hardware_observed"] = False
+
+        with self.assertRaisesRegex(
+            restore_target_boot_metadata.RestoreTargetBootMetadataError,
+            "live target drive evidence",
+        ):
+            restore_target_boot_metadata.require_live_boot_metadata_inputs(
+                drive_receipt,
+                rollback_receipt,
+            )
+
+        drive_receipt["evidence_source"] = "live"
+        drive_receipt["hardware_observed"] = True
+        with self.assertRaisesRegex(
+            restore_target_boot_metadata.RestoreTargetBootMetadataError,
+            "live rollback-capture receipt",
+        ):
+            restore_target_boot_metadata.require_live_boot_metadata_inputs(
+                drive_receipt,
+                rollback_receipt,
+            )
+
+        rollback_receipt["evidence_source"] = "live"
+        rollback_receipt["hardware_observed"] = True
+        restore_target_boot_metadata.require_live_boot_metadata_inputs(
+            drive_receipt,
+            rollback_receipt,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
