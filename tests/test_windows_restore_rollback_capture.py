@@ -240,6 +240,35 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
         with self.assertRaises(windows_restore_rollback.RollbackCaptureError):
             windows_restore_rollback.verify_drive_evidence(receipt)
 
+    def test_live_capture_requires_live_drive_evidence(self):
+        receipt = drive_receipt()
+        self.assertEqual(
+            "fixture",
+            windows_restore_rollback.capture_evidence_source(
+                receipt,
+                fixture_disk_image=True,
+            ),
+        )
+        with self.assertRaisesRegex(
+            windows_restore_rollback.RollbackCaptureError,
+            "live target drive evidence",
+        ):
+            windows_restore_rollback.capture_evidence_source(
+                receipt,
+                fixture_disk_image=False,
+            )
+
+        live = dict(receipt)
+        live["evidence_source"] = "live"
+        live["hardware_observed"] = True
+        self.assertEqual(
+            "live",
+            windows_restore_rollback.capture_evidence_source(
+                live,
+                fixture_disk_image=False,
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

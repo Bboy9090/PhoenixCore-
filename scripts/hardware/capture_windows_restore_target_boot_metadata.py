@@ -121,6 +121,26 @@ def verify_drive_evidence(receipt: dict[str, Any]) -> dict[str, Any]:
     return disk
 
 
+def require_live_boot_metadata_inputs(
+    drive_receipt: dict[str, Any],
+    rollback_receipt: dict[str, Any],
+) -> None:
+    if (
+        drive_receipt.get("evidence_source") != "live"
+        or drive_receipt.get("hardware_observed") is not True
+    ):
+        raise RestoreTargetBootMetadataError(
+            "Live boot-metadata capture requires live target drive evidence."
+        )
+    if (
+        rollback_receipt.get("evidence_source") != "live"
+        or rollback_receipt.get("hardware_observed") is not True
+    ):
+        raise RestoreTargetBootMetadataError(
+            "Live boot-metadata capture requires a live rollback-capture receipt."
+        )
+
+
 def verify_rollback_capture(receipt: dict[str, Any]) -> None:
     verify_embedded_sha256(
         receipt,
@@ -372,7 +392,13 @@ def build_receipt(
     inventory: list[dict[str, Any]],
     artifacts: dict[str, Any],
     missing_or_unverified: list[str],
+    evidence_source: str = "fixture",
 ) -> dict[str, Any]:
+    if evidence_source not in {"live", "fixture"}:
+        raise RestoreTargetBootMetadataError(
+            "Boot-metadata evidence source is invalid."
+        )
+
     target_snapshot = str(target_disk.get("identity_sha256") or "").lower()
     target_stable = str(target_disk.get("stable_identity_sha256") or "").lower()
     if not SHA256_RE.fullmatch(target_snapshot) or not SHA256_RE.fullmatch(
@@ -411,6 +437,8 @@ def build_receipt(
 
     receipt = {
         "schema": SCHEMA,
+        "evidence_source": evidence_source,
+        "hardware_observed": evidence_source == "live",
         "target": target,
         "target_snapshot_identity_sha256": target_snapshot,
         "target_stable_identity_sha256": target_stable,
@@ -450,6 +478,7 @@ def main() -> int:
         args.rollback_capture_receipt.read_text(encoding="utf-8")
     )
     verify_rollback_capture(rollback_capture)
+    require_live_boot_metadata_inputs(drive_evidence, rollback_capture)
 
     output_dir = args.output_dir.resolve()
     if output_dir.exists() and any(output_dir.iterdir()):
@@ -472,6 +501,7 @@ def main() -> int:
         inventory=inventory,
         artifacts=artifacts,
         missing_or_unverified=missing,
+        evidence_source="live",
     )
     write_json_atomic(receipt, output_dir / "restore-target-boot-metadata.json")
     print(json.dumps(receipt, sort_keys=True))

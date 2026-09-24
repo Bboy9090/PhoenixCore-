@@ -38,7 +38,9 @@ on:
       - "scripts/hardware/find_windows_drive_by_stable_identity.py"
       - "scripts/hardware/capture_windows_restore_rollback.py"
       - "scripts/hardware/capture_windows_restore_target_boot_metadata.py"
+      - "scripts/hardware/run_windows_recovery_hardware_campaign.py"
       - "tests/test_windows_stable_target_locator.py"
+      - "tests/test_windows_recovery_hardware_campaign.py"
       - "tests/test_windows_restore_rollback_capture.py"
       - "tests/test_windows_restore_target_boot_metadata.py"
       - ".github/workflows/windows-recovery-forge.yml"
@@ -75,7 +77,9 @@ on:
       - "scripts/hardware/find_windows_drive_by_stable_identity.py"
       - "scripts/hardware/capture_windows_restore_rollback.py"
       - "scripts/hardware/capture_windows_restore_target_boot_metadata.py"
+      - "scripts/hardware/run_windows_recovery_hardware_campaign.py"
       - "tests/test_windows_stable_target_locator.py"
+      - "tests/test_windows_recovery_hardware_campaign.py"
       - "tests/test_windows_restore_rollback_capture.py"
       - "tests/test_windows_restore_target_boot_metadata.py"
       - ".github/workflows/windows-recovery-forge.yml"
@@ -163,6 +167,7 @@ jobs:
             apps/phoenix-key/src-tauri/src/restore_rollback_contract.rs
             apps/phoenix-key/src-tauri/src/rollback_destination.rs
             apps/phoenix-key/src-tauri/examples/windows_recovery_probe.rs
+            scripts/hardware/run_windows_recovery_hardware_campaign.py
           )
           forbidden='execute_media_write|write_windows_sacrificial_drive|diskpart|mkfs|CreateFileW|WriteFile|DeviceIoControl|dd if=|dd of='
           if grep -En "$forbidden" "${files[@]}"; then
@@ -179,3 +184,6 @@ jobs:
       - name: Test external target boot-metadata fixtures
         shell: bash
         run: python3 -m unittest tests.test_windows_restore_target_boot_metadata -v
+      - name: Test hardware campaign evidence gates
+        shell: bash
+        run: python3 -m unittest tests.test_windows_recovery_hardware_campaign -v
