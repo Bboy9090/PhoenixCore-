@@ -372,7 +372,13 @@ def build_receipt(
     inventory: list[dict[str, Any]],
     artifacts: dict[str, Any],
     missing_or_unverified: list[str],
+    evidence_source: str = "fixture",
 ) -> dict[str, Any]:
+    if evidence_source not in {"live", "fixture"}:
+        raise RestoreTargetBootMetadataError(
+            "Boot-metadata evidence source is invalid."
+        )
+
     target_snapshot = str(target_disk.get("identity_sha256") or "").lower()
     target_stable = str(target_disk.get("stable_identity_sha256") or "").lower()
     if not SHA256_RE.fullmatch(target_snapshot) or not SHA256_RE.fullmatch(
@@ -411,6 +417,8 @@ def build_receipt(
 
     receipt = {
         "schema": SCHEMA,
+        "evidence_source": evidence_source,
+        "hardware_observed": evidence_source == "live",
         "target": target,
         "target_snapshot_identity_sha256": target_snapshot,
         "target_stable_identity_sha256": target_stable,
@@ -472,6 +480,7 @@ def main() -> int:
         inventory=inventory,
         artifacts=artifacts,
         missing_or_unverified=missing,
+        evidence_source="live",
     )
     write_json_atomic(receipt, output_dir / "restore-target-boot-metadata.json")
     print(json.dumps(receipt, sort_keys=True))
