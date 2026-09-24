@@ -144,7 +144,64 @@ A fixture-generated GPT receipt remains useful for software QA but cannot satisf
 
 ---
 
-## Phase 3 — Physical unplug / reconnect
+## Phase 3 — Live target boot metadata
+
+Capture boot metadata while the original baseline snapshot and GPT rollback capture are still current.
+
+Use:
+
+`scripts/hardware/capture_windows_restore_target_boot_metadata.py`
+
+The target-boot receipt schema is:
+
+`phoenix_key.restore_target_boot_metadata.v1`
+
+Current V1 receipts distinguish:
+
+- `evidence_source: live`
+- `evidence_source: fixture`
+
+A receipt may be labeled `live` only when both upstream inputs are also live:
+
+- target drive evidence
+- GPT rollback-capture receipt
+
+The script only copies metadata from partitions Windows already exposes.
+
+It does not:
+
+- assign a drive letter
+- mount an inaccessible EFI partition
+- mount an inaccessible Recovery partition
+- write to the target
+
+Record the receipt:
+
+```powershell
+python scripts/hardware/run_windows_recovery_hardware_campaign.py record-boot-metadata `
+  --campaign-dir "D:\PhoenixKeyEvidence\campaign-001" `
+  --receipt "D:\PhoenixKeyEvidence\rollback\boot\restore-target-boot-metadata.json"
+```
+
+Required gate:
+
+`boot_metadata_live_read_only = true`
+
+The receipt must prove:
+
+- live hardware observation
+- baseline stable identity match
+- zero target writes
+- no partition mount / assignment attempt
+- no system mutation
+
+The boot metadata receipt may still report individual metadata items as inaccessible. That fact must remain visible; do not mount partitions merely to turn a missing item green.
+
+If boot metadata must be recaptured **after** a reconnect that changes the snapshot, first perform fresh target reanalysis and produce a new rollback capture bound to that new snapshot. Never reuse a stale rollback receipt across snapshots.
+
+---
+
+## Phase 4 — Physical unplug / reconnect
 
 Physically unplug the baseline target.
 
@@ -191,7 +248,7 @@ If Windows reconnects the disk under the exact same path and snapshot, the campa
 
 ---
 
-## Phase 4 — Hardware substitution rejection
+## Phase 5 — Hardware substitution rejection
 
 Disconnect the baseline target.
 
@@ -216,57 +273,7 @@ The candidate must have a stable identity different from the baseline target.
 
 If the candidate resolves to the baseline stable identity, the harness stops instead of manufacturing a substitution pass.
 
-Reconnect the original target after this observation before collecting target-specific boot metadata.
-
----
-
-## Phase 5 — Live target boot metadata
-
-Use:
-
-`scripts/hardware/capture_windows_restore_target_boot_metadata.py`
-
-against the original target after fresh target revalidation.
-
-The target-boot receipt schema is:
-
-`phoenix_key.restore_target_boot_metadata.v1`
-
-Current V1 receipts distinguish:
-
-- `evidence_source: live`
-- `evidence_source: fixture`
-
-The script only copies metadata from partitions Windows already exposes.
-
-It does not:
-
-- assign a drive letter
-- mount an inaccessible EFI partition
-- mount an inaccessible Recovery partition
-- write to the target
-
-Record the receipt:
-
-```powershell
-python scripts/hardware/run_windows_recovery_hardware_campaign.py record-boot-metadata `
-  --campaign-dir "D:\PhoenixKeyEvidence\campaign-001" `
-  --receipt "D:\PhoenixKeyEvidence\rollback\boot\restore-target-boot-metadata.json"
-```
-
-Required gate:
-
-`boot_metadata_live_read_only = true`
-
-The receipt must prove:
-
-- live hardware observation
-- baseline stable identity match
-- zero target writes
-- no partition mount / assignment attempt
-- no system mutation
-
-The boot metadata receipt may still report individual metadata items as inaccessible. That fact must remain visible; do not mount partitions merely to turn a missing item green.
+Reconnect the original target after this observation before any additional target-specific evidence collection.
 
 ---
 
