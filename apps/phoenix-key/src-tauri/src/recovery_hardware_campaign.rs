@@ -257,7 +257,7 @@ pub fn build_recovery_hardware_campaign_report(
                     reconnect_stable,
                     receipt.observed_stable_identity_sha256.as_deref(),
                 )
-                && receipt.system_mutations_performed == false
+                && !receipt.system_mutations_performed
         });
 
     let stale_snapshot_authorization_rejected = reconnect_receipt
@@ -338,7 +338,7 @@ pub fn build_recovery_hardware_campaign_report(
                     substitution_stable,
                     receipt.observed_stable_identity_sha256.as_deref(),
                 )
-                && receipt.system_mutations_performed == false
+                && !receipt.system_mutations_performed
         });
 
     let boot_metadata_live_resolved = boot_metadata
