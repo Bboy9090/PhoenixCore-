@@ -25,8 +25,11 @@ mod restore_readiness;
 #[cfg(test)]
 #[path = "../src/recovery_center.rs"]
 mod recovery_center;
+#[path = "../src/recovery_hardware_campaign.rs"]
+mod recovery_hardware_campaign;
 
 use platform_recovery::get_platform_recovery_answer;
+use recovery_hardware_campaign::build_recovery_hardware_campaign_report;
 use serde::Serialize;
 use source_identity::{
     build_identity_bound_recovery_plan, capture_source_identity,
@@ -160,6 +163,18 @@ fn run() -> Result<(), String> {
             "checksum_verified": verify_recovery_target_reenumeration_receipt_sha256(&receipt),
             "system_mutations_performed": false
         }));
+    }
+
+    if command == "hardware-campaign-report" {
+        let evidence_path = args.next().unwrap_or_else(|| usage());
+        if args.next().is_some() {
+            usage();
+        }
+        let evidence_bytes = fs::read(&evidence_path)
+            .map_err(|error| format!("cannot read hardware campaign evidence JSON: {error}"))?;
+        let evidence: serde_json::Value = serde_json::from_slice(&evidence_bytes)
+            .map_err(|error| format!("hardware campaign evidence is not valid JSON: {error}"))?;
+        return emit(&build_recovery_hardware_campaign_report(&evidence));
     }
 
     if command == "target-check" {
