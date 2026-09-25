@@ -470,6 +470,15 @@ pub fn build_recovery_hardware_campaign_report(
     report
 }
 
+#[tauri::command]
+pub fn assess_windows_recovery_hardware_campaign(
+    evidence_json: String,
+) -> Result<RecoveryHardwareCampaignReportV1, String> {
+    let evidence: Value = serde_json::from_str(&evidence_json)
+        .map_err(|error| format!("invalid hardware campaign evidence JSON: {error}"))?;
+    Ok(build_recovery_hardware_campaign_report(&evidence))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
