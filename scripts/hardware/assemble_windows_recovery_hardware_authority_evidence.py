@@ -69,9 +69,7 @@ def require_live_hardware(payload: dict[str, Any], label: str) -> None:
         payload.get("evidence_source") != "live"
         or payload.get("hardware_observed") is not True
     ):
-        raise AuthorityEvidenceError(
-            f"{label} is not live observed hardware evidence."
-        )
+        raise AuthorityEvidenceError(f"{label} is not live observed hardware evidence.")
     if payload.get("platform") == "fixture":
         raise AuthorityEvidenceError(f"{label} is fixture evidence.")
 
@@ -140,9 +138,7 @@ def build_package(args: argparse.Namespace) -> dict[str, Any]:
         args.substitution_receipt, "substitution re-enumeration receipt"
     )
     boot_metadata = load_object(args.boot_metadata, "boot metadata receipt")
-    data_preservation = load_object(
-        args.data_preservation, "data preservation receipt"
-    )
+    data_preservation = load_object(args.data_preservation, "data preservation receipt")
 
     for payload, label in [
         (baseline, "baseline target drive evidence"),
@@ -167,9 +163,7 @@ def build_package(args: argparse.Namespace) -> dict[str, Any]:
             "rollback capture receipt does not preserve the zero-write safety boundary."
         )
 
-    require_reenumeration_receipt(
-        reconnect_receipt, "reconnect re-enumeration receipt"
-    )
+    require_reenumeration_receipt(reconnect_receipt, "reconnect re-enumeration receipt")
     require_reenumeration_receipt(
         substitution_receipt, "substitution re-enumeration receipt"
     )
