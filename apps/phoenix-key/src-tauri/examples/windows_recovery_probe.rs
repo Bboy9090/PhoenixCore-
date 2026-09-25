@@ -29,7 +29,7 @@ mod recovery_center;
 mod recovery_hardware_campaign;
 
 use platform_recovery::get_platform_recovery_answer;
-use recovery_hardware_campaign::build_recovery_hardware_campaign_report;
+use recovery_hardware_campaign::assess_windows_recovery_hardware_campaign;
 use serde::Serialize;
 use source_identity::{
     build_identity_bound_recovery_plan, capture_source_identity,
@@ -172,9 +172,9 @@ fn run() -> Result<(), String> {
         }
         let evidence_bytes = fs::read(&evidence_path)
             .map_err(|error| format!("cannot read hardware campaign evidence JSON: {error}"))?;
-        let evidence: serde_json::Value = serde_json::from_slice(&evidence_bytes)
-            .map_err(|error| format!("hardware campaign evidence is not valid JSON: {error}"))?;
-        return emit(&build_recovery_hardware_campaign_report(&evidence));
+        let evidence_json = String::from_utf8(evidence_bytes)
+            .map_err(|error| format!("hardware campaign evidence is not UTF-8 JSON: {error}"))?;
+        return emit(&assess_windows_recovery_hardware_campaign(evidence_json)?);
     }
 
     if command == "target-check" {
