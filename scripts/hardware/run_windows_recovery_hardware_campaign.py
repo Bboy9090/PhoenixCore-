@@ -233,13 +233,9 @@ def refresh_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
             "hardware_campaign_authority_report"
         )
     if manifest["hardware_campaign_complete"]:
-        manifest["next_required_action"] = (
-            "run_final_non_executable_preflight"
-        )
+        manifest["next_required_action"] = "run_final_non_executable_preflight"
     elif collection_complete:
-        manifest["next_required_action"] = (
-            "generate_hardware_campaign_authority_report"
-        )
+        manifest["next_required_action"] = "generate_hardware_campaign_authority_report"
     else:
         manifest["next_required_action"] = "collect_remaining_physical_evidence"
     manifest["manifest_sha256"] = manifest_sha256(manifest)
