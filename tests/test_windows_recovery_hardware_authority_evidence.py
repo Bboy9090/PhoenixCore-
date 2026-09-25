@@ -12,7 +12,9 @@ MODULE_PATH = (
     / "hardware"
     / "assemble_windows_recovery_hardware_authority_evidence.py"
 )
-SPEC = importlib.util.spec_from_file_location("hardware_authority_evidence", MODULE_PATH)
+SPEC = importlib.util.spec_from_file_location(
+    "hardware_authority_evidence", MODULE_PATH
+)
 assert SPEC and SPEC.loader
 authority = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(authority)
@@ -185,7 +187,9 @@ class HardwareAuthorityEvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             args = args_for(root)
-            payload = json.loads(args.reconnect_target_drive.read_text(encoding="utf-8"))
+            payload = json.loads(
+                args.reconnect_target_drive.read_text(encoding="utf-8")
+            )
             payload["evidence_source"] = "fixture"
             payload["hardware_observed"] = False
             payload["platform"] = "fixture"
