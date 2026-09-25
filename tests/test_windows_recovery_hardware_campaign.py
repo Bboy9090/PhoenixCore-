@@ -110,6 +110,29 @@ def rollback_receipt(manifest: dict, *, evidence_source: str = "live") -> dict:
     return payload
 
 
+def authority_report(*, complete: bool = True) -> dict:
+    payload = {
+        "schema": "phoenix_key.recovery_hardware_campaign_report.v1",
+        "target_live_observed": complete,
+        "rollback_destination_separate": complete,
+        "rollback_capture_live_zero_write": complete,
+        "reconnect_same_hardware_proven": complete,
+        "stale_snapshot_authorization_rejected": complete,
+        "post_reanalysis_fresh_identity_proven": complete,
+        "substitution_rejected": complete,
+        "boot_metadata_live_resolved": complete,
+        "data_preservation_resolved": complete,
+        "fixture_evidence_rejected": True,
+        "campaign_complete": complete,
+        "restore_executable": False,
+        "destructive_authorization_granted": False,
+        "system_mutations_performed": False,
+        "blockers": [] if complete else ["post_reconnect_reanalysis_not_proven"],
+    }
+    payload["report_sha256"] = campaign.sha256_payload(payload)
+    return payload
+
+
 def boot_receipt(manifest: dict, *, evidence_source: str = "live") -> dict:
     baseline = manifest["baseline"]
     payload = {
@@ -146,7 +169,7 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
         self.assertFalse(manifest["restore_executor_authorized"])
         self.assertFalse(manifest["system_mutations_performed"])
 
-    def test_live_chain_reaches_hardware_campaign_complete(self):
+    def test_live_collection_requires_authority_before_campaign_complete(self):
         manifest = campaign.build_campaign_manifest(drive_receipt(7))
         manifest = campaign.record_rollback_capture(
             manifest,
@@ -177,10 +200,25 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
         self.assertTrue(manifest["gates"]["reenumeration_observed"])
         self.assertTrue(manifest["gates"]["substitution_rejection_proven"])
         self.assertTrue(manifest["gates"]["boot_metadata_live_read_only"])
+        self.assertTrue(manifest["collection_complete"])
+        self.assertFalse(manifest["hardware_campaign_complete"])
+        self.assertIn(
+            "hardware_campaign_authority_report",
+            manifest["outstanding_requirements"],
+        )
+        self.assertEqual(
+            "generate_hardware_campaign_authority_report",
+            manifest["next_required_action"],
+        )
+
+        manifest = campaign.record_authority_report(
+            manifest,
+            authority_report(),
+        )
         self.assertTrue(manifest["hardware_campaign_complete"])
         self.assertEqual([], manifest["outstanding_requirements"])
         self.assertEqual(
-            "resolve_data_preservation_then_run_final_non_executable_preflight",
+            "run_final_non_executable_preflight",
             manifest["next_required_action"],
         )
         self.assertFalse(manifest["restore_executor_authorized"])
@@ -234,6 +272,41 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
         self.assertFalse(manifest["gates"]["rollback_live_zero_write"])
         self.assertFalse(manifest["gates"]["boot_metadata_live_read_only"])
         self.assertFalse(manifest["hardware_campaign_complete"])
+
+    def test_incomplete_authority_cannot_complete_campaign(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        manifest = campaign.record_rollback_capture(
+            manifest,
+            rollback_receipt(manifest),
+        )
+        manifest = campaign.record_reconnect(
+            manifest,
+            drive_receipt(9),
+            operator_confirmed=True,
+        )
+        manifest = campaign.record_substitution(
+            manifest,
+            drive_receipt(
+                12,
+                serial="OTHER-002",
+                unique_id="OTHER-UNIQUE-002",
+            ),
+            operator_confirmed=True,
+        )
+        manifest = campaign.record_boot_metadata(
+            manifest,
+            boot_receipt(manifest),
+        )
+        manifest = campaign.record_authority_report(
+            manifest,
+            authority_report(complete=False),
+        )
+        self.assertTrue(manifest["collection_complete"])
+        self.assertFalse(manifest["hardware_campaign_complete"])
+        self.assertIn(
+            "hardware_campaign_authority_report",
+            manifest["outstanding_requirements"],
+        )
 
     def test_tampered_manifest_is_rejected_on_reload(self):
         manifest = campaign.build_campaign_manifest(drive_receipt(7))
