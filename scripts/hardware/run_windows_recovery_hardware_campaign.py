@@ -164,8 +164,9 @@ def refresh_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     reconnect = manifest.get("reconnect")
     substitution = manifest.get("substitution")
     boot = manifest.get("boot_metadata")
+    authority = manifest.get("authority_report")
 
-    gates = {
+    collection_gates = {
         "baseline_live_hardware": bool(
             baseline.get("hardware_observed")
             and baseline.get("evidence_source") == "live"
@@ -209,16 +210,35 @@ def refresh_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
         ),
     }
 
-    manifest["gates"] = gates
-    manifest["hardware_campaign_complete"] = all(gates.values())
+    collection_complete = all(collection_gates.values())
+    authority_complete = bool(
+        authority
+        and authority.get("campaign_complete") is True
+        and authority.get("fixture_evidence_rejected") is True
+        and authority.get("restore_executable") is False
+        and authority.get("destructive_authorization_granted") is False
+        and authority.get("system_mutations_performed") is False
+    )
+
+    manifest["gates"] = collection_gates
+    manifest["collection_complete"] = collection_complete
+    manifest["hardware_campaign_complete"] = collection_complete and authority_complete
     manifest["restore_executor_authorized"] = False
     manifest["system_mutations_performed"] = False
     manifest["outstanding_requirements"] = [
-        name for name, satisfied in gates.items() if not satisfied
+        name for name, satisfied in collection_gates.items() if not satisfied
     ]
+    if collection_complete and not authority_complete:
+        manifest["outstanding_requirements"].append(
+            "hardware_campaign_authority_report"
+        )
     if manifest["hardware_campaign_complete"]:
         manifest["next_required_action"] = (
-            "resolve_data_preservation_then_run_final_non_executable_preflight"
+            "run_final_non_executable_preflight"
+        )
+    elif collection_complete:
+        manifest["next_required_action"] = (
+            "generate_hardware_campaign_authority_report"
         )
     else:
         manifest["next_required_action"] = "collect_remaining_physical_evidence"
@@ -250,6 +270,7 @@ def build_campaign_manifest(baseline_receipt: dict[str, Any]) -> dict[str, Any]:
         "reconnect": None,
         "substitution": None,
         "boot_metadata": None,
+        "authority_report": None,
         "operator_actions_are_not_software_inferred": True,
         "restore_executor_authorized": False,
         "system_mutations_performed": False,
@@ -389,6 +410,40 @@ def record_boot_metadata(
     return refresh_manifest(manifest)
 
 
+def record_authority_report(
+    manifest: dict[str, Any], report: dict[str, Any]
+) -> dict[str, Any]:
+    verify_embedded_sha256(
+        report,
+        schema_key="schema",
+        schema="phoenix_key.recovery_hardware_campaign_report.v1",
+        digest_field="report_sha256",
+    )
+    if (
+        report.get("restore_executable") is not False
+        or report.get("destructive_authorization_granted") is not False
+        or report.get("system_mutations_performed") is not False
+    ):
+        raise HardwareCampaignError(
+            "Hardware authority report violated the non-executable safety boundary."
+        )
+
+    manifest["authority_report"] = {
+        "report_sha256": report["report_sha256"],
+        "campaign_complete": report.get("campaign_complete") is True,
+        "fixture_evidence_rejected": report.get("fixture_evidence_rejected") is True,
+        "restore_executable": report.get("restore_executable") is True,
+        "destructive_authorization_granted": (
+            report.get("destructive_authorization_granted") is True
+        ),
+        "system_mutations_performed": (
+            report.get("system_mutations_performed") is True
+        ),
+        "blockers": report.get("blockers") or [],
+    }
+    return refresh_manifest(manifest)
+
+
 def campaign_paths(campaign_dir: Path) -> tuple[Path, Path]:
     root = campaign_dir.resolve()
     return root, root / "hardware-campaign-manifest.json"
@@ -484,6 +539,14 @@ def command_record_boot(args: argparse.Namespace) -> dict[str, Any]:
     return manifest
 
 
+def command_record_authority(args: argparse.Namespace) -> dict[str, Any]:
+    _, manifest_path, manifest = load_manifest(args.campaign_dir)
+    report = load_json(args.report)
+    manifest = record_authority_report(manifest, report)
+    save_manifest(manifest, manifest_path)
+    return manifest
+
+
 def command_status(args: argparse.Namespace) -> dict[str, Any]:
     _, _, manifest = load_manifest(args.campaign_dir)
     return manifest
@@ -532,6 +595,11 @@ def parse_args() -> argparse.Namespace:
     boot.add_argument("--campaign-dir", type=Path, required=True)
     boot.add_argument("--receipt", type=Path, required=True)
     boot.set_defaults(handler=command_record_boot)
+
+    authority = subparsers.add_parser("record-authority-report")
+    authority.add_argument("--campaign-dir", type=Path, required=True)
+    authority.add_argument("--report", type=Path, required=True)
+    authority.set_defaults(handler=command_record_authority)
 
     status = subparsers.add_parser("status")
     status.add_argument("--campaign-dir", type=Path, required=True)
