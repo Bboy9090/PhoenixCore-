@@ -675,7 +675,7 @@ mod tests {
                 "evidence_source": if live { "live" } else { "fixture" },
                 "hardware_observed": live,
                 "target_stable_identity_sha256": "b".repeat(64),
-                "rollback_contract_sha256": rollback_contract_sha256,
+                "rollback_contract_sha256": rollback_contract_sha256.clone(),
                 "resolved": true,
                 "target_bytes_written": 0,
                 "target_write_attempted": false,
