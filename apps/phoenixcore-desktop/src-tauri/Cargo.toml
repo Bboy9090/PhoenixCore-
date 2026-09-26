@@ -1,0 +1,15 @@
+[package]
+name = "phoenixcore-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "PhoenixCore desktop dashboard shell"
+license = "MIT OR Apache-2.0"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.5", features = [] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

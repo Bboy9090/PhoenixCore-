@@ -1,0 +1,15 @@
+{
+  "name": "phoenixcore-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dashboard:install": "npm --prefix ../../dashboard ci",
+    "dashboard:build": "npm --prefix ../../dashboard run build",
+    "build": "npm run dashboard:install && npm run dashboard:build",
+    "desktop:build": "tauri build",
+    "desktop:dev": "tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.6.3"
+  }
+}
