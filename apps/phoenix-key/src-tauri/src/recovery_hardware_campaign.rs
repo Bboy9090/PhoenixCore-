@@ -1,3 +1,9 @@
+use crate::data_preservation::verify_target_data_preservation_receipt_sha256;
+use crate::rollback_destination::verify_rollback_destination_verification_sha256;
+use crate::target_safety::{
+    verify_recovery_target_identity_verification_sha256,
+    verify_recovery_target_safety_sha256,
+};
 use crate::target_reenumeration::{
     verify_recovery_target_reenumeration_receipt_sha256,
     RecoveryTargetReenumerationReceipt,
@@ -169,6 +175,7 @@ pub fn build_recovery_hardware_campaign_report(
         .and_then(Value::as_str);
 
     let rollback_destination_separate = baseline_live
+        && verify_rollback_destination_verification_sha256(rollback_destination)
         && rollback_destination
             .get("ready_for_hardware_rollback_capture")
             .and_then(Value::as_bool)
@@ -233,6 +240,11 @@ pub fn build_recovery_hardware_campaign_report(
                 .and_then(Value::as_str),
         );
 
+    let rollback_contract_sha256 = rollback_capture
+        .get("rollback_contract_sha256")
+        .and_then(Value::as_str)
+        .filter(|value| valid_sha256(value));
+
     let reconnect_live = live_drive(reconnect_drive);
     let reconnect_snapshot = reconnect_drive
         .pointer("/disk/identity_sha256")
@@ -267,6 +279,8 @@ pub fn build_recovery_hardware_campaign_report(
         });
 
     let post_reanalysis_fresh_identity_proven = reconnect_same_hardware_proven
+        && verify_recovery_target_safety_sha256(post_reanalysis_safety)
+        && verify_recovery_target_identity_verification_sha256(post_reanalysis_verification)
         && post_reanalysis_safety
             .get("safe_to_prepare")
             .and_then(Value::as_bool)
@@ -376,9 +390,17 @@ pub fn build_recovery_hardware_campaign_report(
             boot_metadata
                 .get("target_stable_identity_sha256")
                 .and_then(Value::as_str),
+        )
+        && same_sha256(
+            rollback_contract_sha256,
+            boot_metadata
+                .get("rollback_contract_sha256")
+                .and_then(Value::as_str),
         );
 
-    let data_preservation_resolved = data_preservation
+    let data_preservation_resolved =
+        verify_target_data_preservation_receipt_sha256(data_preservation)
+        && data_preservation
         .get("schema")
         .and_then(Value::as_str)
         == Some("phoenix_key.target_data_preservation_receipt.v1")
@@ -398,6 +420,12 @@ pub fn build_recovery_hardware_campaign_report(
             baseline_stable,
             data_preservation
                 .get("target_stable_identity_sha256")
+                .and_then(Value::as_str),
+        )
+        && same_sha256(
+            rollback_contract_sha256,
+            data_preservation
+                .get("rollback_contract_sha256")
                 .and_then(Value::as_str),
         );
 
