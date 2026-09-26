@@ -10,10 +10,13 @@ mod source_identity;
 mod target_reenumeration;
 #[path = "../src/target_safety.rs"]
 mod target_safety;
+#[allow(dead_code)]
 #[path = "../src/restore_rollback_contract.rs"]
 mod restore_rollback_contract;
+#[allow(dead_code)]
 #[path = "../src/data_preservation.rs"]
 mod data_preservation;
+#[allow(dead_code)]
 #[path = "../src/rollback_destination.rs"]
 mod rollback_destination;
 #[cfg(test)]
