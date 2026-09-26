@@ -10,6 +10,12 @@ mod source_identity;
 mod target_reenumeration;
 #[path = "../src/target_safety.rs"]
 mod target_safety;
+#[path = "../src/restore_rollback_contract.rs"]
+mod restore_rollback_contract;
+#[path = "../src/data_preservation.rs"]
+mod data_preservation;
+#[path = "../src/rollback_destination.rs"]
+mod rollback_destination;
 #[cfg(test)]
 #[path = "../src/boot_repair_contract.rs"]
 mod boot_repair_contract;
