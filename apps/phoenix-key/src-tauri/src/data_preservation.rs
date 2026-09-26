@@ -57,6 +57,94 @@ fn receipt_sha256(receipt: &TargetDataPreservationReceipt) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+pub fn verify_target_data_preservation_receipt_sha256(value: &Value) -> bool {
+    let schema = value.get("schema").and_then(Value::as_str);
+    let mode = value.get("mode").and_then(Value::as_str);
+    let target_stable_identity_sha256 = value
+        .get("target_stable_identity_sha256")
+        .and_then(Value::as_str);
+    let rollback_contract_sha256 = value
+        .get("rollback_contract_sha256")
+        .and_then(Value::as_str);
+    let acknowledgement = value.get("acknowledgement").and_then(Value::as_str);
+    let resolved = value.get("resolved").and_then(Value::as_bool);
+    let block_reasons = value.get("block_reasons").and_then(Value::as_array);
+    let required_next_evidence = value
+        .get("required_next_evidence")
+        .and_then(Value::as_array);
+    let restore_unlock_ready = value.get("restore_unlock_ready").and_then(Value::as_bool);
+    let system_mutations_performed = value
+        .get("system_mutations_performed")
+        .and_then(Value::as_bool);
+    let expected = value.get("receipt_sha256").and_then(Value::as_str);
+
+    let (
+        Some("phoenix_key.target_data_preservation_receipt.v1"),
+        Some(mode),
+        Some(target_stable_identity_sha256),
+        Some(rollback_contract_sha256),
+        Some(acknowledgement),
+        Some(resolved),
+        Some(block_reasons),
+        Some(required_next_evidence),
+        Some(restore_unlock_ready),
+        Some(system_mutations_performed),
+        Some(expected),
+    ) = (
+        schema,
+        mode,
+        target_stable_identity_sha256,
+        rollback_contract_sha256,
+        acknowledgement,
+        resolved,
+        block_reasons,
+        required_next_evidence,
+        restore_unlock_ready,
+        system_mutations_performed,
+        expected,
+    )
+    else {
+        return false;
+    };
+
+    if !valid_sha256(expected)
+        || !valid_sha256(target_stable_identity_sha256)
+        || !valid_sha256(rollback_contract_sha256)
+    {
+        return false;
+    }
+
+    let block_reasons = block_reasons
+        .iter()
+        .map(|value| value.as_str().map(str::to_string))
+        .collect::<Option<Vec<_>>>();
+    let required_next_evidence = required_next_evidence
+        .iter()
+        .map(|value| value.as_str().map(str::to_string))
+        .collect::<Option<Vec<_>>>();
+    let (Some(block_reasons), Some(required_next_evidence)) =
+        (block_reasons, required_next_evidence)
+    else {
+        return false;
+    };
+
+    let unsigned = UnsignedTargetDataPreservationReceipt {
+        schema: "phoenix_key.target_data_preservation_receipt.v1",
+        mode,
+        target_stable_identity_sha256,
+        rollback_contract_sha256,
+        acknowledgement,
+        resolved,
+        block_reasons: &block_reasons,
+        required_next_evidence: &required_next_evidence,
+        restore_unlock_ready,
+        system_mutations_performed,
+    };
+    let bytes =
+        serde_json::to_vec(&unsigned).expect("data-preservation receipt serialization cannot fail");
+    format!("{:x}", Sha256::digest(bytes)).eq_ignore_ascii_case(expected)
+}
+
 pub fn build_target_data_preservation_receipt(
     target_safety: &Value,
     rollback_contract: &Value,
@@ -164,7 +252,9 @@ pub fn create_target_data_preservation_decision(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_target_data_preservation_receipt, EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
+        build_target_data_preservation_receipt,
+        verify_target_data_preservation_receipt_sha256,
+        EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
     };
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
     use crate::source_identity::identity_bound_plan_sha256;
@@ -210,6 +300,21 @@ mod tests {
             build_restore_target_rollback_contract(&plan(), &target()).unwrap(),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn data_preservation_receipt_checksum_detects_tampering() {
+        let receipt = build_target_data_preservation_receipt(
+            &target(),
+            &contract(),
+            "explicit_discard",
+            EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
+        )
+        .unwrap();
+        let mut value = serde_json::to_value(receipt).unwrap();
+        assert!(verify_target_data_preservation_receipt_sha256(&value));
+        value["resolved"] = json!(false);
+        assert!(!verify_target_data_preservation_receipt_sha256(&value));
     }
 
     #[test]

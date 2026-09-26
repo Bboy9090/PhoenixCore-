@@ -1,5 +1,6 @@
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Map, Value};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RecoveryTargetIdentityVerification {
@@ -14,6 +15,7 @@ pub struct RecoveryTargetIdentityVerification {
     pub classification: &'static str,
     pub reanalysis_required: bool,
     pub system_mutations_performed: bool,
+    pub receipt_sha256: String,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -29,10 +31,63 @@ pub struct RecoveryTargetSafety {
     pub source_physical_identity_sha256: Option<String>,
     pub source_target_distinct: Option<bool>,
     pub block_reasons: Vec<String>,
+    pub receipt_sha256: String,
 }
 
 fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn canonicalize_json(value: &Value) -> Value {
+    match value {
+        Value::Object(object) => {
+            let mut keys: Vec<&String> = object.keys().collect();
+            keys.sort();
+            let mut canonical = Map::new();
+            for key in keys {
+                if key == "receipt_sha256" {
+                    continue;
+                }
+                canonical.insert(key.clone(), canonicalize_json(&object[key]));
+            }
+            Value::Object(canonical)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonicalize_json).collect()),
+        _ => value.clone(),
+    }
+}
+
+fn receipt_sha256(value: &Value) -> String {
+    let bytes = serde_json::to_vec(&canonicalize_json(value))
+        .expect("target safety receipt serialization cannot fail");
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+fn finalize_receipt<T: Serialize>(value: &T) -> String {
+    receipt_sha256(
+        &serde_json::to_value(value).expect("target safety receipt serialization cannot fail"),
+    )
+}
+
+pub fn verify_recovery_target_safety_sha256(value: &Value) -> bool {
+    value.get("schema").and_then(Value::as_str) == Some("phoenix_key.recovery_target_safety.v1")
+        && value
+            .get("receipt_sha256")
+            .and_then(Value::as_str)
+            .is_some_and(|expected| {
+                is_sha256(expected) && receipt_sha256(value).eq_ignore_ascii_case(expected)
+            })
+}
+
+pub fn verify_recovery_target_identity_verification_sha256(value: &Value) -> bool {
+    value.get("schema").and_then(Value::as_str)
+        == Some("phoenix_key.recovery_target_identity_verification.v1")
+        && value
+            .get("receipt_sha256")
+            .and_then(Value::as_str)
+            .is_some_and(|expected| {
+                is_sha256(expected) && receipt_sha256(value).eq_ignore_ascii_case(expected)
+            })
 }
 
 pub fn verify_recovery_target_identity(
@@ -73,7 +128,7 @@ pub fn verify_recovery_target_identity(
         "hardware_substitution_or_unproven"
     };
 
-    RecoveryTargetIdentityVerification {
+    let mut receipt = RecoveryTargetIdentityVerification {
         schema: "phoenix_key.recovery_target_identity_verification.v1",
         expected_snapshot_identity_sha256: expected_snapshot,
         observed_snapshot_identity_sha256: observed_snapshot,
@@ -85,7 +140,10 @@ pub fn verify_recovery_target_identity(
         classification,
         reanalysis_required: !matches,
         system_mutations_performed: false,
-    }
+        receipt_sha256: String::new(),
+    };
+    receipt.receipt_sha256 = finalize_receipt(&receipt);
+    receipt
 }
 
 fn push_reason(reasons: &mut Vec<String>, reason: &str) {
@@ -186,7 +244,7 @@ pub fn assess_recovery_target(
         }
     };
 
-    RecoveryTargetSafety {
+    let mut receipt = RecoveryTargetSafety {
         schema: "phoenix_key.recovery_target_safety.v1",
         safe_to_prepare: block_reasons.is_empty(),
         target,
@@ -198,14 +256,21 @@ pub fn assess_recovery_target(
         source_physical_identity_sha256: source_stable_identity,
         source_target_distinct,
         block_reasons,
-    }
+        receipt_sha256: String::new(),
+    };
+    receipt.receipt_sha256 = finalize_receipt(&receipt);
+    receipt
 }
 
 
 
 #[cfg(test)]
 mod tests {
-    use super::{assess_recovery_target, verify_recovery_target_identity};
+    use super::{
+        assess_recovery_target, verify_recovery_target_identity,
+        verify_recovery_target_identity_verification_sha256,
+        verify_recovery_target_safety_sha256,
+    };
     use serde_json::{json, Value};
 
     fn safe_evidence() -> Value {
@@ -221,6 +286,32 @@ mod tests {
                 "write_block_reasons": []
             }
         })
+    }
+
+    #[test]
+    fn target_receipts_are_checksum_bound() {
+        let evidence = safe_evidence();
+        let safety = assess_recovery_target(
+            &evidence,
+            1024,
+            Some("\\\\.\\PHYSICALDRIVE8"),
+            Some(&"c".repeat(64)),
+        );
+        let mut safety_value = serde_json::to_value(safety).unwrap();
+        assert!(verify_recovery_target_safety_sha256(&safety_value));
+        safety_value["safe_to_prepare"] = json!(false);
+        assert!(!verify_recovery_target_safety_sha256(&safety_value));
+
+        let verification =
+            verify_recovery_target_identity(&evidence, &"a".repeat(64), &"b".repeat(64));
+        let mut verification_value = serde_json::to_value(verification).unwrap();
+        assert!(verify_recovery_target_identity_verification_sha256(
+            &verification_value
+        ));
+        verification_value["matches"] = json!(false);
+        assert!(!verify_recovery_target_identity_verification_sha256(
+            &verification_value
+        ));
     }
 
     #[test]

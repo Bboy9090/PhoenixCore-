@@ -10,6 +10,15 @@ mod source_identity;
 mod target_reenumeration;
 #[path = "../src/target_safety.rs"]
 mod target_safety;
+#[allow(dead_code)]
+#[path = "../src/restore_rollback_contract.rs"]
+mod restore_rollback_contract;
+#[allow(dead_code)]
+#[path = "../src/data_preservation.rs"]
+mod data_preservation;
+#[allow(dead_code)]
+#[path = "../src/rollback_destination.rs"]
+mod rollback_destination;
 #[cfg(test)]
 #[path = "../src/boot_repair_contract.rs"]
 mod boot_repair_contract;
@@ -25,8 +34,11 @@ mod restore_readiness;
 #[cfg(test)]
 #[path = "../src/recovery_center.rs"]
 mod recovery_center;
+#[path = "../src/recovery_hardware_campaign.rs"]
+mod recovery_hardware_campaign;
 
 use platform_recovery::get_platform_recovery_answer;
+use recovery_hardware_campaign::assess_windows_recovery_hardware_campaign;
 use serde::Serialize;
 use source_identity::{
     build_identity_bound_recovery_plan, capture_source_identity,
@@ -160,6 +172,18 @@ fn run() -> Result<(), String> {
             "checksum_verified": verify_recovery_target_reenumeration_receipt_sha256(&receipt),
             "system_mutations_performed": false
         }));
+    }
+
+    if command == "hardware-campaign-report" {
+        let evidence_path = args.next().unwrap_or_else(|| usage());
+        if args.next().is_some() {
+            usage();
+        }
+        let evidence_bytes = fs::read(&evidence_path)
+            .map_err(|error| format!("cannot read hardware campaign evidence JSON: {error}"))?;
+        let evidence_json = String::from_utf8(evidence_bytes)
+            .map_err(|error| format!("hardware campaign evidence is not UTF-8 JSON: {error}"))?;
+        return emit(&assess_windows_recovery_hardware_campaign(evidence_json)?);
     }
 
     if command == "target-check" {

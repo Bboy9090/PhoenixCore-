@@ -1,5 +1,6 @@
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Map, Value};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RollbackDestinationVerification {
@@ -16,10 +17,47 @@ pub struct RollbackDestinationVerification {
     pub ready_for_hardware_rollback_capture: bool,
     pub block_reasons: Vec<String>,
     pub system_mutations_performed: bool,
+    pub receipt_sha256: String,
 }
 
 fn valid_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn canonicalize_json(value: &Value) -> Value {
+    match value {
+        Value::Object(object) => {
+            let mut keys: Vec<&String> = object.keys().collect();
+            keys.sort();
+            let mut canonical = Map::new();
+            for key in keys {
+                if key == "receipt_sha256" {
+                    continue;
+                }
+                canonical.insert(key.clone(), canonicalize_json(&object[key]));
+            }
+            Value::Object(canonical)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonicalize_json).collect()),
+        _ => value.clone(),
+    }
+}
+
+fn receipt_sha256(value: &Value) -> String {
+    let bytes = serde_json::to_vec(&canonicalize_json(value))
+        .expect("rollback destination receipt serialization cannot fail");
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+pub fn verify_rollback_destination_verification_sha256(value: &Value) -> bool {
+    value.get("schema").and_then(Value::as_str)
+        == Some("phoenix_key.rollback_destination_verification.v1")
+        && value
+            .get("receipt_sha256")
+            .and_then(Value::as_str)
+            .is_some_and(|expected| {
+                valid_sha256(expected) && receipt_sha256(value).eq_ignore_ascii_case(expected)
+            })
 }
 
 fn push_reason(reasons: &mut Vec<String>, reason: &str) {
@@ -140,7 +178,7 @@ pub fn assess_rollback_destination(
         push_reason(&mut block_reasons, "rollback-destination-path-missing");
     }
 
-    RollbackDestinationVerification {
+    let mut receipt = RollbackDestinationVerification {
         schema: "phoenix_key.rollback_destination_verification.v1",
         target,
         target_snapshot_identity_sha256: target_snapshot_identity,
@@ -154,12 +192,20 @@ pub fn assess_rollback_destination(
         ready_for_hardware_rollback_capture: block_reasons.is_empty(),
         block_reasons,
         system_mutations_performed: false,
-    }
+        receipt_sha256: String::new(),
+    };
+    receipt.receipt_sha256 = receipt_sha256(
+        &serde_json::to_value(&receipt)
+            .expect("rollback destination receipt serialization cannot fail"),
+    );
+    receipt
 }
 
 #[cfg(test)]
 mod tests {
-    use super::assess_rollback_destination;
+    use super::{
+        assess_rollback_destination, verify_rollback_destination_verification_sha256,
+    };
     use serde_json::json;
 
     fn target() -> serde_json::Value {
@@ -179,6 +225,20 @@ mod tests {
                 "stable_identity_sha256": "c".repeat(64)
             }
         })
+    }
+
+    #[test]
+    fn destination_receipt_checksum_detects_tampering() {
+        let result = assess_rollback_destination(
+            &target(),
+            &destination(),
+            "E:/PhoenixKeyRollback",
+            &"b".repeat(64),
+        );
+        let mut value = serde_json::to_value(result).unwrap();
+        assert!(verify_rollback_destination_verification_sha256(&value));
+        value["separate_physical_device"] = json!(false);
+        assert!(!verify_rollback_destination_verification_sha256(&value));
     }
 
     #[test]
