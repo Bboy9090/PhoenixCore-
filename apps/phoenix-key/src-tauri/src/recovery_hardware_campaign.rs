@@ -513,7 +513,14 @@ mod tests {
         build_recovery_hardware_campaign_report, value_sha256, DRIVE_SCHEMA,
         ROLLBACK_CAPTURE_SCHEMA,
     };
+    use crate::data_preservation::{
+        build_target_data_preservation_receipt, EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
+    };
+    use crate::restore_rollback_contract::build_restore_target_rollback_contract;
+    use crate::rollback_destination::assess_rollback_destination;
+    use crate::source_identity::identity_bound_plan_sha256;
     use crate::target_reenumeration::compare_recovery_target_reenumeration;
+    use crate::target_safety::{assess_recovery_target, verify_recovery_target_identity};
     use serde_json::{json, Value};
 
     fn with_digest(mut value: Value, field: &str) -> Value {
@@ -534,14 +541,24 @@ mod tests {
                 "disk": {
                     "target": target,
                     "identity_sha256": snapshot,
-                    "stable_identity_sha256": stable
+                    "stable_identity_sha256": stable,
+                    "size_bytes": 64_000u64,
+                    "is_boot": false,
+                    "is_system": false,
+                    "write_candidate": true,
+                    "write_block_reasons": []
                 }
             }),
             "receipt_sha256",
         )
     }
 
-    fn rollback_capture(snapshot: &str, stable: &str, live: bool) -> Value {
+    fn rollback_capture(
+        snapshot: &str,
+        stable: &str,
+        rollback_contract_sha256: &str,
+        live: bool,
+    ) -> Value {
         with_digest(
             json!({
                 "schema": ROLLBACK_CAPTURE_SCHEMA,
@@ -549,7 +566,7 @@ mod tests {
                 "hardware_observed": live,
                 "target_snapshot_identity_sha256": snapshot,
                 "target_stable_identity_sha256": stable,
-                "rollback_contract_sha256": "d".repeat(64),
+                "rollback_contract_sha256": rollback_contract_sha256,
                 "target_bytes_written": 0,
                 "target_write_attempted": false,
                 "restore_unlock_ready": false,
@@ -557,6 +574,31 @@ mod tests {
             }),
             "receipt_sha256",
         )
+    }
+
+    fn plan() -> Value {
+        let mut plan = json!({
+            "schema": "phoenix_key.windows_recovery_plan.v4",
+            "source_identity": {
+                "sha256": "9".repeat(64),
+                "complete": true,
+                "source_kind": "file_sha256",
+                "canonical_path": "C:/recovery/install.wim",
+                "size_bytes": 1024
+            },
+            "execution_boundary": {
+                "planner_only": true,
+                "restore_executor_available": false,
+                "system_mutations_performed": false
+            },
+            "dry_run_summary": {
+                "executable": false,
+                "mutation_steps_executed": 0
+            },
+            "destructive_actions_performed": false
+        });
+        plan["plan_sha256"] = Value::String(identity_bound_plan_sha256(&plan).unwrap());
+        plan
     }
 
     fn complete_evidence(live: bool) -> Value {
@@ -578,6 +620,43 @@ mod tests {
             &"f".repeat(64),
             live,
         );
+        let baseline_safety = assess_recovery_target(
+            &baseline,
+            1024,
+            Some("\\\\.\\PHYSICALDRIVE8"),
+            Some(&"8".repeat(64)),
+        );
+        let rollback_contract =
+            build_restore_target_rollback_contract(&plan(), &serde_json::to_value(&baseline_safety).unwrap())
+                .unwrap();
+        let rollback_contract_sha256 = rollback_contract.contract_sha256.clone();
+        let rollback_destination = assess_rollback_destination(
+            &baseline,
+            &json!({
+                "source": {
+                    "physical_target": "\\\\.\\PHYSICALDRIVE12",
+                    "stable_identity_sha256": "7".repeat(64)
+                }
+            }),
+            "E:/PhoenixKeyRollback",
+            &"b".repeat(64),
+        );
+        let reconnect_safety = assess_recovery_target(
+            &reconnect,
+            1024,
+            Some("\\\\.\\PHYSICALDRIVE8"),
+            Some(&"8".repeat(64)),
+        );
+        let reconnect_verification =
+            verify_recovery_target_identity(&reconnect, &"c".repeat(64), &"b".repeat(64));
+        let data_preservation = build_target_data_preservation_receipt(
+            &serde_json::to_value(&baseline_safety).unwrap(),
+            &serde_json::to_value(&rollback_contract).unwrap(),
+            "explicit_discard",
+            EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
+        )
+        .unwrap();
+
         let reconnect_receipt = compare_recovery_target_reenumeration(
             &reconnect,
             Some("\\\\.\\PHYSICALDRIVE7"),
@@ -596,6 +675,7 @@ mod tests {
                 "evidence_source": if live { "live" } else { "fixture" },
                 "hardware_observed": live,
                 "target_stable_identity_sha256": "b".repeat(64),
+                "rollback_contract_sha256": rollback_contract_sha256,
                 "resolved": true,
                 "target_bytes_written": 0,
                 "target_write_attempted": false,
@@ -606,39 +686,21 @@ mod tests {
         );
         json!({
             "baseline_target_drive_evidence": baseline,
-            "rollback_destination_verification": {
-                "ready_for_hardware_rollback_capture": true,
-                "separate_physical_device": true,
-                "target_identity_matches_expected": true,
-                "target_stable_identity_sha256": "b".repeat(64),
-                "system_mutations_performed": false
-            },
-            "rollback_capture_receipt": rollback_capture(&"a".repeat(64), &"b".repeat(64), live),
+            "rollback_destination_verification": rollback_destination,
+            "rollback_capture_receipt": rollback_capture(
+                &"a".repeat(64),
+                &"b".repeat(64),
+                &rollback_contract_sha256,
+                live,
+            ),
             "reconnect_target_drive_evidence": reconnect,
             "reconnect_reenumeration_receipt": reconnect_receipt,
-            "post_reanalysis_target_safety": {
-                "safe_to_prepare": true,
-                "source_target_distinct": true,
-                "target_identity_sha256": "c".repeat(64),
-                "target_stable_identity_sha256": "b".repeat(64)
-            },
-            "post_reanalysis_target_verification": {
-                "matches": true,
-                "reanalysis_required": false,
-                "observed_snapshot_identity_sha256": "c".repeat(64),
-                "observed_stable_identity_sha256": "b".repeat(64),
-                "system_mutations_performed": false
-            },
+            "post_reanalysis_target_safety": reconnect_safety,
+            "post_reanalysis_target_verification": reconnect_verification,
             "substitution_target_drive_evidence": substitution,
             "substitution_reenumeration_receipt": substitution_receipt,
             "boot_metadata_receipt": boot,
-            "data_preservation_receipt": {
-                "schema": "phoenix_key.target_data_preservation_receipt.v1",
-                "resolved": true,
-                "target_stable_identity_sha256": "b".repeat(64),
-                "restore_unlock_ready": false,
-                "system_mutations_performed": false
-            }
+            "data_preservation_receipt": data_preservation
         })
     }
 
@@ -652,6 +714,46 @@ mod tests {
         assert!(!report.destructive_authorization_granted);
         assert!(!report.system_mutations_performed);
         assert_eq!(report.report_sha256.len(), 64);
+    }
+
+    #[test]
+    fn tampered_intermediate_receipts_block_campaign() {
+        for key in [
+            "rollback_destination_verification",
+            "post_reanalysis_target_safety",
+            "post_reanalysis_target_verification",
+            "data_preservation_receipt",
+        ] {
+            let mut evidence = complete_evidence(true);
+            if key == "rollback_destination_verification" {
+                evidence[key]["separate_physical_device"] = json!(false);
+            } else if key == "post_reanalysis_target_safety" {
+                evidence[key]["safe_to_prepare"] = json!(false);
+            } else if key == "post_reanalysis_target_verification" {
+                evidence[key]["matches"] = json!(false);
+            } else {
+                evidence[key]["resolved"] = json!(false);
+            }
+            let report = build_recovery_hardware_campaign_report(&evidence);
+            assert!(!report.campaign_complete, "{key} tampering must block");
+        }
+    }
+
+    #[test]
+    fn rollback_contract_mismatch_blocks_boot_and_preservation_gates() {
+        let mut evidence = complete_evidence(true);
+        evidence["boot_metadata_receipt"]["rollback_contract_sha256"] =
+            json!("6".repeat(64));
+        let report = build_recovery_hardware_campaign_report(&evidence);
+        assert!(!report.campaign_complete);
+        assert!(!report.boot_metadata_live_resolved);
+
+        let mut evidence = complete_evidence(true);
+        evidence["data_preservation_receipt"]["rollback_contract_sha256"] =
+            json!("6".repeat(64));
+        let report = build_recovery_hardware_campaign_report(&evidence);
+        assert!(!report.campaign_complete);
+        assert!(!report.data_preservation_resolved);
     }
 
     #[test]
