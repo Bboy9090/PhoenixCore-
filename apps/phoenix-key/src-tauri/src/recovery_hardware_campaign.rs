@@ -539,7 +539,7 @@ pub fn assess_windows_recovery_hardware_campaign(
 mod tests {
     use super::{
         build_recovery_hardware_campaign_report, value_sha256, DRIVE_SCHEMA,
-        ROLLBACK_CAPTURE_SCHEMA,
+        EVIDENCE_PACKAGE_SCHEMA, ROLLBACK_CAPTURE_SCHEMA,
     };
     use crate::data_preservation::{
         build_target_data_preservation_receipt, EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
@@ -792,7 +792,13 @@ mod tests {
             } else {
                 evidence[key]["resolved"] = json!(false);
             }
+            evidence["package_sha256"] = Value::String(value_sha256(&{
+                let mut unsigned = evidence.clone();
+                unsigned.as_object_mut().unwrap().remove("package_sha256");
+                unsigned
+            }));
             let report = build_recovery_hardware_campaign_report(&evidence);
+            assert!(report.evidence_package_verified);
             assert!(!report.campaign_complete, "{key} tampering must block");
         }
     }
@@ -802,6 +808,16 @@ mod tests {
         let mut evidence = complete_evidence(true);
         evidence["boot_metadata_receipt"]["rollback_contract_sha256"] =
             json!("6".repeat(64));
+        evidence["boot_metadata_receipt"]["receipt_sha256"] = Value::String(value_sha256(&{
+            let mut unsigned = evidence["boot_metadata_receipt"].clone();
+            unsigned.as_object_mut().unwrap().remove("receipt_sha256");
+            unsigned
+        }));
+        evidence["package_sha256"] = Value::String(value_sha256(&{
+            let mut unsigned = evidence.clone();
+            unsigned.as_object_mut().unwrap().remove("package_sha256");
+            unsigned
+        }));
         let report = build_recovery_hardware_campaign_report(&evidence);
         assert!(!report.campaign_complete);
         assert!(!report.boot_metadata_live_resolved);
@@ -809,6 +825,11 @@ mod tests {
         let mut evidence = complete_evidence(true);
         evidence["data_preservation_receipt"]["rollback_contract_sha256"] =
             json!("6".repeat(64));
+        evidence["package_sha256"] = Value::String(value_sha256(&{
+            let mut unsigned = evidence.clone();
+            unsigned.as_object_mut().unwrap().remove("package_sha256");
+            unsigned
+        }));
         let report = build_recovery_hardware_campaign_report(&evidence);
         assert!(!report.campaign_complete);
         assert!(!report.data_preservation_resolved);
