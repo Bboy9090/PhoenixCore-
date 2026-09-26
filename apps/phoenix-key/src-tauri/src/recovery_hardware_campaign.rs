@@ -12,6 +12,7 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
+const EVIDENCE_PACKAGE_SCHEMA: &str = "phoenix_key.recovery_hardware_campaign_evidence_package.v1";
 const DRIVE_SCHEMA: &str = "bws.physical-drive-evidence/v1";
 const ROLLBACK_CAPTURE_SCHEMA: &str = "phoenix_key.restore_target_rollback_capture.v1";
 const BOOT_METADATA_SCHEMA: &str = "phoenix_key.restore_target_boot_metadata.v1";
@@ -19,6 +20,7 @@ const BOOT_METADATA_SCHEMA: &str = "phoenix_key.restore_target_boot_metadata.v1"
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RecoveryHardwareCampaignReportV1 {
     pub schema: &'static str,
+    pub evidence_package_verified: bool,
     pub target_live_observed: bool,
     pub rollback_destination_separate: bool,
     pub rollback_capture_live_zero_write: bool,
@@ -88,6 +90,24 @@ fn verify_embedded_sha256(value: &Value, field: &str) -> bool {
     value_sha256(&unsigned).eq_ignore_ascii_case(expected)
 }
 
+fn verify_evidence_package(value: &Value) -> bool {
+    value.get("schema").and_then(Value::as_str) == Some(EVIDENCE_PACKAGE_SCHEMA)
+        && verify_embedded_sha256(value, "package_sha256")
+        && value
+            .get("fixture_evidence_allowed")
+            .and_then(Value::as_bool)
+            == Some(false)
+        && value.get("restore_executable").and_then(Value::as_bool) == Some(false)
+        && value
+            .get("destructive_authorization_granted")
+            .and_then(Value::as_bool)
+            == Some(false)
+        && value
+            .get("system_mutations_performed")
+            .and_then(Value::as_bool)
+            == Some(false)
+}
+
 fn live_drive(value: &Value) -> bool {
     value.get("schema_version").and_then(Value::as_str) == Some(DRIVE_SCHEMA)
         && verify_embedded_sha256(value, "receipt_sha256")
@@ -132,6 +152,7 @@ fn push_blocker(blockers: &mut Vec<String>, blocker: &str) {
 pub fn build_recovery_hardware_campaign_report(
     evidence: &Value,
 ) -> RecoveryHardwareCampaignReportV1 {
+    let evidence_package_verified = verify_evidence_package(evidence);
     let baseline = evidence
         .get("baseline_target_drive_evidence")
         .unwrap_or(&Value::Null);
@@ -443,6 +464,12 @@ pub fn build_recovery_hardware_campaign_report(
     });
 
     let mut blockers = Vec::new();
+    if !evidence_package_verified {
+        push_blocker(
+            &mut blockers,
+            "hardware_authority_evidence_package_invalid",
+        );
+    }
     if !baseline_live {
         push_blocker(&mut blockers, "live_baseline_target_evidence_required");
     }
@@ -477,6 +504,7 @@ pub fn build_recovery_hardware_campaign_report(
     let campaign_complete = blockers.is_empty();
     let mut report = RecoveryHardwareCampaignReportV1 {
         schema: "phoenix_key.recovery_hardware_campaign_report.v1",
+        evidence_package_verified,
         target_live_observed: baseline_live,
         rollback_destination_separate,
         rollback_capture_live_zero_write,
@@ -684,7 +712,8 @@ mod tests {
             }),
             "receipt_sha256",
         );
-        json!({
+        let mut package = json!({
+            "schema": EVIDENCE_PACKAGE_SCHEMA,
             "baseline_target_drive_evidence": baseline,
             "rollback_destination_verification": rollback_destination,
             "rollback_capture_receipt": rollback_capture(
@@ -700,8 +729,14 @@ mod tests {
             "substitution_target_drive_evidence": substitution,
             "substitution_reenumeration_receipt": substitution_receipt,
             "boot_metadata_receipt": boot,
-            "data_preservation_receipt": data_preservation
-        })
+            "data_preservation_receipt": data_preservation,
+            "fixture_evidence_allowed": false,
+            "restore_executable": false,
+            "destructive_authorization_granted": false,
+            "system_mutations_performed": false
+        });
+        package["package_sha256"] = Value::String(value_sha256(&package));
+        package
     }
 
     #[test]
@@ -714,6 +749,29 @@ mod tests {
         assert!(!report.destructive_authorization_granted);
         assert!(!report.system_mutations_performed);
         assert_eq!(report.report_sha256.len(), 64);
+    }
+
+    #[test]
+    fn evidence_package_checksum_is_mandatory() {
+        let mut evidence = complete_evidence(true);
+        assert!(build_recovery_hardware_campaign_report(&evidence).evidence_package_verified);
+
+        evidence["fixture_evidence_allowed"] = json!(true);
+        let report = build_recovery_hardware_campaign_report(&evidence);
+        assert!(!report.evidence_package_verified);
+        assert!(!report.campaign_complete);
+        assert!(report
+            .blockers
+            .contains(&"hardware_authority_evidence_package_invalid".to_string()));
+    }
+
+    #[test]
+    fn tampered_package_after_assembly_is_rejected() {
+        let mut evidence = complete_evidence(true);
+        evidence["baseline_target_drive_evidence"]["disk"]["size_bytes"] = json!(128_000u64);
+        let report = build_recovery_hardware_campaign_report(&evidence);
+        assert!(!report.evidence_package_verified);
+        assert!(!report.campaign_complete);
     }
 
     #[test]
