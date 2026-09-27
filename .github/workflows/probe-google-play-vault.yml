@@ -14,30 +14,21 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Check PhoenixCore Android signing vault
-        env:
-          KEYSTORE_B64: ${{ secrets.PHOENIXCORE_ANDROID_KEYSTORE_B64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.PHOENIXCORE_ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.PHOENIXCORE_ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.PHOENIXCORE_ANDROID_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          test -n "$KEYSTORE_B64"
-          test -n "$KEYSTORE_PASSWORD"
-          test -n "$KEY_ALIAS"
-          test -n "$KEY_PASSWORD"
-          echo "PHOENIXCORE_SIGNING_VAULT_AVAILABLE=true" > vault-state.txt
-
       - name: Check Google Play service account vault
         env:
           PLAY_JSON: ${{ secrets.PHOENIXCORE_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
           set -euo pipefail
-          test -n "$PLAY_JSON"
-          printf '%s' "$PLAY_JSON" | python -c 'import json,sys; d=json.load(sys.stdin); assert d.get("type")=="service_account"; print("GOOGLE_PLAY_SERVICE_ACCOUNT_AVAILABLE=true")' | tee -a vault-state.txt
+          if [ -z "${PLAY_JSON:-}" ]; then
+            echo "GOOGLE_PLAY_SERVICE_ACCOUNT_AVAILABLE=false" | tee vault-state.txt
+            exit 2
+          fi
+          printf '%s' "$PLAY_JSON" | python -c 'import json,sys; d=json.load(sys.stdin); assert d.get("type")=="service_account"; print("GOOGLE_PLAY_SERVICE_ACCOUNT_AVAILABLE=true")' | tee vault-state.txt
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: phoenixcore-google-play-vault-probe
           path: vault-state.txt
+          if-no-files-found: ignore
           retention-days: 7
