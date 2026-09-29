@@ -1,3 +1,4 @@
+use crate::data_preservation::verify_target_data_preservation_receipt_sha256;
 use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sha256;
 use crate::source_identity::verify_identity_bound_plan_sha256;
 use crate::target_reenumeration::{
@@ -61,6 +62,24 @@ fn value_sha256(value: &Value) -> String {
     let bytes =
         serde_json::to_vec(&canonicalize_json(value)).expect("canonical JSON serialization cannot fail");
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn verify_embedded_receipt_sha256(value: &Value, schema: &str) -> bool {
+    if value.get("schema").and_then(Value::as_str) != Some(schema) {
+        return false;
+    }
+    let Some(expected) = value.get("receipt_sha256").and_then(Value::as_str) else {
+        return false;
+    };
+    if !valid_sha256(expected) {
+        return false;
+    }
+    let mut unsigned = value.clone();
+    let Some(object) = unsigned.as_object_mut() else {
+        return false;
+    };
+    object.remove("receipt_sha256");
+    value_sha256(&unsigned).eq_ignore_ascii_case(expected)
 }
 
 fn component(value: Option<&Value>, trusted: bool) -> RecoveryEvidenceComponent {
@@ -246,10 +265,18 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     });
 
     let rollback_capture_trusted = rollback_capture.is_some_and(|value| {
-        value.get("target_bytes_written").and_then(Value::as_u64) == Some(0)
+        verify_embedded_receipt_sha256(
+            value,
+            "phoenix_key.restore_target_rollback_capture.v1",
+        )
+            && value.get("target_bytes_written").and_then(Value::as_u64) == Some(0)
             && value.get("target_write_attempted").and_then(Value::as_bool) == Some(false)
             && value
                 .get("restore_unlock_ready")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && value
+                .get("system_mutations_performed")
                 .and_then(Value::as_bool)
                 == Some(false)
             && same_sha256(
@@ -281,7 +308,20 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     });
 
     let data_preservation_resolved = data_preservation.is_some_and(|value| {
-        value.get("resolved").and_then(Value::as_bool) == Some(true)
+        verify_target_data_preservation_receipt_sha256(value)
+            && value.get("resolved").and_then(Value::as_bool) == Some(true)
+            && value
+                .get("restore_unlock_ready")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && value
+                .get("system_mutations_performed")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && value
+                .get("block_reasons")
+                .and_then(Value::as_array)
+                .is_some_and(Vec::is_empty)
             && same_sha256(
                 target_stable_identity,
                 value
@@ -295,7 +335,32 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     });
 
     let boot_metadata_resolved = boot_metadata.is_some_and(|value| {
-        value.get("resolved").and_then(Value::as_bool) == Some(true)
+        verify_embedded_receipt_sha256(
+            value,
+            "phoenix_key.restore_target_boot_metadata.v1",
+        )
+            && value.get("resolved").and_then(Value::as_bool) == Some(true)
+            && value
+                .get("restore_unlock_ready")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && value.get("target_bytes_written").and_then(Value::as_u64) == Some(0)
+            && value
+                .get("target_write_attempted")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && value
+                .get("partition_mount_or_assignment_attempted")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && value
+                .get("system_mutations_performed")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && value
+                .get("missing_or_unverified")
+                .and_then(Value::as_array)
+                .is_some_and(Vec::is_empty)
             && same_sha256(
                 target_stable_identity,
                 value
@@ -431,8 +496,11 @@ pub fn build_windows_recovery_evidence_bundle_v2(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_bundle_sha256, build_recovery_evidence_bundle_v2,
+        build_bundle_sha256, build_recovery_evidence_bundle_v2, value_sha256,
         verify_recovery_evidence_bundle_v2_sha256,
+    };
+    use crate::data_preservation::{
+        build_target_data_preservation_receipt, EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
     };
     use crate::restore_preflight::assess_restore_hardware_preflight;
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
@@ -533,6 +601,14 @@ mod tests {
         })
     }
 
+    fn signed_python_receipt(mut value: Value) -> Value {
+        value["receipt_sha256"] = Value::Null;
+        value.as_object_mut().unwrap().remove("receipt_sha256");
+        let digest = value_sha256(&value);
+        value["receipt_sha256"] = json!(digest);
+        value
+    }
+
     #[test]
     fn software_bundle_is_complete_but_never_executable() {
         let bundle = build_recovery_evidence_bundle_v2(&software_evidence());
@@ -590,6 +666,74 @@ mod tests {
         assert!(bundle
             .outstanding_requirements
             .contains(&"target_reenumeration_or_exact_snapshot_receipt".to_string()));
+    }
+
+    #[test]
+    fn tampered_data_preservation_receipt_is_not_resolved() {
+        let mut evidence = software_evidence();
+        let receipt = build_target_data_preservation_receipt(
+            &evidence["target_safety"],
+            &evidence["rollback_contract"],
+            "explicit_discard",
+            EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
+        )
+        .unwrap();
+        let mut value = serde_json::to_value(receipt).unwrap();
+        value["resolved"] = json!(false);
+        evidence["data_preservation_receipt"] = value;
+
+        let bundle = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(!bundle.data_preservation_resolved);
+        assert!(!bundle.components["data_preservation_receipt"].trusted);
+    }
+
+    #[test]
+    fn boot_metadata_requires_valid_checksum_and_read_only_locks() {
+        let mut evidence = software_evidence();
+        let contract_sha = evidence["rollback_contract"]["contract_sha256"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let stable = evidence["target_safety"]["target_stable_identity_sha256"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let snapshot = evidence["target_safety"]["target_identity_sha256"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let receipt = signed_python_receipt(json!({
+            "schema": "phoenix_key.restore_target_boot_metadata.v1",
+            "evidence_source": "live",
+            "hardware_observed": true,
+            "target": "fixture-target",
+            "target_snapshot_identity_sha256": snapshot,
+            "target_stable_identity_sha256": stable,
+            "rollback_contract_sha256": contract_sha,
+            "rollback_capture_receipt_sha256": "d".repeat(64),
+            "output_directory": "D:/rollback/boot",
+            "partition_inventory": [],
+            "artifacts": {},
+            "resolved": true,
+            "missing_or_unverified": [],
+            "restore_unlock_ready": false,
+            "target_bytes_written": 0,
+            "target_write_attempted": false,
+            "partition_mount_or_assignment_attempted": false,
+            "system_mutations_performed": false
+        }));
+        evidence["boot_metadata_receipt"] = receipt.clone();
+        let valid = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(valid.boot_metadata_resolved);
+        assert!(valid.components["boot_metadata_receipt"].trusted);
+
+        let mut tampered = receipt;
+        tampered["target_write_attempted"] = json!(true);
+        evidence["boot_metadata_receipt"] = tampered;
+        let blocked = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(!blocked.boot_metadata_resolved);
+        assert!(!blocked.components["boot_metadata_receipt"].trusted);
     }
 
     #[test]
