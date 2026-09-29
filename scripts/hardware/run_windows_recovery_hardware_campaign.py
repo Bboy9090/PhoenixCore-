@@ -176,7 +176,9 @@ def verify_preflight_report(
     if report.get("ready_for_hardware_campaign") is not True:
         raise HardwareCampaignError("Hardware campaign preflight is not ready.")
     if report.get("block_reasons") not in ([], None):
-        raise HardwareCampaignError("Hardware campaign preflight still has block reasons.")
+        raise HardwareCampaignError(
+            "Hardware campaign preflight still has block reasons."
+        )
     if (
         report.get("restore_executor_authorized") is not False
         or report.get("target_write_attempted") is not False
@@ -203,15 +205,14 @@ def verify_preflight_report(
         raise HardwareCampaignError(
             "Baseline target path does not match the hardware campaign preflight."
         )
-    if current_snapshot != str(
-        report.get("target_snapshot_identity_sha256") or ""
-    ).lower():
+    if (
+        current_snapshot
+        != str(report.get("target_snapshot_identity_sha256") or "").lower()
+    ):
         raise HardwareCampaignError(
             "Baseline target snapshot changed after hardware campaign preflight."
         )
-    if current_stable != str(
-        report.get("target_stable_identity_sha256") or ""
-    ).lower():
+    if current_stable != str(report.get("target_stable_identity_sha256") or "").lower():
         raise HardwareCampaignError(
             "Baseline stable hardware identity does not match preflight."
         )
