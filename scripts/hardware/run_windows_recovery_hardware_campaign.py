@@ -448,6 +448,7 @@ def build_preflight_report(
         "target_not_system_disk": disk.get("is_system") is False,
         "target_partition_style_gpt": str(disk.get("partition_style") or "").upper()
         == "GPT",
+        "target_future_write_safety_clear": disk.get("write_candidate") is True,
         "target_zero_write_probe": target_receipt.get("bytes_written") == 0
         and target_receipt.get("physical_write_attempted") is False,
         "evidence_disk_resolved": evidence_disk.get("resolved") is True,
