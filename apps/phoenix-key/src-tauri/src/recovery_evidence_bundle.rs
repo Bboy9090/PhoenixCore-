@@ -707,7 +707,7 @@ mod tests {
             "schema": "phoenix_key.restore_target_boot_metadata.v1",
             "evidence_source": "live",
             "hardware_observed": true,
-            "target": "\\.\PHYSICALDRIVE7",
+            "target": "fixture-target",
             "target_snapshot_identity_sha256": snapshot,
             "target_stable_identity_sha256": stable,
             "rollback_contract_sha256": contract_sha,
