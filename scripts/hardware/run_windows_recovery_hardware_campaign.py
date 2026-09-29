@@ -27,6 +27,7 @@ import capture_windows_restore_rollback as rollback_capture
 import resolve_windows_source_disk as source_disk
 
 SCHEMA = "phoenix_key.windows_recovery_hardware_campaign.v1"
+PREFLIGHT_SCHEMA = "phoenix_key.windows_recovery_hardware_preflight.v1"
 ROLLBACK_SCHEMA = "phoenix_key.restore_target_rollback_capture.v1"
 BOOT_METADATA_SCHEMA = "phoenix_key.restore_target_boot_metadata.v1"
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -150,6 +151,69 @@ def verify_boot_metadata_receipt(receipt: dict[str, Any]) -> None:
     ):
         raise HardwareCampaignError(
             "Boot-metadata receipt does not preserve the required read-only locks."
+        )
+
+
+def preflight_sha256(report: dict[str, Any]) -> str:
+    unsigned = dict(report)
+    unsigned.pop("preflight_sha256", None)
+    return sha256_payload(unsigned)
+
+
+def verify_preflight_report(
+    report: dict[str, Any],
+    *,
+    campaign_dir: Path,
+    target_receipt: dict[str, Any],
+) -> None:
+    if report.get("schema") != PREFLIGHT_SCHEMA:
+        raise HardwareCampaignError("Unsupported hardware campaign preflight schema.")
+    expected = str(report.get("preflight_sha256") or "").lower()
+    if not SHA256_RE.fullmatch(expected):
+        raise HardwareCampaignError("Hardware campaign preflight SHA-256 is invalid.")
+    if preflight_sha256(report) != expected:
+        raise HardwareCampaignError("Hardware campaign preflight checksum is invalid.")
+    if report.get("ready_for_hardware_campaign") is not True:
+        raise HardwareCampaignError("Hardware campaign preflight is not ready.")
+    if report.get("block_reasons") not in ([], None):
+        raise HardwareCampaignError("Hardware campaign preflight still has block reasons.")
+    if (
+        report.get("restore_executor_authorized") is not False
+        or report.get("target_write_attempted") is not False
+        or report.get("system_mutations_performed") is not False
+    ):
+        raise HardwareCampaignError(
+            "Hardware campaign preflight does not preserve read-only safety locks."
+        )
+
+    expected_dir = os.path.normcase(os.path.normpath(str(campaign_dir.resolve())))
+    reported_dir = os.path.normcase(
+        os.path.normpath(str(report.get("campaign_dir") or ""))
+    )
+    if reported_dir != expected_dir:
+        raise HardwareCampaignError(
+            "Hardware campaign preflight belongs to a different campaign directory."
+        )
+
+    disk = verify_drive_receipt(target_receipt)
+    current_target = str(disk.get("target") or "").upper()
+    current_snapshot = str(disk.get("identity_sha256") or "").lower()
+    current_stable = str(disk.get("stable_identity_sha256") or "").lower()
+    if current_target != str(report.get("target") or "").upper():
+        raise HardwareCampaignError(
+            "Baseline target path does not match the hardware campaign preflight."
+        )
+    if current_snapshot != str(
+        report.get("target_snapshot_identity_sha256") or ""
+    ).lower():
+        raise HardwareCampaignError(
+            "Baseline target snapshot changed after hardware campaign preflight."
+        )
+    if current_stable != str(
+        report.get("target_stable_identity_sha256") or ""
+    ).lower():
+        raise HardwareCampaignError(
+            "Baseline stable hardware identity does not match preflight."
         )
 
 
@@ -463,8 +527,8 @@ def build_preflight_report(
         ),
     }
     ready = all(checks.values())
-    return {
-        "schema": "phoenix_key.windows_recovery_hardware_preflight.v1",
+    report = {
+        "schema": PREFLIGHT_SCHEMA,
         "campaign_dir": campaign_dir,
         "target": str(disk.get("target") or ""),
         "target_snapshot_identity_sha256": disk.get("identity_sha256"),
@@ -480,6 +544,8 @@ def build_preflight_report(
         "target_write_attempted": False,
         "system_mutations_performed": False,
     }
+    report["preflight_sha256"] = preflight_sha256(report)
+    return report
 
 
 def command_preflight(args: argparse.Namespace) -> dict[str, Any]:
@@ -510,9 +576,21 @@ def command_baseline(args: argparse.Namespace) -> dict[str, Any]:
             "Campaign manifest already exists; refusing to overwrite evidence."
         )
     root.mkdir(parents=True, exist_ok=True)
+    preflight_path = root / "hardware-campaign-preflight.json"
+    if not preflight_path.is_file():
+        raise HardwareCampaignError(
+            "Hardware campaign preflight is required before baseline capture."
+        )
+    preflight = load_json(preflight_path)
     receipt = capture_live_drive(args.target, args.source_commit)
+    verify_preflight_report(
+        preflight,
+        campaign_dir=root,
+        target_receipt=receipt,
+    )
     write_json_atomic(receipt, root / "baseline-drive-evidence.json")
     manifest = build_campaign_manifest(receipt)
+    manifest["preflight_sha256"] = preflight["preflight_sha256"]
     save_manifest(manifest, manifest_path)
     return manifest
 
