@@ -249,12 +249,17 @@ Required gate:
 The receipt must prove:
 
 - live hardware observation
+- baseline snapshot identity match
 - baseline stable identity match
+- exact rollback-capture receipt match
+- exact rollback-contract match
 - zero target writes
 - no partition mount / assignment attempt
 - no system mutation
 
 The boot metadata receipt may still report individual metadata items as inaccessible. That fact must remain visible; do not mount partitions merely to turn a missing item green.
+
+The campaign harness now rejects boot metadata unless a rollback capture has already been recorded and the boot receipt is bound to that exact rollback receipt, rollback contract, baseline snapshot, and stable hardware identity.
 
 If boot metadata must be recaptured **after** a reconnect that changes the snapshot, first perform fresh target reanalysis and produce a new rollback capture bound to that new snapshot. Never reuse a stale rollback receipt across snapshots.
 
