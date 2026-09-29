@@ -88,6 +88,9 @@ def compare_receipts(
 
     stable_identity_matches = before_stable == after_stable
     snapshot_identity_matches = before_snapshot == after_snapshot
+    before_target = str(before_disk.get("target") or "")
+    after_target = str(after_disk.get("target") or "")
+    target_path_changed = before_target.upper() != after_target.upper()
     same_hardware = stable_identity_matches
 
     before_commit = str(before.get("source_commit") or "").strip()
@@ -100,7 +103,7 @@ def compare_receipts(
     elif not stable_identity_matches:
         classification = "hardware-substitution-or-mismatch"
         required_action = "block-and-select-original-hardware"
-    elif snapshot_identity_matches:
+    elif snapshot_identity_matches and not target_path_changed:
         classification = "same-hardware-same-snapshot"
         required_action = "fresh-readonly-validation-complete"
     else:
@@ -124,13 +127,17 @@ def compare_receipts(
         "comparison_trusted": source_commit_matches,
         "snapshot_identity_matches": snapshot_identity_matches,
         "stable_identity_matches": stable_identity_matches,
-        "before_target": before_disk.get("target"),
-        "after_target": after_disk.get("target"),
+        "before_target": before_target,
+        "after_target": after_target,
+        "target_path_changed": target_path_changed,
         "before_snapshot_identity_sha256": before_snapshot,
         "after_snapshot_identity_sha256": after_snapshot,
         "stable_identity_sha256": before_stable if same_hardware else None,
-        "reenumerated": same_hardware and not snapshot_identity_matches,
-        "snapshot_continuity_verified": same_hardware and snapshot_identity_matches,
+        "reenumerated": same_hardware
+        and (not snapshot_identity_matches or target_path_changed),
+        "snapshot_continuity_verified": same_hardware
+        and snapshot_identity_matches
+        and not target_path_changed,
         "stale_authorization_reusable": False,
         "fresh_snapshot_authorization_required": True,
         "real_hardware_evidence": real_hardware_evidence,
