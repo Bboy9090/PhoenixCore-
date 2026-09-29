@@ -496,7 +496,7 @@ pub fn build_windows_recovery_evidence_bundle_v2(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_bundle_sha256, build_recovery_evidence_bundle_v2,
+        build_bundle_sha256, build_recovery_evidence_bundle_v2, value_sha256,
         verify_recovery_evidence_bundle_v2_sha256,
     };
     use crate::data_preservation::{
