@@ -74,6 +74,31 @@ def drive_receipt(
     )
 
 
+def evidence_disk_record(
+    *,
+    stable_identity_sha256: str = "d" * 64,
+    physical_target: str = r"\\.\PHYSICALDRIVE20",
+) -> dict:
+    return {
+        "schema": "phoenix_key.windows_source_disk.v2",
+        "source_path": "D:/PhoenixKeyEvidence/campaign-001",
+        "drive_letter": "D",
+        "disk_number": 20,
+        "partition_number": 1,
+        "physical_target": physical_target,
+        "friendly_name": "Evidence Disk",
+        "serial_number": "EVIDENCE-001",
+        "unique_id": "EVIDENCE-UNIQUE-001",
+        "bus_type": "USB",
+        "size_bytes": 128_000,
+        "identity_sha256": "e" * 64,
+        "stable_identity_sha256": stable_identity_sha256,
+        "stable_identity_available": True,
+        "resolved": True,
+        "read_only": True,
+    }
+
+
 def rollback_receipt(manifest: dict, *, evidence_source: str = "live") -> dict:
     baseline = manifest["baseline"]
     payload = {
@@ -137,6 +162,57 @@ def boot_receipt(manifest: dict, *, evidence_source: str = "live") -> dict:
 
 
 class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
+    def test_preflight_requires_distinct_evidence_disk(self):
+        target = drive_receipt(7)
+        target_stable = target["disk"]["stable_identity_sha256"]
+        blocked = campaign.build_preflight_report(
+            target,
+            evidence_disk_record(stable_identity_sha256=target_stable),
+            campaign_dir="D:/PhoenixKeyEvidence/campaign-001",
+        )
+        self.assertFalse(blocked["ready_for_hardware_campaign"])
+        self.assertIn(
+            "evidence_disk_distinct_from_target",
+            blocked["block_reasons"],
+        )
+        self.assertFalse(blocked["restore_executor_authorized"])
+        self.assertFalse(blocked["system_mutations_performed"])
+
+    def test_preflight_accepts_distinct_live_external_gpt_target(self):
+        report = campaign.build_preflight_report(
+            drive_receipt(7),
+            evidence_disk_record(),
+            campaign_dir="D:/PhoenixKeyEvidence/campaign-001",
+        )
+        self.assertTrue(report["ready_for_hardware_campaign"])
+        self.assertEqual([], report["block_reasons"])
+        self.assertTrue(report["checks"]["target_live_hardware"])
+        self.assertTrue(report["checks"]["target_partition_style_gpt"])
+        self.assertTrue(report["checks"]["evidence_disk_distinct_from_target"])
+        self.assertFalse(report["target_write_attempted"])
+
+    def test_preflight_blocks_boot_system_or_non_gpt_target(self):
+        raw = raw_disk(7)
+        raw["IsBoot"] = True
+        raw["IsSystem"] = True
+        raw["PartitionStyle"] = "MBR"
+        receipt = drive.build_receipt(
+            target=r"\\.\PHYSICALDRIVE7",
+            raw_disk=raw,
+            evidence_source="live",
+            source_commit="a" * 40,
+            captured_at="2026-09-23T20:07:00Z",
+        )
+        report = campaign.build_preflight_report(
+            receipt,
+            evidence_disk_record(),
+            campaign_dir="D:/PhoenixKeyEvidence/campaign-001",
+        )
+        self.assertFalse(report["ready_for_hardware_campaign"])
+        self.assertIn("target_not_boot_disk", report["block_reasons"])
+        self.assertIn("target_not_system_disk", report["block_reasons"])
+        self.assertIn("target_partition_style_gpt", report["block_reasons"])
+
     def test_fixture_baseline_never_counts_as_live_hardware(self):
         manifest = campaign.build_campaign_manifest(
             drive_receipt(7, evidence_source="fixture")

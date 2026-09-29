@@ -42,8 +42,11 @@ You need:
 
 1. a Windows machine running the direct Phoenix Key / Recovery Forge tooling
 2. one external GPT target disk with stable serial or unique-ID evidence
-3. a **different physical disk** for rollback artifacts
+3. a **different physical disk** for rollback artifacts and the campaign evidence folder
 4. a second external disk for substitution testing
+
+The campaign preflight resolves the evidence folder back to its physical disk
+and rejects the setup if that disk has the same stable identity as the target.
 
 Do not use:
 
@@ -63,6 +66,55 @@ Choose one normal filesystem folder on the rollback/evidence disk, for example:
 The campaign folder stores receipts and copied rollback metadata only.
 
 It never stores writes on the target itself.
+
+---
+
+## Phase 0 — Hardware campaign preflight
+
+Before collecting baseline evidence, prove that the chosen target and campaign
+evidence folder are physically safe for the validation campaign.
+
+Run:
+
+```powershell
+python scripts/hardware/run_windows_recovery_hardware_campaign.py preflight `
+  --target "\\.\PHYSICALDRIVE7" `
+  --campaign-dir "D:\PhoenixKeyEvidence\campaign-001"
+```
+
+This preflight performs only read-only observation.
+
+It proves:
+
+- live Windows hardware was actually observed
+- the target has a stable hardware identity
+- the target is on an allowed external bus
+- the target is not the Windows boot disk
+- the target is not the Windows system disk
+- the target uses GPT
+- the target clears Phoenix Key's existing future-write safety verdict
+- the raw-drive probe performed zero writes
+- the campaign evidence folder resolves to a real backing physical disk
+- that evidence disk has a stable hardware identity
+- the evidence disk stable identity is different from the target stable identity
+
+It writes:
+
+- `preflight-target-drive-evidence.json`
+- `hardware-campaign-preflight.json`
+
+Required result:
+
+`ready_for_hardware_campaign = true`
+
+The preflight always keeps:
+
+- `restore_executor_authorized: false`
+- `target_write_attempted: false`
+- `system_mutations_performed: false`
+
+If the evidence folder is physically located on the target disk, the preflight
+fails. A different folder on the same physical disk is not sufficient.
 
 ---
 
