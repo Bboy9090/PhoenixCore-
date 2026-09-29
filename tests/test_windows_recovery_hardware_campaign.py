@@ -145,7 +145,9 @@ def boot_receipt(manifest: dict, *, evidence_source: str = "live") -> dict:
         "target_snapshot_identity_sha256": baseline["snapshot_identity_sha256"],
         "target_stable_identity_sha256": baseline["stable_identity_sha256"],
         "rollback_contract_sha256": "e" * 64,
-        "rollback_capture_receipt_sha256": "f" * 64,
+        "rollback_capture_receipt_sha256": (
+            manifest.get("rollback_capture", {}).get("receipt_sha256") or "f" * 64
+        ),
         "output_directory": "D:/rollback/boot",
         "partition_inventory": [],
         "artifacts": {},
@@ -350,6 +352,68 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
                 drive_receipt(9),
                 operator_confirmed=True,
             )
+
+    def test_boot_metadata_requires_recorded_rollback_capture(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "rollback capture first",
+        ):
+            campaign.record_boot_metadata(
+                manifest,
+                boot_receipt(manifest),
+            )
+
+    def test_boot_metadata_rejects_different_snapshot(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        manifest = campaign.record_rollback_capture(
+            manifest,
+            rollback_receipt(manifest),
+        )
+        receipt = boot_receipt(manifest)
+        receipt["target_snapshot_identity_sha256"] = "0" * 64
+        receipt["receipt_sha256"] = campaign.sha256_payload(
+            {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+        )
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "baseline target",
+        ):
+            campaign.record_boot_metadata(manifest, receipt)
+
+    def test_boot_metadata_rejects_different_rollback_capture(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        manifest = campaign.record_rollback_capture(
+            manifest,
+            rollback_receipt(manifest),
+        )
+        receipt = boot_receipt(manifest)
+        receipt["rollback_capture_receipt_sha256"] = "0" * 64
+        receipt["receipt_sha256"] = campaign.sha256_payload(
+            {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+        )
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "recorded rollback capture",
+        ):
+            campaign.record_boot_metadata(manifest, receipt)
+
+    def test_boot_metadata_rejects_different_rollback_contract(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        manifest = campaign.record_rollback_capture(
+            manifest,
+            rollback_receipt(manifest),
+        )
+        receipt = boot_receipt(manifest)
+        receipt["rollback_contract_sha256"] = "0" * 64
+        receipt["receipt_sha256"] = campaign.sha256_payload(
+            {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+        )
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "rollback contract",
+        ):
+            campaign.record_boot_metadata(manifest, receipt)
 
     def test_fixture_rollback_and_boot_receipts_do_not_satisfy_live_gates(self):
         manifest = campaign.build_campaign_manifest(drive_receipt(7))
