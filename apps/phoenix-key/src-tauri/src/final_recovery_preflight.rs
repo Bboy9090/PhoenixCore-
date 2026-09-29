@@ -85,6 +85,13 @@ fn receipt_sha256(receipt: &FinalRecoveryPreflight) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+pub fn verify_final_recovery_preflight_sha256(
+    receipt: &FinalRecoveryPreflight,
+) -> bool {
+    valid_sha256(Some(&receipt.receipt_sha256))
+        && receipt_sha256(receipt).eq_ignore_ascii_case(&receipt.receipt_sha256)
+}
+
 fn all_required_components_trusted(bundle: &Value) -> bool {
     REQUIRED_TRUSTED_COMPONENTS.iter().all(|name| {
         bundle
@@ -228,7 +235,9 @@ pub fn assess_final_windows_recovery_preflight(
 
 #[cfg(test)]
 mod tests {
-    use super::assess_final_recovery_preflight;
+    use super::{
+        assess_final_recovery_preflight, verify_final_recovery_preflight_sha256,
+    };
     use crate::recovery_evidence_bundle::recovery_evidence_bundle_v2_sha256;
     use serde_json::{json, Value};
 
@@ -295,6 +304,15 @@ mod tests {
             "separate_restore_executor_architecture_review"
         );
         assert_eq!(result.receipt_sha256.len(), 64);
+        assert!(verify_final_recovery_preflight_sha256(&result));
+    }
+
+    #[test]
+    fn final_receipt_checksum_detects_tampering() {
+        let mut result = assess_final_recovery_preflight(&complete_bundle());
+        assert!(verify_final_recovery_preflight_sha256(&result));
+        result.executable = true;
+        assert!(!verify_final_recovery_preflight_sha256(&result));
     }
 
     #[test]
