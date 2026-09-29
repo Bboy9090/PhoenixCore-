@@ -24,6 +24,7 @@ if str(HARDWARE_DIR) not in sys.path:
 
 import capture_windows_drive_evidence as drive_evidence
 import capture_windows_restore_rollback as rollback_capture
+import resolve_windows_source_disk as source_disk
 
 SCHEMA = "phoenix_key.windows_recovery_hardware_campaign.v1"
 ROLLBACK_SCHEMA = "phoenix_key.restore_target_rollback_capture.v1"
@@ -428,6 +429,82 @@ def save_manifest(manifest: dict[str, Any], manifest_path: Path) -> None:
     write_json_atomic(refresh_manifest(manifest), manifest_path)
 
 
+def build_preflight_report(
+    target_receipt: dict[str, Any],
+    evidence_disk: dict[str, Any],
+    *,
+    campaign_dir: str,
+) -> dict[str, Any]:
+    disk = verify_drive_receipt(target_receipt)
+    target_stable = str(disk.get("stable_identity_sha256") or "").lower()
+    evidence_stable = str(evidence_disk.get("stable_identity_sha256") or "").lower()
+
+    checks = {
+        "target_live_hardware": live_drive_receipt(target_receipt),
+        "target_stable_identity_available": bool(SHA256_RE.fullmatch(target_stable)),
+        "target_external_bus": str(disk.get("bus_type") or "").upper()
+        in drive_evidence.EXTERNAL_BUS_TYPES,
+        "target_not_boot_disk": disk.get("is_boot") is False,
+        "target_not_system_disk": disk.get("is_system") is False,
+        "target_partition_style_gpt": str(disk.get("partition_style") or "").upper()
+        == "GPT",
+        "target_zero_write_probe": target_receipt.get("bytes_written") == 0
+        and target_receipt.get("physical_write_attempted") is False,
+        "evidence_disk_resolved": evidence_disk.get("resolved") is True,
+        "evidence_disk_stable_identity_available": bool(
+            evidence_disk.get("stable_identity_available")
+            and SHA256_RE.fullmatch(evidence_stable)
+        ),
+        "evidence_disk_distinct_from_target": bool(
+            SHA256_RE.fullmatch(target_stable)
+            and SHA256_RE.fullmatch(evidence_stable)
+            and target_stable != evidence_stable
+        ),
+    }
+    ready = all(checks.values())
+    return {
+        "schema": "phoenix_key.windows_recovery_hardware_preflight.v1",
+        "campaign_dir": campaign_dir,
+        "target": str(disk.get("target") or ""),
+        "target_snapshot_identity_sha256": disk.get("identity_sha256"),
+        "target_stable_identity_sha256": target_stable or None,
+        "target_bus_type": disk.get("bus_type"),
+        "target_partition_style": disk.get("partition_style"),
+        "evidence_physical_target": evidence_disk.get("physical_target"),
+        "evidence_stable_identity_sha256": evidence_stable or None,
+        "checks": checks,
+        "ready_for_hardware_campaign": ready,
+        "block_reasons": [
+            name for name, passed in checks.items() if not passed
+        ],
+        "restore_executor_authorized": False,
+        "target_write_attempted": False,
+        "system_mutations_performed": False,
+    }
+
+
+def command_preflight(args: argparse.Namespace) -> dict[str, Any]:
+    if sys.platform != "win32":
+        raise HardwareCampaignError("Hardware campaign preflight requires Windows.")
+    root = args.campaign_dir.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    target_receipt = capture_live_drive(args.target, args.source_commit)
+    evidence_disk = source_disk.query_source_disk(str(root))
+    report = build_preflight_report(
+        target_receipt,
+        evidence_disk,
+        campaign_dir=str(root),
+    )
+    write_json_atomic(target_receipt, root / "preflight-target-drive-evidence.json")
+    write_json_atomic(report, root / "hardware-campaign-preflight.json")
+    if not report["ready_for_hardware_campaign"]:
+        raise HardwareCampaignError(
+            "Hardware campaign preflight blocked: "
+            + ", ".join(report["block_reasons"])
+        )
+    return report
+
+
 def command_baseline(args: argparse.Namespace) -> dict[str, Any]:
     root, manifest_path = campaign_paths(args.campaign_dir)
     if manifest_path.exists():
@@ -493,6 +570,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    preflight = subparsers.add_parser("preflight")
+    preflight.add_argument("--target", required=True)
+    preflight.add_argument("--campaign-dir", type=Path, required=True)
+    preflight.add_argument(
+        "--source-commit", default=os.environ.get("GITHUB_SHA", "unknown")
+    )
+    preflight.set_defaults(handler=command_preflight)
+
     baseline = subparsers.add_parser("baseline")
     baseline.add_argument("--target", required=True)
     baseline.add_argument("--campaign-dir", type=Path, required=True)
@@ -554,6 +639,7 @@ if __name__ == "__main__":
         HardwareCampaignError,
         rollback_capture.RollbackCaptureError,
         drive_evidence.EvidenceError,
+        source_disk.SourceDiskResolutionError,
         OSError,
         ValueError,
         json.JSONDecodeError,
