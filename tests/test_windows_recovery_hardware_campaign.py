@@ -192,10 +192,17 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
         self.assertFalse(report["target_write_attempted"])
 
     def test_preflight_blocks_boot_system_or_non_gpt_target(self):
-        receipt = drive_receipt(7)
-        receipt["disk"]["is_boot"] = True
-        receipt["disk"]["is_system"] = True
-        receipt["disk"]["partition_style"] = "MBR"
+        raw = raw_disk(7)
+        raw["IsBoot"] = True
+        raw["IsSystem"] = True
+        raw["PartitionStyle"] = "MBR"
+        receipt = drive.build_receipt(
+            target=r"\\.\PHYSICALDRIVE7",
+            raw_disk=raw,
+            evidence_source="live",
+            source_commit="a" * 40,
+            captured_at="2026-09-23T20:07:00Z",
+        )
         report = campaign.build_preflight_report(
             receipt,
             evidence_disk_record(),
