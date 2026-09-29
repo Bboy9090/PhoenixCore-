@@ -395,11 +395,17 @@ def record_reconnect(
     if comparison.get("comparison_trusted") is not True:
         raise HardwareCampaignError("Reconnect comparison is not trusted.")
     if comparison.get("real_hardware_evidence") is not True:
-        raise HardwareCampaignError("Reconnect comparison is not live hardware evidence.")
+        raise HardwareCampaignError(
+            "Reconnect comparison is not live hardware evidence."
+        )
     if comparison.get("same_hardware") is not True:
-        raise HardwareCampaignError("Reconnect comparison did not prove the same hardware.")
+        raise HardwareCampaignError(
+            "Reconnect comparison did not prove the same hardware."
+        )
     if comparison.get("stale_authorization_reusable") is not False:
-        raise HardwareCampaignError("Reconnect comparison did not reject stale authorization.")
+        raise HardwareCampaignError(
+            "Reconnect comparison did not reject stale authorization."
+        )
 
     manifest["reconnect"] = {
         "operator_confirmed_physical_reconnect": True,
@@ -415,9 +421,7 @@ def record_reconnect(
         "receipt_sha256": current_receipt["receipt_sha256"],
         "comparison_sha256": comparison["comparison_sha256"],
         "comparison_trusted": comparison.get("comparison_trusted") is True,
-        "stale_authorization_rejected": comparison.get(
-            "stale_authorization_reusable"
-        )
+        "stale_authorization_rejected": comparison.get("stale_authorization_reusable")
         is False,
         "classification": comparison.get("classification"),
     }
@@ -449,7 +453,9 @@ def record_substitution(
         )
 
     if comparison.get("schema") != drive_compare.COMPARISON_SCHEMA:
-        raise HardwareCampaignError("Substitution comparison uses an unsupported schema.")
+        raise HardwareCampaignError(
+            "Substitution comparison uses an unsupported schema."
+        )
     if comparison.get("comparison_trusted") is not True:
         raise HardwareCampaignError("Substitution comparison is not trusted.")
     if comparison.get("real_hardware_evidence") is not True:
@@ -476,9 +482,7 @@ def record_substitution(
         "comparison_sha256": comparison["comparison_sha256"],
         "comparison_trusted": comparison.get("comparison_trusted") is True,
         "classification": comparison.get("classification"),
-        "stale_authorization_reusable": comparison.get(
-            "stale_authorization_reusable"
-        ),
+        "stale_authorization_reusable": comparison.get("stale_authorization_reusable"),
     }
     return refresh_manifest(manifest)
 
