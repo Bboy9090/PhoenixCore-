@@ -475,9 +475,7 @@ def build_preflight_report(
         "evidence_stable_identity_sha256": evidence_stable or None,
         "checks": checks,
         "ready_for_hardware_campaign": ready,
-        "block_reasons": [
-            name for name, passed in checks.items() if not passed
-        ],
+        "block_reasons": [name for name, passed in checks.items() if not passed],
         "restore_executor_authorized": False,
         "target_write_attempted": False,
         "system_mutations_performed": False,
@@ -500,8 +498,7 @@ def command_preflight(args: argparse.Namespace) -> dict[str, Any]:
     write_json_atomic(report, root / "hardware-campaign-preflight.json")
     if not report["ready_for_hardware_campaign"]:
         raise HardwareCampaignError(
-            "Hardware campaign preflight blocked: "
-            + ", ".join(report["block_reasons"])
+            "Hardware campaign preflight blocked: " + ", ".join(report["block_reasons"])
         )
     return report
 
