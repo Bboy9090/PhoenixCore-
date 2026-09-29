@@ -78,6 +78,23 @@ class WindowsDriveReenumerationTests(unittest.TestCase):
             result["required_action"],
         )
 
+    def test_path_change_alone_counts_as_reenumeration(self):
+        before = self.receipt(1)
+        after = self.receipt(1)
+        after["disk"]["target"] = r"\\.\PHYSICALDRIVE9"
+        canonical = dict(after)
+        canonical.pop("receipt_sha256", None)
+        after["receipt_sha256"] = windows_drive_reenumeration.sha256_payload(canonical)
+
+        result = windows_drive_reenumeration.compare_receipts(before, after)
+        self.assertEqual("same-hardware-reenumerated", result["classification"])
+        self.assertTrue(result["same_hardware"])
+        self.assertTrue(result["snapshot_identity_matches"])
+        self.assertTrue(result["target_path_changed"])
+        self.assertTrue(result["reenumerated"])
+        self.assertFalse(result["snapshot_continuity_verified"])
+        self.assertFalse(result["stale_authorization_reusable"])
+
     def test_different_capture_code_revisions_require_recapture(self):
         before = self.receipt(1)
         after = self.receipt(7)
