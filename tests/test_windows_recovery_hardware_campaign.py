@@ -213,6 +213,54 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
         self.assertIn("target_not_system_disk", report["block_reasons"])
         self.assertIn("target_partition_style_gpt", report["block_reasons"])
 
+    def test_preflight_report_is_checksum_bound(self):
+        report = campaign.build_preflight_report(
+            drive_receipt(7),
+            evidence_disk_record(),
+            campaign_dir="D:/PhoenixKeyEvidence/campaign-001",
+        )
+        self.assertEqual(64, len(report["preflight_sha256"]))
+        tampered = dict(report)
+        tampered["target"] = r"\\.\PHYSICALDRIVE99"
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "checksum",
+        ):
+            campaign.verify_preflight_report(
+                tampered,
+                campaign_dir=Path("D:/PhoenixKeyEvidence/campaign-001"),
+                target_receipt=drive_receipt(7),
+            )
+
+    def test_preflight_binding_rejects_different_target_snapshot(self):
+        report = campaign.build_preflight_report(
+            drive_receipt(7),
+            evidence_disk_record(),
+            campaign_dir="D:/PhoenixKeyEvidence/campaign-001",
+        )
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "target path|snapshot",
+        ):
+            campaign.verify_preflight_report(
+                report,
+                campaign_dir=Path("D:/PhoenixKeyEvidence/campaign-001"),
+                target_receipt=drive_receipt(9),
+            )
+
+    def test_preflight_binding_accepts_same_fresh_target(self):
+        receipt = drive_receipt(7)
+        report = campaign.build_preflight_report(
+            receipt,
+            evidence_disk_record(),
+            campaign_dir="D:/PhoenixKeyEvidence/campaign-001",
+        )
+        campaign.verify_preflight_report(
+            report,
+            campaign_dir=Path("D:/PhoenixKeyEvidence/campaign-001"),
+            target_receipt=receipt,
+        )
+
     def test_fixture_baseline_never_counts_as_live_hardware(self):
         manifest = campaign.build_campaign_manifest(
             drive_receipt(7, evidence_source="fixture")
