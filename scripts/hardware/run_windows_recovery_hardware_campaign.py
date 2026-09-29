@@ -24,6 +24,7 @@ if str(HARDWARE_DIR) not in sys.path:
 
 import capture_windows_drive_evidence as drive_evidence
 import capture_windows_restore_rollback as rollback_capture
+import compare_windows_drive_reenumeration as drive_compare
 import resolve_windows_source_disk as source_disk
 
 SCHEMA = "phoenix_key.windows_recovery_hardware_campaign.v1"
@@ -247,13 +248,17 @@ def refresh_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
             reconnect
             and reconnect.get("operator_confirmed_physical_reconnect")
             and reconnect.get("hardware_observed")
+            and reconnect.get("evidence_source") == "live"
             and reconnect.get("same_stable_hardware")
+            and reconnect.get("comparison_trusted")
         ),
         "reenumeration_observed": bool(
             reconnect
             and reconnect.get("operator_confirmed_physical_reconnect")
             and reconnect.get("hardware_observed")
             and reconnect.get("same_stable_hardware")
+            and reconnect.get("comparison_trusted")
+            and reconnect.get("stale_authorization_rejected")
             and (
                 reconnect.get("snapshot_changed")
                 or reconnect.get("target_path_changed")
@@ -263,7 +268,12 @@ def refresh_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
             substitution
             and substitution.get("operator_confirmed_physical_substitution")
             and substitution.get("hardware_observed")
+            and substitution.get("evidence_source") == "live"
             and substitution.get("stable_identity_differs")
+            and substitution.get("comparison_trusted")
+            and substitution.get("classification")
+            == "hardware-substitution-or-mismatch"
+            and substitution.get("stale_authorization_reusable") is False
         ),
         "boot_metadata_live_read_only": bool(
             boot
@@ -362,6 +372,7 @@ def record_rollback_capture(
 def record_reconnect(
     manifest: dict[str, Any],
     current_receipt: dict[str, Any],
+    comparison: dict[str, Any],
     *,
     operator_confirmed: bool,
 ) -> dict[str, Any]:
@@ -379,6 +390,23 @@ def record_reconnect(
             "Reconnect observation did not return the baseline stable hardware."
         )
 
+    if comparison.get("schema") != drive_compare.COMPARISON_SCHEMA:
+        raise HardwareCampaignError("Reconnect comparison uses an unsupported schema.")
+    if comparison.get("comparison_trusted") is not True:
+        raise HardwareCampaignError("Reconnect comparison is not trusted.")
+    if comparison.get("real_hardware_evidence") is not True:
+        raise HardwareCampaignError(
+            "Reconnect comparison is not live hardware evidence."
+        )
+    if comparison.get("same_hardware") is not True:
+        raise HardwareCampaignError(
+            "Reconnect comparison did not prove the same hardware."
+        )
+    if comparison.get("stale_authorization_reusable") is not False:
+        raise HardwareCampaignError(
+            "Reconnect comparison did not reject stale authorization."
+        )
+
     manifest["reconnect"] = {
         "operator_confirmed_physical_reconnect": True,
         "target": str(disk.get("target") or ""),
@@ -391,6 +419,11 @@ def record_reconnect(
         "evidence_source": current_receipt.get("evidence_source"),
         "hardware_observed": current_receipt.get("hardware_observed") is True,
         "receipt_sha256": current_receipt["receipt_sha256"],
+        "comparison_sha256": comparison["comparison_sha256"],
+        "comparison_trusted": comparison.get("comparison_trusted") is True,
+        "stale_authorization_rejected": comparison.get("stale_authorization_reusable")
+        is False,
+        "classification": comparison.get("classification"),
     }
     return refresh_manifest(manifest)
 
@@ -398,6 +431,7 @@ def record_reconnect(
 def record_substitution(
     manifest: dict[str, Any],
     candidate_receipt: dict[str, Any],
+    comparison: dict[str, Any],
     *,
     operator_confirmed: bool,
 ) -> dict[str, Any]:
@@ -418,6 +452,25 @@ def record_substitution(
             "Substitution candidate is the baseline target, not different hardware."
         )
 
+    if comparison.get("schema") != drive_compare.COMPARISON_SCHEMA:
+        raise HardwareCampaignError(
+            "Substitution comparison uses an unsupported schema."
+        )
+    if comparison.get("comparison_trusted") is not True:
+        raise HardwareCampaignError("Substitution comparison is not trusted.")
+    if comparison.get("real_hardware_evidence") is not True:
+        raise HardwareCampaignError(
+            "Substitution comparison is not live hardware evidence."
+        )
+    if comparison.get("classification") != "hardware-substitution-or-mismatch":
+        raise HardwareCampaignError(
+            "Substitution comparison did not classify different hardware."
+        )
+    if comparison.get("stale_authorization_reusable") is not False:
+        raise HardwareCampaignError(
+            "Substitution comparison did not reject stale authorization."
+        )
+
     manifest["substitution"] = {
         "operator_confirmed_physical_substitution": True,
         "candidate_target": str(disk.get("target") or ""),
@@ -426,6 +479,10 @@ def record_substitution(
         "evidence_source": candidate_receipt.get("evidence_source"),
         "hardware_observed": candidate_receipt.get("hardware_observed") is True,
         "receipt_sha256": candidate_receipt["receipt_sha256"],
+        "comparison_sha256": comparison["comparison_sha256"],
+        "comparison_trusted": comparison.get("comparison_trusted") is True,
+        "classification": comparison.get("classification"),
+        "stale_authorization_reusable": comparison.get("stale_authorization_reusable"),
     }
     return refresh_manifest(manifest)
 
@@ -630,11 +687,15 @@ def command_record_rollback(args: argparse.Namespace) -> dict[str, Any]:
 
 def command_reconnect(args: argparse.Namespace) -> dict[str, Any]:
     root, manifest_path, manifest = load_manifest(args.campaign_dir)
+    baseline_receipt = load_json(root / "baseline-drive-evidence.json")
     receipt = capture_live_drive(args.current_target, args.source_commit)
+    comparison = drive_compare.compare_receipts(baseline_receipt, receipt)
     write_json_atomic(receipt, root / "reconnect-drive-evidence.json")
+    write_json_atomic(comparison, root / "reconnect-comparison.json")
     manifest = record_reconnect(
         manifest,
         receipt,
+        comparison,
         operator_confirmed=args.operator_confirmed_physical_reconnect,
     )
     save_manifest(manifest, manifest_path)
@@ -643,11 +704,15 @@ def command_reconnect(args: argparse.Namespace) -> dict[str, Any]:
 
 def command_substitution(args: argparse.Namespace) -> dict[str, Any]:
     root, manifest_path, manifest = load_manifest(args.campaign_dir)
+    baseline_receipt = load_json(root / "baseline-drive-evidence.json")
     receipt = capture_live_drive(args.candidate_target, args.source_commit)
+    comparison = drive_compare.compare_receipts(baseline_receipt, receipt)
     write_json_atomic(receipt, root / "substitution-drive-evidence.json")
+    write_json_atomic(comparison, root / "substitution-comparison.json")
     manifest = record_substitution(
         manifest,
         receipt,
+        comparison,
         operator_confirmed=args.operator_confirmed_physical_substitution,
     )
     save_manifest(manifest, manifest_path)

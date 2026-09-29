@@ -300,6 +300,9 @@ Two separate gates exist:
 For `reconnect_same_hardware`:
 
 - stable hardware identity must equal baseline
+- the checksum-bound before/after comparator must be trusted
+- both comparison inputs must be live hardware evidence
+- stale authorization must remain non-reusable
 
 For `reenumeration_observed`:
 
@@ -334,6 +337,10 @@ Required gate:
 `substitution_rejection_proven = true`
 
 The candidate must have a stable identity different from the baseline target.
+The campaign also runs the checksum-bound re-enumeration comparator and requires
+`hardware-substitution-or-mismatch`, trusted same-revision evidence, live
+hardware inputs, and `stale_authorization_reusable = false`. Merely observing
+a different disk is not enough to satisfy the gate.
 
 If the candidate resolves to the baseline stable identity, the harness stops instead of manufacturing a substitution pass.
 
