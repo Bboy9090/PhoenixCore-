@@ -347,6 +347,9 @@ def record_rollback_capture(
 
     manifest["rollback_capture"] = {
         "receipt_sha256": receipt["receipt_sha256"],
+        "rollback_contract_sha256": str(
+            receipt.get("rollback_contract_sha256") or ""
+        ).lower(),
         "evidence_source": receipt.get("evidence_source"),
         "hardware_observed": receipt.get("hardware_observed") is True,
         "target_bytes_written": receipt.get("target_bytes_written"),
@@ -432,12 +435,33 @@ def record_boot_metadata(
 ) -> dict[str, Any]:
     verify_boot_metadata_receipt(receipt)
     baseline = manifest["baseline"]
+    rollback = manifest.get("rollback_capture")
+    if not rollback:
+        raise HardwareCampaignError(
+            "Boot-metadata receipt requires a recorded rollback capture first."
+        )
     if (
-        str(receipt.get("target_stable_identity_sha256") or "").lower()
+        str(receipt.get("target_snapshot_identity_sha256") or "").lower()
+        != baseline["snapshot_identity_sha256"]
+        or str(receipt.get("target_stable_identity_sha256") or "").lower()
         != baseline["stable_identity_sha256"]
     ):
         raise HardwareCampaignError(
-            "Boot-metadata receipt is not bound to the campaign target."
+            "Boot-metadata receipt is not bound to the campaign baseline target."
+        )
+    if (
+        str(receipt.get("rollback_capture_receipt_sha256") or "").lower()
+        != str(rollback.get("receipt_sha256") or "").lower()
+    ):
+        raise HardwareCampaignError(
+            "Boot-metadata receipt is not bound to the recorded rollback capture."
+        )
+    if (
+        str(receipt.get("rollback_contract_sha256") or "").lower()
+        != str(rollback.get("rollback_contract_sha256") or "").lower()
+    ):
+        raise HardwareCampaignError(
+            "Boot-metadata receipt rollback contract does not match the recorded rollback capture."
         )
 
     manifest["boot_metadata"] = {
