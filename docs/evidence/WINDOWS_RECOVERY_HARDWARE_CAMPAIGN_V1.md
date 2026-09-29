@@ -107,6 +107,11 @@ Required result:
 
 `ready_for_hardware_campaign = true`
 
+The preflight receipt is checksum-bound with `preflight_sha256`. Phase 1 refuses
+to start if this receipt is missing, tampered, blocked, belongs to a different
+campaign directory, or no longer matches the freshly observed target snapshot
+and stable hardware identity.
+
 The preflight always keeps:
 
 - `restore_executor_authorized: false`
@@ -123,6 +128,8 @@ fails. A different folder on the same physical disk is not sufficient.
 First identify the intended external target as an exact Windows raw path such as:
 
 `\\.\PHYSICALDRIVE7`
+
+Phase 1 is mechanically bound to the successful Phase 0 preflight. Re-run Phase 0 if the target or campaign directory changes.
 
 Then run:
 
