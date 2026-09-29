@@ -146,7 +146,7 @@ def boot_receipt(manifest: dict, *, evidence_source: str = "live") -> dict:
         "target_stable_identity_sha256": baseline["stable_identity_sha256"],
         "rollback_contract_sha256": "e" * 64,
         "rollback_capture_receipt_sha256": (
-            manifest.get("rollback_capture", {}).get("receipt_sha256") or "f" * 64
+            (manifest.get("rollback_capture") or {}).get("receipt_sha256") or "f" * 64
         ),
         "output_directory": "D:/rollback/boot",
         "partition_inventory": [],
