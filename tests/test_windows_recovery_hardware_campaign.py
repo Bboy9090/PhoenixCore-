@@ -74,6 +74,13 @@ def drive_receipt(
     )
 
 
+def comparison_receipt(candidate: dict, *, baseline: dict | None = None) -> dict:
+    return campaign.drive_compare.compare_receipts(
+        baseline or drive_receipt(7),
+        candidate,
+    )
+
+
 def evidence_disk_record(
     *,
     stable_identity_sha256: str = "d" * 64,
@@ -284,18 +291,22 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
             manifest,
             rollback_receipt(manifest),
         )
+        reconnect_receipt = drive_receipt(9)
         manifest = campaign.record_reconnect(
             manifest,
-            drive_receipt(9),
+            reconnect_receipt,
+            comparison_receipt(reconnect_receipt),
             operator_confirmed=True,
+        )
+        substitution_receipt = drive_receipt(
+            12,
+            serial="OTHER-002",
+            unique_id="OTHER-UNIQUE-002",
         )
         manifest = campaign.record_substitution(
             manifest,
-            drive_receipt(
-                12,
-                serial="OTHER-002",
-                unique_id="OTHER-UNIQUE-002",
-            ),
+            substitution_receipt,
+            comparison_receipt(substitution_receipt),
             operator_confirmed=True,
         )
         manifest = campaign.record_boot_metadata(
@@ -320,9 +331,11 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
 
     def test_reconnect_same_snapshot_does_not_prove_reenumeration(self):
         manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        reconnect_receipt = drive_receipt(7)
         manifest = campaign.record_reconnect(
             manifest,
-            drive_receipt(7),
+            reconnect_receipt,
+            comparison_receipt(reconnect_receipt),
             operator_confirmed=True,
         )
         self.assertTrue(manifest["gates"]["reconnect_same_hardware"])
@@ -335,9 +348,11 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
             campaign.HardwareCampaignError,
             "explicitly confirmed",
         ):
+            reconnect_receipt = drive_receipt(9)
             campaign.record_reconnect(
                 manifest,
-                drive_receipt(9),
+                reconnect_receipt,
+                comparison_receipt(reconnect_receipt),
                 operator_confirmed=False,
             )
 
@@ -347,9 +362,11 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
             campaign.HardwareCampaignError,
             "baseline target",
         ):
+            substitution_receipt = drive_receipt(9)
             campaign.record_substitution(
                 manifest,
-                drive_receipt(9),
+                substitution_receipt,
+                comparison_receipt(substitution_receipt),
                 operator_confirmed=True,
             )
 
@@ -414,6 +431,46 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
             "rollback contract",
         ):
             campaign.record_boot_metadata(manifest, receipt)
+
+    def test_reconnect_rejects_untrusted_comparison(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        current = drive_receipt(9)
+        before = drive_receipt(7)
+        current["source_commit"] = "b" * 40
+        current["receipt_sha256"] = campaign.sha256_payload(
+            {key: value for key, value in current.items() if key != "receipt_sha256"}
+        )
+        comparison = campaign.drive_compare.compare_receipts(before, current)
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "not trusted",
+        ):
+            campaign.record_reconnect(
+                manifest,
+                current,
+                comparison,
+                operator_confirmed=True,
+            )
+
+    def test_substitution_requires_comparator_classification(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        candidate = drive_receipt(
+            12,
+            serial="OTHER-002",
+            unique_id="OTHER-UNIQUE-002",
+        )
+        comparison = comparison_receipt(candidate)
+        comparison["classification"] = "same-hardware-same-snapshot"
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "did not classify",
+        ):
+            campaign.record_substitution(
+                manifest,
+                candidate,
+                comparison,
+                operator_confirmed=True,
+            )
 
     def test_fixture_rollback_and_boot_receipts_do_not_satisfy_live_gates(self):
         manifest = campaign.build_campaign_manifest(drive_receipt(7))
