@@ -569,7 +569,10 @@ def build_discovery_report(raw_disks: list[dict[str, Any]]) -> dict[str, Any]:
         target_block_reasons = list(record.get("write_block_reasons") or [])
         if str(record.get("partition_style") or "").upper() != "GPT":
             target_block_reasons.append("target-partition-style-not-gpt")
-        if not has_stable_identity and "stable-device-identity-missing" not in target_block_reasons:
+        if (
+            not has_stable_identity
+            and "stable-device-identity-missing" not in target_block_reasons
+        ):
             target_block_reasons.append("stable-device-identity-missing")
         target_eligible = (
             is_external
