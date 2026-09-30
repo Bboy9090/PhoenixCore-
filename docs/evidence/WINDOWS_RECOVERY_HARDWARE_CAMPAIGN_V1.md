@@ -432,7 +432,27 @@ The next safe sequence is:
    - explicit discard acknowledgement
 2. build a fresh Recovery Evidence Bundle v2
 3. run the final non-executable hardware preflight
-4. review the complete evidence package
-5. only then design a **separate** restore-executor architecture gate / PR
+4. require `phoenix_key.final_recovery_preflight.v1` to report
+   `ready_for_restore_executor_architecture_review = true`
+5. review the complete evidence package
+6. only then design a **separate** restore-executor architecture gate / PR
+
+The final preflight is checksum-bound with `receipt_sha256`. It independently
+requires a valid Recovery Evidence Bundle v2 checksum, complete software and
+hardware evidence chains, resolved data handling, resolved boot metadata, no
+outstanding evidence requirements, valid critical identities, and trusted
+critical evidence components.
+
+Even when every final preflight gate passes, it always keeps:
+
+- `restore_executor_authorized = false`
+- `executable = false`
+- `automatic_destructive_resume = false`
+- `system_mutations_performed = false`
+
+A green final preflight means only that the evidence package may proceed to a
+separate restore-executor **architecture review**. It is not permission to
+format, repartition, apply an image, rewrite EFI/BCD/WinRE, or otherwise mutate
+the target.
 
 No destructive restore implementation belongs in this validation lane.
