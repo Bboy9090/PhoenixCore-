@@ -348,6 +348,35 @@ Reconnect the original target after this observation before any additional targe
 
 ---
 
+## Operator planner — exact next action
+
+At any point after the baseline manifest exists, ask the harness for the one next
+required action:
+
+```powershell
+python scripts/hardware/run_windows_recovery_hardware_campaign.py next-step `
+  --campaign-dir "D:\PhoenixKeyEvidence\campaign-001"
+```
+
+The result is checksum-bound with `next_step_sha256` and tied to the current
+`manifest_sha256`.
+
+The planner enforces this order:
+
+1. live zero-write rollback capture
+2. live boot metadata bound to that rollback chain
+3. physical disconnect/reconnect and real re-enumeration proof
+4. different-disk substitution proof
+5. data-preservation resolution and final non-executable preflight
+
+For physical reconnect and substitution steps, the plan explicitly reports
+`operator_confirmation_required = true`.
+
+It never authorizes a restore executor and always reports:
+
+- `restore_executor_authorized: false`
+- `system_mutations_performed: false`
+
 ## Phase 6 — Status
 
 At any point:

@@ -276,6 +276,135 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
                 target_receipt=receipt,
             )
 
+    def test_next_step_plan_walks_required_phase_order(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            campaign_dir = Path(tmpdir)
+            manifest = campaign.build_campaign_manifest(drive_receipt(7))
+
+            plan = campaign.build_next_step_plan(
+                manifest,
+                campaign_dir=campaign_dir,
+            )
+            self.assertEqual("rollback_live_zero_write", plan["next_gate"])
+            self.assertEqual("record_live_rollback_capture", plan["action"])
+            self.assertFalse(plan["operator_confirmation_required"])
+
+            manifest = campaign.record_rollback_capture(
+                manifest,
+                rollback_receipt(manifest),
+            )
+            plan = campaign.build_next_step_plan(
+                manifest,
+                campaign_dir=campaign_dir,
+            )
+            self.assertEqual("boot_metadata_live_read_only", plan["next_gate"])
+            self.assertEqual("record_live_boot_metadata", plan["action"])
+
+            manifest = campaign.record_boot_metadata(
+                manifest,
+                boot_receipt(manifest),
+            )
+            plan = campaign.build_next_step_plan(
+                manifest,
+                campaign_dir=campaign_dir,
+            )
+            self.assertEqual("reconnect_same_hardware", plan["next_gate"])
+            self.assertEqual(
+                "physically_reconnect_baseline_target",
+                plan["action"],
+            )
+            self.assertTrue(plan["operator_confirmation_required"])
+
+            reconnect_receipt = drive_receipt(9)
+            manifest = campaign.record_reconnect(
+                manifest,
+                reconnect_receipt,
+                comparison_receipt(reconnect_receipt),
+                operator_confirmed=True,
+            )
+            plan = campaign.build_next_step_plan(
+                manifest,
+                campaign_dir=campaign_dir,
+            )
+            self.assertEqual(
+                "substitution_rejection_proven",
+                plan["next_gate"],
+            )
+            self.assertEqual(
+                "physically_substitute_different_target",
+                plan["action"],
+            )
+
+            substitution_receipt = drive_receipt(
+                12,
+                serial="OTHER-002",
+                unique_id="OTHER-UNIQUE-002",
+            )
+            manifest = campaign.record_substitution(
+                manifest,
+                substitution_receipt,
+                comparison_receipt(substitution_receipt),
+                operator_confirmed=True,
+            )
+            plan = campaign.build_next_step_plan(
+                manifest,
+                campaign_dir=campaign_dir,
+            )
+            self.assertIsNone(plan["next_gate"])
+            self.assertEqual(
+                "resolve_data_preservation_then_final_preflight",
+                plan["action"],
+            )
+            self.assertTrue(plan["hardware_campaign_complete"])
+            self.assertFalse(plan["restore_executor_authorized"])
+
+    def test_next_step_plan_requires_reenumeration_if_reconnect_is_same_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manifest = campaign.build_campaign_manifest(drive_receipt(7))
+            manifest = campaign.record_rollback_capture(
+                manifest,
+                rollback_receipt(manifest),
+            )
+            manifest = campaign.record_boot_metadata(
+                manifest,
+                boot_receipt(manifest),
+            )
+            reconnect_receipt = drive_receipt(7)
+            manifest = campaign.record_reconnect(
+                manifest,
+                reconnect_receipt,
+                comparison_receipt(reconnect_receipt),
+                operator_confirmed=True,
+            )
+
+            plan = campaign.build_next_step_plan(
+                manifest,
+                campaign_dir=Path(tmpdir),
+            )
+            self.assertEqual("reenumeration_observed", plan["next_gate"])
+            self.assertEqual(
+                "physically_reconnect_baseline_target",
+                plan["action"],
+            )
+
+    def test_next_step_plan_is_checksum_bound_to_manifest_and_instruction(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manifest = campaign.build_campaign_manifest(drive_receipt(7))
+            plan = campaign.build_next_step_plan(
+                manifest,
+                campaign_dir=Path(tmpdir),
+            )
+            self.assertEqual(
+                plan["next_step_sha256"],
+                campaign.next_step_sha256(plan),
+            )
+            tampered = dict(plan)
+            tampered["instruction"] = "skip all physical evidence"
+            self.assertNotEqual(
+                plan["next_step_sha256"],
+                campaign.next_step_sha256(tampered),
+            )
+
     def test_fixture_baseline_never_counts_as_live_hardware(self):
         manifest = campaign.build_campaign_manifest(
             drive_receipt(7, evidence_source="fixture")
