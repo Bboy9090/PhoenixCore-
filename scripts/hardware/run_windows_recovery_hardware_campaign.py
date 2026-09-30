@@ -28,6 +28,7 @@ import compare_windows_drive_reenumeration as drive_compare
 import resolve_windows_source_disk as source_disk
 
 SCHEMA = "phoenix_key.windows_recovery_hardware_campaign.v1"
+NEXT_STEP_SCHEMA = "phoenix_key.windows_recovery_hardware_next_step.v1"
 PREFLIGHT_SCHEMA = "phoenix_key.windows_recovery_hardware_preflight.v1"
 ROLLBACK_SCHEMA = "phoenix_key.restore_target_rollback_capture.v1"
 BOOT_METADATA_SCHEMA = "phoenix_key.restore_target_boot_metadata.v1"
@@ -536,6 +537,132 @@ def record_boot_metadata(
     return refresh_manifest(manifest)
 
 
+def next_step_sha256(plan: dict[str, Any]) -> str:
+    unsigned = dict(plan)
+    unsigned.pop("next_step_sha256", None)
+    return sha256_payload(unsigned)
+
+
+def build_next_step_plan(
+    manifest: dict[str, Any],
+    *,
+    campaign_dir: Path,
+) -> dict[str, Any]:
+    gates = manifest.get("gates") or {}
+    baseline = manifest.get("baseline") or {}
+    campaign = str(campaign_dir.resolve())
+    target = str(baseline.get("target") or "")
+
+    if not gates.get("baseline_live_hardware"):
+        action = "start_new_live_campaign"
+        gate = "baseline_live_hardware"
+        instruction = (
+            "Start a new campaign with a live external GPT target; fixture or "
+            "non-live baseline evidence cannot be promoted."
+        )
+        command = None
+        operator_confirmation_required = False
+    elif not gates.get("rollback_live_zero_write"):
+        action = "record_live_rollback_capture"
+        gate = "rollback_live_zero_write"
+        instruction = (
+            "Create a fresh live read-only GPT rollback capture for the baseline "
+            "target, then record its receipt."
+        )
+        command = (
+            "python scripts/hardware/run_windows_recovery_hardware_campaign.py "
+            f'record-rollback --campaign-dir "{campaign}" '
+            '--receipt "<restore-rollback-capture.json>"'
+        )
+        operator_confirmation_required = False
+    elif not gates.get("boot_metadata_live_read_only"):
+        action = "record_live_boot_metadata"
+        gate = "boot_metadata_live_read_only"
+        instruction = (
+            "Capture live boot metadata while the baseline snapshot and rollback "
+            "capture are still current, then record its receipt."
+        )
+        command = (
+            "python scripts/hardware/run_windows_recovery_hardware_campaign.py "
+            f'record-boot-metadata --campaign-dir "{campaign}" '
+            '--receipt "<restore-target-boot-metadata.json>"'
+        )
+        operator_confirmation_required = False
+    elif not gates.get("reconnect_same_hardware") or not gates.get(
+        "reenumeration_observed"
+    ):
+        action = "physically_reconnect_baseline_target"
+        gate = (
+            "reconnect_same_hardware"
+            if not gates.get("reconnect_same_hardware")
+            else "reenumeration_observed"
+        )
+        instruction = (
+            "Physically disconnect and reconnect the baseline target, confirm the "
+            "physical event, then capture the newly enumerated raw target path. "
+            "If Windows returns the exact same path and snapshot, repeat later "
+            "under conditions that cause real re-enumeration."
+        )
+        command = (
+            "python scripts/hardware/run_windows_recovery_hardware_campaign.py "
+            f'reconnect --campaign-dir "{campaign}" '
+            '--current-target "<CURRENT_PHYSICALDRIVE>" '
+            "--operator-confirmed-physical-reconnect"
+        )
+        operator_confirmation_required = True
+    elif not gates.get("substitution_rejection_proven"):
+        action = "physically_substitute_different_target"
+        gate = "substitution_rejection_proven"
+        instruction = (
+            "Disconnect the baseline target, connect a different external disk, "
+            "confirm the physical substitution, and capture that candidate path."
+        )
+        command = (
+            "python scripts/hardware/run_windows_recovery_hardware_campaign.py "
+            f'substitution --campaign-dir "{campaign}" '
+            '--candidate-target "<DIFFERENT_PHYSICALDRIVE>" '
+            "--operator-confirmed-physical-substitution"
+        )
+        operator_confirmation_required = True
+    else:
+        action = "resolve_data_preservation_then_final_preflight"
+        gate = None
+        instruction = (
+            "The physical evidence campaign is complete. Resolve target-data "
+            "preservation, build a fresh Recovery Evidence Bundle v2, and run the "
+            "final non-executable preflight."
+        )
+        command = (
+            "python scripts/hardware/run_windows_recovery_hardware_campaign.py "
+            f'status --campaign-dir "{campaign}"'
+        )
+        operator_confirmation_required = False
+
+    plan = {
+        "schema": NEXT_STEP_SCHEMA,
+        "campaign_dir": campaign,
+        "campaign_id": manifest.get("campaign_id"),
+        "baseline_target": target or None,
+        "hardware_campaign_complete": manifest.get("hardware_campaign_complete")
+        is True,
+        "next_gate": gate,
+        "action": action,
+        "instruction": instruction,
+        "command": command,
+        "operator_confirmation_required": operator_confirmation_required,
+        "restore_executor_authorized": False,
+        "system_mutations_performed": False,
+        "manifest_sha256": manifest.get("manifest_sha256"),
+    }
+    plan["next_step_sha256"] = next_step_sha256(plan)
+    return plan
+
+
+def command_next_step(args: argparse.Namespace) -> dict[str, Any]:
+    _, _, manifest = load_manifest(args.campaign_dir)
+    return build_next_step_plan(manifest, campaign_dir=args.campaign_dir)
+
+
 def campaign_paths(campaign_dir: Path) -> tuple[Path, Path]:
     root = campaign_dir.resolve()
     return root, root / "hardware-campaign-manifest.json"
@@ -787,6 +914,10 @@ def parse_args() -> argparse.Namespace:
     status = subparsers.add_parser("status")
     status.add_argument("--campaign-dir", type=Path, required=True)
     status.set_defaults(handler=command_status)
+
+    next_step = subparsers.add_parser("next-step")
+    next_step.add_argument("--campaign-dir", type=Path, required=True)
+    next_step.set_defaults(handler=command_next_step)
 
     return parser.parse_args()
 
