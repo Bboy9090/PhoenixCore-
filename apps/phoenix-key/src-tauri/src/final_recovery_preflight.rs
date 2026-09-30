@@ -93,12 +93,23 @@ pub fn verify_final_recovery_preflight_sha256(
 }
 
 fn all_required_components_trusted(bundle: &Value) -> bool {
-    REQUIRED_TRUSTED_COMPONENTS.iter().all(|name| {
+    let required_trusted = REQUIRED_TRUSTED_COMPONENTS.iter().all(|name| {
         bundle
             .pointer(&format!("/components/{name}/trusted"))
             .and_then(Value::as_bool)
             == Some(true)
-    })
+    });
+
+    let package_trust_ok = bundle
+        .pointer("/components/package_trust")
+        .and_then(Value::as_object)
+        .is_some_and(|component| {
+            component.get("present").and_then(Value::as_bool) == Some(false)
+                || (component.get("present").and_then(Value::as_bool) == Some(true)
+                    && component.get("trusted").and_then(Value::as_bool) == Some(true))
+        });
+
+    required_trusted && package_trust_ok
 }
 
 pub fn assess_final_recovery_preflight(bundle: &Value) -> FinalRecoveryPreflight {
@@ -362,6 +373,31 @@ mod tests {
         assert!(result
             .blocked_gates
             .contains(&"critical_components_trusted".to_string()));
+    }
+
+    #[test]
+    fn present_untrusted_package_trust_blocks_handoff() {
+        let mut bundle = complete_bundle();
+        bundle["components"]["package_trust"]["trusted"] = json!(false);
+        resign(&mut bundle);
+        let result = assess_final_recovery_preflight(&bundle);
+        assert!(!result.ready_for_restore_executor_architecture_review);
+        assert!(result
+            .blocked_gates
+            .contains(&"critical_components_trusted".to_string()));
+    }
+
+    #[test]
+    fn intentionally_absent_package_trust_remains_allowed() {
+        let mut bundle = complete_bundle();
+        bundle["components"]["package_trust"]["present"] = json!(false);
+        bundle["components"]["package_trust"]["trusted"] = json!(false);
+        bundle["components"]["package_trust"]["schema"] = Value::Null;
+        bundle["components"]["package_trust"]["sha256"] = Value::Null;
+        resign(&mut bundle);
+        let result = assess_final_recovery_preflight(&bundle);
+        assert!(result.ready_for_restore_executor_architecture_review);
+        assert!(result.blocked_gates.is_empty());
     }
 
     #[test]
