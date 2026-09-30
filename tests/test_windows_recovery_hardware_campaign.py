@@ -301,8 +301,12 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
         self.assertEqual(campaign.DISCOVERY_SCHEMA, report["schema"])
         self.assertEqual(2, report["target_candidate_count"])
         self.assertEqual(1, report["evidence_candidate_count"])
-        self.assertEqual(r"\\.\PHYSICALDRIVE20", report["evidence_candidates"][0]["target"])
-        self.assertEqual(["D"], report["evidence_candidates"][0]["mounted_drive_letters"])
+        self.assertEqual(
+            r"\\.\PHYSICALDRIVE20", report["evidence_candidates"][0]["target"]
+        )
+        self.assertEqual(
+            ["D"], report["evidence_candidates"][0]["mounted_drive_letters"]
+        )
         self.assertTrue(report["read_only"])
         self.assertFalse(report["restore_executor_authorized"])
         self.assertFalse(report["system_mutations_performed"])
