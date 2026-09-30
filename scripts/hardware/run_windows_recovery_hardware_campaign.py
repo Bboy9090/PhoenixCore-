@@ -25,9 +25,11 @@ if str(HARDWARE_DIR) not in sys.path:
 import capture_windows_drive_evidence as drive_evidence
 import capture_windows_restore_rollback as rollback_capture
 import compare_windows_drive_reenumeration as drive_compare
+import find_windows_drive_by_stable_identity as stable_locator
 import resolve_windows_source_disk as source_disk
 
 SCHEMA = "phoenix_key.windows_recovery_hardware_campaign.v1"
+DISCOVERY_SCHEMA = "phoenix_key.windows_recovery_hardware_discovery.v1"
 NEXT_STEP_SCHEMA = "phoenix_key.windows_recovery_hardware_next_step.v1"
 PREFLIGHT_SCHEMA = "phoenix_key.windows_recovery_hardware_preflight.v1"
 ROLLBACK_SCHEMA = "phoenix_key.restore_target_rollback_capture.v1"
@@ -537,6 +539,113 @@ def record_boot_metadata(
     return refresh_manifest(manifest)
 
 
+def discovery_sha256(report: dict[str, Any]) -> str:
+    unsigned = dict(report)
+    unsigned.pop("discovery_sha256", None)
+    return sha256_payload(unsigned)
+
+
+def build_discovery_report(raw_disks: list[dict[str, Any]]) -> dict[str, Any]:
+    inspected = []
+    target_candidates = []
+    evidence_candidates = []
+
+    for raw in raw_disks:
+        number = int(raw.get("Number", -1))
+        if number < 0:
+            continue
+        target = rf"\\.\PHYSICALDRIVE{number}"
+        record = drive_evidence.normalize_disk_record(raw, target)
+        stable = str(record.get("stable_identity_sha256") or "").lower()
+        has_stable_identity = bool(SHA256_RE.fullmatch(stable))
+        is_external = str(record.get("bus_type") or "").upper() in (
+            drive_evidence.EXTERNAL_BUS_TYPES
+        )
+        has_mounted_volume = any(
+            bool(partition.get("drive_letter"))
+            for partition in record.get("partitions") or []
+        )
+
+        target_block_reasons = list(record.get("write_block_reasons") or [])
+        if str(record.get("partition_style") or "").upper() != "GPT":
+            target_block_reasons.append("target-partition-style-not-gpt")
+        if not has_stable_identity and "stable-device-identity-missing" not in target_block_reasons:
+            target_block_reasons.append("stable-device-identity-missing")
+        target_eligible = (
+            is_external
+            and record.get("is_boot") is False
+            and record.get("is_system") is False
+            and str(record.get("partition_style") or "").upper() == "GPT"
+            and has_stable_identity
+            and record.get("write_candidate") is True
+        )
+
+        evidence_block_reasons = []
+        if not is_external:
+            evidence_block_reasons.append("evidence-disk-not-external")
+        if record.get("is_boot") is True:
+            evidence_block_reasons.append("evidence-disk-is-boot-disk")
+        if record.get("is_system") is True:
+            evidence_block_reasons.append("evidence-disk-is-system-disk")
+        if not has_stable_identity:
+            evidence_block_reasons.append("stable-device-identity-missing")
+        if not has_mounted_volume:
+            evidence_block_reasons.append("evidence-disk-has-no-mounted-volume")
+        evidence_eligible = not evidence_block_reasons
+
+        summary = {
+            "target": record.get("target"),
+            "disk_number": record.get("disk_number"),
+            "friendly_name": record.get("friendly_name"),
+            "bus_type": record.get("bus_type"),
+            "size_bytes": record.get("size_bytes"),
+            "partition_style": record.get("partition_style"),
+            "is_boot": record.get("is_boot"),
+            "is_system": record.get("is_system"),
+            "is_read_only": record.get("is_read_only"),
+            "stable_identity_sha256": record.get("stable_identity_sha256"),
+            "mounted_drive_letters": [
+                partition.get("drive_letter")
+                for partition in record.get("partitions") or []
+                if partition.get("drive_letter")
+            ],
+            "target_eligible": target_eligible,
+            "target_block_reasons": target_block_reasons,
+            "evidence_storage_eligible": evidence_eligible,
+            "evidence_storage_block_reasons": evidence_block_reasons,
+        }
+        inspected.append(summary)
+        if target_eligible:
+            target_candidates.append(summary)
+        if evidence_eligible:
+            evidence_candidates.append(summary)
+
+    report = {
+        "schema": DISCOVERY_SCHEMA,
+        "inspected_disk_count": len(inspected),
+        "target_candidate_count": len(target_candidates),
+        "evidence_candidate_count": len(evidence_candidates),
+        "target_candidates": target_candidates,
+        "evidence_candidates": evidence_candidates,
+        "inspected": inspected,
+        "selection_rule": (
+            "Choose one target candidate and a different evidence candidate with a "
+            "different stable_identity_sha256. Preflight remains authoritative."
+        ),
+        "read_only": True,
+        "restore_executor_authorized": False,
+        "system_mutations_performed": False,
+    }
+    report["discovery_sha256"] = discovery_sha256(report)
+    return report
+
+
+def command_discover(args: argparse.Namespace) -> dict[str, Any]:
+    del args
+    raw_disks = stable_locator.query_all_windows_disks()
+    return build_discovery_report(raw_disks)
+
+
 def next_step_sha256(plan: dict[str, Any]) -> str:
     unsigned = dict(plan)
     unsigned.pop("next_step_sha256", None)
@@ -863,6 +972,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    discover = subparsers.add_parser("discover")
+    discover.set_defaults(handler=command_discover)
+
     preflight = subparsers.add_parser("preflight")
     preflight.add_argument("--target", required=True)
     preflight.add_argument("--campaign-dir", type=Path, required=True)
@@ -936,6 +1048,7 @@ if __name__ == "__main__":
         HardwareCampaignError,
         rollback_capture.RollbackCaptureError,
         drive_evidence.EvidenceError,
+        stable_locator.StableIdentityLocatorError,
         source_disk.SourceDiskResolutionError,
         OSError,
         ValueError,
