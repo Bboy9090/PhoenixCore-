@@ -193,6 +193,13 @@ Status: **implemented and CI-gated**.
 
 ## Recovery Evidence Bundle v2
 
+Additional bundle integrity rule:
+
+- target re-enumeration evidence must be bound to this bundle's target snapshot and stable hardware identity
+- boot metadata must be bound to this bundle's target snapshot, stable identity, rollback contract, and exact rollback-capture receipt
+- a checksum-valid receipt from a different recovery chain must remain untrusted
+
+
 Status: **implemented and CI-gated**.
 
 The bundle:
