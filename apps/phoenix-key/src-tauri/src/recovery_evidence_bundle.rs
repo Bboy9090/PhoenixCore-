@@ -1,4 +1,6 @@
-use crate::data_preservation::verify_target_data_preservation_receipt_sha256;
+use crate::data_preservation::{
+    verify_target_data_backup_receipt_sha256, verify_target_data_preservation_receipt_sha256,
+};
 use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sha256;
 use crate::source_identity::verify_identity_bound_plan_sha256;
 use crate::target_reenumeration::{
@@ -151,6 +153,7 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     let rollback_destination = optional_object(root, "rollback_destination_verification");
     let rollback_capture = optional_object(root, "rollback_capture_receipt");
     let reenumeration = optional_object(root, "target_reenumeration_receipt");
+    let data_backup = optional_object(root, "target_data_backup_receipt");
     let data_preservation = optional_object(root, "data_preservation_receipt");
     let boot_metadata = optional_object(root, "boot_metadata_receipt");
 
@@ -307,8 +310,56 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
             })
     });
 
+    let data_backup_trusted = data_backup.is_some_and(|value| {
+        verify_target_data_backup_receipt_sha256(value)
+            && value.get("backup_verified").and_then(Value::as_bool) == Some(true)
+            && value.get("files_verified").and_then(Value::as_bool) == Some(true)
+            && value.get("target_bytes_written").and_then(Value::as_u64) == Some(0)
+            && value
+                .get("target_write_attempted")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && value
+                .get("system_mutations_performed")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && same_sha256(
+                target_stable_identity,
+                value
+                    .get("target_stable_identity_sha256")
+                    .and_then(Value::as_str),
+            )
+            && same_sha256(
+                contract_sha256,
+                value.get("rollback_contract_sha256").and_then(Value::as_str),
+            )
+            && value
+                .get("backup_destination_stable_identity_sha256")
+                .and_then(Value::as_str)
+                .is_some_and(|destination| {
+                    valid_sha256(destination)
+                        && target_stable_identity
+                            .is_some_and(|target| !destination.eq_ignore_ascii_case(target))
+                })
+    });
+
     let data_preservation_resolved = data_preservation.is_some_and(|value| {
+        let mode = value.get("mode").and_then(Value::as_str);
+        let backup_binding_valid = match mode {
+            Some("explicit_discard") => value.get("backup_receipt_sha256").is_none(),
+            Some("preserve_existing_data") => {
+                data_backup_trusted
+                    && same_sha256(
+                        data_backup.and_then(|receipt| {
+                            receipt.get("receipt_sha256").and_then(Value::as_str)
+                        }),
+                        value.get("backup_receipt_sha256").and_then(Value::as_str),
+                    )
+            }
+            _ => false,
+        };
         verify_target_data_preservation_receipt_sha256(value)
+            && backup_binding_valid
             && value.get("resolved").and_then(Value::as_bool) == Some(true)
             && value
                 .get("restore_unlock_ready")
@@ -401,6 +452,13 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     if !reenumeration_trusted {
         outstanding_requirements.push("target_reenumeration_or_exact_snapshot_receipt".to_string());
     }
+    if data_preservation
+        .and_then(|value| value.get("mode").and_then(Value::as_str))
+        == Some("preserve_existing_data")
+        && !data_backup_trusted
+    {
+        outstanding_requirements.push("target_data_backup_receipt".to_string());
+    }
     if !data_preservation_resolved {
         outstanding_requirements.push(
             "target_data_preservation_receipt_or_explicit_discard_decision".to_string(),
@@ -454,6 +512,10 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     components.insert(
         "target_reenumeration_receipt".to_string(),
         component(reenumeration, reenumeration_trusted),
+    );
+    components.insert(
+        "target_data_backup_receipt".to_string(),
+        component(data_backup, data_backup_trusted),
     );
     components.insert(
         "data_preservation_receipt".to_string(),
