@@ -30,6 +30,8 @@ pub struct RecoveryEvidenceBundleV2 {
     pub components: BTreeMap<String, RecoveryEvidenceComponent>,
     pub software_chain_complete: bool,
     pub hardware_chain_complete: bool,
+    pub data_preservation_mode: Option<String>,
+    pub data_preservation_backup_receipt_sha256: Option<String>,
     pub data_preservation_resolved: bool,
     pub boot_metadata_resolved: bool,
     pub outstanding_requirements: Vec<String>,
@@ -535,6 +537,12 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
         components,
         software_chain_complete,
         hardware_chain_complete,
+        data_preservation_mode: data_preservation
+            .and_then(|value| value.get("mode").and_then(Value::as_str))
+            .map(str::to_string),
+        data_preservation_backup_receipt_sha256: data_preservation
+            .and_then(|value| value.get("backup_receipt_sha256").and_then(Value::as_str))
+            .map(str::to_string),
         data_preservation_resolved,
         boot_metadata_resolved,
         outstanding_requirements,
@@ -562,7 +570,10 @@ mod tests {
         verify_recovery_evidence_bundle_v2_sha256,
     };
     use crate::data_preservation::{
-        build_target_data_preservation_receipt, EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
+        build_target_data_preservation_receipt,
+        build_target_data_preservation_receipt_with_backup,
+        target_data_backup_receipt_sha256,
+        EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
     };
     use crate::restore_preflight::assess_restore_hardware_preflight;
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
@@ -671,6 +682,26 @@ mod tests {
         value
     }
 
+    fn verified_backup_receipt(evidence: &Value) -> Value {
+        let mut receipt = json!({
+            "schema": "phoenix_key.target_data_backup_receipt.v1",
+            "target_stable_identity_sha256":
+                evidence["target_safety"]["target_stable_identity_sha256"].clone(),
+            "rollback_contract_sha256":
+                evidence["rollback_contract"]["contract_sha256"].clone(),
+            "backup_destination_stable_identity_sha256": "d".repeat(64),
+            "backup_manifest_sha256": "e".repeat(64),
+            "backup_verified": true,
+            "files_verified": true,
+            "target_bytes_written": 0,
+            "target_write_attempted": false,
+            "system_mutations_performed": false
+        });
+        receipt["receipt_sha256"] =
+            json!(target_data_backup_receipt_sha256(&receipt).unwrap());
+        receipt
+    }
+
     #[test]
     fn software_bundle_is_complete_but_never_executable() {
         let bundle = build_recovery_evidence_bundle_v2(&software_evidence());
@@ -747,6 +778,64 @@ mod tests {
         let bundle = build_recovery_evidence_bundle_v2(&evidence);
         assert!(!bundle.data_preservation_resolved);
         assert!(!bundle.components["data_preservation_receipt"].trusted);
+    }
+
+    #[test]
+    fn preserve_mode_requires_trusted_backup_component_and_exact_binding() {
+        let mut evidence = software_evidence();
+        let backup = verified_backup_receipt(&evidence);
+        let preservation = build_target_data_preservation_receipt_with_backup(
+            &evidence["target_safety"],
+            &evidence["rollback_contract"],
+            &backup,
+        )
+        .unwrap();
+        evidence["target_data_backup_receipt"] = backup.clone();
+        evidence["data_preservation_receipt"] =
+            serde_json::to_value(preservation).unwrap();
+
+        let bundle = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(bundle.data_preservation_resolved);
+        assert_eq!(
+            bundle.data_preservation_mode.as_deref(),
+            Some("preserve_existing_data")
+        );
+        assert_eq!(
+            bundle.data_preservation_backup_receipt_sha256.as_deref(),
+            backup.get("receipt_sha256").and_then(Value::as_str)
+        );
+        assert!(bundle.components["target_data_backup_receipt"].trusted);
+
+        let mut tampered = evidence.clone();
+        tampered["target_data_backup_receipt"]["files_verified"] = json!(false);
+        let blocked = build_recovery_evidence_bundle_v2(&tampered);
+        assert!(!blocked.data_preservation_resolved);
+        assert!(!blocked.components["target_data_backup_receipt"].trusted);
+        assert!(blocked
+            .outstanding_requirements
+            .contains(&"target_data_backup_receipt".to_string()));
+    }
+
+    #[test]
+    fn explicit_discard_does_not_require_backup_component() {
+        let mut evidence = software_evidence();
+        let receipt = build_target_data_preservation_receipt(
+            &evidence["target_safety"],
+            &evidence["rollback_contract"],
+            "explicit_discard",
+            EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
+        )
+        .unwrap();
+        evidence["data_preservation_receipt"] = serde_json::to_value(receipt).unwrap();
+
+        let bundle = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(bundle.data_preservation_resolved);
+        assert_eq!(
+            bundle.data_preservation_mode.as_deref(),
+            Some("explicit_discard")
+        );
+        assert!(bundle.data_preservation_backup_receipt_sha256.is_none());
+        assert!(!bundle.components["target_data_backup_receipt"].present);
     }
 
     #[test]
