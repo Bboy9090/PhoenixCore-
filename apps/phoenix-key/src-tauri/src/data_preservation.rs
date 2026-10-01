@@ -2,6 +2,7 @@ use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sh
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::fs;
 
 pub const EXPLICIT_DISCARD_ACKNOWLEDGEMENT: &str =
     "I ACCEPT DATA LOSS ON THIS TARGET";
@@ -361,6 +362,20 @@ pub fn build_target_data_preservation_receipt_with_backup(
     receipt.block_reasons.clear();
     receipt.required_next_evidence.clear();
     receipt.receipt_sha256 = receipt_sha256(&receipt);
+    Ok(receipt)
+}
+
+#[tauri::command]
+pub fn load_verified_target_data_backup_receipt(
+    backup_receipt_path: String,
+) -> Result<Value, String> {
+    let text = fs::read_to_string(&backup_receipt_path)
+        .map_err(|error| format!("cannot read target-data backup receipt: {error}"))?;
+    let receipt: Value = serde_json::from_str(&text)
+        .map_err(|error| format!("invalid target-data backup receipt JSON: {error}"))?;
+    if !verify_target_data_backup_receipt_sha256(&receipt) {
+        return Err("target-data backup receipt checksum is invalid".to_string());
+    }
     Ok(receipt)
 }
 
