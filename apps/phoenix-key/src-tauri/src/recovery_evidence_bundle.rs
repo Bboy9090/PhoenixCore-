@@ -580,6 +580,12 @@ mod tests {
     use crate::source_identity::identity_bound_plan_sha256;
     use crate::target_reenumeration::compare_recovery_target_reenumeration;
     use serde_json::{json, Value};
+    use sha2::{Digest, Sha256};
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn software_evidence() -> Value {
         let mut plan = json!({
@@ -682,7 +688,44 @@ mod tests {
         value
     }
 
-    fn verified_backup_receipt(evidence: &Value) -> Value {
+    fn verified_backup_receipt(evidence: &Value) -> (Value, PathBuf) {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "phoenix-key-bundle-backup-test-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).unwrap();
+
+        let artifact_bytes = b"bundle verified backup";
+        fs::write(root.join("data.bin"), artifact_bytes).unwrap();
+        let artifact_sha = format!("{:x}", Sha256::digest(artifact_bytes));
+        let stable = evidence["target_safety"]["target_stable_identity_sha256"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let contract = evidence["rollback_contract"]["contract_sha256"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let manifest = json!({
+            "schema": "phoenix_key.target_data_backup_manifest.v1",
+            "target_stable_identity_sha256": stable,
+            "rollback_contract_sha256": contract,
+            "backup_destination_stable_identity_sha256": "d".repeat(64),
+            "artifacts": [{
+                "path": "data.bin",
+                "size_bytes": artifact_bytes.len(),
+                "sha256": artifact_sha
+            }]
+        });
+        let manifest_bytes = serde_json::to_vec_pretty(&manifest).unwrap();
+        fs::write(root.join("manifest.json"), &manifest_bytes).unwrap();
+        let manifest_sha = format!("{:x}", Sha256::digest(&manifest_bytes));
+
         let mut receipt = json!({
             "schema": "phoenix_key.target_data_backup_receipt.v1",
             "target_stable_identity_sha256":
@@ -690,7 +733,9 @@ mod tests {
             "rollback_contract_sha256":
                 evidence["rollback_contract"]["contract_sha256"].clone(),
             "backup_destination_stable_identity_sha256": "d".repeat(64),
-            "backup_manifest_sha256": "e".repeat(64),
+            "backup_root": root.to_string_lossy(),
+            "backup_manifest_path": "manifest.json",
+            "backup_manifest_sha256": manifest_sha,
             "backup_verified": true,
             "files_verified": true,
             "target_bytes_written": 0,
@@ -699,7 +744,7 @@ mod tests {
         });
         receipt["receipt_sha256"] =
             json!(target_data_backup_receipt_sha256(&receipt).unwrap());
-        receipt
+        (receipt, root)
     }
 
     #[test]
@@ -783,7 +828,7 @@ mod tests {
     #[test]
     fn preserve_mode_requires_trusted_backup_component_and_exact_binding() {
         let mut evidence = software_evidence();
-        let backup = verified_backup_receipt(&evidence);
+        let (backup, root) = verified_backup_receipt(&evidence);
         let preservation = build_target_data_preservation_receipt_with_backup(
             &evidence["target_safety"],
             &evidence["rollback_contract"],
@@ -814,6 +859,7 @@ mod tests {
         assert!(blocked
             .outstanding_requirements
             .contains(&"target_data_backup_receipt".to_string()));
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
