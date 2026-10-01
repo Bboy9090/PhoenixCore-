@@ -184,7 +184,9 @@ Status: **implemented and CI-gated**.
 - cannot resolve without a real target-data backup receipt;
 - backup receipt must be checksum-valid and identity-bound to the current target and rollback contract;
 - backup destination stable identity must differ from the target;
-- backup manifest/files must be verified;
+- backup manifest path must remain inside the canonical backup root;
+- Phoenix Key independently hashes the on-disk backup manifest and every listed artifact, verifying exact byte sizes and SHA-256 digests;
+- unsafe absolute/parent-traversal artifact paths are rejected;
 - target bytes written must remain `0` and no target write attempt/system mutation may be reported;
 - the resolved preservation receipt stores the exact backup receipt SHA-256, and Recovery Evidence Bundle v2 carries both components.
 
