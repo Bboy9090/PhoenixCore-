@@ -1,5 +1,5 @@
 use crate::data_preservation::{
-    verify_target_data_backup_receipt_sha256, verify_target_data_preservation_receipt_sha256,
+    verify_target_data_backup_artifacts, verify_target_data_preservation_receipt_sha256,
 };
 use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sha256;
 use crate::source_identity::verify_identity_bound_plan_sha256;
@@ -313,7 +313,7 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     });
 
     let data_backup_trusted = data_backup.is_some_and(|value| {
-        verify_target_data_backup_receipt_sha256(value)
+        verify_target_data_backup_artifacts(value).is_ok()
             && value.get("backup_verified").and_then(Value::as_bool) == Some(true)
             && value.get("files_verified").and_then(Value::as_bool) == Some(true)
             && value.get("target_bytes_written").and_then(Value::as_u64) == Some(0)
