@@ -299,6 +299,8 @@ type RecoveryEvidenceBundleV2 = {
   }>;
   software_chain_complete: boolean;
   hardware_chain_complete: boolean;
+  data_preservation_mode?: string | null;
+  data_preservation_backup_receipt_sha256?: string | null;
   data_preservation_resolved: boolean;
   boot_metadata_resolved: boolean;
   outstanding_requirements: string[];
@@ -594,6 +596,14 @@ export default function RecoveryCenter({
     targetDataBackupReceipt,
     dataPreservationReceipt,
     bootMetadataReceipt,
+  ]);
+
+  useEffect(() => {
+    setTargetDataBackupReceipt(null);
+    setDataPreservationReceipt(null);
+  }, [
+    targetSafety?.target_stable_identity_sha256,
+    restoreRollbackContract?.contract_sha256,
   ]);
 
   useEffect(() => {
