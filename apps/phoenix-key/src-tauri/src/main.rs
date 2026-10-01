@@ -21,7 +21,9 @@ mod windows_recovery_guard;
 mod windows_target;
 
 use boot_repair_contract::plan_windows_boot_repair;
-use data_preservation::create_target_data_preservation_decision;
+use data_preservation::{
+    create_target_data_preservation_decision, resolve_target_data_preservation_with_backup,
+};
 use intel_mac_restore_gate::assess_intel_mac_restore_readiness;
 use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
@@ -1922,6 +1924,7 @@ fn main() {
         persist_windows_recovery_session_state,
         plan_windows_boot_repair,
         create_target_data_preservation_decision,
+        resolve_target_data_preservation_with_backup,
         inspect_mac_bootcamp_host,
         inspect_recovery_package_trust,
         inspect_windows_image_metadata,
