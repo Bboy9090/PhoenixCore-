@@ -77,7 +77,7 @@ fn receipt_sha256(receipt: &TargetDataPreservationReceipt) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-fn target_data_backup_receipt_sha256(value: &Value) -> Option<String> {
+pub(crate) fn target_data_backup_receipt_sha256(value: &Value) -> Option<String> {
     if value.get("schema").and_then(Value::as_str)
         != Some("phoenix_key.target_data_backup_receipt.v1")
     {
