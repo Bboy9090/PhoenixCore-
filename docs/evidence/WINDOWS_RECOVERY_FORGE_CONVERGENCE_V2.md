@@ -184,7 +184,7 @@ The capture is bound to:
 
 Modes:
 
-- `preserve_existing_data` — remains unresolved until a real target-data backup receipt exists
+- `preserve_existing_data` — resolves only after a checksum-valid target-data backup receipt proves the same target/rollback identities, a different physical backup destination, verified backup manifest/files, zero target writes, and no system mutation. Phoenix Key independently re-hashes the on-disk manifest and every listed backup artifact before accepting the receipt
 - `explicit_discard` — resolves only when the exact acknowledgement
   `I ACCEPT DATA LOSS ON THIS TARGET` is supplied
 
