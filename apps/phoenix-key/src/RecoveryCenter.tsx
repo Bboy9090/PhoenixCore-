@@ -559,6 +559,7 @@ export default function RecoveryCenter({
   const [rollbackCaptureReceipt, setRollbackCaptureReceipt] = useState<RestoreRollbackCaptureReceipt | null>(null);
   const [dataPreservationMode, setDataPreservationMode] = useState("preserve_existing_data");
   const [dataPreservationAcknowledgement, setDataPreservationAcknowledgement] = useState("");
+  const [targetDataBackupReceiptPath, setTargetDataBackupReceiptPath] = useState("");
   const [targetDataBackupReceipt, setTargetDataBackupReceipt] = useState<TargetDataBackupReceipt | null>(null);
   const [dataPreservationReceipt, setDataPreservationReceipt] = useState<TargetDataPreservationReceipt | null>(null);
   const [bootMetadataReceipt, setBootMetadataReceipt] = useState<RestoreTargetBootMetadataReceipt | null>(null);
@@ -599,6 +600,7 @@ export default function RecoveryCenter({
   ]);
 
   useEffect(() => {
+    setTargetDataBackupReceiptPath("");
     setTargetDataBackupReceipt(null);
     setDataPreservationReceipt(null);
   }, [
@@ -645,6 +647,7 @@ export default function RecoveryCenter({
     setRollbackDestinationPath("");
     setDataPreservationMode("preserve_existing_data");
     setDataPreservationAcknowledgement("");
+    setTargetDataBackupReceiptPath("");
     setTargetDataBackupReceipt(null);
     setDataPreservationReceipt(null);
     setBootMetadataReceipt(null);
@@ -1290,6 +1293,7 @@ export default function RecoveryCenter({
         "load_verified_target_data_backup_receipt",
         { backupReceiptPath: selected },
       );
+      setTargetDataBackupReceiptPath(selected);
       setTargetDataBackupReceipt(result);
       setMessage(
         "Backup receipt checksum verified. Resolve preserve mode to bind it to the current target and rollback contract.",
@@ -1323,7 +1327,7 @@ export default function RecoveryCenter({
               {
                 targetSafetyJson: JSON.stringify(targetSafety),
                 rollbackContractJson: JSON.stringify(restoreRollbackContract),
-                backupReceiptJson: JSON.stringify(targetDataBackupReceipt),
+                backupReceiptPath: targetDataBackupReceiptPath,
               },
             )
           : await invoke<TargetDataPreservationReceipt>(
@@ -2365,7 +2369,8 @@ export default function RecoveryCenter({
                         disabled={
                           busy ||
                           !targetSafety?.safe_to_prepare ||
-                          (dataPreservationMode === "preserve_existing_data" && !targetDataBackupReceipt)
+                          (dataPreservationMode === "preserve_existing_data" &&
+                            (!targetDataBackupReceipt || !targetDataBackupReceiptPath))
                         }
                       >
                         Record Data-Preservation Decision
