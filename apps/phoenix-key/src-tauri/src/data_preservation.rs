@@ -586,6 +586,7 @@ mod tests {
         build_target_data_preservation_receipt,
         build_target_data_preservation_receipt_with_backup,
         target_data_backup_receipt_sha256,
+        verify_target_data_backup_artifacts,
         verify_target_data_backup_receipt_sha256,
         verify_target_data_preservation_receipt_sha256,
         EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
@@ -593,6 +594,12 @@ mod tests {
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
     use crate::source_identity::identity_bound_plan_sha256;
     use serde_json::{json, Value};
+    use sha2::{Digest, Sha256};
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn plan() -> Value {
         let mut plan = json!({
@@ -636,13 +643,45 @@ mod tests {
         .unwrap()
     }
 
-    fn backup_receipt() -> Value {
+    fn backup_receipt() -> (Value, PathBuf) {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "phoenix-key-preserve-test-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).unwrap();
+
+        let artifact_bytes = b"verified target data backup";
+        fs::write(root.join("data.bin"), artifact_bytes).unwrap();
+        let artifact_sha = format!("{:x}", Sha256::digest(artifact_bytes));
+        let contract_sha = contract()["contract_sha256"].as_str().unwrap().to_string();
+
+        let manifest = json!({
+            "schema": "phoenix_key.target_data_backup_manifest.v1",
+            "target_stable_identity_sha256": "c".repeat(64),
+            "rollback_contract_sha256": contract_sha,
+            "backup_destination_stable_identity_sha256": "d".repeat(64),
+            "artifacts": [{
+                "path": "data.bin",
+                "size_bytes": artifact_bytes.len(),
+                "sha256": artifact_sha
+            }]
+        });
+        let manifest_bytes = serde_json::to_vec_pretty(&manifest).unwrap();
+        fs::write(root.join("manifest.json"), &manifest_bytes).unwrap();
+        let manifest_sha = format!("{:x}", Sha256::digest(&manifest_bytes));
+
         let mut receipt = json!({
             "schema": "phoenix_key.target_data_backup_receipt.v1",
             "target_stable_identity_sha256": "c".repeat(64),
             "rollback_contract_sha256": contract()["contract_sha256"],
             "backup_destination_stable_identity_sha256": "d".repeat(64),
-            "backup_manifest_sha256": "e".repeat(64),
+            "backup_root": root.to_string_lossy(),
+            "backup_manifest_path": "manifest.json",
+            "backup_manifest_sha256": manifest_sha,
             "backup_verified": true,
             "files_verified": true,
             "target_bytes_written": 0,
@@ -651,7 +690,7 @@ mod tests {
         });
         let digest = target_data_backup_receipt_sha256(&receipt).unwrap();
         receipt["receipt_sha256"] = json!(digest);
-        receipt
+        (receipt, root)
     }
 
     #[test]
@@ -712,8 +751,9 @@ mod tests {
 
     #[test]
     fn preserve_mode_resolves_with_verified_backup_receipt() {
-        let backup = backup_receipt();
+        let (backup, root) = backup_receipt();
         assert!(verify_target_data_backup_receipt_sha256(&backup));
+        assert!(verify_target_data_backup_artifacts(&backup).is_ok());
         let receipt = build_target_data_preservation_receipt_with_backup(
             &target(),
             &contract(),
@@ -729,11 +769,12 @@ mod tests {
         );
         assert!(!receipt.restore_unlock_ready);
         assert!(!receipt.system_mutations_performed);
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn preserve_mode_rejects_backup_on_target_device() {
-        let mut backup = backup_receipt();
+        let (mut backup, root) = backup_receipt();
         backup["backup_destination_stable_identity_sha256"] = json!("c".repeat(64));
         backup.as_object_mut().unwrap().remove("receipt_sha256");
         backup["receipt_sha256"] =
@@ -744,11 +785,12 @@ mod tests {
             &backup,
         )
         .is_err());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
     fn preserve_mode_rejects_tampered_backup_receipt() {
-        let mut backup = backup_receipt();
+        let (mut backup, root) = backup_receipt();
         backup["files_verified"] = json!(false);
         assert!(!verify_target_data_backup_receipt_sha256(&backup));
         assert!(build_target_data_preservation_receipt_with_backup(
@@ -757,6 +799,15 @@ mod tests {
             &backup,
         )
         .is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn independent_backup_verification_rejects_changed_artifact() {
+        let (backup, root) = backup_receipt();
+        fs::write(root.join("data.bin"), b"tampered backup bytes").unwrap();
+        assert!(verify_target_data_backup_artifacts(&backup).is_err());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
