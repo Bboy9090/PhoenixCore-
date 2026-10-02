@@ -430,7 +430,8 @@ The next safe sequence is:
 1. resolve target-data preservation
    - real backup receipt for preserve mode, or
    - explicit discard acknowledgement
-2. build a fresh Recovery Evidence Bundle v2
+2. build a fresh Recovery Evidence Bundle v2 that includes the checksum-bound
+   `hardware-campaign-manifest.json`
 3. run the final non-executable hardware preflight
 4. require `phoenix_key.final_recovery_preflight.v1` to report
    `ready_for_restore_executor_architecture_review = true`
@@ -442,6 +443,14 @@ requires a valid Recovery Evidence Bundle v2 checksum, complete software and
 hardware evidence chains, resolved data handling, resolved boot metadata, no
 outstanding evidence requirements, valid critical identities, and trusted
 critical evidence components.
+
+Recovery Evidence Bundle v2 now treats the hardware campaign manifest as a
+required trusted component. Its `manifest_sha256` must verify; all six physical
+campaign gates must be true; the manifest must remain non-executable; its stable
+target identity must match the bundle; and its rollback-capture and boot-metadata
+receipt hashes must match the exact receipts embedded in the bundle. In
+particular, the final handoff cannot become green without
+`substitution_rejection_proven = true`.
 
 Even when every final preflight gate passes, it always keeps:
 
