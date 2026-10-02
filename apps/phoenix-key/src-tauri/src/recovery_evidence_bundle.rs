@@ -584,6 +584,39 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
 }
 
 #[tauri::command]
+pub fn load_windows_recovery_hardware_campaign_manifest(
+    manifest_path: String,
+) -> Result<Value, String> {
+    let text = std::fs::read_to_string(&manifest_path)
+        .map_err(|error| format!("cannot read hardware campaign manifest: {error}"))?;
+    let value: Value = serde_json::from_str(&text)
+        .map_err(|error| format!("invalid hardware campaign manifest JSON: {error}"))?;
+
+    if value.get("schema").and_then(Value::as_str)
+        != Some("phoenix_key.windows_recovery_hardware_campaign.v1")
+    {
+        return Err("unsupported hardware campaign manifest schema".to_string());
+    }
+    let expected = value
+        .get("manifest_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "hardware campaign manifest SHA-256 is missing".to_string())?;
+    if !valid_sha256(expected) {
+        return Err("hardware campaign manifest SHA-256 is invalid".to_string());
+    }
+    let mut unsigned = value.clone();
+    unsigned
+        .as_object_mut()
+        .ok_or_else(|| "hardware campaign manifest is not a JSON object".to_string())?
+        .remove("manifest_sha256");
+    if !value_sha256(&unsigned).eq_ignore_ascii_case(expected) {
+        return Err("hardware campaign manifest checksum does not match".to_string());
+    }
+
+    Ok(value)
+}
+
+#[tauri::command]
 pub fn build_windows_recovery_evidence_bundle_v2(
     evidence_json: String,
 ) -> Result<RecoveryEvidenceBundleV2, String> {
