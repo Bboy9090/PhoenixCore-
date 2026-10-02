@@ -16,6 +16,7 @@ const REQUIRED_TRUSTED_COMPONENTS: &[&str] = &[
     "target_reenumeration_receipt",
     "data_preservation_receipt",
     "boot_metadata_receipt",
+    "hardware_campaign_manifest",
 ];
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -280,7 +281,8 @@ mod tests {
                 "rollback_capture_receipt": trusted("phoenix_key.restore_target_rollback_capture.v1"),
                 "target_reenumeration_receipt": trusted("phoenix_key.recovery_target_reenumeration_receipt.v1"),
                 "data_preservation_receipt": trusted("phoenix_key.target_data_preservation_receipt.v1"),
-                "boot_metadata_receipt": trusted("phoenix_key.restore_target_boot_metadata.v1")
+                "boot_metadata_receipt": trusted("phoenix_key.restore_target_boot_metadata.v1"),
+                "hardware_campaign_manifest": trusted("phoenix_key.windows_recovery_hardware_campaign.v1")
             },
             "software_chain_complete": true,
             "hardware_chain_complete": true,
