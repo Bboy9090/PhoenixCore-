@@ -33,6 +33,7 @@ PREFLIGHT_SCHEMA = "phoenix_key.windows_recovery_hardware_preflight.v1"
 ROLLBACK_SCHEMA = "phoenix_key.restore_target_rollback_capture.v1"
 BOOT_METADATA_SCHEMA = "phoenix_key.restore_target_boot_metadata.v1"
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+SOURCE_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 class HardwareCampaignError(RuntimeError):
@@ -305,6 +306,11 @@ def refresh_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
 
 def build_campaign_manifest(baseline_receipt: dict[str, Any]) -> dict[str, Any]:
     disk = verify_drive_receipt(baseline_receipt)
+    source_commit = str(baseline_receipt.get("source_commit") or "").lower()
+    if not SOURCE_COMMIT_RE.fullmatch(source_commit):
+        raise HardwareCampaignError(
+            "Baseline drive receipt requires a valid source commit."
+        )
     stable = str(disk.get("stable_identity_sha256") or "").lower()
     snapshot = str(disk.get("identity_sha256") or "").lower()
     if not SHA256_RE.fullmatch(stable) or not SHA256_RE.fullmatch(snapshot):
@@ -315,11 +321,13 @@ def build_campaign_manifest(baseline_receipt: dict[str, Any]) -> dict[str, Any]:
     manifest = {
         "schema": SCHEMA,
         "campaign_id": baseline_receipt["receipt_sha256"][:24],
+        "source_commit": source_commit,
         "baseline": {
             "target": str(disk.get("target") or ""),
             "snapshot_identity_sha256": snapshot,
             "stable_identity_sha256": stable,
             "receipt_sha256": baseline_receipt["receipt_sha256"],
+            "source_commit": source_commit,
             "evidence_source": baseline_receipt.get("evidence_source"),
             "hardware_observed": baseline_receipt.get("hardware_observed") is True,
         },
@@ -383,6 +391,15 @@ def record_reconnect(
             "Physical reconnect must be explicitly confirmed by the operator."
         )
     baseline = manifest["baseline"]
+    expected_source_commit = str(manifest.get("source_commit") or "").lower()
+    current_source_commit = str(current_receipt.get("source_commit") or "").lower()
+    if (
+        not SOURCE_COMMIT_RE.fullmatch(expected_source_commit)
+        or current_source_commit != expected_source_commit
+    ):
+        raise HardwareCampaignError(
+            "Reconnect drive receipt was captured by a different source commit."
+        )
     current_stable = str(disk.get("stable_identity_sha256") or "").lower()
     current_snapshot = str(disk.get("identity_sha256") or "").lower()
     same_stable = current_stable == baseline["stable_identity_sha256"]
@@ -420,6 +437,7 @@ def record_reconnect(
         "evidence_source": current_receipt.get("evidence_source"),
         "hardware_observed": current_receipt.get("hardware_observed") is True,
         "receipt_sha256": current_receipt["receipt_sha256"],
+        "source_commit": current_source_commit,
         "comparison_sha256": comparison["comparison_sha256"],
         "comparison_trusted": comparison.get("comparison_trusted") is True,
         "stale_authorization_rejected": comparison.get("stale_authorization_reusable")
@@ -442,6 +460,15 @@ def record_substitution(
             "Physical substitution must be explicitly confirmed by the operator."
         )
     baseline = manifest["baseline"]
+    expected_source_commit = str(manifest.get("source_commit") or "").lower()
+    candidate_source_commit = str(candidate_receipt.get("source_commit") or "").lower()
+    if (
+        not SOURCE_COMMIT_RE.fullmatch(expected_source_commit)
+        or candidate_source_commit != expected_source_commit
+    ):
+        raise HardwareCampaignError(
+            "Substitution drive receipt was captured by a different source commit."
+        )
     candidate_stable = str(disk.get("stable_identity_sha256") or "").lower()
     if not SHA256_RE.fullmatch(candidate_stable):
         raise HardwareCampaignError(
@@ -480,6 +507,7 @@ def record_substitution(
         "evidence_source": candidate_receipt.get("evidence_source"),
         "hardware_observed": candidate_receipt.get("hardware_observed") is True,
         "receipt_sha256": candidate_receipt["receipt_sha256"],
+        "source_commit": candidate_source_commit,
         "comparison_sha256": comparison["comparison_sha256"],
         "comparison_trusted": comparison.get("comparison_trusted") is True,
         "classification": comparison.get("classification"),
