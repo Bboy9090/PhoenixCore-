@@ -82,6 +82,87 @@ fn verify_embedded_receipt_sha256(value: &Value, schema: &str) -> bool {
     value_sha256(&unsigned).eq_ignore_ascii_case(expected)
 }
 
+fn verify_hardware_campaign_manifest(
+    value: &Value,
+    target_stable_identity: Option<&str>,
+    rollback_capture: Option<&Value>,
+    boot_metadata: Option<&Value>,
+) -> bool {
+    if value.get("schema").and_then(Value::as_str)
+        != Some("phoenix_key.windows_recovery_hardware_campaign.v1")
+    {
+        return false;
+    }
+    let Some(expected) = value.get("manifest_sha256").and_then(Value::as_str) else {
+        return false;
+    };
+    if !valid_sha256(expected) {
+        return false;
+    }
+    let mut unsigned = value.clone();
+    let Some(object) = unsigned.as_object_mut() else {
+        return false;
+    };
+    object.remove("manifest_sha256");
+    if !value_sha256(&unsigned).eq_ignore_ascii_case(expected) {
+        return false;
+    }
+
+    let required_gates = [
+        "baseline_live_hardware",
+        "rollback_live_zero_write",
+        "reconnect_same_hardware",
+        "reenumeration_observed",
+        "substitution_rejection_proven",
+        "boot_metadata_live_read_only",
+    ];
+    let gates_complete = required_gates.iter().all(|gate| {
+        value
+            .pointer(&format!("/gates/{gate}"))
+            .and_then(Value::as_bool)
+            == Some(true)
+    });
+
+    let rollback_matches = rollback_capture.is_some_and(|receipt| {
+        same_sha256(
+            value
+                .pointer("/rollback_capture/receipt_sha256")
+                .and_then(Value::as_str),
+            receipt.get("receipt_sha256").and_then(Value::as_str),
+        )
+    });
+    let boot_matches = boot_metadata.is_some_and(|receipt| {
+        same_sha256(
+            value
+                .pointer("/boot_metadata/receipt_sha256")
+                .and_then(Value::as_str),
+            receipt.get("receipt_sha256").and_then(Value::as_str),
+        )
+    });
+
+    value
+        .get("hardware_campaign_complete")
+        .and_then(Value::as_bool)
+        == Some(true)
+        && gates_complete
+        && value
+            .get("restore_executor_authorized")
+            .and_then(Value::as_bool)
+            == Some(false)
+        && value
+            .get("system_mutations_performed")
+            .and_then(Value::as_bool)
+            == Some(false)
+        && same_sha256(
+            target_stable_identity,
+            value
+                .pointer("/baseline/stable_identity_sha256")
+                .and_then(Value::as_str),
+        )
+        && rollback_matches
+        && boot_matches
+}
+
 fn component(value: Option<&Value>, trusted: bool) -> RecoveryEvidenceComponent {
     let schema = value
         .and_then(|value| value.get("schema").or_else(|| value.get("schema_version")))
@@ -153,6 +234,7 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     let reenumeration = optional_object(root, "target_reenumeration_receipt");
     let data_preservation = optional_object(root, "data_preservation_receipt");
     let boot_metadata = optional_object(root, "boot_metadata_receipt");
+    let hardware_campaign_manifest = optional_object(root, "hardware_campaign_manifest");
 
     let source_identity = plan
         .pointer("/source_identity/sha256")
@@ -373,6 +455,15 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
             )
     });
 
+    let hardware_campaign_trusted = hardware_campaign_manifest.is_some_and(|value| {
+        verify_hardware_campaign_manifest(
+            value,
+            target_stable_identity,
+            rollback_capture,
+            boot_metadata,
+        )
+    });
+
     let software_chain_complete = plan_trusted
         && source_trusted
         && package_trusted
@@ -386,7 +477,8 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
         && rollback_capture_trusted
         && reenumeration_trusted
         && data_preservation_resolved
-        && boot_metadata_resolved;
+        && boot_metadata_resolved
+        && hardware_campaign_trusted;
 
     let mut outstanding_requirements = Vec::new();
     if !software_chain_complete {
@@ -408,6 +500,9 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     }
     if !boot_metadata_resolved {
         outstanding_requirements.push("target_boot_metadata_backup_if_present".to_string());
+    }
+    if !hardware_campaign_trusted {
+        outstanding_requirements.push("physical_hardware_campaign_manifest".to_string());
     }
 
     let mut components = BTreeMap::new();
@@ -463,6 +558,10 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
         "boot_metadata_receipt".to_string(),
         component(boot_metadata, boot_metadata_resolved),
     );
+    components.insert(
+        "hardware_campaign_manifest".to_string(),
+        component(hardware_campaign_manifest, hardware_campaign_trusted),
+    );
 
     let mut bundle = RecoveryEvidenceBundleV2 {
         schema: "phoenix_key.recovery_evidence_bundle.v2",
@@ -497,7 +596,7 @@ pub fn build_windows_recovery_evidence_bundle_v2(
 mod tests {
     use super::{
         build_bundle_sha256, build_recovery_evidence_bundle_v2, value_sha256,
-        verify_recovery_evidence_bundle_v2_sha256,
+        verify_hardware_campaign_manifest, verify_recovery_evidence_bundle_v2_sha256,
     };
     use crate::data_preservation::{
         build_target_data_preservation_receipt, EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
@@ -623,6 +722,9 @@ mod tests {
         assert!(bundle
             .outstanding_requirements
             .contains(&"target_data_preservation_receipt_or_explicit_discard_decision".to_string()));
+        assert!(bundle
+            .outstanding_requirements
+            .contains(&"physical_hardware_campaign_manifest".to_string()));
     }
 
     #[test]
@@ -734,6 +836,95 @@ mod tests {
         let blocked = build_recovery_evidence_bundle_v2(&evidence);
         assert!(!blocked.boot_metadata_resolved);
         assert!(!blocked.components["boot_metadata_receipt"].trusted);
+    }
+
+    #[test]
+    fn hardware_campaign_manifest_requires_all_physical_gates_and_exact_receipts() {
+        let rollback = json!({"receipt_sha256": "d".repeat(64)});
+        let boot = json!({"receipt_sha256": "e".repeat(64)});
+        let mut manifest = json!({
+            "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
+            "campaign_id": "campaign-001",
+            "baseline": {
+                "stable_identity_sha256": "c".repeat(64)
+            },
+            "rollback_capture": {
+                "receipt_sha256": "d".repeat(64)
+            },
+            "boot_metadata": {
+                "receipt_sha256": "e".repeat(64)
+            },
+            "gates": {
+                "baseline_live_hardware": true,
+                "rollback_live_zero_write": true,
+                "reconnect_same_hardware": true,
+                "reenumeration_observed": true,
+                "substitution_rejection_proven": true,
+                "boot_metadata_live_read_only": true
+            },
+            "hardware_campaign_complete": true,
+            "restore_executor_authorized": false,
+            "system_mutations_performed": false
+        });
+        let digest = value_sha256(&manifest);
+        manifest["manifest_sha256"] = json!(digest);
+
+        assert!(verify_hardware_campaign_manifest(
+            &manifest,
+            Some(&"c".repeat(64)),
+            Some(&rollback),
+            Some(&boot),
+        ));
+
+        manifest["gates"]["substitution_rejection_proven"] = json!(false);
+        manifest.as_object_mut().unwrap().remove("manifest_sha256");
+        let digest = value_sha256(&manifest);
+        manifest["manifest_sha256"] = json!(digest);
+
+        assert!(!verify_hardware_campaign_manifest(
+            &manifest,
+            Some(&"c".repeat(64)),
+            Some(&rollback),
+            Some(&boot),
+        ));
+    }
+
+    #[test]
+    fn hardware_campaign_manifest_rejects_wrong_receipt_binding() {
+        let rollback = json!({"receipt_sha256": "d".repeat(64)});
+        let boot = json!({"receipt_sha256": "e".repeat(64)});
+        let mut manifest = json!({
+            "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
+            "baseline": {
+                "stable_identity_sha256": "c".repeat(64)
+            },
+            "rollback_capture": {
+                "receipt_sha256": "0".repeat(64)
+            },
+            "boot_metadata": {
+                "receipt_sha256": "e".repeat(64)
+            },
+            "gates": {
+                "baseline_live_hardware": true,
+                "rollback_live_zero_write": true,
+                "reconnect_same_hardware": true,
+                "reenumeration_observed": true,
+                "substitution_rejection_proven": true,
+                "boot_metadata_live_read_only": true
+            },
+            "hardware_campaign_complete": true,
+            "restore_executor_authorized": false,
+            "system_mutations_performed": false
+        });
+        let digest = value_sha256(&manifest);
+        manifest["manifest_sha256"] = json!(digest);
+
+        assert!(!verify_hardware_campaign_manifest(
+            &manifest,
+            Some(&"c".repeat(64)),
+            Some(&rollback),
+            Some(&boot),
+        ));
     }
 
     #[test]
