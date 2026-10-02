@@ -36,7 +36,10 @@ use recovery_center::{
     verify_windows_recovery_source_identity,
 };
 use recovery_diagnostics::build_windows_recovery_diagnostics_export;
-use recovery_evidence_bundle::build_windows_recovery_evidence_bundle_v2;
+use recovery_evidence_bundle::{
+    build_windows_recovery_evidence_bundle_v2,
+    load_windows_recovery_hardware_campaign_manifest,
+};
 use final_recovery_preflight::assess_final_windows_recovery_preflight;
 use recovery_session::build_windows_recovery_session_state;
 use serde::Serialize;
@@ -1915,6 +1918,7 @@ fn main() {
         plan_windows_recovery_source,
         verify_windows_recovery_source_identity,
         build_windows_recovery_evidence_bundle_v2,
+        load_windows_recovery_hardware_campaign_manifest,
         assess_final_windows_recovery_preflight,
         build_windows_recovery_diagnostics_export,
         persist_windows_recovery_diagnostics_export,
