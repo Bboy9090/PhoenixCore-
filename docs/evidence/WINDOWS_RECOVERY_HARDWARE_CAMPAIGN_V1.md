@@ -452,6 +452,12 @@ receipt hashes must match the exact receipts embedded in the bundle. In
 particular, the final handoff cannot become green without
 `substitution_rejection_proven = true`.
 
+The campaign is also revision-bound. The live baseline drive receipt contributes
+one 40-character `source_commit` to the manifest. Reconnect and substitution
+drive receipts must report that exact same revision, and Bundle v2 rejects a
+manifest whose top-level revision differs from the baseline revision. A campaign
+cannot silently mix hardware evidence captured by different software revisions.
+
 Even when every final preflight gate passes, it always keeps:
 
 - `restore_executor_authorized = false`
