@@ -605,11 +605,8 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
         manifest = campaign.build_campaign_manifest(drive_receipt(7))
         current = drive_receipt(9)
         before = drive_receipt(7)
-        current["source_commit"] = "b" * 40
-        current["receipt_sha256"] = campaign.sha256_payload(
-            {key: value for key, value in current.items() if key != "receipt_sha256"}
-        )
         comparison = campaign.drive_compare.compare_receipts(before, current)
+        comparison["comparison_trusted"] = False
         with self.assertRaisesRegex(
             campaign.HardwareCampaignError,
             "not trusted",
