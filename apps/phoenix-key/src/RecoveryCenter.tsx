@@ -317,6 +317,20 @@ type RecoveryEvidenceBundleV2 = {
   bundle_sha256: string;
 };
 
+type FinalRecoveryPreflight = {
+  schema: string;
+  evidence_bundle_sha256?: string | null;
+  ready_for_restore_executor_architecture_review: boolean;
+  restore_executor_authorized: boolean;
+  executable: boolean;
+  automatic_destructive_resume: boolean;
+  satisfied_gates: string[];
+  blocked_gates: string[];
+  next_required_action: string;
+  system_mutations_performed: boolean;
+  receipt_sha256: string;
+};
+
 type TargetDataPreservationReceipt = {
   schema: string;
   mode: string;
@@ -556,6 +570,7 @@ export default function RecoveryCenter({
   const [bootMetadataReceipt, setBootMetadataReceipt] = useState<RestoreTargetBootMetadataReceipt | null>(null);
   const [hardwareCampaignManifest, setHardwareCampaignManifest] = useState<HardwareCampaignManifest | null>(null);
   const [recoveryEvidenceBundle, setRecoveryEvidenceBundle] = useState<RecoveryEvidenceBundleV2 | null>(null);
+  const [finalRecoveryPreflight, setFinalRecoveryPreflight] = useState<FinalRecoveryPreflight | null>(null);
   const [recoverySessionState, setRecoverySessionState] = useState<RecoverySessionStateV1 | null>(null);
   const [recoveryDiagnosticsExport, setRecoveryDiagnosticsExport] = useState<RecoveryDiagnosticsExportV1 | null>(null);
   const [drivePickerStatus, setDrivePickerStatus] = useState<GoogleDrivePickerStatus | null>(null);
@@ -592,6 +607,7 @@ export default function RecoveryCenter({
   ]);
 
   useEffect(() => {
+    setFinalRecoveryPreflight(null);
     setRecoverySessionState(null);
     setRecoveryDiagnosticsExport(null);
   }, [recoveryEvidenceBundle]);
@@ -634,6 +650,7 @@ export default function RecoveryCenter({
     setBootMetadataReceipt(null);
     setHardwareCampaignManifest(null);
     setRecoveryEvidenceBundle(null);
+    setFinalRecoveryPreflight(null);
     setRecoverySessionState(null);
     setRecoveryDiagnosticsExport(null);
     setDriveReceipt(null);
@@ -1383,6 +1400,37 @@ export default function RecoveryCenter({
     }
   }
 
+  async function assessFinalRecoveryPreflight() {
+    if (!recoveryEvidenceBundle || busy) return;
+
+    setBusy(true);
+    setFinalRecoveryPreflight(null);
+    setMessage(
+      "Running the final non-executable recovery preflight against the checksummed evidence bundle…",
+    );
+    try {
+      const result = await invoke<FinalRecoveryPreflight>(
+        "assess_final_windows_recovery_preflight",
+        {
+          evidenceBundleJson: JSON.stringify(recoveryEvidenceBundle),
+        },
+      );
+      setFinalRecoveryPreflight(result);
+      setMessage(
+        result.ready_for_restore_executor_architecture_review
+          ? "Final evidence preflight passed for architecture review only. Restore execution remains unavailable."
+          : "Final evidence preflight is blocked. Complete the listed evidence gates before architecture review.",
+      );
+    } catch (error) {
+      setFinalRecoveryPreflight(null);
+      setMessage(
+        `Final recovery preflight could not complete. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function persistRecoverySessionState() {
     if (
       !plan ||
@@ -1418,6 +1466,7 @@ export default function RecoveryCenter({
             target_reenumeration_receipt: targetReenumerationReceipt,
             data_preservation_receipt: dataPreservationReceipt,
             boot_metadata_receipt: bootMetadataReceipt,
+            hardware_campaign_manifest: hardwareCampaignManifest,
           }),
         },
       );
@@ -1472,6 +1521,7 @@ export default function RecoveryCenter({
             target_reenumeration_receipt: targetReenumerationReceipt,
             data_preservation_receipt: dataPreservationReceipt,
             boot_metadata_receipt: bootMetadataReceipt,
+            hardware_campaign_manifest: hardwareCampaignManifest,
           }),
         },
       );
@@ -2433,6 +2483,34 @@ export default function RecoveryCenter({
                       )}
                       {recoveryEvidenceBundle && (
                         <>
+                          <button
+                            className="plan-button"
+                            type="button"
+                            onClick={assessFinalRecoveryPreflight}
+                            disabled={busy}
+                          >
+                            Run Final Non-Executable Preflight
+                          </button>
+                          {finalRecoveryPreflight && (
+                            <div className={
+                              finalRecoveryPreflight.ready_for_restore_executor_architecture_review
+                                ? "good-list"
+                                : "warning-box"
+                            }>
+                              <strong>Final recovery preflight</strong>
+                              <p>Receipt SHA-256: {finalRecoveryPreflight.receipt_sha256}</p>
+                              <p>Evidence bundle: {finalRecoveryPreflight.evidence_bundle_sha256 || "unproven"}</p>
+                              <p>Ready for architecture review: {finalRecoveryPreflight.ready_for_restore_executor_architecture_review ? "yes" : "no"}</p>
+                              <p>Restore executor authorized: {finalRecoveryPreflight.restore_executor_authorized ? "yes" : "no"}</p>
+                              <p>Executable: {finalRecoveryPreflight.executable ? "yes" : "no"}</p>
+                              <p>Automatic destructive resume: {finalRecoveryPreflight.automatic_destructive_resume ? "yes" : "no"}</p>
+                              <p>System mutations performed: {finalRecoveryPreflight.system_mutations_performed ? "yes" : "no"}</p>
+                              {finalRecoveryPreflight.blocked_gates.map((gate) => (
+                                <p key={gate}>Blocked: {readableToken(gate)}</p>
+                              ))}
+                              <p>Next: {readableToken(finalRecoveryPreflight.next_required_action)}</p>
+                            </div>
+                          )}
                           <button
                             className="plan-button"
                             type="button"
