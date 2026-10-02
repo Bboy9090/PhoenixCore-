@@ -285,6 +285,16 @@ type RestoreRollbackCaptureReceipt = {
   receipt_sha256: string;
 };
 
+type HardwareCampaignManifest = {
+  schema: string;
+  campaign_id?: string | null;
+  manifest_sha256: string;
+  hardware_campaign_complete?: boolean;
+  gates?: Record<string, boolean>;
+  restore_executor_authorized?: boolean;
+  system_mutations_performed?: boolean;
+};
+
 type RecoveryEvidenceBundleV2 = {
   schema: string;
   source_identity_sha256?: string | null;
@@ -544,6 +554,7 @@ export default function RecoveryCenter({
   const [dataPreservationAcknowledgement, setDataPreservationAcknowledgement] = useState("");
   const [dataPreservationReceipt, setDataPreservationReceipt] = useState<TargetDataPreservationReceipt | null>(null);
   const [bootMetadataReceipt, setBootMetadataReceipt] = useState<RestoreTargetBootMetadataReceipt | null>(null);
+  const [hardwareCampaignManifest, setHardwareCampaignManifest] = useState<HardwareCampaignManifest | null>(null);
   const [recoveryEvidenceBundle, setRecoveryEvidenceBundle] = useState<RecoveryEvidenceBundleV2 | null>(null);
   const [recoverySessionState, setRecoverySessionState] = useState<RecoverySessionStateV1 | null>(null);
   const [recoveryDiagnosticsExport, setRecoveryDiagnosticsExport] = useState<RecoveryDiagnosticsExportV1 | null>(null);
@@ -577,6 +588,7 @@ export default function RecoveryCenter({
     targetReenumerationReceipt,
     dataPreservationReceipt,
     bootMetadataReceipt,
+    hardwareCampaignManifest,
   ]);
 
   useEffect(() => {
@@ -620,6 +632,7 @@ export default function RecoveryCenter({
     setDataPreservationAcknowledgement("");
     setDataPreservationReceipt(null);
     setBootMetadataReceipt(null);
+    setHardwareCampaignManifest(null);
     setRecoveryEvidenceBundle(null);
     setRecoverySessionState(null);
     setRecoveryDiagnosticsExport(null);
@@ -1278,6 +1291,43 @@ export default function RecoveryCenter({
     }
   }
 
+  async function chooseHardwareCampaignManifest() {
+    if (storeSafe || busy) return;
+    try {
+      const selected = await open({
+        directory: false,
+        multiple: false,
+        title: "Choose the completed Recovery Forge hardware campaign manifest",
+        filters: [{ name: "Recovery Forge campaign manifest", extensions: ["json"] }],
+      });
+      if (typeof selected !== "string") return;
+
+      setBusy(true);
+      setHardwareCampaignManifest(null);
+      setRecoveryEvidenceBundle(null);
+      setMessage(
+        "Reading and checksum-validating the hardware campaign manifest. No disk mutation will run…",
+      );
+      const result = await invoke<HardwareCampaignManifest>(
+        "load_windows_recovery_hardware_campaign_manifest",
+        { manifestPath: selected },
+      );
+      setHardwareCampaignManifest(result);
+      setMessage(
+        result.hardware_campaign_complete
+          ? "Hardware campaign manifest loaded and checksum-valid. Bundle v2 will independently verify every physical gate and receipt binding."
+          : "Hardware campaign manifest loaded, but the physical campaign is not complete yet.",
+      );
+    } catch (error) {
+      setHardwareCampaignManifest(null);
+      setMessage(
+        `Hardware campaign manifest could not be loaded. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function buildRecoveryEvidenceBundle() {
     if (
       !plan ||
@@ -1313,6 +1363,7 @@ export default function RecoveryCenter({
             target_reenumeration_receipt: targetReenumerationReceipt,
             data_preservation_receipt: dataPreservationReceipt,
             boot_metadata_receipt: bootMetadataReceipt,
+            hardware_campaign_manifest: hardwareCampaignManifest,
           }),
         },
       );
@@ -2321,6 +2372,31 @@ export default function RecoveryCenter({
                       <p className="field-help">
                         Bind the current plan, identities, image metadata, rollback contract, and any captured hardware receipts into one checksummed session record.
                       </p>
+                      {!storeSafe && (
+                        <>
+                          <button
+                            className="plan-button"
+                            type="button"
+                            onClick={chooseHardwareCampaignManifest}
+                            disabled={busy}
+                          >
+                            Load Completed Hardware Campaign Manifest
+                          </button>
+                          {hardwareCampaignManifest && (
+                            <div className={
+                              hardwareCampaignManifest.hardware_campaign_complete
+                                ? "good-list"
+                                : "warning-box"
+                            }>
+                              <p>Campaign: {hardwareCampaignManifest.campaign_id || "unlabeled"}</p>
+                              <p>Manifest SHA-256: {hardwareCampaignManifest.manifest_sha256}</p>
+                              <p>Physical campaign complete: {hardwareCampaignManifest.hardware_campaign_complete ? "yes" : "no"}</p>
+                              <p>Restore executor authorized: {hardwareCampaignManifest.restore_executor_authorized ? "yes" : "no"}</p>
+                              <p>System mutations performed: {hardwareCampaignManifest.system_mutations_performed ? "yes" : "no"}</p>
+                            </div>
+                          )}
+                        </>
+                      )}
                       <button
                         className="plan-button"
                         type="button"
