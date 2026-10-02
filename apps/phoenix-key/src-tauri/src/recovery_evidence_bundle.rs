@@ -596,7 +596,7 @@ pub fn build_windows_recovery_evidence_bundle_v2(
 mod tests {
     use super::{
         build_bundle_sha256, build_recovery_evidence_bundle_v2, value_sha256,
-        verify_recovery_evidence_bundle_v2_sha256,
+        verify_hardware_campaign_manifest, verify_recovery_evidence_bundle_v2_sha256,
     };
     use crate::data_preservation::{
         build_target_data_preservation_receipt, EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
@@ -722,6 +722,9 @@ mod tests {
         assert!(bundle
             .outstanding_requirements
             .contains(&"target_data_preservation_receipt_or_explicit_discard_decision".to_string()));
+        assert!(bundle
+            .outstanding_requirements
+            .contains(&"physical_hardware_campaign_manifest".to_string()));
     }
 
     #[test]
@@ -833,6 +836,95 @@ mod tests {
         let blocked = build_recovery_evidence_bundle_v2(&evidence);
         assert!(!blocked.boot_metadata_resolved);
         assert!(!blocked.components["boot_metadata_receipt"].trusted);
+    }
+
+    #[test]
+    fn hardware_campaign_manifest_requires_all_physical_gates_and_exact_receipts() {
+        let rollback = json!({"receipt_sha256": "d".repeat(64)});
+        let boot = json!({"receipt_sha256": "e".repeat(64)});
+        let mut manifest = json!({
+            "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
+            "campaign_id": "campaign-001",
+            "baseline": {
+                "stable_identity_sha256": "c".repeat(64)
+            },
+            "rollback_capture": {
+                "receipt_sha256": "d".repeat(64)
+            },
+            "boot_metadata": {
+                "receipt_sha256": "e".repeat(64)
+            },
+            "gates": {
+                "baseline_live_hardware": true,
+                "rollback_live_zero_write": true,
+                "reconnect_same_hardware": true,
+                "reenumeration_observed": true,
+                "substitution_rejection_proven": true,
+                "boot_metadata_live_read_only": true
+            },
+            "hardware_campaign_complete": true,
+            "restore_executor_authorized": false,
+            "system_mutations_performed": false
+        });
+        let digest = value_sha256(&manifest);
+        manifest["manifest_sha256"] = json!(digest);
+
+        assert!(verify_hardware_campaign_manifest(
+            &manifest,
+            Some(&"c".repeat(64)),
+            Some(&rollback),
+            Some(&boot),
+        ));
+
+        manifest["gates"]["substitution_rejection_proven"] = json!(false);
+        manifest.as_object_mut().unwrap().remove("manifest_sha256");
+        let digest = value_sha256(&manifest);
+        manifest["manifest_sha256"] = json!(digest);
+
+        assert!(!verify_hardware_campaign_manifest(
+            &manifest,
+            Some(&"c".repeat(64)),
+            Some(&rollback),
+            Some(&boot),
+        ));
+    }
+
+    #[test]
+    fn hardware_campaign_manifest_rejects_wrong_receipt_binding() {
+        let rollback = json!({"receipt_sha256": "d".repeat(64)});
+        let boot = json!({"receipt_sha256": "e".repeat(64)});
+        let mut manifest = json!({
+            "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
+            "baseline": {
+                "stable_identity_sha256": "c".repeat(64)
+            },
+            "rollback_capture": {
+                "receipt_sha256": "0".repeat(64)
+            },
+            "boot_metadata": {
+                "receipt_sha256": "e".repeat(64)
+            },
+            "gates": {
+                "baseline_live_hardware": true,
+                "rollback_live_zero_write": true,
+                "reconnect_same_hardware": true,
+                "reenumeration_observed": true,
+                "substitution_rejection_proven": true,
+                "boot_metadata_live_read_only": true
+            },
+            "hardware_campaign_complete": true,
+            "restore_executor_authorized": false,
+            "system_mutations_performed": false
+        });
+        let digest = value_sha256(&manifest);
+        manifest["manifest_sha256"] = json!(digest);
+
+        assert!(!verify_hardware_campaign_manifest(
+            &manifest,
+            Some(&"c".repeat(64)),
+            Some(&rollback),
+            Some(&boot),
+        ));
     }
 
     #[test]
