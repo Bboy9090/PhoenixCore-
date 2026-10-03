@@ -257,6 +257,7 @@ type RollbackDestinationVerification = {
   ready_for_hardware_rollback_capture: boolean;
   block_reasons: string[];
   system_mutations_performed: boolean;
+  receipt_sha256: string;
 };
 
 type RestoreRollbackCaptureReceipt = {
