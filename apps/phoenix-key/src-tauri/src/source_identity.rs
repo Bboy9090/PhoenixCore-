@@ -69,6 +69,7 @@ pub fn source_identity_verification_sha256(value: &Value) -> Result<String, Stri
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
+#[allow(dead_code)]
 pub fn verify_source_identity_verification_sha256(value: &Value) -> bool {
     if value.get("schema").and_then(Value::as_str)
         != Some("phoenix_key.recovery_source_identity_verification.v1")
