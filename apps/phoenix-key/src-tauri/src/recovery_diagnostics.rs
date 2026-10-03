@@ -54,6 +54,8 @@ fn should_redact(key: &str) -> bool {
             | "receipt_path"
             | "session_path"
             | "bundle_directory"
+            | "backup_root"
+            | "backup_manifest_path"
             | "serial_number"
             | "unique_id"
             | "stdout"
