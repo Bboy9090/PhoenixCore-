@@ -1,5 +1,6 @@
 use crate::data_preservation::verify_target_data_preservation_receipt_sha256;
 use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sha256;
+use crate::rollback_destination::verify_rollback_destination_verification_sha256;
 use crate::source_identity::verify_identity_bound_plan_sha256;
 use crate::target_reenumeration::{
     verify_recovery_target_reenumeration_receipt_sha256,
@@ -378,10 +379,11 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
         );
 
     let rollback_destination_trusted = rollback_destination.is_some_and(|value| {
-        value
-            .get("ready_for_hardware_rollback_capture")
-            .and_then(Value::as_bool)
-            == Some(true)
+        verify_rollback_destination_verification_sha256(value)
+            && value
+                .get("ready_for_hardware_rollback_capture")
+                .and_then(Value::as_bool)
+                == Some(true)
             && value
                 .get("separate_physical_device")
                 .and_then(Value::as_bool)
@@ -390,6 +392,28 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                 .get("target_identity_matches_expected")
                 .and_then(Value::as_bool)
                 == Some(true)
+            && value
+                .get("system_mutations_performed")
+                .and_then(Value::as_bool)
+                == Some(false)
+            && same_sha256(
+                target_identity,
+                value
+                    .get("target_snapshot_identity_sha256")
+                    .and_then(Value::as_str),
+            )
+            && same_sha256(
+                target_stable_identity,
+                value
+                    .get("target_stable_identity_sha256")
+                    .and_then(Value::as_str),
+            )
+            && same_sha256(
+                target_stable_identity,
+                value
+                    .get("expected_target_stable_identity_sha256")
+                    .and_then(Value::as_str),
+            )
     });
 
     let rollback_capture_trusted = rollback_capture.is_some_and(|value| {
@@ -993,6 +1017,44 @@ mod tests {
         let bundle = build_recovery_evidence_bundle_v2(&evidence);
         assert!(bundle.boot_metadata_resolved);
         assert!(bundle.components["boot_metadata_receipt"].trusted);
+    }
+
+    #[test]
+    fn rollback_destination_verification_rejects_foreign_target_binding() {
+        let mut evidence = complete_evidence();
+        let target_identity = evidence["target_safety"]["target_identity_sha256"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let target_stable = evidence["target_safety"]["target_stable_identity_sha256"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let destination = crate::rollback_destination::assess_rollback_destination(
+            &json!({
+                "disk": {
+                    "target": "\\\\.\\PHYSICALDRIVE7",
+                    "identity_sha256": target_identity,
+                    "stable_identity_sha256": target_stable
+                }
+            }),
+            &json!({
+                "source": {
+                    "physical_target": "\\\\.\\PHYSICALDRIVE9",
+                    "stable_identity_sha256": "f".repeat(64)
+                }
+            }),
+            "E:/PhoenixKeyRollback",
+            &target_stable,
+        );
+        let mut destination_value = serde_json::to_value(destination).unwrap();
+        destination_value["target_snapshot_identity_sha256"] = json!("9".repeat(64));
+        evidence["rollback_destination_verification"] = destination_value;
+
+        let bundle = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(!bundle.components["rollback_destination_verification"].trusted);
+        assert!(!bundle.hardware_chain_complete);
     }
 
     #[test]
