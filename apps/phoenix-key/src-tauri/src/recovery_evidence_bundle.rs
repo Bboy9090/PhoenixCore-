@@ -459,12 +459,6 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                 .and_then(Value::as_array)
                 .is_some_and(Vec::is_empty)
             && same_sha256(
-                target_identity,
-                value
-                    .get("target_snapshot_identity_sha256")
-                    .and_then(Value::as_str),
-            )
-            && same_sha256(
                 target_stable_identity,
                 value
                     .get("target_stable_identity_sha256")
@@ -473,12 +467,6 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
             && same_sha256(
                 contract_sha256,
                 value.get("rollback_contract_sha256").and_then(Value::as_str),
-            )
-            && same_sha256(
-                rollback_capture_receipt_sha256,
-                value
-                    .get("rollback_capture_receipt_sha256")
-                    .and_then(Value::as_str),
             )
     });
 
@@ -510,6 +498,12 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                 .and_then(Value::as_array)
                 .is_some_and(Vec::is_empty)
             && same_sha256(
+                target_identity,
+                value
+                    .get("target_snapshot_identity_sha256")
+                    .and_then(Value::as_str),
+            )
+            && same_sha256(
                 target_stable_identity,
                 value
                     .get("target_stable_identity_sha256")
@@ -518,6 +512,12 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
             && same_sha256(
                 contract_sha256,
                 value.get("rollback_contract_sha256").and_then(Value::as_str),
+            )
+            && same_sha256(
+                rollback_capture_receipt_sha256,
+                value
+                    .get("rollback_capture_receipt_sha256")
+                    .and_then(Value::as_str),
             )
     });
 
