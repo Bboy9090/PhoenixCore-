@@ -127,6 +127,29 @@ fn verify_hardware_campaign_manifest(
             == Some(true)
     });
 
+    let campaign_revision_matches = value
+        .get("source_commit")
+        .and_then(Value::as_str)
+        .filter(|commit| valid_source_commit(commit))
+        .is_some_and(|manifest_commit| {
+            [
+                "/baseline/source_commit",
+                "/rollback_capture/source_commit",
+                "/reconnect/source_commit",
+                "/substitution/source_commit",
+                "/boot_metadata/source_commit",
+            ]
+            .iter()
+            .all(|path| {
+                value
+                    .pointer(path)
+                    .and_then(Value::as_str)
+                    .is_some_and(|recorded_commit| {
+                        manifest_commit.eq_ignore_ascii_case(recorded_commit)
+                    })
+            })
+        });
+
     let rollback_matches = rollback_capture.is_some_and(|receipt| {
         same_sha256(
             value
@@ -178,17 +201,7 @@ fn verify_hardware_campaign_manifest(
             .get("source_commit")
             .and_then(Value::as_str)
             .is_some_and(valid_source_commit)
-        && value
-            .get("source_commit")
-            .and_then(Value::as_str)
-            .zip(
-                value
-                    .pointer("/baseline/source_commit")
-                    .and_then(Value::as_str),
-            )
-            .is_some_and(|(manifest_commit, baseline_commit)| {
-                manifest_commit.eq_ignore_ascii_case(baseline_commit)
-            })
+        && campaign_revision_matches
         && gates_complete
         && value
             .get("restore_executor_authorized")
@@ -1027,6 +1040,60 @@ mod tests {
             "rollback_capture": {
                 "receipt_sha256": "d".repeat(64),
                 "source_commit": "b".repeat(40)
+            },
+            "boot_metadata": {
+                "receipt_sha256": "e".repeat(64),
+                "source_commit": "a".repeat(40)
+            },
+            "gates": {
+                "baseline_live_hardware": true,
+                "rollback_live_zero_write": true,
+                "reconnect_same_hardware": true,
+                "reenumeration_observed": true,
+                "substitution_rejection_proven": true,
+                "boot_metadata_live_read_only": true
+            },
+            "hardware_campaign_complete": true,
+            "restore_executor_authorized": false,
+            "system_mutations_performed": false
+        });
+        let digest = value_sha256(&manifest);
+        manifest["manifest_sha256"] = json!(digest);
+
+        assert!(!verify_hardware_campaign_manifest(
+            &manifest,
+            Some(&"c".repeat(64)),
+            Some(&rollback),
+            Some(&boot),
+        ));
+    }
+
+    #[test]
+    fn hardware_campaign_manifest_rejects_mixed_reconnect_revision() {
+        let rollback = json!({
+            "receipt_sha256": "d".repeat(64),
+            "source_commit": "a".repeat(40)
+        });
+        let boot = json!({
+            "receipt_sha256": "e".repeat(64),
+            "source_commit": "a".repeat(40)
+        });
+        let mut manifest = json!({
+            "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
+            "source_commit": "a".repeat(40),
+            "baseline": {
+                "stable_identity_sha256": "c".repeat(64),
+                "source_commit": "a".repeat(40)
+            },
+            "rollback_capture": {
+                "receipt_sha256": "d".repeat(64),
+                "source_commit": "a".repeat(40)
+            },
+            "reconnect": {
+                "source_commit": "b".repeat(40)
+            },
+            "substitution": {
+                "source_commit": "a".repeat(40)
             },
             "boot_metadata": {
                 "receipt_sha256": "e".repeat(64),
