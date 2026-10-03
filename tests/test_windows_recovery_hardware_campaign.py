@@ -112,6 +112,7 @@ def rollback_receipt(manifest: dict, *, evidence_source: str = "live") -> dict:
     payload = {
         "schema": campaign.ROLLBACK_SCHEMA,
         "captured_at": "2026-09-23T21:00:00Z",
+        "source_commit": manifest["source_commit"],
         "evidence_source": evidence_source,
         "hardware_observed": evidence_source == "live",
         "target": baseline["target"],
@@ -147,6 +148,7 @@ def boot_receipt(manifest: dict, *, evidence_source: str = "live") -> dict:
     baseline = manifest["baseline"]
     payload = {
         "schema": campaign.BOOT_METADATA_SCHEMA,
+        "source_commit": manifest["source_commit"],
         "evidence_source": evidence_source,
         "hardware_observed": evidence_source == "live",
         "target": baseline["target"],
@@ -411,6 +413,35 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
         self.assertEqual("a" * 40, manifest["source_commit"])
         self.assertEqual("a" * 40, manifest["baseline"]["source_commit"])
         self.assertEqual(64, len(manifest["manifest_sha256"]))
+
+    def test_rollback_capture_rejects_different_source_commit(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        receipt = rollback_receipt(manifest)
+        receipt["source_commit"] = "b" * 40
+        receipt["receipt_sha256"] = campaign.sha256_payload(
+            {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+        )
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "different source commit",
+        ):
+            campaign.record_rollback_capture(manifest, receipt)
+
+    def test_boot_metadata_rejects_different_source_commit(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        manifest = campaign.record_rollback_capture(
+            manifest, rollback_receipt(manifest)
+        )
+        receipt = boot_receipt(manifest)
+        receipt["source_commit"] = "b" * 40
+        receipt["receipt_sha256"] = campaign.sha256_payload(
+            {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+        )
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "different source commit",
+        ):
+            campaign.record_boot_metadata(manifest, receipt)
 
     def test_reconnect_rejects_different_source_commit(self):
         manifest = campaign.build_campaign_manifest(drive_receipt(7))

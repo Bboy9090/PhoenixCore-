@@ -22,6 +22,7 @@ TARGET = r"\\.\PHYSICALDRIVE7"
 def rollback_capture_receipt() -> dict:
     receipt = {
         "schema": "phoenix_key.restore_target_rollback_capture.v1",
+        "source_commit": "a" * 40,
         "target": TARGET,
         "target_snapshot_identity_sha256": "a" * 64,
         "target_stable_identity_sha256": "b" * 64,
@@ -115,6 +116,7 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
             receipt = restore_target_boot_metadata.build_receipt(
                 target=TARGET,
                 target_disk=target_disk(),
+                source_commit="a" * 40,
                 rollback_capture=rollback_capture_receipt(),
                 rollback_contract_sha256="d" * 64,
                 output_dir=output,
@@ -128,6 +130,7 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
             self.assertFalse(receipt["target_write_attempted"])
             self.assertFalse(receipt["partition_mount_or_assignment_attempted"])
             self.assertFalse(receipt["system_mutations_performed"])
+            self.assertEqual("a" * 40, receipt["source_commit"])
             self.assertEqual(64, len(receipt["receipt_sha256"]))
 
     def test_unmounted_efi_partition_stays_blocked(self):
@@ -157,6 +160,7 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
             receipt = restore_target_boot_metadata.build_receipt(
                 target=TARGET,
                 target_disk=target_disk(),
+                source_commit="a" * 40,
                 rollback_capture=rollback_capture_receipt(),
                 rollback_contract_sha256="d" * 64,
                 output_dir=root / "output",
@@ -178,6 +182,26 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
                 restore_target_boot_metadata.build_receipt(
                     target=TARGET,
                     target_disk=disk,
+                    source_commit="a" * 40,
+                    rollback_capture=capture,
+                    rollback_contract_sha256="d" * 64,
+                    output_dir=Path(tmpdir),
+                    inventory=[],
+                    artifacts={},
+                    missing_or_unverified=[],
+                )
+
+    def test_boot_receipt_rejects_different_source_commit(self):
+        capture = rollback_capture_receipt()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with self.assertRaisesRegex(
+                restore_target_boot_metadata.RestoreTargetBootMetadataError,
+                "different source commit",
+            ):
+                restore_target_boot_metadata.build_receipt(
+                    target=TARGET,
+                    target_disk=target_disk(),
+                    source_commit="b" * 40,
                     rollback_capture=capture,
                     rollback_contract_sha256="d" * 64,
                     output_dir=Path(tmpdir),

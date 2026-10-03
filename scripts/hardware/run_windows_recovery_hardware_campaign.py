@@ -347,6 +347,12 @@ def record_rollback_capture(
 ) -> dict[str, Any]:
     verify_rollback_receipt(receipt)
     baseline = manifest["baseline"]
+    expected_source_commit = str(manifest.get("source_commit") or "").lower()
+    receipt_source_commit = str(receipt.get("source_commit") or "").lower()
+    if receipt_source_commit != expected_source_commit:
+        raise HardwareCampaignError(
+            "Rollback capture was produced by a different source commit."
+        )
     if (
         str(receipt.get("target_snapshot_identity_sha256") or "").lower()
         != baseline["snapshot_identity_sha256"]
@@ -366,6 +372,7 @@ def record_rollback_capture(
 
     manifest["rollback_capture"] = {
         "receipt_sha256": receipt["receipt_sha256"],
+        "source_commit": receipt_source_commit,
         "rollback_contract_sha256": str(
             receipt.get("rollback_contract_sha256") or ""
         ).lower(),
@@ -521,6 +528,12 @@ def record_boot_metadata(
 ) -> dict[str, Any]:
     verify_boot_metadata_receipt(receipt)
     baseline = manifest["baseline"]
+    expected_source_commit = str(manifest.get("source_commit") or "").lower()
+    receipt_source_commit = str(receipt.get("source_commit") or "").lower()
+    if receipt_source_commit != expected_source_commit:
+        raise HardwareCampaignError(
+            "Boot-metadata receipt was produced by a different source commit."
+        )
     rollback = manifest.get("rollback_capture")
     if not rollback:
         raise HardwareCampaignError(
@@ -552,6 +565,7 @@ def record_boot_metadata(
 
     manifest["boot_metadata"] = {
         "receipt_sha256": receipt["receipt_sha256"],
+        "source_commit": receipt_source_commit,
         "evidence_source": receipt.get("evidence_source"),
         "hardware_observed": receipt.get("hardware_observed") is True,
         "resolved": receipt.get("resolved") is True,
