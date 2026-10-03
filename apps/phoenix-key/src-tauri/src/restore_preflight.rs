@@ -499,7 +499,7 @@ mod tests {
         build_restore_target_rollback_contract,
         restore_target_rollback_contract_sha256,
     };
-    use crate::source_identity::identity_bound_plan_sha256;
+    use crate::source_identity::{identity_bound_plan_sha256, source_identity_verification_sha256};
     use serde_json::{json, Value};
 
     fn evidence() -> (
@@ -550,14 +550,19 @@ mod tests {
             restore_target_rollback_contract_sha256(&rollback).unwrap()
         );
 
+        let mut source_verification = json!({
+            "schema": "phoenix_key.recovery_source_identity_verification.v1",
+            "matches": true,
+            "reanalysis_required": false,
+            "expected_sha256": "a".repeat(64),
+            "observed_sha256": "a".repeat(64)
+        });
+        source_verification["receipt_sha256"] =
+            Value::String(source_identity_verification_sha256(&source_verification).unwrap());
+
         (
             plan,
-            json!({
-                "matches": true,
-                "reanalysis_required": false,
-                "expected_sha256": "a".repeat(64),
-                "observed_sha256": "a".repeat(64)
-            }),
+            source_verification,
             json!({
                 "verified_for_use": true,
                 "sha256_matches": true,
