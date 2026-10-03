@@ -191,6 +191,22 @@ Status: **implemented and CI-gated**.
 - bound to rollback contract
 - never unlocks restore execution.
 
+## Target data preservation proof
+
+Status: **implemented and CI-gated in this lane**.
+
+Preserve mode may resolve only from a checksum-valid
+`phoenix_key.target_data_backup_receipt.v1` whose referenced backup manifest
+and every listed artifact are independently re-read and hash/size verified.
+
+The receipt must be bound to the exact target stable identity and rollback
+contract, use a different physical backup-destination identity, and prove zero
+target writes / zero system mutations. Recovery Evidence Bundle v2 binds the
+resolved preservation decision to the exact backup-receipt SHA-256.
+
+Explicit discard remains a separate path and requires no backup component.
+Neither path authorizes restore execution.
+
 ## Recovery Evidence Bundle v2
 
 Additional bundle integrity rule:
