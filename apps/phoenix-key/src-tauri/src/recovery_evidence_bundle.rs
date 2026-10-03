@@ -133,7 +133,20 @@ fn verify_hardware_campaign_manifest(
                 .pointer("/rollback_capture/receipt_sha256")
                 .and_then(Value::as_str),
             receipt.get("receipt_sha256").and_then(Value::as_str),
-        )
+        ) && value
+            .get("source_commit")
+            .and_then(Value::as_str)
+            .zip(
+                value
+                    .pointer("/rollback_capture/source_commit")
+                    .and_then(Value::as_str),
+            )
+            .zip(receipt.get("source_commit").and_then(Value::as_str))
+            .is_some_and(|((manifest_commit, recorded_commit), receipt_commit)| {
+                valid_source_commit(manifest_commit)
+                    && manifest_commit.eq_ignore_ascii_case(recorded_commit)
+                    && manifest_commit.eq_ignore_ascii_case(receipt_commit)
+            })
     });
     let boot_matches = boot_metadata.is_some_and(|receipt| {
         same_sha256(
@@ -141,7 +154,20 @@ fn verify_hardware_campaign_manifest(
                 .pointer("/boot_metadata/receipt_sha256")
                 .and_then(Value::as_str),
             receipt.get("receipt_sha256").and_then(Value::as_str),
-        )
+        ) && value
+            .get("source_commit")
+            .and_then(Value::as_str)
+            .zip(
+                value
+                    .pointer("/boot_metadata/source_commit")
+                    .and_then(Value::as_str),
+            )
+            .zip(receipt.get("source_commit").and_then(Value::as_str))
+            .is_some_and(|((manifest_commit, recorded_commit), receipt_commit)| {
+                valid_source_commit(manifest_commit)
+                    && manifest_commit.eq_ignore_ascii_case(recorded_commit)
+                    && manifest_commit.eq_ignore_ascii_case(receipt_commit)
+            })
     });
 
     value
@@ -892,8 +918,8 @@ mod tests {
 
     #[test]
     fn hardware_campaign_manifest_requires_all_physical_gates_and_exact_receipts() {
-        let rollback = json!({"receipt_sha256": "d".repeat(64)});
-        let boot = json!({"receipt_sha256": "e".repeat(64)});
+        let rollback = json!({"receipt_sha256": "d".repeat(64), "source_commit": "a".repeat(40)});
+        let boot = json!({"receipt_sha256": "e".repeat(64), "source_commit": "a".repeat(40)});
         let mut manifest = json!({
             "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
             "campaign_id": "campaign-001",
@@ -903,10 +929,12 @@ mod tests {
                 "source_commit": "a".repeat(40)
             },
             "rollback_capture": {
-                "receipt_sha256": "d".repeat(64)
+                "receipt_sha256": "d".repeat(64),
+                "source_commit": "a".repeat(40)
             },
             "boot_metadata": {
-                "receipt_sha256": "e".repeat(64)
+                "receipt_sha256": "e".repeat(64),
+                "source_commit": "a".repeat(40)
             },
             "gates": {
                 "baseline_live_hardware": true,
@@ -945,8 +973,8 @@ mod tests {
 
     #[test]
     fn hardware_campaign_manifest_rejects_revision_mismatch() {
-        let rollback = json!({"receipt_sha256": "d".repeat(64)});
-        let boot = json!({"receipt_sha256": "e".repeat(64)});
+        let rollback = json!({"receipt_sha256": "d".repeat(64), "source_commit": "a".repeat(40)});
+        let boot = json!({"receipt_sha256": "e".repeat(64), "source_commit": "a".repeat(40)});
         let mut manifest = json!({
             "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
             "source_commit": "a".repeat(40),
@@ -955,10 +983,54 @@ mod tests {
                 "source_commit": "b".repeat(40)
             },
             "rollback_capture": {
-                "receipt_sha256": "d".repeat(64)
+                "receipt_sha256": "d".repeat(64),
+                "source_commit": "a".repeat(40)
             },
             "boot_metadata": {
-                "receipt_sha256": "e".repeat(64)
+                "receipt_sha256": "e".repeat(64),
+                "source_commit": "a".repeat(40)
+            },
+            "gates": {
+                "baseline_live_hardware": true,
+                "rollback_live_zero_write": true,
+                "reconnect_same_hardware": true,
+                "reenumeration_observed": true,
+                "substitution_rejection_proven": true,
+                "boot_metadata_live_read_only": true
+            },
+            "hardware_campaign_complete": true,
+            "restore_executor_authorized": false,
+            "system_mutations_performed": false
+        });
+        let digest = value_sha256(&manifest);
+        manifest["manifest_sha256"] = json!(digest);
+
+        assert!(!verify_hardware_campaign_manifest(
+            &manifest,
+            Some(&"c".repeat(64)),
+            Some(&rollback),
+            Some(&boot),
+        ));
+    }
+
+    #[test]
+    fn hardware_campaign_manifest_rejects_mixed_evidence_revision() {
+        let rollback = json!({"receipt_sha256": "d".repeat(64), "source_commit": "b".repeat(40)});
+        let boot = json!({"receipt_sha256": "e".repeat(64), "source_commit": "a".repeat(40)});
+        let mut manifest = json!({
+            "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
+            "source_commit": "a".repeat(40),
+            "baseline": {
+                "stable_identity_sha256": "c".repeat(64),
+                "source_commit": "a".repeat(40)
+            },
+            "rollback_capture": {
+                "receipt_sha256": "d".repeat(64),
+                "source_commit": "b".repeat(40)
+            },
+            "boot_metadata": {
+                "receipt_sha256": "e".repeat(64),
+                "source_commit": "a".repeat(40)
             },
             "gates": {
                 "baseline_live_hardware": true,
@@ -985,8 +1057,8 @@ mod tests {
 
     #[test]
     fn hardware_campaign_manifest_rejects_wrong_receipt_binding() {
-        let rollback = json!({"receipt_sha256": "d".repeat(64)});
-        let boot = json!({"receipt_sha256": "e".repeat(64)});
+        let rollback = json!({"receipt_sha256": "d".repeat(64), "source_commit": "a".repeat(40)});
+        let boot = json!({"receipt_sha256": "e".repeat(64), "source_commit": "a".repeat(40)});
         let mut manifest = json!({
             "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
             "source_commit": "a".repeat(40),
@@ -995,10 +1067,12 @@ mod tests {
                 "source_commit": "a".repeat(40)
             },
             "rollback_capture": {
-                "receipt_sha256": "0".repeat(64)
+                "receipt_sha256": "0".repeat(64),
+                "source_commit": "a".repeat(40)
             },
             "boot_metadata": {
-                "receipt_sha256": "e".repeat(64)
+                "receipt_sha256": "e".repeat(64),
+                "source_commit": "a".repeat(40)
             },
             "gates": {
                 "baseline_live_hardware": true,
