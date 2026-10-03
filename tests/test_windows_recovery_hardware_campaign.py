@@ -59,6 +59,7 @@ def drive_receipt(
     evidence_source: str = "live",
     serial: str = "TARGET-001",
     unique_id: str = "UNIQUE-001",
+    source_commit: str = "a" * 40,
 ) -> dict:
     target = rf"\\.\PHYSICALDRIVE{number}"
     return drive.build_receipt(
@@ -69,7 +70,7 @@ def drive_receipt(
             unique_id=unique_id,
         ),
         evidence_source=evidence_source,
-        source_commit="a" * 40,
+        source_commit=source_commit,
         captured_at=f"2026-09-23T20:{number:02d}:00Z",
     )
 
@@ -405,6 +406,45 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
                 campaign.next_step_sha256(tampered),
             )
 
+    def test_manifest_binds_baseline_source_commit(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        self.assertEqual("a" * 40, manifest["source_commit"])
+        self.assertEqual("a" * 40, manifest["baseline"]["source_commit"])
+        self.assertEqual(64, len(manifest["manifest_sha256"]))
+
+    def test_reconnect_rejects_different_source_commit(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        receipt = drive_receipt(9, source_commit="b" * 40)
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "different source commit",
+        ):
+            campaign.record_reconnect(
+                manifest,
+                receipt,
+                comparison_receipt(receipt),
+                operator_confirmed=True,
+            )
+
+    def test_substitution_rejects_different_source_commit(self):
+        manifest = campaign.build_campaign_manifest(drive_receipt(7))
+        receipt = drive_receipt(
+            12,
+            serial="OTHER-002",
+            unique_id="OTHER-UNIQUE-002",
+            source_commit="b" * 40,
+        )
+        with self.assertRaisesRegex(
+            campaign.HardwareCampaignError,
+            "different source commit",
+        ):
+            campaign.record_substitution(
+                manifest,
+                receipt,
+                comparison_receipt(receipt),
+                operator_confirmed=True,
+            )
+
     def test_fixture_baseline_never_counts_as_live_hardware(self):
         manifest = campaign.build_campaign_manifest(
             drive_receipt(7, evidence_source="fixture")
@@ -565,11 +605,8 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
         manifest = campaign.build_campaign_manifest(drive_receipt(7))
         current = drive_receipt(9)
         before = drive_receipt(7)
-        current["source_commit"] = "b" * 40
-        current["receipt_sha256"] = campaign.sha256_payload(
-            {key: value for key, value in current.items() if key != "receipt_sha256"}
-        )
         comparison = campaign.drive_compare.compare_receipts(before, current)
+        comparison["comparison_trusted"] = False
         with self.assertRaisesRegex(
             campaign.HardwareCampaignError,
             "not trusted",
