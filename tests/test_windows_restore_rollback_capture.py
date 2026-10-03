@@ -176,6 +176,7 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
                 result["remaining_requirements"],
             )
             self.assertEqual("e" * 64, result["rollback_contract_sha256"])
+            self.assertEqual("a" * 40, result["source_commit"])
             self.assertEqual(64, len(result["receipt_sha256"]))
             self.assertEqual(
                 5,
