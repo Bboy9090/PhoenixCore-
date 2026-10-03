@@ -58,16 +58,15 @@ fn canonicalize_json(value: &Value) -> Value {
     }
 }
 
-fn source_identity_verification_sha256(receipt: &SourceIdentityVerification) -> String {
-    let mut value = serde_json::to_value(receipt)
-        .expect("source identity verification serialization cannot fail");
-    value
+pub fn source_identity_verification_sha256(value: &Value) -> Result<String, String> {
+    let mut unsigned = value.clone();
+    let object = unsigned
         .as_object_mut()
-        .expect("source identity verification must be an object")
-        .remove("receipt_sha256");
-    let bytes = serde_json::to_vec(&canonicalize_json(&value))
-        .expect("source identity verification canonical serialization cannot fail");
-    format!("{:x}", Sha256::digest(bytes))
+        .ok_or_else(|| "source identity verification is not a JSON object".to_string())?;
+    object.remove("receipt_sha256");
+    let bytes = serde_json::to_vec(&canonicalize_json(&unsigned))
+        .map_err(|error| format!("cannot serialize source identity verification: {error}"))?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
 pub fn verify_source_identity_verification_sha256(value: &Value) -> bool {
@@ -82,16 +81,8 @@ pub fn verify_source_identity_verification_sha256(value: &Value) -> bool {
     if expected.len() != 64 || !expected.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return false;
     }
-    let mut unsigned = value.clone();
-    let Some(object) = unsigned.as_object_mut() else {
-        return false;
-    };
-    object.remove("receipt_sha256");
-    let bytes = match serde_json::to_vec(&canonicalize_json(&unsigned)) {
-        Ok(bytes) => bytes,
-        Err(_) => return false,
-    };
-    format!("{:x}", Sha256::digest(bytes)).eq_ignore_ascii_case(expected)
+    source_identity_verification_sha256(value)
+        .is_ok_and(|actual| actual.eq_ignore_ascii_case(expected))
 }
 
 pub fn identity_bound_plan_sha256(value: &Value) -> Result<String, String> {
@@ -380,7 +371,10 @@ pub fn verify_source_identity(
         reanalysis_required: !matches,
         receipt_sha256: String::new(),
     };
-    receipt.receipt_sha256 = source_identity_verification_sha256(&receipt);
+    let mut value = serde_json::to_value(&receipt)
+        .map_err(|error| format!("cannot serialize source identity verification: {error}"))?;
+    receipt.receipt_sha256 = source_identity_verification_sha256(&value)?;
+    value["receipt_sha256"] = Value::String(receipt.receipt_sha256.clone());
     Ok(receipt)
 }
 
