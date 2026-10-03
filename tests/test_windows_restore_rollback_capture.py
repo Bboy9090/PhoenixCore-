@@ -223,6 +223,7 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
                 windows_restore_rollback.build_capture_receipt(
                     target=TARGET,
                     drive_evidence=receipt,
+                    source_commit="a" * 40,
                     output_dir=root / "rollback",
                     expected_target_snapshot_identity_sha256=receipt["disk"][
                         "identity_sha256"
