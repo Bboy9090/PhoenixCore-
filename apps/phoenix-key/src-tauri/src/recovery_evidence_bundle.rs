@@ -2,7 +2,7 @@ use crate::data_preservation::verify_target_data_preservation_receipt_sha256;
 use crate::restore_preflight::verify_restore_hardware_preflight_sha256;
 use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sha256;
 use crate::rollback_destination::verify_rollback_destination_verification_sha256;
-use crate::source_identity::verify_identity_bound_plan_sha256;
+use crate::source_identity::{verify_identity_bound_plan_sha256, verify_source_identity_verification_sha256};
 use crate::target_reenumeration::{
     verify_recovery_target_reenumeration_receipt_sha256,
     RecoveryTargetReenumerationReceipt,
@@ -298,11 +298,16 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
         .and_then(Value::as_str);
 
     let plan_trusted = verify_identity_bound_plan_sha256(plan);
-    let source_trusted = source_verification.get("matches").and_then(Value::as_bool) == Some(true)
+    let source_trusted = verify_source_identity_verification_sha256(source_verification)
+        && source_verification.get("matches").and_then(Value::as_bool) == Some(true)
         && source_verification
             .get("reanalysis_required")
             .and_then(Value::as_bool)
             == Some(false)
+        && same_sha256(
+            source_identity,
+            source_verification.get("expected_sha256").and_then(Value::as_str),
+        )
         && same_sha256(
             source_identity,
             source_verification.get("observed_sha256").and_then(Value::as_str),
@@ -750,7 +755,7 @@ mod tests {
     };
     use crate::restore_preflight::assess_restore_hardware_preflight;
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
-    use crate::source_identity::identity_bound_plan_sha256;
+    use crate::source_identity::{identity_bound_plan_sha256, source_identity_verification_sha256};
     use crate::target_reenumeration::compare_recovery_target_reenumeration;
     use serde_json::{json, Value};
 
@@ -777,12 +782,15 @@ mod tests {
         });
         plan["plan_sha256"] = Value::String(identity_bound_plan_sha256(&plan).unwrap());
 
-        let source = json!({
+        let mut source = json!({
+            "schema": "phoenix_key.recovery_source_identity_verification.v1",
             "matches": true,
             "reanalysis_required": false,
             "expected_sha256": "a".repeat(64),
             "observed_sha256": "a".repeat(64)
         });
+        source["receipt_sha256"] =
+            Value::String(source_identity_verification_sha256(&source).unwrap());
         let trust = json!({
             "verified_for_use": true,
             "sha256_matches": true,
@@ -882,6 +890,17 @@ mod tests {
 
         let bundle = build_recovery_evidence_bundle_v2(&evidence);
         assert!(!bundle.components["hardware_preflight"].trusted);
+        assert!(!bundle.software_chain_complete);
+        assert!(!bundle.restore_executable);
+    }
+
+    #[test]
+    fn tampered_source_identity_verification_breaks_software_chain() {
+        let mut evidence = software_evidence();
+        evidence["source_identity_verification"]["matches"] = json!(false);
+
+        let bundle = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(!bundle.components["source_identity_verification"].trusted);
         assert!(!bundle.software_chain_complete);
         assert!(!bundle.restore_executable);
     }
