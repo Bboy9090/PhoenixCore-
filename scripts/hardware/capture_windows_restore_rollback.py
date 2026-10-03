@@ -321,10 +321,26 @@ def open_target_read_only(target: str) -> BinaryIO:
         ) from exc
 
 
+def verify_execution_revision(
+    drive_evidence: dict[str, Any],
+    source_commit: str,
+) -> str:
+    executing_commit = source_commit.strip().lower()
+    evidence_commit = str(drive_evidence.get("source_commit") or "").lower()
+    if not SOURCE_COMMIT_RE.fullmatch(executing_commit):
+        raise RollbackCaptureError("Executing source commit is missing or invalid.")
+    if evidence_commit != executing_commit:
+        raise RollbackCaptureError(
+            "Drive evidence was produced by a different source commit."
+        )
+    return executing_commit
+
+
 def build_capture_receipt(
     *,
     target: str,
     drive_evidence: dict[str, Any],
+    source_commit: str,
     output_dir: Path,
     expected_target_snapshot_identity_sha256: str,
     expected_target_stable_identity_sha256: str,
@@ -338,11 +354,7 @@ def build_capture_receipt(
     captured_at: str | None = None,
 ) -> dict[str, Any]:
     disk = verify_drive_evidence(drive_evidence)
-    source_commit = str(drive_evidence.get("source_commit") or "").lower()
-    if not SOURCE_COMMIT_RE.fullmatch(source_commit):
-        raise RollbackCaptureError(
-            "Drive evidence source commit is missing or invalid."
-        )
+    source_commit = verify_execution_revision(drive_evidence, source_commit)
     observed_target = str(disk.get("target") or "")
     if observed_target.upper() != target.strip().upper():
         raise RollbackCaptureError(
@@ -476,6 +488,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", required=True)
     parser.add_argument("--drive-evidence", type=Path, required=True)
+    parser.add_argument("--source-commit", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--logical-sector-size", type=int, required=True)
     parser.add_argument("--expected-target-snapshot-identity-sha256", required=True)
@@ -492,6 +505,10 @@ def main() -> int:
     parse_raw_target(args.target)
     drive_evidence = json.loads(args.drive_evidence.read_text(encoding="utf-8"))
     disk = verify_drive_evidence(drive_evidence)
+    executing_source_commit = verify_execution_revision(
+        drive_evidence,
+        args.source_commit,
+    )
     disk_size = int(disk.get("size_bytes") or 0)
     if disk_size <= 0:
         raise RollbackCaptureError("Drive evidence target size is missing or invalid.")
@@ -572,6 +589,7 @@ def main() -> int:
     receipt = build_capture_receipt(
         target=args.target,
         drive_evidence=drive_evidence,
+        source_commit=executing_source_commit,
         output_dir=output_dir,
         expected_target_snapshot_identity_sha256=(
             args.expected_target_snapshot_identity_sha256

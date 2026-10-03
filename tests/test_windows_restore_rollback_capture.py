@@ -144,6 +144,7 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
             result = windows_restore_rollback.build_capture_receipt(
                 target=TARGET,
                 drive_evidence=receipt,
+                source_commit="a" * 40,
                 output_dir=output,
                 expected_target_snapshot_identity_sha256=receipt["disk"][
                     "identity_sha256"
@@ -222,6 +223,7 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
                 windows_restore_rollback.build_capture_receipt(
                     target=TARGET,
                     drive_evidence=receipt,
+                    source_commit="a" * 40,
                     output_dir=root / "rollback",
                     expected_target_snapshot_identity_sha256=receipt["disk"][
                         "identity_sha256"
@@ -234,6 +236,17 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
                     artifacts=artifacts,
                     gpt_geometry=geometry,
                 )
+
+    def test_execution_revision_rejects_stale_drive_receipt_before_capture(self):
+        receipt = drive_receipt()
+        with self.assertRaisesRegex(
+            windows_restore_rollback.RollbackCaptureError,
+            "different source commit",
+        ):
+            windows_restore_rollback.verify_execution_revision(
+                receipt,
+                "b" * 40,
+            )
 
     def test_tampered_drive_evidence_is_rejected(self):
         receipt = drive_receipt()
