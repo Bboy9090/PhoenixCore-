@@ -291,6 +291,9 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     let contract_sha256 = rollback_contract
         .get("contract_sha256")
         .and_then(Value::as_str);
+    let rollback_capture_receipt_sha256 = rollback_capture
+        .and_then(|value| value.get("receipt_sha256"))
+        .and_then(Value::as_str);
 
     let plan_trusted = verify_identity_bound_plan_sha256(plan);
     let source_trusted = source_verification.get("matches").and_then(Value::as_bool) == Some(true)
@@ -429,6 +432,14 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                     && receipt.system_mutations_performed == false
                     && receipt.substitution_detected == false
                     && receipt.reanalysis_required == false
+                    && same_sha256(
+                        target_identity,
+                        Some(&receipt.expected_snapshot_identity_sha256),
+                    )
+                    && same_sha256(
+                        target_stable_identity,
+                        Some(&receipt.expected_stable_identity_sha256),
+                    )
             })
     });
 
@@ -487,6 +498,12 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                 .and_then(Value::as_array)
                 .is_some_and(Vec::is_empty)
             && same_sha256(
+                target_identity,
+                value
+                    .get("target_snapshot_identity_sha256")
+                    .and_then(Value::as_str),
+            )
+            && same_sha256(
                 target_stable_identity,
                 value
                     .get("target_stable_identity_sha256")
@@ -495,6 +512,12 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
             && same_sha256(
                 contract_sha256,
                 value.get("rollback_contract_sha256").and_then(Value::as_str),
+            )
+            && same_sha256(
+                rollback_capture_receipt_sha256,
+                value
+                    .get("rollback_capture_receipt_sha256")
+                    .and_then(Value::as_str),
             )
     });
 
@@ -847,6 +870,30 @@ mod tests {
     }
 
     #[test]
+    fn reenumeration_receipt_from_different_target_is_not_trusted() {
+        let mut evidence = software_evidence();
+        let receipt = compare_recovery_target_reenumeration(
+            &json!({
+                "disk": {
+                    "target": "\\\\.\\PHYSICALDRIVE7",
+                    "identity_sha256": "e".repeat(64),
+                    "stable_identity_sha256": "f".repeat(64)
+                }
+            }),
+            Some("\\\\.\\PHYSICALDRIVE7"),
+            &"e".repeat(64),
+            &"f".repeat(64),
+        );
+        evidence["target_reenumeration_receipt"] = serde_json::to_value(receipt).unwrap();
+
+        let bundle = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(!bundle.components["target_reenumeration_receipt"].trusted);
+        assert!(bundle
+            .outstanding_requirements
+            .contains(&"target_reenumeration_or_exact_snapshot_receipt".to_string()));
+    }
+
+    #[test]
     fn tampered_data_preservation_receipt_is_not_resolved() {
         let mut evidence = software_evidence();
         let receipt = build_target_data_preservation_receipt(
@@ -866,30 +913,45 @@ mod tests {
     }
 
     #[test]
-    fn boot_metadata_requires_valid_checksum_and_read_only_locks() {
+    fn boot_metadata_requires_exact_target_and_rollback_capture_binding() {
         let mut evidence = software_evidence();
         let contract_sha = evidence["rollback_contract"]["contract_sha256"]
-            .as_str()
-            .unwrap()
-            .to_string();
+            .as_str().unwrap().to_string();
         let stable = evidence["target_safety"]["target_stable_identity_sha256"]
-            .as_str()
-            .unwrap()
-            .to_string();
+            .as_str().unwrap().to_string();
         let snapshot = evidence["target_safety"]["target_identity_sha256"]
-            .as_str()
-            .unwrap()
-            .to_string();
+            .as_str().unwrap().to_string();
 
-        let receipt = signed_python_receipt(json!({
+        let rollback_capture = signed_python_receipt(json!({
+            "schema": "phoenix_key.restore_target_rollback_capture.v1",
+            "source_commit": "a".repeat(40),
+            "evidence_source": "live",
+            "hardware_observed": true,
+            "target": "fixture-target",
+            "target_snapshot_identity_sha256": snapshot,
+            "target_stable_identity_sha256": stable,
+            "rollback_destination_stable_identity_sha256": "d".repeat(64),
+            "rollback_contract_sha256": contract_sha,
+            "output_directory": "D:/rollback",
+            "restore_unlock_ready": false,
+            "target_bytes_written": 0,
+            "target_write_attempted": false,
+            "system_mutations_performed": false
+        }));
+        let rollback_receipt_sha = rollback_capture["receipt_sha256"]
+            .as_str().unwrap().to_string();
+        evidence["rollback_capture_receipt"] = rollback_capture;
+
+        let bad_reference = signed_python_receipt(json!({
             "schema": "phoenix_key.restore_target_boot_metadata.v1",
+            "source_commit": "a".repeat(40),
             "evidence_source": "live",
             "hardware_observed": true,
             "target": "fixture-target",
             "target_snapshot_identity_sha256": snapshot,
             "target_stable_identity_sha256": stable,
             "rollback_contract_sha256": contract_sha,
-            "rollback_capture_receipt_sha256": "d".repeat(64),
+            "rollback_capture_receipt_sha256": "9".repeat(64),
             "output_directory": "D:/rollback/boot",
             "partition_inventory": [],
             "artifacts": {},
@@ -901,17 +963,36 @@ mod tests {
             "partition_mount_or_assignment_attempted": false,
             "system_mutations_performed": false
         }));
-        evidence["boot_metadata_receipt"] = receipt.clone();
-        let valid = build_recovery_evidence_bundle_v2(&evidence);
-        assert!(valid.boot_metadata_resolved);
-        assert!(valid.components["boot_metadata_receipt"].trusted);
-
-        let mut tampered = receipt;
-        tampered["target_write_attempted"] = json!(true);
-        evidence["boot_metadata_receipt"] = tampered;
+        evidence["boot_metadata_receipt"] = bad_reference;
         let blocked = build_recovery_evidence_bundle_v2(&evidence);
         assert!(!blocked.boot_metadata_resolved);
         assert!(!blocked.components["boot_metadata_receipt"].trusted);
+
+        let valid = signed_python_receipt(json!({
+            "schema": "phoenix_key.restore_target_boot_metadata.v1",
+            "source_commit": "a".repeat(40),
+            "evidence_source": "live",
+            "hardware_observed": true,
+            "target": "fixture-target",
+            "target_snapshot_identity_sha256": snapshot,
+            "target_stable_identity_sha256": stable,
+            "rollback_contract_sha256": contract_sha,
+            "rollback_capture_receipt_sha256": rollback_receipt_sha,
+            "output_directory": "D:/rollback/boot",
+            "partition_inventory": [],
+            "artifacts": {},
+            "resolved": true,
+            "missing_or_unverified": [],
+            "restore_unlock_ready": false,
+            "target_bytes_written": 0,
+            "target_write_attempted": false,
+            "partition_mount_or_assignment_attempted": false,
+            "system_mutations_performed": false
+        }));
+        evidence["boot_metadata_receipt"] = valid;
+        let bundle = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(bundle.boot_metadata_resolved);
+        assert!(bundle.components["boot_metadata_receipt"].trusted);
     }
 
     #[test]
