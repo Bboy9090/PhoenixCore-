@@ -279,6 +279,75 @@ class WindowsRecoveryHardwareCampaignTests(unittest.TestCase):
                 target_receipt=receipt,
             )
 
+    def test_discovery_classifies_target_and_evidence_roles_read_only(self):
+        target = raw_disk(7)
+        evidence = raw_disk(
+            20,
+            serial="EVIDENCE-001",
+            unique_id="EVIDENCE-UNIQUE-001",
+        )
+        evidence["Partitions"] = [
+            {
+                "PartitionNumber": 1,
+                "DriveLetter": "D",
+                "Offset": 1_048_576,
+                "Size": 32_000,
+                "Type": "Basic",
+                "GptType": None,
+                "MbrType": None,
+                "IsBoot": False,
+                "IsSystem": False,
+            }
+        ]
+
+        report = campaign.build_discovery_report([target, evidence])
+        self.assertEqual(campaign.DISCOVERY_SCHEMA, report["schema"])
+        self.assertEqual(2, report["target_candidate_count"])
+        self.assertEqual(1, report["evidence_candidate_count"])
+        self.assertEqual(
+            r"\\.\PHYSICALDRIVE20", report["evidence_candidates"][0]["target"]
+        )
+        self.assertEqual(
+            ["D"], report["evidence_candidates"][0]["mounted_drive_letters"]
+        )
+        self.assertTrue(report["read_only"])
+        self.assertFalse(report["restore_executor_authorized"])
+        self.assertFalse(report["system_mutations_performed"])
+        self.assertEqual(
+            report["discovery_sha256"],
+            campaign.discovery_sha256(report),
+        )
+
+    def test_discovery_blocks_boot_system_and_unstable_target_candidates(self):
+        boot = raw_disk(0)
+        boot["IsBoot"] = True
+        boot["IsSystem"] = True
+        unstable = raw_disk(8, serial="", unique_id="")
+        internal = raw_disk(9)
+        internal["BusType"] = "NVMe"
+
+        report = campaign.build_discovery_report([boot, unstable, internal])
+        self.assertEqual(0, report["target_candidate_count"])
+        by_number = {item["disk_number"]: item for item in report["inspected"]}
+        self.assertIn("target-is-boot-disk", by_number[0]["target_block_reasons"])
+        self.assertIn(
+            "stable-device-identity-missing",
+            by_number[8]["target_block_reasons"],
+        )
+        self.assertIn(
+            "target-not-proven-external-removable",
+            by_number[9]["target_block_reasons"],
+        )
+
+    def test_discovery_requires_mounted_volume_for_evidence_role(self):
+        disk = raw_disk(20, serial="EVIDENCE-001", unique_id="EVIDENCE-UNIQUE-001")
+        report = campaign.build_discovery_report([disk])
+        self.assertEqual(0, report["evidence_candidate_count"])
+        self.assertIn(
+            "evidence-disk-has-no-mounted-volume",
+            report["inspected"][0]["evidence_storage_block_reasons"],
+        )
+
     def test_next_step_plan_walks_required_phase_order(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             campaign_dir = Path(tmpdir)

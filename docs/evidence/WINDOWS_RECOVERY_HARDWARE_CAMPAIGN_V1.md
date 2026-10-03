@@ -69,6 +69,36 @@ It never stores writes on the target itself.
 
 ---
 
+## Phase -1 — Discover candidate disks
+
+Before choosing a raw `PHYSICALDRIVE` number, enumerate the current Windows
+storage set read-only:
+
+```powershell
+python scripts/hardware/run_windows_recovery_hardware_campaign.py discover
+```
+
+The discovery report is checksum-bound with `discovery_sha256` and returns:
+
+- `target_candidates`: external, non-boot, non-system GPT disks with stable
+  hardware identity that also pass the existing future-write safety verdict
+- `evidence_candidates`: external, non-boot, non-system disks with stable
+  hardware identity and at least one currently mounted volume
+- explicit block reasons for every inspected disk
+
+Choose the intended target and a **different** evidence disk whose
+`stable_identity_sha256` differs. The later Phase 0 preflight remains
+authoritative and independently rechecks the exact target and the physical disk
+behind the selected campaign directory.
+
+Discovery performs no target writes and always reports:
+
+- `read_only: true`
+- `restore_executor_authorized: false`
+- `system_mutations_performed: false`
+
+---
+
 ## Phase 0 — Hardware campaign preflight
 
 Before collecting baseline evidence, prove that the chosen target and campaign
