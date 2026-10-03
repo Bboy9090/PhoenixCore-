@@ -110,7 +110,31 @@ fn all_required_components_trusted(bundle: &Value) -> bool {
                     && component.get("trusted").and_then(Value::as_bool) == Some(true))
         });
 
-    required_trusted && package_trust_ok
+    let preservation_mode = bundle
+        .get("data_preservation_mode")
+        .and_then(Value::as_str);
+    let preservation_backup_ok = match preservation_mode {
+        Some("explicit_discard") => bundle
+            .get("data_preservation_backup_receipt_sha256")
+            .is_none_or(Value::is_null),
+        Some("preserve_existing_data") => {
+            valid_sha256(
+                bundle
+                    .get("data_preservation_backup_receipt_sha256")
+                    .and_then(Value::as_str),
+            ) && bundle
+                .pointer("/components/target_data_backup_receipt/present")
+                .and_then(Value::as_bool)
+                == Some(true)
+                && bundle
+                    .pointer("/components/target_data_backup_receipt/trusted")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+        }
+        _ => false,
+    };
+
+    required_trusted && package_trust_ok && preservation_backup_ok
 }
 
 pub fn assess_final_recovery_preflight(bundle: &Value) -> FinalRecoveryPreflight {
@@ -253,15 +277,17 @@ mod tests {
     use crate::recovery_evidence_bundle::recovery_evidence_bundle_v2_sha256;
     use serde_json::{json, Value};
 
+    fn trusted_component(schema: &str) -> Value {
+        json!({
+            "present": true,
+            "schema": schema,
+            "sha256": "a".repeat(64),
+            "trusted": true
+        })
+    }
+
     fn complete_bundle() -> Value {
-        let trusted = |schema: &str| {
-            json!({
-                "present": true,
-                "schema": schema,
-                "sha256": "a".repeat(64),
-                "trusted": true
-            })
-        };
+        let trusted = trusted_component;
         let mut bundle = json!({
             "schema": "phoenix_key.recovery_evidence_bundle.v2",
             "source_identity_sha256": "a".repeat(64),
@@ -280,12 +306,20 @@ mod tests {
                 "rollback_destination_verification": trusted("phoenix_key.rollback_destination_verification.v1"),
                 "rollback_capture_receipt": trusted("phoenix_key.restore_target_rollback_capture.v1"),
                 "target_reenumeration_receipt": trusted("phoenix_key.recovery_target_reenumeration_receipt.v1"),
+                "target_data_backup_receipt": {
+                    "present": false,
+                    "schema": null,
+                    "sha256": null,
+                    "trusted": false
+                },
                 "data_preservation_receipt": trusted("phoenix_key.target_data_preservation_receipt.v1"),
                 "boot_metadata_receipt": trusted("phoenix_key.restore_target_boot_metadata.v1"),
                 "hardware_campaign_manifest": trusted("phoenix_key.windows_recovery_hardware_campaign.v1")
             },
             "software_chain_complete": true,
             "hardware_chain_complete": true,
+            "data_preservation_mode": "explicit_discard",
+            "data_preservation_backup_receipt_sha256": null,
             "data_preservation_resolved": true,
             "boot_metadata_resolved": true,
             "outstanding_requirements": [],
@@ -400,6 +434,29 @@ mod tests {
         let result = assess_final_recovery_preflight(&bundle);
         assert!(result.ready_for_restore_executor_architecture_review);
         assert!(result.blocked_gates.is_empty());
+    }
+
+    #[test]
+    fn preserve_mode_requires_trusted_backup_component() {
+        let mut bundle = complete_bundle();
+        bundle["data_preservation_mode"] = json!("preserve_existing_data");
+        bundle["data_preservation_backup_receipt_sha256"] = json!("e".repeat(64));
+        resign(&mut bundle);
+
+        let blocked = assess_final_recovery_preflight(&bundle);
+        assert!(!blocked.ready_for_restore_executor_architecture_review);
+        assert!(blocked
+            .blocked_gates
+            .contains(&"critical_components_trusted".to_string()));
+
+        bundle["components"]["target_data_backup_receipt"] = trusted_component(
+            "phoenix_key.target_data_backup_receipt.v1",
+        );
+        resign(&mut bundle);
+        let ready = assess_final_recovery_preflight(&bundle);
+        assert!(ready.ready_for_restore_executor_architecture_review);
+        assert!(!ready.restore_executor_authorized);
+        assert!(!ready.executable);
     }
 
     #[test]
