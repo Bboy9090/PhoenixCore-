@@ -453,10 +453,12 @@ particular, the final handoff cannot become green without
 `substitution_rejection_proven = true`.
 
 The campaign is also revision-bound. The live baseline drive receipt contributes
-one 40-character `source_commit` to the manifest. Reconnect and substitution
-drive receipts must report that exact same revision, and Bundle v2 rejects a
-manifest whose top-level revision differs from the baseline revision. A campaign
-cannot silently mix hardware evidence captured by different software revisions.
+one 40-character `source_commit` to the manifest. Reconnect, substitution,
+rollback-capture, and boot-metadata receipts must report that exact same revision.
+The campaign gates refuse mixed-revision evidence, and Bundle v2 independently
+checks the manifest record and embedded receipt provenance before trusting a
+completed campaign. A campaign cannot silently mix physical evidence captured by
+different software revisions.
 
 Even when every final preflight gate passes, it always keeps:
 
