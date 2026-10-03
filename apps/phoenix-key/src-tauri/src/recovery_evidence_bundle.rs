@@ -1132,7 +1132,7 @@ mod tests {
     }
 
     #[test]
-    fn preserve_mode_requires_trusted_backup_component_and_exact_binding() {
+    fn preserve_mode_requires_trusted_backup_component_and_independent_proofs() {
         let mut evidence = software_evidence();
         let (backup, root) = verified_backup_receipt(&evidence);
         let preservation = build_target_data_preservation_receipt_with_backup(
@@ -1146,7 +1146,7 @@ mod tests {
             serde_json::to_value(preservation).unwrap();
 
         let bundle = build_recovery_evidence_bundle_v2(&evidence);
-        assert!(bundle.data_preservation_resolved);
+        assert!(!bundle.data_preservation_resolved);
         assert_eq!(
             bundle.data_preservation_mode.as_deref(),
             Some("preserve_existing_data")
@@ -1156,6 +1156,13 @@ mod tests {
             backup.get("receipt_sha256").and_then(Value::as_str)
         );
         assert!(bundle.components["target_data_backup_receipt"].trusted);
+        assert!(!bundle.components["data_preservation_receipt"].trusted);
+        assert!(evidence["data_preservation_receipt"]["required_next_evidence"]
+            .as_array()
+            .is_some_and(|items| items.contains(&json!("target_data_backup_coverage_proof"))));
+        assert!(evidence["data_preservation_receipt"]["required_next_evidence"]
+            .as_array()
+            .is_some_and(|items| items.contains(&json!("backup_destination_identity_verification"))));
 
         let mut tampered = evidence.clone();
         tampered["target_data_backup_receipt"]["files_verified"] = json!(false);
