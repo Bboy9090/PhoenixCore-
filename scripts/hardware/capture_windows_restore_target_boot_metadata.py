@@ -27,6 +27,7 @@ EFI_GUID = "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}"
 RECOVERY_GUID = "{de94bba4-06d1-4d40-a16a-bfd50179d6ac}"
 RAW_DEVICE_PATTERN = re.compile(r"^\\\\\.\\PHYSICALDRIVE([0-9]+)$", re.IGNORECASE)
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+SOURCE_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 class RestoreTargetBootMetadataError(RuntimeError):
@@ -392,8 +393,20 @@ def build_receipt(
     inventory: list[dict[str, Any]],
     artifacts: dict[str, Any],
     missing_or_unverified: list[str],
+    source_commit: str,
     evidence_source: str = "fixture",
 ) -> dict[str, Any]:
+    source_commit = source_commit.strip().lower()
+    if not SOURCE_COMMIT_RE.fullmatch(source_commit):
+        raise RestoreTargetBootMetadataError(
+            "Boot-metadata source commit is missing or invalid."
+        )
+    rollback_source_commit = str(rollback_capture.get("source_commit") or "").lower()
+    if rollback_source_commit != source_commit:
+        raise RestoreTargetBootMetadataError(
+            "Rollback capture was produced by a different source commit."
+        )
+
     if evidence_source not in {"live", "fixture"}:
         raise RestoreTargetBootMetadataError(
             "Boot-metadata evidence source is invalid."
@@ -437,6 +450,7 @@ def build_receipt(
 
     receipt = {
         "schema": SCHEMA,
+        "source_commit": source_commit,
         "evidence_source": evidence_source,
         "hardware_observed": evidence_source == "live",
         "target": target,
@@ -501,6 +515,7 @@ def main() -> int:
         inventory=inventory,
         artifacts=artifacts,
         missing_or_unverified=missing,
+        source_commit=str(drive_evidence.get("source_commit") or ""),
         evidence_source="live",
     )
     write_json_atomic(receipt, output_dir / "restore-target-boot-metadata.json")
