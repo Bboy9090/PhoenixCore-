@@ -1,7 +1,8 @@
 use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sha256;
 use crate::source_identity::verify_identity_bound_plan_sha256;
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Map, Value};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RestoreHardwarePreflight {
@@ -17,6 +18,61 @@ pub struct RestoreHardwarePreflight {
     pub target_stable_identity_sha256: Option<String>,
     pub rollback_contract_sha256: Option<String>,
     pub system_mutations_performed: bool,
+    pub receipt_sha256: String,
+}
+
+fn canonicalize_json(value: &Value) -> Value {
+    match value {
+        Value::Object(object) => {
+            let mut keys: Vec<&String> = object.keys().collect();
+            keys.sort();
+            let mut canonical = Map::new();
+            for key in keys {
+                canonical.insert(key.clone(), canonicalize_json(&object[key]));
+            }
+            Value::Object(canonical)
+        }
+        Value::Array(items) => {
+            Value::Array(items.iter().map(canonicalize_json).collect::<Vec<_>>())
+        }
+        _ => value.clone(),
+    }
+}
+
+fn receipt_sha256(receipt: &RestoreHardwarePreflight) -> String {
+    let mut value = serde_json::to_value(receipt)
+        .expect("restore hardware preflight serialization cannot fail");
+    value
+        .as_object_mut()
+        .expect("restore hardware preflight must be an object")
+        .remove("receipt_sha256");
+    let bytes = serde_json::to_vec(&canonicalize_json(&value))
+        .expect("restore hardware preflight canonical serialization cannot fail");
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+pub fn verify_restore_hardware_preflight_sha256(value: &Value) -> bool {
+    if value.get("schema").and_then(Value::as_str)
+        != Some("phoenix_key.restore_hardware_preflight.v1")
+    {
+        return false;
+    }
+    let Some(expected) = value.get("receipt_sha256").and_then(Value::as_str) else {
+        return false;
+    };
+    if !is_sha256(Some(expected)) {
+        return false;
+    }
+    let mut unsigned = value.clone();
+    let Some(object) = unsigned.as_object_mut() else {
+        return false;
+    };
+    object.remove("receipt_sha256");
+    let bytes = match serde_json::to_vec(&canonicalize_json(&unsigned)) {
+        Ok(bytes) => bytes,
+        Err(_) => return false,
+    };
+    format!("{:x}", Sha256::digest(bytes)).eq_ignore_ascii_case(expected)
 }
 
 fn is_sha256(value: Option<&str>) -> bool {
@@ -381,7 +437,7 @@ pub fn assess_restore_hardware_preflight(
         &mut blocked,
     );
 
-    RestoreHardwarePreflight {
+    let mut receipt = RestoreHardwarePreflight {
         schema: "phoenix_key.restore_hardware_preflight.v1",
         ready_to_capture_hardware_rollback_evidence: blocked.is_empty(),
         executable: false,
@@ -397,7 +453,10 @@ pub fn assess_restore_hardware_preflight(
             .and_then(Value::as_str)
             .map(str::to_string),
         system_mutations_performed: false,
-    }
+        receipt_sha256: String::new(),
+    };
+    receipt.receipt_sha256 = receipt_sha256(&receipt);
+    receipt
 }
 
 #[tauri::command]
@@ -434,7 +493,7 @@ pub fn assess_windows_restore_hardware_preflight(
 
 #[cfg(test)]
 mod tests {
-    use super::assess_restore_hardware_preflight;
+    use super::{assess_restore_hardware_preflight, verify_restore_hardware_preflight_sha256};
     use crate::restore_rollback_contract::{
         build_restore_target_rollback_contract,
         restore_target_rollback_contract_sha256,
@@ -551,6 +610,26 @@ mod tests {
         assert!(result.blocked_gates.is_empty());
         assert!(!result.required_hardware_evidence.is_empty());
         assert!(!result.system_mutations_performed);
+        let value = serde_json::to_value(&result).unwrap();
+        assert!(verify_restore_hardware_preflight_sha256(&value));
+    }
+
+    #[test]
+    fn checksum_detects_preflight_tampering() {
+        let (plan, source, trust, metadata, target, verification, rollback) = evidence();
+        let result = assess_restore_hardware_preflight(
+            &plan,
+            &source,
+            &trust,
+            &metadata,
+            &target,
+            &verification,
+            &rollback,
+        );
+        let mut value = serde_json::to_value(&result).unwrap();
+        assert!(verify_restore_hardware_preflight_sha256(&value));
+        value["ready_to_capture_hardware_rollback_evidence"] = json!(false);
+        assert!(!verify_restore_hardware_preflight_sha256(&value));
     }
 
     #[test]
