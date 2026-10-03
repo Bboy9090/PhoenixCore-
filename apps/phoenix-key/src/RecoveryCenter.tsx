@@ -2439,7 +2439,7 @@ export default function RecoveryCenter({
                       ) : (
                         <div className="recovery-list">
                           <p className="field-help">
-                            Preserve mode resolves only from a checksum-valid backup receipt bound to this target, this rollback contract, a different physical destination, and zero target writes.
+                            Preserve mode can verify backup artifact integrity here, but it remains blocked until complete target-data coverage and the backup destination's physical identity are independently proven.
                           </p>
                           <button
                             className="plan-button"
@@ -2447,7 +2447,7 @@ export default function RecoveryCenter({
                             onClick={chooseTargetDataBackupReceipt}
                             disabled={busy}
                           >
-                            Choose Verified Backup Receipt
+                            Choose Backup Artifact Receipt
                           </button>
                           {targetDataBackupReceipt && (
                             <div className={
@@ -2460,8 +2460,8 @@ export default function RecoveryCenter({
                             }>
                               <p>Receipt SHA-256: {targetDataBackupReceipt.receipt_sha256}</p>
                               <p>Manifest SHA-256: {targetDataBackupReceipt.backup_manifest_sha256}</p>
-                              <p>Backup verified: {targetDataBackupReceipt.backup_verified ? "yes" : "no"}</p>
-                              <p>Files verified: {targetDataBackupReceipt.files_verified ? "yes" : "no"}</p>
+                              <p>Receipt claims backup verified: {targetDataBackupReceipt.backup_verified ? "yes" : "no"}</p>
+                              <p>Listed artifact hashes verified: {targetDataBackupReceipt.files_verified ? "yes" : "no"}</p>
                               <p>Target bytes written: {targetDataBackupReceipt.target_bytes_written}</p>
                               <p>System mutations performed: {targetDataBackupReceipt.system_mutations_performed ? "yes" : "no"}</p>
                             </div>
