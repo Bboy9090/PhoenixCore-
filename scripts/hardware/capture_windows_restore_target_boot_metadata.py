@@ -383,6 +383,25 @@ def capture_partition_metadata(
     return inventory, artifacts, missing_or_unverified
 
 
+def verify_execution_revision(
+    drive_evidence: dict[str, Any],
+    rollback_capture: dict[str, Any],
+    source_commit: str,
+) -> str:
+    executing_commit = source_commit.strip().lower()
+    drive_commit = str(drive_evidence.get("source_commit") or "").lower()
+    rollback_commit = str(rollback_capture.get("source_commit") or "").lower()
+    if not SOURCE_COMMIT_RE.fullmatch(executing_commit):
+        raise RestoreTargetBootMetadataError(
+            "Executing source commit is missing or invalid."
+        )
+    if drive_commit != executing_commit or rollback_commit != executing_commit:
+        raise RestoreTargetBootMetadataError(
+            "Boot-metadata inputs were produced by a different source commit."
+        )
+    return executing_commit
+
+
 def build_receipt(
     *,
     target: str,
@@ -477,6 +496,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", required=True)
     parser.add_argument("--drive-evidence", type=Path, required=True)
+    parser.add_argument("--source-commit", required=True)
     parser.add_argument("--rollback-capture-receipt", type=Path, required=True)
     parser.add_argument("--rollback-contract-sha256", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -493,6 +513,11 @@ def main() -> int:
     )
     verify_rollback_capture(rollback_capture)
     require_live_boot_metadata_inputs(drive_evidence, rollback_capture)
+    executing_source_commit = verify_execution_revision(
+        drive_evidence,
+        rollback_capture,
+        args.source_commit,
+    )
 
     output_dir = args.output_dir.resolve()
     if output_dir.exists() and any(output_dir.iterdir()):
@@ -509,7 +534,7 @@ def main() -> int:
     receipt = build_receipt(
         target=args.target,
         target_disk=target_disk,
-        source_commit=str(drive_evidence.get("source_commit") or ""),
+        source_commit=executing_source_commit,
         rollback_capture=rollback_capture,
         rollback_contract_sha256=args.rollback_contract_sha256,
         output_dir=output_dir,
