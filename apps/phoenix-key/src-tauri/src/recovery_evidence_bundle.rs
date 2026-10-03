@@ -1,4 +1,5 @@
 use crate::data_preservation::verify_target_data_preservation_receipt_sha256;
+use crate::restore_preflight::verify_restore_hardware_preflight_sha256;
 use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sha256;
 use crate::rollback_destination::verify_rollback_destination_verification_sha256;
 use crate::source_identity::verify_identity_bound_plan_sha256;
@@ -366,11 +367,34 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                     .get("target_stable_identity_sha256")
                     .and_then(Value::as_str),
             );
-    let preflight_trusted = hardware_preflight
-        .get("ready_to_capture_hardware_rollback_evidence")
-        .and_then(Value::as_bool)
-        == Some(true)
+    let preflight_trusted = verify_restore_hardware_preflight_sha256(hardware_preflight)
+        && hardware_preflight
+            .get("ready_to_capture_hardware_rollback_evidence")
+            .and_then(Value::as_bool)
+            == Some(true)
         && hardware_preflight.get("executable").and_then(Value::as_bool) == Some(false)
+        && hardware_preflight
+            .get("system_mutations_performed")
+            .and_then(Value::as_bool)
+            == Some(false)
+        && same_sha256(
+            source_identity,
+            hardware_preflight
+                .get("source_identity_sha256")
+                .and_then(Value::as_str),
+        )
+        && same_sha256(
+            target_identity,
+            hardware_preflight
+                .get("target_identity_sha256")
+                .and_then(Value::as_str),
+        )
+        && same_sha256(
+            target_stable_identity,
+            hardware_preflight
+                .get("target_stable_identity_sha256")
+                .and_then(Value::as_str),
+        )
         && same_sha256(
             contract_sha256,
             hardware_preflight
@@ -848,6 +872,18 @@ mod tests {
         assert!(bundle
             .outstanding_requirements
             .contains(&"physical_hardware_campaign_manifest".to_string()));
+    }
+
+    #[test]
+    fn tampered_hardware_preflight_breaks_software_chain() {
+        let mut evidence = software_evidence();
+        assert!(evidence["hardware_preflight"]["receipt_sha256"].as_str().is_some());
+        evidence["hardware_preflight"]["ready_to_capture_hardware_rollback_evidence"] = json!(false);
+
+        let bundle = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(!bundle.components["hardware_preflight"].trusted);
+        assert!(!bundle.software_chain_complete);
+        assert!(!bundle.restore_executable);
     }
 
     #[test]
