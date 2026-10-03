@@ -38,6 +38,7 @@ type SourceIdentityVerification = {
   observed_sha256: string;
   matches: boolean;
   reanalysis_required: boolean;
+  receipt_sha256: string;
 };
 
 type PackageTrust = {
