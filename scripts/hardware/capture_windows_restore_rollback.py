@@ -25,6 +25,7 @@ SCHEMA = "phoenix_key.restore_target_rollback_capture.v1"
 DRIVE_EVIDENCE_SCHEMA = "bws.physical-drive-evidence/v1"
 RAW_DEVICE_PATTERN = re.compile(r"^\\\\\.\\PHYSICALDRIVE([0-9]+)$", re.IGNORECASE)
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+SOURCE_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_GPT_TABLE_BYTES = 16 * 1024 * 1024
 
 
@@ -337,6 +338,11 @@ def build_capture_receipt(
     captured_at: str | None = None,
 ) -> dict[str, Any]:
     disk = verify_drive_evidence(drive_evidence)
+    source_commit = str(drive_evidence.get("source_commit") or "").lower()
+    if not SOURCE_COMMIT_RE.fullmatch(source_commit):
+        raise RollbackCaptureError(
+            "Drive evidence source commit is missing or invalid."
+        )
     observed_target = str(disk.get("target") or "")
     if observed_target.upper() != target.strip().upper():
         raise RollbackCaptureError(
@@ -433,6 +439,7 @@ def build_capture_receipt(
     receipt = {
         "schema": SCHEMA,
         "captured_at": captured_at or utc_now_iso(),
+        "source_commit": source_commit,
         "evidence_source": evidence_source,
         "hardware_observed": evidence_source == "live",
         "target": observed_target,
