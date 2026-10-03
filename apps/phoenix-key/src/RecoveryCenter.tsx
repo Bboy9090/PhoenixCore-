@@ -309,6 +309,8 @@ type RecoveryEvidenceBundleV2 = {
   }>;
   software_chain_complete: boolean;
   hardware_chain_complete: boolean;
+  data_preservation_mode?: string | null;
+  data_preservation_backup_receipt_sha256?: string | null;
   data_preservation_resolved: boolean;
   boot_metadata_resolved: boolean;
   outstanding_requirements: string[];
@@ -331,12 +333,27 @@ type FinalRecoveryPreflight = {
   receipt_sha256: string;
 };
 
+type TargetDataBackupReceipt = {
+  schema: string;
+  target_stable_identity_sha256: string;
+  rollback_contract_sha256: string;
+  backup_destination_stable_identity_sha256: string;
+  backup_manifest_sha256: string;
+  backup_verified: boolean;
+  files_verified: boolean;
+  target_bytes_written: number;
+  target_write_attempted: boolean;
+  system_mutations_performed: boolean;
+  receipt_sha256: string;
+};
+
 type TargetDataPreservationReceipt = {
   schema: string;
   mode: string;
   target_stable_identity_sha256: string;
   rollback_contract_sha256: string;
   acknowledgement: string;
+  backup_receipt_sha256?: string | null;
   resolved: boolean;
   block_reasons: string[];
   required_next_evidence: string[];
@@ -566,6 +583,8 @@ export default function RecoveryCenter({
   const [rollbackCaptureReceipt, setRollbackCaptureReceipt] = useState<RestoreRollbackCaptureReceipt | null>(null);
   const [dataPreservationMode, setDataPreservationMode] = useState("preserve_existing_data");
   const [dataPreservationAcknowledgement, setDataPreservationAcknowledgement] = useState("");
+  const [targetDataBackupReceiptPath, setTargetDataBackupReceiptPath] = useState("");
+  const [targetDataBackupReceipt, setTargetDataBackupReceipt] = useState<TargetDataBackupReceipt | null>(null);
   const [dataPreservationReceipt, setDataPreservationReceipt] = useState<TargetDataPreservationReceipt | null>(null);
   const [bootMetadataReceipt, setBootMetadataReceipt] = useState<RestoreTargetBootMetadataReceipt | null>(null);
   const [hardwareCampaignManifest, setHardwareCampaignManifest] = useState<HardwareCampaignManifest | null>(null);
@@ -601,9 +620,19 @@ export default function RecoveryCenter({
     rollbackDestinationVerification,
     rollbackCaptureReceipt,
     targetReenumerationReceipt,
+    targetDataBackupReceipt,
     dataPreservationReceipt,
     bootMetadataReceipt,
     hardwareCampaignManifest,
+  ]);
+
+  useEffect(() => {
+    setTargetDataBackupReceiptPath("");
+    setTargetDataBackupReceipt(null);
+    setDataPreservationReceipt(null);
+  }, [
+    targetSafety?.target_stable_identity_sha256,
+    restoreRollbackContract?.contract_sha256,
   ]);
 
   useEffect(() => {
@@ -646,6 +675,8 @@ export default function RecoveryCenter({
     setRollbackDestinationPath("");
     setDataPreservationMode("preserve_existing_data");
     setDataPreservationAcknowledgement("");
+    setTargetDataBackupReceiptPath("");
+    setTargetDataBackupReceipt(null);
     setDataPreservationReceipt(null);
     setBootMetadataReceipt(null);
     setHardwareCampaignManifest(null);
@@ -1272,6 +1303,43 @@ export default function RecoveryCenter({
     }
   }
 
+  async function chooseTargetDataBackupReceipt() {
+    if (busy) return;
+    try {
+      const selected = await open({
+        directory: false,
+        multiple: false,
+        title: "Choose verified target-data backup receipt",
+        filters: [{ name: "Backup receipt", extensions: ["json"] }],
+      });
+      if (typeof selected !== "string") return;
+      setBusy(true);
+      setTargetDataBackupReceipt(null);
+      setDataPreservationReceipt(null);
+      setMessage(
+        "Verifying the target-data backup receipt read-only before binding it to this recovery chain…",
+      );
+      const result = await invoke<TargetDataBackupReceipt>(
+        "load_verified_target_data_backup_receipt",
+        { backupReceiptPath: selected },
+      );
+      setTargetDataBackupReceiptPath(selected);
+      setTargetDataBackupReceipt(result);
+      setMessage(
+        "Backup receipt and on-disk artifacts verified. Resolve preserve mode to bind them to the current target and rollback contract.",
+      );
+    } catch (error) {
+      setTargetDataBackupReceiptPath("");
+      setTargetDataBackupReceipt(null);
+      setDataPreservationReceipt(null);
+      setMessage(
+        `Target-data backup receipt could not be verified. Nothing was changed. ${String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createDataPreservationDecision() {
     if (!targetSafety?.safe_to_prepare || !restoreRollbackContract || busy) return;
 
@@ -1280,18 +1348,28 @@ export default function RecoveryCenter({
     setMessage(
       dataPreservationMode === "explicit_discard"
         ? "Binding the explicit data-loss decision to this exact target hardware and rollback contract. No disk mutation will run…"
-        : "Recording that target data must be preserved. This remains blocked until a real backup receipt exists…",
+        : "Binding the verified target-data backup receipt to this exact target hardware and rollback contract. No disk mutation will run…",
     );
     try {
-      const result = await invoke<TargetDataPreservationReceipt>(
-        "create_target_data_preservation_decision",
-        {
-          targetSafetyJson: JSON.stringify(targetSafety),
-          rollbackContractJson: JSON.stringify(restoreRollbackContract),
-          mode: dataPreservationMode,
-          acknowledgement: dataPreservationAcknowledgement,
-        },
-      );
+      const result =
+        dataPreservationMode === "preserve_existing_data" && targetDataBackupReceipt
+          ? await invoke<TargetDataPreservationReceipt>(
+              "resolve_target_data_preservation_with_backup",
+              {
+                targetSafetyJson: JSON.stringify(targetSafety),
+                rollbackContractJson: JSON.stringify(restoreRollbackContract),
+                backupReceiptPath: targetDataBackupReceiptPath,
+              },
+            )
+          : await invoke<TargetDataPreservationReceipt>(
+              "create_target_data_preservation_decision",
+              {
+                targetSafetyJson: JSON.stringify(targetSafety),
+                rollbackContractJson: JSON.stringify(restoreRollbackContract),
+                mode: dataPreservationMode,
+                acknowledgement: dataPreservationAcknowledgement,
+              },
+            );
       setDataPreservationReceipt(result);
       setMessage(
         result.resolved
@@ -1378,6 +1456,7 @@ export default function RecoveryCenter({
             rollback_destination_verification: rollbackDestinationVerification,
             rollback_capture_receipt: rollbackCaptureReceipt,
             target_reenumeration_receipt: targetReenumerationReceipt,
+            target_data_backup_receipt: targetDataBackupReceipt,
             data_preservation_receipt: dataPreservationReceipt,
             boot_metadata_receipt: bootMetadataReceipt,
             hardware_campaign_manifest: hardwareCampaignManifest,
@@ -1464,6 +1543,7 @@ export default function RecoveryCenter({
             rollback_destination_verification: rollbackDestinationVerification,
             rollback_capture_receipt: rollbackCaptureReceipt,
             target_reenumeration_receipt: targetReenumerationReceipt,
+            target_data_backup_receipt: targetDataBackupReceipt,
             data_preservation_receipt: dataPreservationReceipt,
             boot_metadata_receipt: bootMetadataReceipt,
             hardware_campaign_manifest: hardwareCampaignManifest,
@@ -1519,6 +1599,7 @@ export default function RecoveryCenter({
             rollback_destination_verification: rollbackDestinationVerification,
             rollback_capture_receipt: rollbackCaptureReceipt,
             target_reenumeration_receipt: targetReenumerationReceipt,
+            target_data_backup_receipt: targetDataBackupReceipt,
             data_preservation_receipt: dataPreservationReceipt,
             boot_metadata_receipt: bootMetadataReceipt,
             hardware_campaign_manifest: hardwareCampaignManifest,
@@ -2330,6 +2411,8 @@ export default function RecoveryCenter({
                           onChange={(event) => {
                             setDataPreservationMode(event.target.value);
                             setDataPreservationAcknowledgement("");
+                            setTargetDataBackupReceiptPath("");
+                            setTargetDataBackupReceipt(null);
                             setDataPreservationReceipt(null);
                           }}
                           disabled={busy}
@@ -2351,15 +2434,47 @@ export default function RecoveryCenter({
                           />
                         </label>
                       ) : (
-                        <p className="field-help">
-                          Preserve mode intentionally stays unresolved until Phoenix Key has a real target-data backup receipt.
-                        </p>
+                        <div className="recovery-list">
+                          <p className="field-help">
+                            Preserve mode resolves only from a checksum-valid backup receipt bound to this target, this rollback contract, a different physical destination, and zero target writes.
+                          </p>
+                          <button
+                            className="plan-button"
+                            type="button"
+                            onClick={chooseTargetDataBackupReceipt}
+                            disabled={busy}
+                          >
+                            Choose Verified Backup Receipt
+                          </button>
+                          {targetDataBackupReceipt && (
+                            <div className={
+                              targetDataBackupReceipt.backup_verified &&
+                              targetDataBackupReceipt.files_verified &&
+                              targetDataBackupReceipt.target_bytes_written === 0 &&
+                              !targetDataBackupReceipt.target_write_attempted
+                                ? "good-list"
+                                : "warning-box"
+                            }>
+                              <p>Receipt SHA-256: {targetDataBackupReceipt.receipt_sha256}</p>
+                              <p>Manifest SHA-256: {targetDataBackupReceipt.backup_manifest_sha256}</p>
+                              <p>Backup verified: {targetDataBackupReceipt.backup_verified ? "yes" : "no"}</p>
+                              <p>Files verified: {targetDataBackupReceipt.files_verified ? "yes" : "no"}</p>
+                              <p>Target bytes written: {targetDataBackupReceipt.target_bytes_written}</p>
+                              <p>System mutations performed: {targetDataBackupReceipt.system_mutations_performed ? "yes" : "no"}</p>
+                            </div>
+                          )}
+                        </div>
                       )}
                       <button
                         className="plan-button"
                         type="button"
                         onClick={createDataPreservationDecision}
-                        disabled={busy || !targetSafety?.safe_to_prepare}
+                        disabled={
+                          busy ||
+                          !targetSafety?.safe_to_prepare ||
+                          (dataPreservationMode === "preserve_existing_data" &&
+                            (!targetDataBackupReceipt || !targetDataBackupReceiptPath))
+                        }
                       >
                         Record Data-Preservation Decision
                       </button>
@@ -2368,6 +2483,9 @@ export default function RecoveryCenter({
                           <p>Mode: {readableToken(dataPreservationReceipt.mode)}</p>
                           <p>Resolved: {dataPreservationReceipt.resolved ? "yes" : "no"}</p>
                           <p>Receipt SHA-256: {dataPreservationReceipt.receipt_sha256}</p>
+                          {dataPreservationReceipt.backup_receipt_sha256 && (
+                            <p>Backup receipt binding: {dataPreservationReceipt.backup_receipt_sha256}</p>
+                          )}
                           <p>Restore unlock ready: {dataPreservationReceipt.restore_unlock_ready ? "yes" : "no"}</p>
                           {dataPreservationReceipt.block_reasons.map((reason) => (
                             <p key={reason}>Blocked: {readableToken(reason)}</p>
