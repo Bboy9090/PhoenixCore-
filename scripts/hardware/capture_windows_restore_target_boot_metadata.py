@@ -27,6 +27,7 @@ EFI_GUID = "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}"
 RECOVERY_GUID = "{de94bba4-06d1-4d40-a16a-bfd50179d6ac}"
 RAW_DEVICE_PATTERN = re.compile(r"^\\\\\.\\PHYSICALDRIVE([0-9]+)$", re.IGNORECASE)
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+SOURCE_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 class RestoreTargetBootMetadataError(RuntimeError):
@@ -386,6 +387,7 @@ def build_receipt(
     *,
     target: str,
     target_disk: dict[str, Any],
+    source_commit: str,
     rollback_capture: dict[str, Any],
     rollback_contract_sha256: str,
     output_dir: Path,
@@ -397,6 +399,17 @@ def build_receipt(
     if evidence_source not in {"live", "fixture"}:
         raise RestoreTargetBootMetadataError(
             "Boot-metadata evidence source is invalid."
+        )
+
+    source_commit = source_commit.strip().lower()
+    rollback_source_commit = str(rollback_capture.get("source_commit") or "").lower()
+    if not SOURCE_COMMIT_RE.fullmatch(source_commit):
+        raise RestoreTargetBootMetadataError(
+            "Boot-metadata source commit is missing or invalid."
+        )
+    if rollback_source_commit != source_commit:
+        raise RestoreTargetBootMetadataError(
+            "Rollback capture was produced by a different source commit."
         )
 
     target_snapshot = str(target_disk.get("identity_sha256") or "").lower()
@@ -439,6 +452,7 @@ def build_receipt(
         "schema": SCHEMA,
         "evidence_source": evidence_source,
         "hardware_observed": evidence_source == "live",
+        "source_commit": source_commit,
         "target": target,
         "target_snapshot_identity_sha256": target_snapshot,
         "target_stable_identity_sha256": target_stable,
@@ -495,6 +509,7 @@ def main() -> int:
     receipt = build_receipt(
         target=args.target,
         target_disk=target_disk,
+        source_commit=str(drive_evidence.get("source_commit") or ""),
         rollback_capture=rollback_capture,
         rollback_contract_sha256=args.rollback_contract_sha256,
         output_dir=output_dir,
