@@ -328,9 +328,7 @@ def verify_execution_revision(
     executing_commit = source_commit.strip().lower()
     evidence_commit = str(drive_evidence.get("source_commit") or "").lower()
     if not SOURCE_COMMIT_RE.fullmatch(executing_commit):
-        raise RollbackCaptureError(
-            "Executing source commit is missing or invalid."
-        )
+        raise RollbackCaptureError("Executing source commit is missing or invalid.")
     if evidence_commit != executing_commit:
         raise RollbackCaptureError(
             "Drive evidence was produced by a different source commit."
