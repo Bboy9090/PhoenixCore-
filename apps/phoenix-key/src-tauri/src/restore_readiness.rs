@@ -958,6 +958,27 @@ mod tests {
     }
 
     #[test]
+    fn tampered_source_verification_checksum_blocks_readiness() {
+        let (plan, mut source_verification, trust, image, target, target_verification, rollback) =
+            evidence();
+        source_verification["matches"] = json!(false);
+
+        let result = assess_restore_readiness(
+            &plan,
+            &source_verification,
+            &trust,
+            &image,
+            &target,
+            &target_verification,
+            &rollback,
+        );
+        assert!(!result.ready_for_restore_executor_design);
+        assert!(result
+            .blocked_gates
+            .contains(&"fresh_source_identity_revalidated".to_string()));
+    }
+
+    #[test]
     fn incomplete_rollback_bundle_blocks_readiness() {
         let (plan, source_verification, trust, metadata, target, verification, mut rollback) = evidence();
         rollback["complete"] = json!(false);
