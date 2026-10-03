@@ -1021,35 +1021,29 @@ mod tests {
 
     #[test]
     fn rollback_destination_verification_rejects_foreign_target_binding() {
-        let mut evidence = complete_evidence();
-        let target_identity = evidence["target_safety"]["target_identity_sha256"]
-            .as_str()
-            .unwrap()
-            .to_string();
-        let target_stable = evidence["target_safety"]["target_stable_identity_sha256"]
-            .as_str()
-            .unwrap()
-            .to_string();
+        let mut evidence = software_evidence();
 
         let destination = crate::rollback_destination::assess_rollback_destination(
             &json!({
                 "disk": {
-                    "target": "\\\\.\\PHYSICALDRIVE7",
-                    "identity_sha256": target_identity,
-                    "stable_identity_sha256": target_stable
+                    "target": "\\\\.\\PHYSICALDRIVE11",
+                    "identity_sha256": "e".repeat(64),
+                    "stable_identity_sha256": "f".repeat(64)
                 }
             }),
             &json!({
                 "source": {
-                    "physical_target": "\\\\.\\PHYSICALDRIVE9",
-                    "stable_identity_sha256": "f".repeat(64)
+                    "physical_target": "\\\\.\\PHYSICALDRIVE12",
+                    "stable_identity_sha256": "9".repeat(64)
                 }
             }),
             "E:/PhoenixKeyRollback",
-            &target_stable,
+            &"f".repeat(64),
         );
-        let mut destination_value = serde_json::to_value(destination).unwrap();
-        destination_value["target_snapshot_identity_sha256"] = json!("9".repeat(64));
+        let destination_value = serde_json::to_value(destination).unwrap();
+        assert!(crate::rollback_destination::verify_rollback_destination_verification_sha256(
+            &destination_value
+        ));
         evidence["rollback_destination_verification"] = destination_value;
 
         let bundle = build_recovery_evidence_bundle_v2(&evidence);
