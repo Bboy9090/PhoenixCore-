@@ -1,5 +1,5 @@
 use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sha256;
-use crate::source_identity::verify_identity_bound_plan_sha256;
+use crate::source_identity::{verify_identity_bound_plan_sha256, verify_source_identity_verification_sha256};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
@@ -190,10 +190,11 @@ pub fn assess_restore_hardware_preflight(
         &mut blocked,
     );
 
-    let source_current = source_identity_verification
-        .get("matches")
-        .and_then(Value::as_bool)
-        == Some(true)
+    let source_current = verify_source_identity_verification_sha256(source_identity_verification)
+        && source_identity_verification
+            .get("matches")
+            .and_then(Value::as_bool)
+            == Some(true)
         && source_identity_verification
             .get("reanalysis_required")
             .and_then(Value::as_bool)
