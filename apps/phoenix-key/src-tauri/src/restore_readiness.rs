@@ -1,4 +1,4 @@
-use crate::source_identity::verify_identity_bound_plan_sha256;
+use crate::source_identity::{verify_identity_bound_plan_sha256, verify_source_identity_verification_sha256};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -129,10 +129,11 @@ pub fn assess_restore_readiness(
         .pointer("/source_identity/size_bytes")
         .and_then(Value::as_u64);
 
-    let source_identity_current = source_identity_verification
-        .get("matches")
-        .and_then(Value::as_bool)
-        == Some(true)
+    let source_identity_current = verify_source_identity_verification_sha256(source_identity_verification)
+        && source_identity_verification
+            .get("matches")
+            .and_then(Value::as_bool)
+            == Some(true)
         && source_identity_verification
             .get("reanalysis_required")
             .and_then(Value::as_bool)
@@ -474,7 +475,7 @@ pub fn assess_windows_restore_readiness(
 #[cfg(test)]
 mod tests {
     use super::assess_restore_readiness;
-    use crate::source_identity::identity_bound_plan_sha256;
+    use crate::source_identity::{identity_bound_plan_sha256, source_identity_verification_sha256};
     use serde_json::{json, Value};
 
     fn evidence() -> (
@@ -507,14 +508,19 @@ mod tests {
             "destructive_actions_performed": false
         });
         plan["plan_sha256"] = Value::String(identity_bound_plan_sha256(&plan).unwrap());
+        let mut source_verification = json!({
+            "schema": "phoenix_key.recovery_source_identity_verification.v1",
+            "matches": true,
+            "reanalysis_required": false,
+            "expected_sha256": "a".repeat(64),
+            "observed_sha256": "a".repeat(64)
+        });
+        source_verification["receipt_sha256"] =
+            Value::String(source_identity_verification_sha256(&source_verification).unwrap());
+
         (
             plan,
-            json!({
-                "matches": true,
-                "reanalysis_required": false,
-                "expected_sha256": "a".repeat(64),
-                "observed_sha256": "a".repeat(64)
-            }),
+            source_verification,
             json!({
                 "verified_for_use": true,
                 "sha256_matches": true,
@@ -949,6 +955,27 @@ mod tests {
         assert!(result
             .blocked_gates
             .contains(&"source_windows_edition_identified".to_string()));
+    }
+
+    #[test]
+    fn tampered_source_verification_checksum_blocks_readiness() {
+        let (plan, mut source_verification, trust, image, target, target_verification, rollback) =
+            evidence();
+        source_verification["matches"] = json!(false);
+
+        let result = assess_restore_readiness(
+            &plan,
+            &source_verification,
+            &trust,
+            &image,
+            &target,
+            &target_verification,
+            &rollback,
+        );
+        assert!(!result.ready_for_restore_executor_design);
+        assert!(result
+            .blocked_gates
+            .contains(&"fresh_source_identity_revalidated".to_string()));
     }
 
     #[test]

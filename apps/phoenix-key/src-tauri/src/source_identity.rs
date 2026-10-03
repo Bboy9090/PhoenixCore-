@@ -34,6 +34,7 @@ pub struct SourceIdentityVerification {
     pub observed_sha256: String,
     pub matches: bool,
     pub reanalysis_required: bool,
+    pub receipt_sha256: String,
 }
 
 fn canonicalize_json(value: &Value) -> Value {
@@ -55,6 +56,34 @@ fn canonicalize_json(value: &Value) -> Value {
         Value::Array(items) => Value::Array(items.iter().map(canonicalize_json).collect()),
         _ => value.clone(),
     }
+}
+
+pub fn source_identity_verification_sha256(value: &Value) -> Result<String, String> {
+    let mut unsigned = value.clone();
+    let object = unsigned
+        .as_object_mut()
+        .ok_or_else(|| "source identity verification is not a JSON object".to_string())?;
+    object.remove("receipt_sha256");
+    let bytes = serde_json::to_vec(&canonicalize_json(&unsigned))
+        .map_err(|error| format!("cannot serialize source identity verification: {error}"))?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
+#[allow(dead_code)]
+pub fn verify_source_identity_verification_sha256(value: &Value) -> bool {
+    if value.get("schema").and_then(Value::as_str)
+        != Some("phoenix_key.recovery_source_identity_verification.v1")
+    {
+        return false;
+    }
+    let Some(expected) = value.get("receipt_sha256").and_then(Value::as_str) else {
+        return false;
+    };
+    if expected.len() != 64 || !expected.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return false;
+    }
+    source_identity_verification_sha256(value)
+        .is_ok_and(|actual| actual.eq_ignore_ascii_case(expected))
 }
 
 pub fn identity_bound_plan_sha256(value: &Value) -> Result<String, String> {
@@ -335,13 +364,19 @@ pub fn verify_source_identity(
 ) -> Result<SourceIdentityVerification, String> {
     let observed = capture_source_identity(path)?;
     let matches = observed.complete && observed.sha256.eq_ignore_ascii_case(expected_sha256.trim());
-    Ok(SourceIdentityVerification {
+    let mut receipt = SourceIdentityVerification {
         schema: "phoenix_key.recovery_source_identity_verification.v1",
         expected_sha256: expected_sha256.trim().to_ascii_lowercase(),
         observed_sha256: observed.sha256,
         matches,
         reanalysis_required: !matches,
-    })
+        receipt_sha256: String::new(),
+    };
+    let mut value = serde_json::to_value(&receipt)
+        .map_err(|error| format!("cannot serialize source identity verification: {error}"))?;
+    receipt.receipt_sha256 = source_identity_verification_sha256(&value)?;
+    value["receipt_sha256"] = Value::String(receipt.receipt_sha256.clone());
+    Ok(receipt)
 }
 
 #[cfg(test)]
@@ -349,6 +384,7 @@ mod tests {
     use super::{
         build_identity_bound_recovery_plan, capture_source_identity,
         verify_identity_bound_plan_sha256, verify_source_identity,
+        verify_source_identity_verification_sha256,
     };
     use serde_json::Value;
     use std::{fs, path::PathBuf};
@@ -429,6 +465,20 @@ mod tests {
         let verification = verify_source_identity(&source, &identity.sha256).unwrap();
         assert!(!verification.matches);
         assert!(verification.reanalysis_required);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn source_identity_verification_checksum_detects_tampering() {
+        let root = temp_case("verification-checksum");
+        let source = root.join("source.bin");
+        fs::write(&source, b"fixture").unwrap();
+        let identity = capture_source_identity(&source).unwrap();
+        let receipt = verify_source_identity(&source, &identity.sha256).unwrap();
+        let mut value = serde_json::to_value(receipt).unwrap();
+        assert!(verify_source_identity_verification_sha256(&value));
+        value["matches"] = Value::Bool(false);
+        assert!(!verify_source_identity_verification_sha256(&value));
         fs::remove_dir_all(root).unwrap();
     }
 
