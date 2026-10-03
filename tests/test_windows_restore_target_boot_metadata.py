@@ -210,6 +210,21 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
                     missing_or_unverified=[],
                 )
 
+    def test_execution_revision_rejects_stale_boot_inputs(self):
+        drive_receipt = {
+            "source_commit": "a" * 40,
+        }
+        rollback_receipt = rollback_capture_receipt()
+        with self.assertRaisesRegex(
+            restore_target_boot_metadata.RestoreTargetBootMetadataError,
+            "different source commit",
+        ):
+            restore_target_boot_metadata.verify_execution_revision(
+                drive_receipt,
+                rollback_receipt,
+                "b" * 40,
+            )
+
     def test_tampered_rollback_capture_is_rejected(self):
         receipt = rollback_capture_receipt()
         receipt["target_bytes_written"] = 1
