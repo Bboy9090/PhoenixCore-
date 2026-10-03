@@ -166,6 +166,7 @@ class WindowsRestoreRollbackCaptureTests(unittest.TestCase):
             self.assertFalse(result["target_write_attempted"])
             self.assertTrue(result["rollback_destination_files_written"])
             self.assertFalse(result["system_mutations_performed"])
+            self.assertEqual("a" * 40, result["source_commit"])
             self.assertIn(
                 "target_partition_table_backup", result["captured_requirements"]
             )
