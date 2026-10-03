@@ -140,6 +140,15 @@ def require_live_boot_metadata_inputs(
         raise RestoreTargetBootMetadataError(
             "Live boot-metadata capture requires a live rollback-capture receipt."
         )
+    drive_source_commit = str(drive_receipt.get("source_commit") or "").lower()
+    rollback_source_commit = str(rollback_receipt.get("source_commit") or "").lower()
+    if (
+        not SOURCE_COMMIT_RE.fullmatch(drive_source_commit)
+        or rollback_source_commit != drive_source_commit
+    ):
+        raise RestoreTargetBootMetadataError(
+            "Live boot-metadata inputs were produced by different source commits."
+        )
 
 
 def verify_rollback_capture(receipt: dict[str, Any]) -> None:
@@ -393,20 +402,13 @@ def build_receipt(
     inventory: list[dict[str, Any]],
     artifacts: dict[str, Any],
     missing_or_unverified: list[str],
-    source_commit: str,
     evidence_source: str = "fixture",
 ) -> dict[str, Any]:
-    source_commit = source_commit.strip().lower()
+    source_commit = str(rollback_capture.get("source_commit") or "").lower()
     if not SOURCE_COMMIT_RE.fullmatch(source_commit):
         raise RestoreTargetBootMetadataError(
             "Boot-metadata source commit is missing or invalid."
         )
-    rollback_source_commit = str(rollback_capture.get("source_commit") or "").lower()
-    if rollback_source_commit != source_commit:
-        raise RestoreTargetBootMetadataError(
-            "Rollback capture was produced by a different source commit."
-        )
-
     if evidence_source not in {"live", "fixture"}:
         raise RestoreTargetBootMetadataError(
             "Boot-metadata evidence source is invalid."
@@ -515,7 +517,6 @@ def main() -> int:
         inventory=inventory,
         artifacts=artifacts,
         missing_or_unverified=missing,
-        source_commit=str(drive_evidence.get("source_commit") or ""),
         evidence_source="live",
     )
     write_json_atomic(receipt, output_dir / "restore-target-boot-metadata.json")
