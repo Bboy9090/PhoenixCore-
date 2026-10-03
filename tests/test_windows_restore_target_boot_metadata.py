@@ -22,6 +22,7 @@ TARGET = r"\\.\PHYSICALDRIVE7"
 def rollback_capture_receipt() -> dict:
     receipt = {
         "schema": "phoenix_key.restore_target_rollback_capture.v1",
+        "source_commit": "a" * 40,
         "target": TARGET,
         "target_snapshot_identity_sha256": "a" * 64,
         "target_stable_identity_sha256": "b" * 64,
@@ -128,6 +129,7 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
             self.assertFalse(receipt["target_write_attempted"])
             self.assertFalse(receipt["partition_mount_or_assignment_attempted"])
             self.assertFalse(receipt["system_mutations_performed"])
+            self.assertEqual("a" * 40, receipt["source_commit"])
             self.assertEqual(64, len(receipt["receipt_sha256"]))
 
     def test_unmounted_efi_partition_stays_blocked(self):
@@ -198,6 +200,7 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
         drive_receipt = {
             "evidence_source": "fixture",
             "hardware_observed": False,
+            "source_commit": "a" * 40,
         }
         rollback_receipt = rollback_capture_receipt()
         rollback_receipt["evidence_source"] = "fixture"
@@ -229,6 +232,26 @@ class RestoreTargetBootMetadataTests(unittest.TestCase):
             drive_receipt,
             rollback_receipt,
         )
+
+    def test_live_boot_metadata_rejects_mixed_revisions(self):
+        drive_receipt = {
+            "evidence_source": "live",
+            "hardware_observed": True,
+            "source_commit": "a" * 40,
+        }
+        rollback_receipt = rollback_capture_receipt()
+        rollback_receipt["evidence_source"] = "live"
+        rollback_receipt["hardware_observed"] = True
+        rollback_receipt["source_commit"] = "b" * 40
+        with self.assertRaisesRegex(
+            restore_target_boot_metadata.RestoreTargetBootMetadataError,
+            "different source commits",
+        ):
+            restore_target_boot_metadata.require_live_boot_metadata_inputs(
+                drive_receipt,
+                rollback_receipt,
+            )
+
 
 
 if __name__ == "__main__":
