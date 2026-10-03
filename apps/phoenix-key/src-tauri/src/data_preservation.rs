@@ -524,9 +524,15 @@ pub fn build_target_data_preservation_receipt_with_backup(
     }
 
     receipt.backup_receipt_sha256 = Some(backup_receipt_sha.to_ascii_lowercase());
-    receipt.resolved = true;
-    receipt.block_reasons.clear();
-    receipt.required_next_evidence.clear();
+    receipt.resolved = false;
+    receipt.block_reasons = vec![
+        "target_data_backup_complete_coverage_not_proven".to_string(),
+        "backup_destination_identity_not_independently_verified".to_string(),
+    ];
+    receipt.required_next_evidence = vec![
+        "target_data_backup_coverage_proof".to_string(),
+        "backup_destination_identity_verification".to_string(),
+    ];
     receipt.receipt_sha256 = receipt_sha256(&receipt);
     Ok(receipt)
 }
@@ -750,7 +756,7 @@ mod tests {
     }
 
     #[test]
-    fn preserve_mode_resolves_with_verified_backup_receipt() {
+    fn preserve_mode_verifies_artifacts_but_requires_coverage_and_destination_proof() {
         let (backup, root) = backup_receipt();
         assert!(verify_target_data_backup_receipt_sha256(&backup));
         assert!(verify_target_data_backup_artifacts(&backup).is_ok());
@@ -760,9 +766,19 @@ mod tests {
             &backup,
         )
         .unwrap();
-        assert!(receipt.resolved);
-        assert!(receipt.block_reasons.is_empty());
-        assert!(receipt.required_next_evidence.is_empty());
+        assert!(!receipt.resolved);
+        assert!(receipt
+            .block_reasons
+            .contains(&"target_data_backup_complete_coverage_not_proven".to_string()));
+        assert!(receipt
+            .block_reasons
+            .contains(&"backup_destination_identity_not_independently_verified".to_string()));
+        assert!(receipt
+            .required_next_evidence
+            .contains(&"target_data_backup_coverage_proof".to_string()));
+        assert!(receipt
+            .required_next_evidence
+            .contains(&"backup_destination_identity_verification".to_string()));
         assert_eq!(
             receipt.backup_receipt_sha256.as_deref(),
             backup.get("receipt_sha256").and_then(Value::as_str)
