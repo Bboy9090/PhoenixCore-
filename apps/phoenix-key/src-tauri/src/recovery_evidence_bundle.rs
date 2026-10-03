@@ -931,8 +931,14 @@ mod tests {
 
     #[test]
     fn hardware_campaign_manifest_requires_all_physical_gates_and_exact_receipts() {
-        let rollback = json!({"receipt_sha256": "d".repeat(64), "source_commit": "a".repeat(40)});
-        let boot = json!({"receipt_sha256": "e".repeat(64), "source_commit": "a".repeat(40)});
+        let rollback = json!({
+            "receipt_sha256": "d".repeat(64),
+            "source_commit": "a".repeat(40)
+        });
+        let boot = json!({
+            "receipt_sha256": "e".repeat(64),
+            "source_commit": "a".repeat(40)
+        });
         let mut manifest = json!({
             "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
             "campaign_id": "campaign-001",
@@ -943,6 +949,12 @@ mod tests {
             },
             "rollback_capture": {
                 "receipt_sha256": "d".repeat(64),
+                "source_commit": "a".repeat(40)
+            },
+            "reconnect": {
+                "source_commit": "a".repeat(40)
+            },
+            "substitution": {
                 "source_commit": "a".repeat(40)
             },
             "boot_metadata": {
@@ -986,8 +998,14 @@ mod tests {
 
     #[test]
     fn hardware_campaign_manifest_rejects_revision_mismatch() {
-        let rollback = json!({"receipt_sha256": "d".repeat(64), "source_commit": "a".repeat(40)});
-        let boot = json!({"receipt_sha256": "e".repeat(64), "source_commit": "a".repeat(40)});
+        let rollback = json!({
+            "receipt_sha256": "d".repeat(64),
+            "source_commit": "a".repeat(40)
+        });
+        let boot = json!({
+            "receipt_sha256": "e".repeat(64),
+            "source_commit": "a".repeat(40)
+        });
         let mut manifest = json!({
             "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
             "source_commit": "a".repeat(40),
@@ -997,6 +1015,12 @@ mod tests {
             },
             "rollback_capture": {
                 "receipt_sha256": "d".repeat(64),
+                "source_commit": "a".repeat(40)
+            },
+            "reconnect": {
+                "source_commit": "a".repeat(40)
+            },
+            "substitution": {
                 "source_commit": "a".repeat(40)
             },
             "boot_metadata": {
@@ -1028,8 +1052,14 @@ mod tests {
 
     #[test]
     fn hardware_campaign_manifest_rejects_mixed_evidence_revision() {
-        let rollback = json!({"receipt_sha256": "d".repeat(64), "source_commit": "b".repeat(40)});
-        let boot = json!({"receipt_sha256": "e".repeat(64), "source_commit": "a".repeat(40)});
+        let rollback = json!({
+            "receipt_sha256": "d".repeat(64),
+            "source_commit": "b".repeat(40)
+        });
+        let boot = json!({
+            "receipt_sha256": "e".repeat(64),
+            "source_commit": "a".repeat(40)
+        });
         let mut manifest = json!({
             "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
             "source_commit": "a".repeat(40),
@@ -1124,8 +1154,14 @@ mod tests {
 
     #[test]
     fn hardware_campaign_manifest_rejects_wrong_receipt_binding() {
-        let rollback = json!({"receipt_sha256": "d".repeat(64), "source_commit": "a".repeat(40)});
-        let boot = json!({"receipt_sha256": "e".repeat(64), "source_commit": "a".repeat(40)});
+        let rollback = json!({
+            "receipt_sha256": "d".repeat(64),
+            "source_commit": "a".repeat(40)
+        });
+        let boot = json!({
+            "receipt_sha256": "e".repeat(64),
+            "source_commit": "a".repeat(40)
+        });
         let mut manifest = json!({
             "schema": "phoenix_key.windows_recovery_hardware_campaign.v1",
             "source_commit": "a".repeat(40),
@@ -1135,6 +1171,12 @@ mod tests {
             },
             "rollback_capture": {
                 "receipt_sha256": "0".repeat(64),
+                "source_commit": "a".repeat(40)
+            },
+            "reconnect": {
+                "source_commit": "a".repeat(40)
+            },
+            "substitution": {
                 "source_commit": "a".repeat(40)
             },
             "boot_metadata": {
