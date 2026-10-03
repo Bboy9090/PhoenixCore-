@@ -2,6 +2,11 @@ use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sh
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::{
+    fs,
+    io::Read,
+    path::{Component, Path, PathBuf},
+};
 
 pub const EXPLICIT_DISCARD_ACKNOWLEDGEMENT: &str =
     "I ACCEPT DATA LOSS ON THIS TARGET";
@@ -13,6 +18,8 @@ pub struct TargetDataPreservationReceipt {
     pub target_stable_identity_sha256: String,
     pub rollback_contract_sha256: String,
     pub acknowledgement: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backup_receipt_sha256: Option<String>,
     pub resolved: bool,
     pub block_reasons: Vec<String>,
     pub required_next_evidence: Vec<String>,
@@ -28,10 +35,28 @@ struct UnsignedTargetDataPreservationReceipt<'a> {
     target_stable_identity_sha256: &'a str,
     rollback_contract_sha256: &'a str,
     acknowledgement: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    backup_receipt_sha256: Option<&'a str>,
     resolved: bool,
     block_reasons: &'a [String],
     required_next_evidence: &'a [String],
     restore_unlock_ready: bool,
+    system_mutations_performed: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct UnsignedTargetDataBackupReceipt<'a> {
+    schema: &'a str,
+    target_stable_identity_sha256: &'a str,
+    rollback_contract_sha256: &'a str,
+    backup_destination_stable_identity_sha256: &'a str,
+    backup_root: &'a str,
+    backup_manifest_path: &'a str,
+    backup_manifest_sha256: &'a str,
+    backup_verified: bool,
+    files_verified: bool,
+    target_bytes_written: u64,
+    target_write_attempted: bool,
     system_mutations_performed: bool,
 }
 
@@ -46,6 +71,7 @@ fn receipt_sha256(receipt: &TargetDataPreservationReceipt) -> String {
         target_stable_identity_sha256: &receipt.target_stable_identity_sha256,
         rollback_contract_sha256: &receipt.rollback_contract_sha256,
         acknowledgement: &receipt.acknowledgement,
+        backup_receipt_sha256: receipt.backup_receipt_sha256.as_deref(),
         resolved: receipt.resolved,
         block_reasons: &receipt.block_reasons,
         required_next_evidence: &receipt.required_next_evidence,
@@ -55,6 +81,206 @@ fn receipt_sha256(receipt: &TargetDataPreservationReceipt) -> String {
     let bytes =
         serde_json::to_vec(&unsigned).expect("data-preservation receipt serialization cannot fail");
     format!("{:x}", Sha256::digest(bytes))
+}
+
+pub(crate) fn target_data_backup_receipt_sha256(value: &Value) -> Option<String> {
+    if value.get("schema").and_then(Value::as_str)
+        != Some("phoenix_key.target_data_backup_receipt.v1")
+    {
+        return None;
+    }
+    let unsigned = UnsignedTargetDataBackupReceipt {
+        schema: value.get("schema")?.as_str()?,
+        target_stable_identity_sha256: value
+            .get("target_stable_identity_sha256")?
+            .as_str()?,
+        rollback_contract_sha256: value.get("rollback_contract_sha256")?.as_str()?,
+        backup_destination_stable_identity_sha256: value
+            .get("backup_destination_stable_identity_sha256")?
+            .as_str()?,
+        backup_root: value.get("backup_root")?.as_str()?,
+        backup_manifest_path: value.get("backup_manifest_path")?.as_str()?,
+        backup_manifest_sha256: value.get("backup_manifest_sha256")?.as_str()?,
+        backup_verified: value.get("backup_verified")?.as_bool()?,
+        files_verified: value.get("files_verified")?.as_bool()?,
+        target_bytes_written: value.get("target_bytes_written")?.as_u64()?,
+        target_write_attempted: value.get("target_write_attempted")?.as_bool()?,
+        system_mutations_performed: value
+            .get("system_mutations_performed")?
+            .as_bool()?,
+    };
+    serde_json::to_vec(&unsigned)
+        .ok()
+        .map(|bytes| format!("{:x}", Sha256::digest(bytes)))
+}
+
+pub fn verify_target_data_backup_receipt_sha256(value: &Value) -> bool {
+    let Some(expected) = value.get("receipt_sha256").and_then(Value::as_str) else {
+        return false;
+    };
+    valid_sha256(expected)
+        && target_data_backup_receipt_sha256(value)
+            .is_some_and(|actual| actual.eq_ignore_ascii_case(expected))
+}
+
+fn sha256_file(path: &Path) -> Result<(u64, String), String> {
+    let mut file = fs::File::open(path)
+        .map_err(|error| format!("cannot open backup artifact {}: {error}", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut total = 0_u64;
+    let mut buffer = [0_u8; 1024 * 1024];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|error| format!("cannot read backup artifact {}: {error}", path.display()))?;
+        if read == 0 {
+            break;
+        }
+        total = total.saturating_add(read as u64);
+        hasher.update(&buffer[..read]);
+    }
+    Ok((total, format!("{:x}", hasher.finalize())))
+}
+
+fn safe_relative_path(value: &str) -> Option<PathBuf> {
+    let path = Path::new(value);
+    if path.as_os_str().is_empty() || path.is_absolute() {
+        return None;
+    }
+    if path.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    }) {
+        return None;
+    }
+    Some(path.to_path_buf())
+}
+
+pub fn verify_target_data_backup_artifacts(value: &Value) -> Result<(), String> {
+    if !verify_target_data_backup_receipt_sha256(value) {
+        return Err("target-data backup receipt checksum is invalid".to_string());
+    }
+    if value.get("backup_verified").and_then(Value::as_bool) != Some(true)
+        || value.get("files_verified").and_then(Value::as_bool) != Some(true)
+        || value.get("target_bytes_written").and_then(Value::as_u64) != Some(0)
+        || value
+            .get("target_write_attempted")
+            .and_then(Value::as_bool)
+            != Some(false)
+        || value
+            .get("system_mutations_performed")
+            .and_then(Value::as_bool)
+            != Some(false)
+    {
+        return Err("backup receipt does not preserve required safety locks".to_string());
+    }
+
+    let backup_root = value
+        .get("backup_root")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "backup root is missing".to_string())?;
+    let manifest_relative = value
+        .get("backup_manifest_path")
+        .and_then(Value::as_str)
+        .and_then(safe_relative_path)
+        .ok_or_else(|| "backup manifest path must be a safe relative path".to_string())?;
+    let expected_manifest_sha = value
+        .get("backup_manifest_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "backup manifest SHA-256 is missing".to_string())?;
+    if !valid_sha256(expected_manifest_sha) {
+        return Err("backup manifest SHA-256 is invalid".to_string());
+    }
+
+    let root = fs::canonicalize(backup_root)
+        .map_err(|error| format!("cannot resolve backup root: {error}"))?;
+    if !root.is_dir() {
+        return Err("backup root is not a directory".to_string());
+    }
+    let manifest_path = fs::canonicalize(root.join(&manifest_relative))
+        .map_err(|error| format!("cannot resolve backup manifest: {error}"))?;
+    if !manifest_path.starts_with(&root) {
+        return Err("backup manifest escapes the backup root".to_string());
+    }
+    let (_, actual_manifest_sha) = sha256_file(&manifest_path)?;
+    if !actual_manifest_sha.eq_ignore_ascii_case(expected_manifest_sha) {
+        return Err("backup manifest checksum does not match the on-disk manifest".to_string());
+    }
+
+    let manifest_text = fs::read_to_string(&manifest_path)
+        .map_err(|error| format!("cannot read backup manifest: {error}"))?;
+    let manifest: Value = serde_json::from_str(&manifest_text)
+        .map_err(|error| format!("invalid backup manifest JSON: {error}"))?;
+    if manifest.get("schema").and_then(Value::as_str)
+        != Some("phoenix_key.target_data_backup_manifest.v1")
+    {
+        return Err("unsupported target-data backup manifest schema".to_string());
+    }
+
+    for field in [
+        "target_stable_identity_sha256",
+        "rollback_contract_sha256",
+        "backup_destination_stable_identity_sha256",
+    ] {
+        let receipt_value = value
+            .get(field)
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("backup receipt {field} is missing"))?;
+        let manifest_value = manifest
+            .get(field)
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("backup manifest {field} is missing"))?;
+        if !valid_sha256(receipt_value)
+            || !valid_sha256(manifest_value)
+            || !receipt_value.eq_ignore_ascii_case(manifest_value)
+        {
+            return Err(format!("backup manifest {field} does not match the receipt"));
+        }
+    }
+
+    let artifacts = manifest
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "backup manifest artifacts are missing".to_string())?;
+    if artifacts.is_empty() {
+        return Err("backup manifest contains no artifacts".to_string());
+    }
+
+    for artifact in artifacts {
+        let relative = artifact
+            .get("path")
+            .and_then(Value::as_str)
+            .and_then(safe_relative_path)
+            .ok_or_else(|| "backup artifact path must be a safe relative path".to_string())?;
+        let expected_size = artifact
+            .get("size_bytes")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| "backup artifact size is missing".to_string())?;
+        let expected_sha = artifact
+            .get("sha256")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "backup artifact SHA-256 is missing".to_string())?;
+        if !valid_sha256(expected_sha) {
+            return Err("backup artifact SHA-256 is invalid".to_string());
+        }
+
+        let artifact_path = fs::canonicalize(root.join(&relative))
+            .map_err(|error| format!("cannot resolve backup artifact {}: {error}", relative.display()))?;
+        if !artifact_path.starts_with(&root) {
+            return Err("backup artifact escapes the backup root".to_string());
+        }
+        let (actual_size, actual_sha) = sha256_file(&artifact_path)?;
+        if actual_size != expected_size || !actual_sha.eq_ignore_ascii_case(expected_sha) {
+            return Err(format!(
+                "backup artifact {} does not match manifest size/hash",
+                relative.display()
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 pub fn verify_target_data_preservation_receipt_sha256(value: &Value) -> bool {
@@ -90,6 +316,12 @@ pub fn verify_target_data_preservation_receipt_sha256(value: &Value) -> bool {
     let Some(acknowledgement) = value.get("acknowledgement").and_then(Value::as_str) else {
         return false;
     };
+    let backup_receipt_sha256 = value
+        .get("backup_receipt_sha256")
+        .and_then(Value::as_str);
+    if backup_receipt_sha256.is_some_and(|value| !valid_sha256(value)) {
+        return false;
+    }
     let Some(resolved) = value.get("resolved").and_then(Value::as_bool) else {
         return false;
     };
@@ -125,6 +357,7 @@ pub fn verify_target_data_preservation_receipt_sha256(value: &Value) -> bool {
         target_stable_identity_sha256,
         rollback_contract_sha256,
         acknowledgement,
+        backup_receipt_sha256,
         resolved,
         block_reasons: &block_reasons,
         required_next_evidence: &required_next_evidence,
@@ -212,6 +445,7 @@ pub fn build_target_data_preservation_receipt(
         target_stable_identity_sha256: target_stable_identity,
         rollback_contract_sha256: contract_sha256,
         acknowledgement: acknowledgement.to_string(),
+        backup_receipt_sha256: None,
         resolved,
         block_reasons,
         required_next_evidence,
@@ -221,6 +455,116 @@ pub fn build_target_data_preservation_receipt(
     };
     receipt.receipt_sha256 = receipt_sha256(&receipt);
     Ok(receipt)
+}
+
+pub fn build_target_data_preservation_receipt_with_backup(
+    target_safety: &Value,
+    rollback_contract: &Value,
+    backup_receipt: &Value,
+) -> Result<TargetDataPreservationReceipt, String> {
+    let mut receipt = build_target_data_preservation_receipt(
+        target_safety,
+        rollback_contract,
+        "preserve_existing_data",
+        "",
+    )?;
+    verify_target_data_backup_artifacts(backup_receipt)?;
+
+    let backup_target = backup_receipt
+        .get("target_stable_identity_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "backup receipt target stable identity is missing".to_string())?;
+    let backup_contract = backup_receipt
+        .get("rollback_contract_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "backup receipt rollback contract SHA-256 is missing".to_string())?;
+    let backup_destination = backup_receipt
+        .get("backup_destination_stable_identity_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "backup destination stable identity is missing".to_string())?;
+    let backup_manifest = backup_receipt
+        .get("backup_manifest_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "backup manifest SHA-256 is missing".to_string())?;
+    let backup_receipt_sha = backup_receipt
+        .get("receipt_sha256")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "backup receipt SHA-256 is missing".to_string())?;
+
+    if !valid_sha256(backup_target)
+        || !valid_sha256(backup_contract)
+        || !valid_sha256(backup_destination)
+        || !valid_sha256(backup_manifest)
+        || !valid_sha256(backup_receipt_sha)
+    {
+        return Err("backup evidence requires valid SHA-256 identities".to_string());
+    }
+    if !backup_target.eq_ignore_ascii_case(&receipt.target_stable_identity_sha256) {
+        return Err("backup receipt target does not match the preservation target".to_string());
+    }
+    if !backup_contract.eq_ignore_ascii_case(&receipt.rollback_contract_sha256) {
+        return Err("backup receipt rollback contract does not match".to_string());
+    }
+    if backup_destination.eq_ignore_ascii_case(&receipt.target_stable_identity_sha256) {
+        return Err("backup destination must be a different physical device".to_string());
+    }
+    if backup_receipt.get("backup_verified").and_then(Value::as_bool) != Some(true)
+        || backup_receipt.get("files_verified").and_then(Value::as_bool) != Some(true)
+        || backup_receipt.get("target_bytes_written").and_then(Value::as_u64) != Some(0)
+        || backup_receipt
+            .get("target_write_attempted")
+            .and_then(Value::as_bool)
+            != Some(false)
+        || backup_receipt
+            .get("system_mutations_performed")
+            .and_then(Value::as_bool)
+            != Some(false)
+    {
+        return Err("backup receipt does not prove a verified read-only preservation chain".to_string());
+    }
+
+    receipt.backup_receipt_sha256 = Some(backup_receipt_sha.to_ascii_lowercase());
+    receipt.resolved = false;
+    receipt.block_reasons = vec![
+        "target_data_backup_complete_coverage_not_proven".to_string(),
+        "backup_destination_identity_not_independently_verified".to_string(),
+    ];
+    receipt.required_next_evidence = vec![
+        "target_data_backup_coverage_proof".to_string(),
+        "backup_destination_identity_verification".to_string(),
+    ];
+    receipt.receipt_sha256 = receipt_sha256(&receipt);
+    Ok(receipt)
+}
+
+#[tauri::command]
+pub fn load_verified_target_data_backup_receipt(
+    backup_receipt_path: String,
+) -> Result<Value, String> {
+    let text = fs::read_to_string(&backup_receipt_path)
+        .map_err(|error| format!("cannot read target-data backup receipt: {error}"))?;
+    let receipt: Value = serde_json::from_str(&text)
+        .map_err(|error| format!("invalid target-data backup receipt JSON: {error}"))?;
+    verify_target_data_backup_artifacts(&receipt)?;
+    Ok(receipt)
+}
+
+#[tauri::command]
+pub fn resolve_target_data_preservation_with_backup(
+    target_safety_json: String,
+    rollback_contract_json: String,
+    backup_receipt_path: String,
+) -> Result<TargetDataPreservationReceipt, String> {
+    let target_safety: Value = serde_json::from_str(&target_safety_json)
+        .map_err(|error| format!("invalid target-safety JSON: {error}"))?;
+    let rollback_contract: Value = serde_json::from_str(&rollback_contract_json)
+        .map_err(|error| format!("invalid rollback-contract JSON: {error}"))?;
+    let backup_receipt = load_verified_target_data_backup_receipt(backup_receipt_path)?;
+    build_target_data_preservation_receipt_with_backup(
+        &target_safety,
+        &rollback_contract,
+        &backup_receipt,
+    )
 }
 
 #[tauri::command]
@@ -245,12 +589,23 @@ pub fn create_target_data_preservation_decision(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_target_data_preservation_receipt, verify_target_data_preservation_receipt_sha256,
+        build_target_data_preservation_receipt,
+        build_target_data_preservation_receipt_with_backup,
+        target_data_backup_receipt_sha256,
+        verify_target_data_backup_artifacts,
+        verify_target_data_backup_receipt_sha256,
+        verify_target_data_preservation_receipt_sha256,
         EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
     };
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
     use crate::source_identity::identity_bound_plan_sha256;
     use serde_json::{json, Value};
+    use sha2::{Digest, Sha256};
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn plan() -> Value {
         let mut plan = json!({
@@ -292,6 +647,56 @@ mod tests {
             build_restore_target_rollback_contract(&plan(), &target()).unwrap(),
         )
         .unwrap()
+    }
+
+    fn backup_receipt() -> (Value, PathBuf) {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "phoenix-key-preserve-test-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).unwrap();
+
+        let artifact_bytes = b"verified target data backup";
+        fs::write(root.join("data.bin"), artifact_bytes).unwrap();
+        let artifact_sha = format!("{:x}", Sha256::digest(artifact_bytes));
+        let contract_sha = contract()["contract_sha256"].as_str().unwrap().to_string();
+
+        let manifest = json!({
+            "schema": "phoenix_key.target_data_backup_manifest.v1",
+            "target_stable_identity_sha256": "c".repeat(64),
+            "rollback_contract_sha256": contract_sha,
+            "backup_destination_stable_identity_sha256": "d".repeat(64),
+            "artifacts": [{
+                "path": "data.bin",
+                "size_bytes": artifact_bytes.len(),
+                "sha256": artifact_sha
+            }]
+        });
+        let manifest_bytes = serde_json::to_vec_pretty(&manifest).unwrap();
+        fs::write(root.join("manifest.json"), &manifest_bytes).unwrap();
+        let manifest_sha = format!("{:x}", Sha256::digest(&manifest_bytes));
+
+        let mut receipt = json!({
+            "schema": "phoenix_key.target_data_backup_receipt.v1",
+            "target_stable_identity_sha256": "c".repeat(64),
+            "rollback_contract_sha256": contract()["contract_sha256"],
+            "backup_destination_stable_identity_sha256": "d".repeat(64),
+            "backup_root": root.to_string_lossy(),
+            "backup_manifest_path": "manifest.json",
+            "backup_manifest_sha256": manifest_sha,
+            "backup_verified": true,
+            "files_verified": true,
+            "target_bytes_written": 0,
+            "target_write_attempted": false,
+            "system_mutations_performed": false
+        });
+        let digest = target_data_backup_receipt_sha256(&receipt).unwrap();
+        receipt["receipt_sha256"] = json!(digest);
+        (receipt, root)
     }
 
     #[test]
@@ -348,6 +753,77 @@ mod tests {
             .required_next_evidence
             .contains(&"target_data_backup_receipt".to_string()));
         assert!(!receipt.restore_unlock_ready);
+    }
+
+    #[test]
+    fn preserve_mode_verifies_artifacts_but_requires_coverage_and_destination_proof() {
+        let (backup, root) = backup_receipt();
+        assert!(verify_target_data_backup_receipt_sha256(&backup));
+        assert!(verify_target_data_backup_artifacts(&backup).is_ok());
+        let receipt = build_target_data_preservation_receipt_with_backup(
+            &target(),
+            &contract(),
+            &backup,
+        )
+        .unwrap();
+        assert!(!receipt.resolved);
+        assert!(receipt
+            .block_reasons
+            .contains(&"target_data_backup_complete_coverage_not_proven".to_string()));
+        assert!(receipt
+            .block_reasons
+            .contains(&"backup_destination_identity_not_independently_verified".to_string()));
+        assert!(receipt
+            .required_next_evidence
+            .contains(&"target_data_backup_coverage_proof".to_string()));
+        assert!(receipt
+            .required_next_evidence
+            .contains(&"backup_destination_identity_verification".to_string()));
+        assert_eq!(
+            receipt.backup_receipt_sha256.as_deref(),
+            backup.get("receipt_sha256").and_then(Value::as_str)
+        );
+        assert!(!receipt.restore_unlock_ready);
+        assert!(!receipt.system_mutations_performed);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn preserve_mode_rejects_backup_on_target_device() {
+        let (mut backup, root) = backup_receipt();
+        backup["backup_destination_stable_identity_sha256"] = json!("c".repeat(64));
+        backup.as_object_mut().unwrap().remove("receipt_sha256");
+        backup["receipt_sha256"] =
+            json!(target_data_backup_receipt_sha256(&backup).unwrap());
+        assert!(build_target_data_preservation_receipt_with_backup(
+            &target(),
+            &contract(),
+            &backup,
+        )
+        .is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn preserve_mode_rejects_tampered_backup_receipt() {
+        let (mut backup, root) = backup_receipt();
+        backup["files_verified"] = json!(false);
+        assert!(!verify_target_data_backup_receipt_sha256(&backup));
+        assert!(build_target_data_preservation_receipt_with_backup(
+            &target(),
+            &contract(),
+            &backup,
+        )
+        .is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn independent_backup_verification_rejects_changed_artifact() {
+        let (backup, root) = backup_receipt();
+        fs::write(root.join("data.bin"), b"tampered backup bytes").unwrap();
+        assert!(verify_target_data_backup_artifacts(&backup).is_err());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

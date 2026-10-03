@@ -54,6 +54,8 @@ fn should_redact(key: &str) -> bool {
             | "receipt_path"
             | "session_path"
             | "bundle_directory"
+            | "backup_root"
+            | "backup_manifest_path"
             | "serial_number"
             | "unique_id"
             | "stdout"
@@ -202,6 +204,26 @@ mod tests {
         assert!(!export.system_mutations_performed);
         assert_eq!(export.export_sha256.len(), 64);
         assert_eq!(export.export_sha256, export_sha256(&export));
+    }
+
+    #[test]
+    fn backup_paths_are_redacted() {
+        let evidence = json!({
+            "target_data_backup_receipt": {
+                "backup_root": "C:/Users/Alice/private-backup",
+                "backup_manifest_path": "manifests/backup.json",
+                "receipt_sha256": "a".repeat(64)
+            }
+        });
+        let export = build_recovery_diagnostics_export(&evidence).unwrap();
+        assert_eq!(
+            export.sanitized_evidence["target_data_backup_receipt"]["backup_root"],
+            "[redacted]"
+        );
+        assert_eq!(
+            export.sanitized_evidence["target_data_backup_receipt"]["backup_manifest_path"],
+            "[redacted]"
+        );
     }
 
     #[test]
