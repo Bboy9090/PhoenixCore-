@@ -241,6 +241,7 @@ type RestoreHardwarePreflight = {
   target_stable_identity_sha256?: string | null;
   rollback_contract_sha256?: string | null;
   system_mutations_performed: boolean;
+  receipt_sha256: string;
 };
 
 type RollbackDestinationVerification = {
