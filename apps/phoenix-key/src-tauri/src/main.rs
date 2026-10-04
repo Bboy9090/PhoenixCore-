@@ -26,6 +26,10 @@ use data_preservation::{
     create_target_data_preservation_decision, load_verified_target_data_backup_receipt,
     resolve_target_data_preservation_with_backup,
 };
+use data_preservation_proof::{
+    load_backup_destination_identity_verification,
+    load_target_data_backup_coverage_proof,
+};
 use intel_mac_restore_gate::assess_intel_mac_restore_readiness;
 use mac_bootcamp_compat::inspect_mac_bootcamp_host;
 use libbootforge::{scan_devices, DeviceFamily, DeviceInfo, DeviceMode};
@@ -1932,6 +1936,8 @@ fn main() {
         create_target_data_preservation_decision,
         load_verified_target_data_backup_receipt,
         resolve_target_data_preservation_with_backup,
+        load_target_data_backup_coverage_proof,
+        load_backup_destination_identity_verification,
         inspect_mac_bootcamp_host,
         inspect_recovery_package_trust,
         inspect_windows_image_metadata,
