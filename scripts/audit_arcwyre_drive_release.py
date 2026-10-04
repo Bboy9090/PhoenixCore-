@@ -12,9 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "architecture" / "ARCWYRE_DRIVE_CAPABILITY_CONVERGENCE.md"
 
 FORBIDDEN_RELEASE_MARKERS = {
-    ROOT / "ecosystem" / "bootforge_builder.py": (
-        "Successfully simulated hybrid ISO packaging",
-    ),
+    ROOT
+    / "ecosystem"
+    / "bootforge_builder.py": ("Successfully simulated hybrid ISO packaging",),
 }
 
 
@@ -51,9 +51,9 @@ def main() -> int:
                     f"{path.relative_to(ROOT)}: {marker}"
                 )
 
-    tauri_config = (ROOT / "apps" / "phoenix-key" / "src-tauri" / "tauri.conf.json").read_text(
-        encoding="utf-8"
-    )
+    tauri_config = (
+        ROOT / "apps" / "phoenix-key" / "src-tauri" / "tauri.conf.json"
+    ).read_text(encoding="utf-8")
     if not re.search(r'"productName"\s*:\s*"ARCWYRE Drive"', tauri_config):
         failures.append("desktop package is not branded ARCWYRE Drive")
 

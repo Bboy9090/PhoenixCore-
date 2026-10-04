@@ -53,4 +53,6 @@ class MultiBootPayloadEngine:
 
 
 if __name__ == "__main__":
-    raise SystemExit("Invoke through ARCWYRE Drive with an identity-locked target root.")
+    raise SystemExit(
+        "Invoke through ARCWYRE Drive with an identity-locked target root."
+    )
