@@ -5,12 +5,18 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+_tool_spec = importlib.util.spec_from_file_location("_source_windows_system_tools", Path(__file__).with_name("windows_system_tools.py"))
+_tool_module = importlib.util.module_from_spec(_tool_spec)
+_tool_spec.loader.exec_module(_tool_module)
+system_tool_path = _tool_module.system_tool_path
 
 DRIVE_RE = re.compile(r"^([A-Za-z]):[\\/]")
 
@@ -131,9 +137,13 @@ $disk = Get-Disk -Number $partition.DiskNumber
   SizeBytes = [uint64]$disk.Size
 }} | ConvertTo-Json -Compress
 """
+    try:
+        powershell = system_tool_path("powershell")
+    except RuntimeError as exc:
+        raise SourceDiskResolutionError(str(exc)) from exc
     completed = subprocess.run(
         [
-            "powershell.exe",
+            powershell,
             "-NoProfile",
             "-NonInteractive",
             "-Command",
