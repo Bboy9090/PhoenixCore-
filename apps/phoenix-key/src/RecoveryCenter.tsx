@@ -116,6 +116,7 @@ type GoogleDriveReceipt = {
 };
 
 type Fat32MediaPlan = {
+  source_manifest?: Record<string, unknown>;
   filesystem: string;
   uefi_boot_files: string[];
   uefi_boot_evidence_present: boolean;
@@ -138,6 +139,17 @@ type Fat32MediaPlan = {
   source_modified: boolean;
   target_disk_modified: boolean;
   execution_performed: boolean;
+};
+
+type WindowsMediaPreparation = {
+  complete: boolean;
+  staging_directory?: string;
+  partial_directory?: string | null;
+  verified_bytes?: number;
+  manifest_sha256?: string;
+  prepared_manifest?: Record<string, unknown>;
+  error?: string;
+  cancelled?: boolean;
 };
 
 type RecoveryTargetSafety = {
@@ -600,7 +612,16 @@ export default function RecoveryCenter({
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
   const [driveProgress, setDriveProgress] = useState<GoogleDriveProgress | null>(null);
   const [fat32MediaPlan, setFat32MediaPlan] = useState<Fat32MediaPlan | null>(null);
+  const [mediaPreparation, setMediaPreparation] = useState<WindowsMediaPreparation | null>(null);
+  const [mediaOperationId, setMediaOperationId] = useState<string | null>(null);
+  const [mediaTargetPlan, setMediaTargetPlan] = useState<{
+    eligible_for_preparation: boolean; block_reasons?: string[]; error?: string; plan_sha256?: string;
+  } | null>(null);
   const storeSafe = distributionProfile?.store_safe === true;
+
+  useEffect(() => {
+    setMediaTargetPlan(null);
+  }, [targetDrive, targetSafety, mediaPreparation, sourcePath]);
 
   useEffect(() => {
     if (!isDesktopRuntime() || storeSafe) return;
@@ -690,6 +711,8 @@ export default function RecoveryCenter({
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
+    setMediaPreparation(null);
+    setMediaTargetPlan(null);
     setMessage("Source changed. Analyze it again before planning anything.");
   }
 
@@ -982,6 +1005,7 @@ export default function RecoveryCenter({
     if (!analysis || analysis.kind !== "extracted_windows_media" || busy) return;
     setBusy(true);
     setFat32MediaPlan(null);
+    setMediaPreparation(null);
     setMessage(
       "Checking the extracted Windows media for FAT32 file limits, split-WIM requirements, and UEFI boot evidence…",
     );
@@ -992,9 +1016,9 @@ export default function RecoveryCenter({
       setFat32MediaPlan(result);
       setMessage(
         result.ready_for_fat32_copy_now
-          ? "FAT32/UEFI media readiness verified. No files or disks were changed."
+          ? "The media file layout meets FAT32 limits. File hashes were captured; booting has not been tested."
           : result.ready_for_fat32_copy_after_split
-            ? "Media is UEFI-capable, but install.wim must be split before a FAT32 copy. The DISM command is a preview only."
+            ? "UEFI loader files were found. install.wim must be split before a FAT32 copy; boot compatibility remains untested."
             : "FAT32/UEFI readiness is blocked. Review the evidence before preparing media.",
       );
     } catch (error) {
@@ -1002,6 +1026,69 @@ export default function RecoveryCenter({
       setMessage(
         `FAT32/UEFI media inspection could not complete. Nothing was changed. ${String(error)}`,
       );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function prepareWindowsMedia() {
+    if (storeSafe || busy || !fat32MediaPlan?.source_manifest ||
+        !(fat32MediaPlan.ready_for_fat32_copy_now || fat32MediaPlan.ready_for_fat32_copy_after_split)) return;
+    const operationId = crypto.randomUUID();
+    setMediaOperationId(operationId);
+    setMediaPreparation(null);
+    setMediaTargetPlan(null);
+    setBusy(true);
+    setMessage("Preparing a new local media workspace and verifying copied files. Large WIM files require DISM splitting.");
+    try {
+      const result = await invoke<WindowsMediaPreparation>("prepare_windows_install_media", {
+        sourceRoot: sourcePath.trim(),
+        expectedSourceManifest: JSON.stringify(fat32MediaPlan.source_manifest),
+        stagingName: "windows-install-media",
+        operationId,
+      });
+      setMediaPreparation(result);
+      setMessage(result.complete
+        ? "Local media preparation completed with readback hashes. Physical drive creation and boot testing are still required."
+        : `Media preparation ${result.cancelled ? "cancelled" : "failed"}. Retained files require review. ${result.error ?? ""}`);
+    } catch (error) {
+      setMessage(`Media preparation could not complete. Any created workspace is retained for review. ${String(error)}`);
+    } finally {
+      setMediaOperationId(null);
+      setBusy(false);
+    }
+  }
+
+  async function cancelWindowsMediaPreparation() {
+    if (!mediaOperationId) return;
+    try {
+      await invoke("cancel_windows_install_preparation", { operationId: mediaOperationId });
+      setMessage("Cancellation requested. Waiting for the active operation to stop and report retained files.");
+    } catch (error) {
+      setMessage(`Could not request cancellation: ${String(error)}`);
+    }
+  }
+
+  async function checkPreparedMediaTarget() {
+    if (busy || storeSafe || !mediaPreparation?.complete || !mediaPreparation.staging_directory ||
+        !mediaPreparation.prepared_manifest || !targetSafety?.target_identity_sha256 ||
+        !targetSafety.target_stable_identity_sha256 || !targetDrive.trim()) return;
+    setBusy(true);
+    setMediaTargetPlan(null);
+    try {
+      const result = await invoke<NonNullable<typeof mediaTargetPlan>>("plan_windows_install_target", {
+        sourceRoot: mediaPreparation.staging_directory,
+        expectedSourceManifest: JSON.stringify(mediaPreparation.prepared_manifest),
+        target: targetDrive.trim(),
+        expectedSnapshotSha256: targetSafety.target_identity_sha256,
+        expectedStableSha256: targetSafety.target_stable_identity_sha256,
+      });
+      setMediaTargetPlan(result);
+      setMessage(result.eligible_for_preparation
+        ? "Fresh target planning passed. Drive creation remains locked pending provisioning validation."
+        : "Target planning is blocked. Review the reported safety facts.");
+    } catch (error) {
+      setMessage(`Target planning could not complete: ${String(error)}`);
     } finally {
       setBusy(false);
     }
@@ -1949,8 +2036,40 @@ export default function RecoveryCenter({
                     <p key={reason}>— {readableToken(reason)}</p>
                   ))}
                   <p>Source modified: no · target disk modified: no</p>
+                  <button type="button" className="plan-button" onClick={prepareWindowsMedia}
+                    disabled={busy || storeSafe || !fat32MediaPlan.source_manifest ||
+                      !(fat32MediaPlan.ready_for_fat32_copy_now || fat32MediaPlan.ready_for_fat32_copy_after_split)}>
+                    Prepare Verified Local Media
+                  </button>
+                  <p className="field-help">Creates a new temporary workspace on Windows, copies and hashes the files, and splits oversized install.wim files. You need free space for the source copy and split output.</p>
                 </div>
               )}
+              {mediaOperationId && <button type="button" onClick={cancelWindowsMediaPreparation}>Cancel Media Preparation</button>}
+              {mediaPreparation && <div className={mediaPreparation.complete ? "good-list" : "warning-box"}>
+                <strong>{mediaPreparation.complete ? "Local media files verified" : "Preparation incomplete"}</strong>
+                <p>Workspace: {mediaPreparation.staging_directory ?? mediaPreparation.partial_directory ?? "See operation error"}</p>
+                {mediaPreparation.complete && <>
+                  <p>Readback verified: {mediaPreparation.verified_bytes ?? 0} bytes</p>
+                  <p>File manifest SHA-256: {mediaPreparation.manifest_sha256}</p>
+                </>}
+                {mediaPreparation.error && <p>{mediaPreparation.error}</p>}
+                <p>Physical drive creation: pending · Boot test: pending</p>
+                {mediaPreparation.complete && <>
+                  <button type="button" onClick={checkPreparedMediaTarget}
+                    disabled={busy || !mediaPreparation.prepared_manifest || !targetSafety?.target_identity_sha256 ||
+                      !targetSafety.target_stable_identity_sha256 || !targetDrive.trim()}>
+                    Check Prepared Media Against Selected Drive
+                  </button>
+                  <p className="field-help">Select and inspect a target drive below first. This check reads current disk facts and verifies the prepared files.</p>
+                </>}
+              </div>}
+              {mediaTargetPlan && <div className="warning-box">
+                <strong>{mediaTargetPlan.eligible_for_preparation ? "Planning passed; creation remains locked" : "Target planning blocked"}</strong>
+                {mediaTargetPlan.error && <p>{mediaTargetPlan.error}</p>}
+                {mediaTargetPlan.block_reasons?.map(reason => <p key={reason}>{readableToken(reason)}</p>)}
+                {mediaTargetPlan.plan_sha256 && <p>Plan SHA-256: {mediaTargetPlan.plan_sha256}</p>}
+                <p>Run this check again after changing the selected drive or prepared files.</p>
+              </div>}
             </div>
           )}
 
