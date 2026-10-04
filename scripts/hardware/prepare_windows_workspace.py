@@ -154,10 +154,15 @@ def main(argv=None):
     parser.add_argument("source", type=Path)
     parser.add_argument("--sha256", required=True)
     parser.add_argument("--index", required=True, type=int)
+    parser.add_argument("--cancel-file", type=Path)
     args = parser.parse_args(argv)
     cancellation = {"requested": False}
     def request_cancel(signum, frame):
         cancellation["requested"] = True
+    def is_cancelled():
+        if args.cancel_file is not None and os.path.lexists(args.cancel_file):
+            cancellation["requested"] = True
+        return cancellation["requested"]
     previous = {}
     try:
         for signum in (signal.SIGINT, signal.SIGTERM):
@@ -165,8 +170,13 @@ def main(argv=None):
         try:
             receipt = prepare_workspace(
                 args.source, args.sha256, args.index,
-                cancelled=lambda: cancellation["requested"],
+                cancelled=is_cancelled,
             )
+            if is_cancelled():
+                raise preparation.staging.StagingError(
+                    "Cancelled before success receipt emission",
+                    Path(receipt["workspace_directory"]),
+                )
             receipt["status"] = "applied_files_verified_boot_unresolved"
             print(json.dumps(receipt, sort_keys=True))
             return 0
@@ -174,7 +184,7 @@ def main(argv=None):
             partial = getattr(exc, "partial_directory", None)
             print(json.dumps({
                 "schema": "arcwyre.windows_offline_image_application_failure.v1",
-                "status": "cancelled" if cancellation["requested"] else "failed",
+                "status": "cancelled" if is_cancelled() else "failed",
                 "message": str(exc),
                 "partial_directory": str(partial) if partial is not None else None,
                 "partial_output_unresolved": partial is not None,
