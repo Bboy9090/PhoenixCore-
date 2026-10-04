@@ -8,10 +8,20 @@ const evidence = normalizeNewlines(readFileSync(new URL("../../../scripts/hardwa
 const writer = normalizeNewlines(readFileSync(new URL("../../../scripts/hardware/write_windows_sacrificial_drive.py", import.meta.url), "utf8"));
 const tauri = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
 const convergence = normalizeNewlines(readFileSync(new URL("../../../docs/architecture/ARCWYRE_DRIVE_CAPABILITY_CONVERGENCE.md", import.meta.url), "utf8"));
+const publicRuntimeSources = [
+  ui,
+  rust,
+  normalizeNewlines(readFileSync(new URL("../src/RecoveryCenter.tsx", import.meta.url), "utf8")),
+  normalizeNewlines(readFileSync(new URL("../src-tauri/src/recovery_center.rs", import.meta.url), "utf8")),
+  normalizeNewlines(readFileSync(new URL("../src-tauri/src/mac_bootcamp_compat.rs", import.meta.url), "utf8")),
+  normalizeNewlines(readFileSync(new URL("../src-tauri/src/platform_recovery.rs", import.meta.url), "utf8")),
+  normalizeNewlines(readFileSync(new URL("../src-tauri/src/windows_recovery.rs", import.meta.url), "utf8")),
+].join("\n");
 
 const failures = [];
 if (tauri.package.productName !== "ARCWYRE Drive") failures.push("public product name is not ARCWYRE Drive");
 if (tauri.tauri.bundle.identifier !== "com.bobbysworld.arcwyredrive") failures.push("ARCWYRE Drive bundle identifier is not canonical");
+if (publicRuntimeSources.includes("Phoenix Key")) failures.push("public runtime still exposes the retired Phoenix Key name");
 for (const capability of [
   "Connected devices",
   "Raw image creation",
