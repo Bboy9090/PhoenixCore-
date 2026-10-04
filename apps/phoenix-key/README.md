@@ -1,16 +1,16 @@
-# Phoenix Key
+# ARCWYRE Drive
 
-Phoenix Key is PhoenixCore's guarded desktop recovery-media writer. It preserves the **Reignite · Rebuild · Reboot** product identity while enforcing the repository boundary:
+ARCWYRE Drive is PhoenixCore's guarded desktop recovery-media, device, and recovery application. It converges the proven Phoenix Key interface with the preserved BootForge Studio capability contract while enforcing the repository boundary:
 
 - `libbootforge` detects connected USB peripherals and phone service modes.
 - PhoenixCore identifies removable media, produces verified plans, and writes only to live-proven safe external devices.
-- Phoenix Key presents both engines through one desktop interface.
+- ARCWYRE Drive presents both engines through one desktop interface.
 
 Browser mode never fabricates hardware and cannot write. Physical writing requires the Windows Tauri desktop runtime, an elevated process, Python 3, an exact `PHYSICALDRIVE<n>` target, and every backend safety gate below.
 
 ## Write safety contract
 
-Phoenix Key permits writing only when all of these conditions pass:
+ARCWYRE Drive permits writing only when all of these conditions pass:
 
 - Windows reports the target bus as USB, SD, or MMC.
 - The target is neither the boot disk nor the system disk.
@@ -22,7 +22,7 @@ Phoenix Key permits writing only when all of these conditions pass:
 - A second live identity scan passes immediately before raw access.
 - The writer caps output at the exact image size and performs full SHA-256 readback verification.
 
-Failures remain blocked. Phoenix Key never selects a target automatically, accepts a generic filesystem path for raw writing, formats or repartitions a disk, or silently changes a blocked device into an eligible device.
+Failures remain blocked. ARCWYRE Drive never selects a target automatically, accepts a generic filesystem path for raw writing, formats or repartitions a disk, or silently changes a blocked device into an eligible device.
 
 ## Windows Recovery Forge
 

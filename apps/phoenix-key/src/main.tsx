@@ -246,7 +246,7 @@ function App() {
   return (
     <main className="app-shell">
       <aside className="sidebar">
-        <div className="brand-mark" aria-hidden="true">P</div>
+        <div className="brand-mark" aria-hidden="true">A</div>
         <div className="brand-copy"><span>ARCWYRE Drive</span><small>PhoenixCore · powered by libbootforge</small></div>
         <nav aria-label="Primary">
           <button className={`nav-item ${view === "devices" ? "active" : ""}`} onClick={() => setView("devices")} disabled={distributionProfile?.hardware_scan === false}><span>⌁</span> Device Forge</button>

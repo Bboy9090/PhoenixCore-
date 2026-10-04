@@ -193,7 +193,7 @@ fn installed_smoke_receipt(process_id: u32) -> InstalledSmokeReceipt {
     InstalledSmokeReceipt {
         schema_version: "bws.phoenix-key-installed-smoke/v1",
         app_id: "phoenix-usb-creator",
-        product_name: "Phoenix Key",
+        product_name: "ARCWYRE Drive",
         version: env!("CARGO_PKG_VERSION"),
         source_commit: option_env!("PHOENIX_KEY_SOURCE_COMMIT").unwrap_or("unrecorded"),
         target_os: std::env::consts::OS,
@@ -390,7 +390,7 @@ fn run_python_json(
             Ok(output) if output.status.success() => {
                 return serde_json::from_slice::<Value>(&output.stdout).map_err(|error| {
                     format!(
-                        "Phoenix Key helper returned invalid JSON: {error}; stdout={}",
+                        "ARCWYRE Drive helper returned invalid JSON: {error}; stdout={}",
                         String::from_utf8_lossy(&output.stdout)
                     )
                 });
@@ -403,7 +403,7 @@ fn run_python_json(
         }
     }
     Err(format!(
-        "Phoenix Key Python helper unavailable: {}",
+        "ARCWYRE Drive Python helper unavailable: {}",
         failures.join(" | ")
     ))
 }
@@ -425,7 +425,7 @@ fn source_commit() -> Result<&'static str, String> {
     {
         Ok(commit)
     } else {
-        Err("this Phoenix Key build lacks a valid 40-character source commit".to_string())
+        Err("this ARCWYRE Drive build lacks a valid 40-character source commit".to_string())
     }
 }
 
@@ -501,7 +501,7 @@ fn receipt_directory() -> Result<PathBuf, String> {
         .unwrap_or_else(std::env::temp_dir);
     let directory = base.join("PhoenixKey").join("receipts");
     fs::create_dir_all(&directory)
-        .map_err(|error| format!("cannot create Phoenix Key receipt directory: {error}"))?;
+        .map_err(|error| format!("cannot create ARCWYRE Drive receipt directory: {error}"))?;
     Ok(directory)
 }
 
@@ -882,7 +882,7 @@ async fn acquire_google_drive_picker_recovery(
         return Err("Google Drive staging destination is required".to_string());
     }
     let client_id = google_drive_client_id().ok_or_else(|| {
-        "Phoenix Key build is missing its Google Drive desktop OAuth client ID".to_string()
+        "ARCWYRE Drive build is missing its Google Drive desktop OAuth client ID".to_string()
     })?;
     let (progress_file, cancel_file) = drive_operation_paths(&operation_id)?;
     let _ = fs::remove_file(&progress_file);
@@ -1958,7 +1958,7 @@ fn main() {
 
     builder
         .run(tauri::generate_context!())
-        .expect("failed to run Phoenix Key desktop application");
+        .expect("failed to run ARCWYRE Drive desktop application");
 }
 
 #[cfg(test)]
