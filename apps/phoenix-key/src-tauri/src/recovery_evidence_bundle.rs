@@ -1,6 +1,10 @@
 use crate::data_preservation::{
     verify_target_data_backup_artifacts, verify_target_data_preservation_receipt_sha256,
 };
+use crate::data_preservation_proof::{
+    verify_backup_destination_identity_verification,
+    verify_target_data_backup_coverage_proof,
+};
 use crate::restore_preflight::verify_restore_hardware_preflight_sha256;
 use crate::restore_rollback_contract::verify_restore_target_rollback_contract_sha256;
 use crate::rollback_destination::verify_rollback_destination_verification_sha256;
@@ -282,6 +286,9 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     let rollback_capture = optional_object(root, "rollback_capture_receipt");
     let reenumeration = optional_object(root, "target_reenumeration_receipt");
     let data_backup = optional_object(root, "target_data_backup_receipt");
+    let backup_coverage_proof = optional_object(root, "target_data_backup_coverage_proof");
+    let backup_destination_identity =
+        optional_object(root, "backup_destination_identity_verification");
     let data_preservation = optional_object(root, "data_preservation_receipt");
     let boot_metadata = optional_object(root, "boot_metadata_receipt");
     let hardware_campaign_manifest = optional_object(root, "hardware_campaign_manifest");
@@ -534,26 +541,35 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                 })
     });
 
-    let data_preservation_resolved = data_preservation.is_some_and(|value| {
-        let mode = value.get("mode").and_then(Value::as_str);
-        let backup_binding_valid = match mode {
-            Some("explicit_discard") => value
-                .get("backup_receipt_sha256")
-                .is_none_or(Value::is_null),
-            Some("preserve_existing_data") => {
-                data_backup_trusted
-                    && same_sha256(
-                        data_backup.and_then(|receipt| {
-                            receipt.get("receipt_sha256").and_then(Value::as_str)
-                        }),
-                        value.get("backup_receipt_sha256").and_then(Value::as_str),
-                    )
-            }
-            _ => false,
-        };
+    let backup_coverage_trusted = backup_coverage_proof.is_some_and(|value| {
+        verify_target_data_backup_coverage_proof(
+            value,
+            target_stable_identity,
+            contract_sha256,
+            data_backup
+                .and_then(|receipt| receipt.get("receipt_sha256"))
+                .and_then(Value::as_str),
+            data_backup
+                .and_then(|receipt| receipt.get("backup_manifest_sha256"))
+                .and_then(Value::as_str),
+        )
+    });
+
+    let backup_destination_identity_trusted =
+        backup_destination_identity.is_some_and(|value| {
+            verify_backup_destination_identity_verification(
+                value,
+                target_stable_identity,
+                data_backup
+                    .and_then(|receipt| {
+                        receipt.get("backup_destination_stable_identity_sha256")
+                    })
+                    .and_then(Value::as_str),
+            )
+        });
+
+    let data_preservation_receipt_trusted = data_preservation.is_some_and(|value| {
         verify_target_data_preservation_receipt_sha256(value)
-            && backup_binding_valid
-            && value.get("resolved").and_then(Value::as_bool) == Some(true)
             && value
                 .get("restore_unlock_ready")
                 .and_then(Value::as_bool)
@@ -562,10 +578,6 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                 .get("system_mutations_performed")
                 .and_then(Value::as_bool)
                 == Some(false)
-            && value
-                .get("block_reasons")
-                .and_then(Value::as_array)
-                .is_some_and(Vec::is_empty)
             && same_sha256(
                 target_stable_identity,
                 value
@@ -576,6 +588,47 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
                 contract_sha256,
                 value.get("rollback_contract_sha256").and_then(Value::as_str),
             )
+    });
+
+    let data_preservation_resolved = data_preservation.is_some_and(|value| {
+        if !data_preservation_receipt_trusted {
+            return false;
+        }
+        match value.get("mode").and_then(Value::as_str) {
+            Some("explicit_discard") => {
+                value
+                    .get("backup_receipt_sha256")
+                    .is_none_or(Value::is_null)
+                    && value.get("resolved").and_then(Value::as_bool) == Some(true)
+                    && value
+                        .get("block_reasons")
+                        .and_then(Value::as_array)
+                        .is_some_and(Vec::is_empty)
+            }
+            Some("preserve_existing_data") => {
+                data_backup_trusted
+                    && backup_coverage_trusted
+                    && backup_destination_identity_trusted
+                    && same_sha256(
+                        data_backup.and_then(|receipt| {
+                            receipt.get("receipt_sha256").and_then(Value::as_str)
+                        }),
+                        value.get("backup_receipt_sha256").and_then(Value::as_str),
+                    )
+                    && value.get("resolved").and_then(Value::as_bool) == Some(false)
+                    && value
+                        .get("required_next_evidence")
+                        .and_then(Value::as_array)
+                        .is_some_and(|requirements| {
+                            requirements.contains(&Value::String(
+                                "target_data_backup_coverage_proof".to_string(),
+                            )) && requirements.contains(&Value::String(
+                                "backup_destination_identity_verification".to_string(),
+                            ))
+                        })
+            }
+            _ => false,
+        }
     });
 
     let boot_metadata_resolved = boot_metadata.is_some_and(|value| {
@@ -670,9 +723,17 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
     if data_preservation
         .and_then(|value| value.get("mode").and_then(Value::as_str))
         == Some("preserve_existing_data")
-        && !data_backup_trusted
     {
-        outstanding_requirements.push("target_data_backup_receipt".to_string());
+        if !data_backup_trusted {
+            outstanding_requirements.push("target_data_backup_receipt".to_string());
+        }
+        if !backup_coverage_trusted {
+            outstanding_requirements.push("target_data_backup_coverage_proof".to_string());
+        }
+        if !backup_destination_identity_trusted {
+            outstanding_requirements
+                .push("backup_destination_identity_verification".to_string());
+        }
     }
     if !data_preservation_resolved {
         outstanding_requirements.push(
@@ -736,8 +797,19 @@ pub fn build_recovery_evidence_bundle_v2(root: &Value) -> RecoveryEvidenceBundle
         component(data_backup, data_backup_trusted),
     );
     components.insert(
+        "target_data_backup_coverage_proof".to_string(),
+        component(backup_coverage_proof, backup_coverage_trusted),
+    );
+    components.insert(
+        "backup_destination_identity_verification".to_string(),
+        component(
+            backup_destination_identity,
+            backup_destination_identity_trusted,
+        ),
+    );
+    components.insert(
         "data_preservation_receipt".to_string(),
-        component(data_preservation, data_preservation_resolved),
+        component(data_preservation, data_preservation_receipt_trusted),
     );
     components.insert(
         "boot_metadata_receipt".to_string(),
@@ -827,6 +899,11 @@ mod tests {
         build_target_data_preservation_receipt_with_backup,
         target_data_backup_receipt_sha256,
         EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
+    };
+    use crate::data_preservation_proof::{
+        backup_destination_identity_verification_sha256,
+        target_data_backup_coverage_proof_sha256,
+        BackupDestinationIdentityVerification, TargetDataBackupCoverageProof,
     };
     use crate::restore_preflight::assess_restore_hardware_preflight;
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
@@ -1145,33 +1222,95 @@ mod tests {
         evidence["data_preservation_receipt"] =
             serde_json::to_value(preservation).unwrap();
 
-        let bundle = build_recovery_evidence_bundle_v2(&evidence);
-        assert!(!bundle.data_preservation_resolved);
+        let blocked_without_proofs = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(!blocked_without_proofs.data_preservation_resolved);
         assert_eq!(
-            bundle.data_preservation_mode.as_deref(),
+            blocked_without_proofs.data_preservation_mode.as_deref(),
             Some("preserve_existing_data")
         );
         assert_eq!(
-            bundle.data_preservation_backup_receipt_sha256.as_deref(),
+            blocked_without_proofs.data_preservation_backup_receipt_sha256.as_deref(),
             backup.get("receipt_sha256").and_then(Value::as_str)
         );
-        assert!(bundle.components["target_data_backup_receipt"].trusted);
-        assert!(!bundle.components["data_preservation_receipt"].trusted);
-        assert!(evidence["data_preservation_receipt"]["required_next_evidence"]
-            .as_array()
-            .is_some_and(|items| items.contains(&json!("target_data_backup_coverage_proof"))));
-        assert!(evidence["data_preservation_receipt"]["required_next_evidence"]
-            .as_array()
-            .is_some_and(|items| items.contains(&json!("backup_destination_identity_verification"))));
+        assert!(blocked_without_proofs.components["target_data_backup_receipt"].trusted);
+        assert!(blocked_without_proofs.components["data_preservation_receipt"].trusted);
+        assert!(blocked_without_proofs
+            .outstanding_requirements
+            .contains(&"target_data_backup_coverage_proof".to_string()));
+        assert!(blocked_without_proofs
+            .outstanding_requirements
+            .contains(&"backup_destination_identity_verification".to_string()));
+
+        let target = evidence["target_safety"]["target_stable_identity_sha256"]
+            .as_str().unwrap().to_string();
+        let contract = evidence["rollback_contract"]["contract_sha256"]
+            .as_str().unwrap().to_string();
+        let backup_sha = backup["receipt_sha256"].as_str().unwrap().to_string();
+        let manifest_sha = backup["backup_manifest_sha256"].as_str().unwrap().to_string();
+        let inventory_sha = "e".repeat(64);
+
+        let mut coverage = TargetDataBackupCoverageProof {
+            schema: "phoenix_key.target_data_backup_coverage_proof.v1".to_string(),
+            target_stable_identity_sha256: target.clone(),
+            rollback_contract_sha256: contract,
+            backup_receipt_sha256: backup_sha,
+            backup_manifest_sha256: manifest_sha,
+            source_inventory_sha256: inventory_sha.clone(),
+            manifest_inventory_sha256: inventory_sha,
+            source_entry_count: 1,
+            manifest_entry_count: 1,
+            source_bytes_total: 22,
+            manifest_bytes_total: 22,
+            complete_coverage: true,
+            omitted_entry_count: 0,
+            comparison_performed: true,
+            inventory_capture_mode: "fresh_pre_backup_source_inventory".to_string(),
+            target_write_attempted: false,
+            system_mutations_performed: false,
+            receipt_sha256: String::new(),
+        };
+        coverage.receipt_sha256 = target_data_backup_coverage_proof_sha256(&coverage);
+
+        let mut destination = BackupDestinationIdentityVerification {
+            schema: "phoenix_key.backup_destination_identity_verification.v1".to_string(),
+            target_stable_identity_sha256: target,
+            expected_destination_stable_identity_sha256: "d".repeat(64),
+            observed_destination_stable_identity_sha256: "d".repeat(64),
+            identity_source: "fresh_hardware_scan".to_string(),
+            unique_match: true,
+            ambiguous: false,
+            matches_expected_destination: true,
+            separate_from_target: true,
+            system_mutations_performed: false,
+            receipt_sha256: String::new(),
+        };
+        destination.receipt_sha256 =
+            backup_destination_identity_verification_sha256(&destination);
+
+        evidence["target_data_backup_coverage_proof"] =
+            serde_json::to_value(coverage).unwrap();
+        evidence["backup_destination_identity_verification"] =
+            serde_json::to_value(destination).unwrap();
+
+        let resolved = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(resolved.data_preservation_resolved);
+        assert!(resolved.components["target_data_backup_coverage_proof"].trusted);
+        assert!(resolved.components["backup_destination_identity_verification"].trusted);
+        assert!(!resolved
+            .outstanding_requirements
+            .contains(&"target_data_backup_coverage_proof".to_string()));
+        assert!(!resolved
+            .outstanding_requirements
+            .contains(&"backup_destination_identity_verification".to_string()));
 
         let mut tampered = evidence.clone();
-        tampered["target_data_backup_receipt"]["files_verified"] = json!(false);
+        tampered["target_data_backup_coverage_proof"]["omitted_entry_count"] = json!(1);
         let blocked = build_recovery_evidence_bundle_v2(&tampered);
         assert!(!blocked.data_preservation_resolved);
-        assert!(!blocked.components["target_data_backup_receipt"].trusted);
+        assert!(!blocked.components["target_data_backup_coverage_proof"].trusted);
         assert!(blocked
             .outstanding_requirements
-            .contains(&"target_data_backup_receipt".to_string()));
+            .contains(&"target_data_backup_coverage_proof".to_string()));
         let _ = fs::remove_dir_all(root);
     }
 
