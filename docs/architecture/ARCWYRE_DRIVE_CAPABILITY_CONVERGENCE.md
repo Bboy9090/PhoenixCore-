@@ -56,6 +56,11 @@ read-only. Unknown safety facts and unproven empty partition inventories block i
 
 Offline WIM application uses a new disposable workspace, a verified source snapshot,
 native DISM image-index inspection and application, cancellation, and output hashes.
+The desktop exposes this file-only application with native-owned cancellation.
+Collectors resolve PowerShell through the native Windows system-directory API
+and reject absent Boolean safety facts before converting their values. A portable
+boot plan verifies the applied tree and VHDX binding facts but never grants write
+authorization from supplied facts alone.
 It is not a completed Windows To Go builder. Physical partitioning, volume binding,
 boot configuration, portable-workspace policy, native Windows execution, and boot
 validation remain required. Mocked tool tests establish contracts, not native tool
