@@ -486,4 +486,33 @@ mod tests {
             .blocked_gates
             .contains(&"no_outstanding_evidence_requirements".to_string()));
     }
+
+    #[test]
+    fn preserve_mode_requires_both_independent_proof_components() {
+        let mut bundle = complete_bundle();
+        bundle["data_preservation_mode"] = json!("preserve_existing_data");
+        bundle["data_preservation_backup_receipt_sha256"] = json!("e".repeat(64));
+        bundle["components"]["target_data_backup_receipt"] =
+            trusted_component("phoenix_key.target_data_backup_receipt.v1");
+        resign(&mut bundle);
+
+        let blocked = assess_final_recovery_preflight(&bundle);
+        assert!(!blocked.ready_for_restore_executor_architecture_review);
+        assert!(blocked
+            .blocked_gates
+            .contains(&"critical_components_trusted".to_string()));
+
+        bundle["components"]["target_data_backup_coverage_proof"] =
+            trusted_component("phoenix_key.target_data_backup_coverage_proof.v1");
+        bundle["components"]["backup_destination_identity_verification"] =
+            trusted_component("phoenix_key.backup_destination_identity_verification.v1");
+        resign(&mut bundle);
+
+        let resolved = assess_final_recovery_preflight(&bundle);
+        assert!(resolved.ready_for_restore_executor_architecture_review);
+        assert!(resolved.blocked_gates.is_empty());
+        assert!(!resolved.restore_executor_authorized);
+        assert!(!resolved.executable);
+    }
+
 }
