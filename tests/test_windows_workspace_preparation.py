@@ -145,6 +145,31 @@ class WorkspacePreparationTests(unittest.TestCase):
             result = module._inspect_metadata(Path("/native/tool"), ["/Get-ImageInfo"], logs, "metadata", lambda: False)
         self.assertEqual("Index : 1\n", result)
 
+    def test_cli_cancel_file_is_combined_with_signal_callback(self):
+        cancel = Path(self.temp.name) / "cancel.signal"
+        cancel.touch()
+        def interrupted(*args, cancelled):
+            self.assertTrue(cancelled())
+            raise RuntimeError("cancelled")
+        output = io.StringIO()
+        with patch.object(module, "prepare_workspace", side_effect=interrupted), redirect_stdout(output):
+            code = module.main([str(self.source), "--sha256", self.sha, "--index", "1", "--cancel-file", str(cancel)])
+        self.assertEqual(130, code)
+        self.assertEqual("cancelled", json.loads(output.getvalue())["status"])
+
+    def test_final_cancel_file_prevents_success_receipt(self):
+        cancel = Path(self.temp.name) / "late-cancel.signal"
+        def completed(*args, cancelled):
+            cancel.touch()
+            return {"workspace_directory": str(self.temp.name)}
+        output = io.StringIO()
+        with patch.object(module, "prepare_workspace", side_effect=completed), redirect_stdout(output):
+            code = module.main([str(self.source), "--sha256", self.sha, "--index", "1", "--cancel-file", str(cancel)])
+        receipt = json.loads(output.getvalue())
+        self.assertEqual(130, code)
+        self.assertEqual("cancelled", receipt["status"])
+        self.assertTrue(receipt["partial_output_unresolved"])
+
 
 if __name__ == "__main__":
     unittest.main()
