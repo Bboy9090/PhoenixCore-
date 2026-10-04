@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -20,6 +21,11 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+_tool_spec = importlib.util.spec_from_file_location("_drive_windows_system_tools", Path(__file__).with_name("windows_system_tools.py"))
+_tool_module = importlib.util.module_from_spec(_tool_spec)
+_tool_spec.loader.exec_module(_tool_module)
+system_tool_path = _tool_module.system_tool_path
 
 SCHEMA_VERSION = "bws.physical-drive-evidence/v1"
 RAW_DEVICE_PATTERN = re.compile(r"^\\\\\.\\PHYSICALDRIVE([0-9]+)$", re.IGNORECASE)
@@ -197,14 +203,26 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
 def query_windows_disk(disk_number: int) -> dict[str, Any]:
     if sys.platform != "win32":
         raise EvidenceError("Live physical-drive collection requires Windows.")
+    if type(disk_number) is not int or disk_number < 0:
+        raise EvidenceError("Disk number must be a nonnegative integer.")
 
     script = f"""
 $ErrorActionPreference = 'Stop'
 $disk = Get-Disk -Number {disk_number}
+foreach ($flag in @('IsBoot', 'IsSystem', 'IsOffline', 'IsReadOnly')) {{
+  $property = $disk.PSObject.Properties[$flag]
+  if ($null -eq $property -or $null -eq $property.Value -or $property.Value -isnot [bool]) {{ throw "Missing or non-boolean disk safety fact: $flag" }}
+}}
 $partitions = @(
   Get-Partition -DiskNumber {disk_number} -ErrorAction Stop |
     Select-Object PartitionNumber, DriveLetter, Offset, Size, Type, GptType, MbrType, IsBoot, IsSystem
 )
+foreach ($partition in $partitions) {{
+  foreach ($flag in @('IsBoot', 'IsSystem')) {{
+    $property = $partition.PSObject.Properties[$flag]
+    if ($null -eq $property -or $null -eq $property.Value -or $property.Value -isnot [bool]) {{ throw "Missing or non-boolean partition safety fact: $flag" }}
+  }}
+}}
 [pscustomobject]@{{
   Number = [int]$disk.Number
   FriendlyName = [string]$disk.FriendlyName
@@ -224,9 +242,13 @@ $partitions = @(
   Partitions = $partitions
 }} | ConvertTo-Json -Depth 6 -Compress
 """
+    try:
+        powershell = system_tool_path("powershell")
+    except RuntimeError as exc:
+        raise EvidenceError(str(exc)) from exc
     completed = subprocess.run(
         [
-            "powershell.exe",
+            powershell,
             "-NoProfile",
             "-NonInteractive",
             "-Command",

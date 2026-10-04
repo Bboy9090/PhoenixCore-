@@ -152,6 +152,16 @@ type WindowsMediaPreparation = {
   cancelled?: boolean;
 };
 
+type OfflineWorkspaceResult = {
+  status: string;
+  workspace_directory?: string;
+  applied_directory?: string;
+  partial_directory?: string | null;
+  applied_file_readback_bytes?: number;
+  message?: string;
+  unresolved_reasons?: string[];
+};
+
 type RecoveryTargetSafety = {
   safe_to_prepare: boolean;
   target?: string | null;
@@ -617,11 +627,17 @@ export default function RecoveryCenter({
   const [mediaTargetPlan, setMediaTargetPlan] = useState<{
     eligible_for_preparation: boolean; block_reasons?: string[]; error?: string; plan_sha256?: string;
   } | null>(null);
+  const [offlineWorkspace, setOfflineWorkspace] = useState<OfflineWorkspaceResult | null>(null);
+  const [offlineOperationId, setOfflineOperationId] = useState<string | null>(null);
   const storeSafe = distributionProfile?.store_safe === true;
 
   useEffect(() => {
     setMediaTargetPlan(null);
   }, [targetDrive, targetSafety, mediaPreparation, sourcePath]);
+
+  useEffect(() => {
+    setOfflineWorkspace(null);
+  }, [sourcePath, imagePath, selectedImageIndex]);
 
   useEffect(() => {
     if (!isDesktopRuntime() || storeSafe) return;
@@ -1091,6 +1107,42 @@ export default function RecoveryCenter({
       setMessage(`Target planning could not complete: ${String(error)}`);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function prepareOfflineWindowsWorkspace() {
+    if (busy || storeSafe || analysis?.kind !== "wim" || !sourceVerification?.matches ||
+        !plan?.source_identity?.sha256 || !imageMetadata?.selected_image?.metadata_complete) return;
+    const operationId = crypto.randomUUID();
+    setOfflineOperationId(operationId);
+    setOfflineWorkspace(null);
+    setBusy(true);
+    setMessage("Applying the selected WIM image to a new local workspace. DISM inspection and file verification may take time.");
+    try {
+      const result = await invoke<OfflineWorkspaceResult>("prepare_windows_offline_workspace", {
+        operationId, sourceFile: sourcePath.trim(),
+        expectedSourceSha256: plan.source_identity.sha256,
+        selectedIndex: imageMetadata.selected_image.index,
+      });
+      setOfflineWorkspace(result);
+      setMessage(result.status === "applied_files_verified_boot_unresolved"
+        ? "Offline Windows files were applied and verified. Boot provisioning and Windows To Go remain incomplete."
+        : `Offline application ${result.status}. ${result.message ?? "Review retained output."}`);
+    } catch (error) {
+      setMessage(`Offline application could not complete. Any partial workspace is retained for review. ${String(error)}`);
+    } finally {
+      setOfflineOperationId(null);
+      setBusy(false);
+    }
+  }
+
+  async function cancelOfflineWindowsWorkspace() {
+    if (!offlineOperationId) return;
+    try {
+      await invoke("cancel_windows_offline_workspace", { operationId: offlineOperationId });
+      setMessage("Cancellation requested. Waiting for DISM or file verification to stop.");
+    } catch (error) {
+      setMessage(`Could not request cancellation: ${String(error)}`);
     }
   }
 
@@ -2240,6 +2292,24 @@ export default function RecoveryCenter({
                   {imageMetadata.block_reasons.map((reason) => <p key={reason}>— {readableToken(reason)}</p>)}
                 </div>
               )}
+              {analysis?.kind === "wim" && <>
+                <button type="button" onClick={prepareOfflineWindowsWorkspace}
+                  disabled={busy || storeSafe || !sourceVerification?.matches ||
+                    !plan.source_identity?.sha256 || !imageMetadata?.selected_image?.metadata_complete}>
+                  Apply WIM to New Local Workspace
+                </button>
+                <p className="field-help">Requires Windows and free space for a WIM snapshot plus the expanded image. Uses a new temporary folder; boot provisioning is still pending.</p>
+              </>}
+              {offlineOperationId && <button type="button" onClick={cancelOfflineWindowsWorkspace}>Cancel Offline Application</button>}
+              {offlineWorkspace && <div className="warning-box">
+                <strong>{readableToken(offlineWorkspace.status)}</strong>
+                <p>Workspace: {offlineWorkspace.workspace_directory ?? offlineWorkspace.partial_directory ?? "See operation error"}</p>
+                {offlineWorkspace.applied_directory && <p>Applied files: {offlineWorkspace.applied_directory}</p>}
+                {offlineWorkspace.applied_file_readback_bytes !== undefined && <p>Readback verified: {offlineWorkspace.applied_file_readback_bytes} bytes</p>}
+                {offlineWorkspace.message && <p>{offlineWorkspace.message}</p>}
+                {offlineWorkspace.unresolved_reasons?.map(reason => <p key={reason}>Pending: {readableToken(reason)}</p>)}
+                <p>Windows To Go readiness: incomplete · Boot test: pending</p>
+              </div>}
             </div>
           </div>
 
