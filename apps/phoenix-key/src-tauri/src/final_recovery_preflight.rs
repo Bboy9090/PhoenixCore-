@@ -130,6 +130,22 @@ fn all_required_components_trusted(bundle: &Value) -> bool {
                     .pointer("/components/target_data_backup_receipt/trusted")
                     .and_then(Value::as_bool)
                     == Some(true)
+                && bundle
+                    .pointer("/components/target_data_backup_coverage_proof/present")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && bundle
+                    .pointer("/components/target_data_backup_coverage_proof/trusted")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && bundle
+                    .pointer("/components/backup_destination_identity_verification/present")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && bundle
+                    .pointer("/components/backup_destination_identity_verification/trusted")
+                    .and_then(Value::as_bool)
+                    == Some(true)
         }
         _ => false,
     };
