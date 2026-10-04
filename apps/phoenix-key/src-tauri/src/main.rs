@@ -2,6 +2,7 @@
 
 mod boot_repair_contract;
 mod data_preservation;
+mod data_preservation_proof;
 mod intel_mac_restore_gate;
 mod mac_bootcamp_compat;
 mod recovery_center;
