@@ -68,6 +68,9 @@ const USB_CREATOR_SOURCE: &str = include_str!("../../../../usb_creator.py");
 #[cfg(not(feature = "store-safe"))]
 const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py");
 #[cfg(not(feature = "store-safe"))]
+const WINDOWS_SYSTEM_TOOLS_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/windows_system_tools.py");
+#[cfg(not(feature = "store-safe"))]
 const DRIVE_EVIDENCE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_drive_evidence.py");
 #[cfg(not(feature = "store-safe"))]
@@ -100,6 +103,9 @@ const WINDOWS_INSTALL_PREPARATION_SOURCE: &str =
 #[cfg(not(feature = "store-safe"))]
 const WINDOWS_INSTALL_TARGET_PLANNER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/plan_windows_install_target.py");
+#[cfg(not(feature = "store-safe"))]
+const WINDOWS_OFFLINE_WORKSPACE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/prepare_windows_workspace.py");
 #[cfg(not(feature = "store-safe"))]
 const WINDOWS_IMAGE_METADATA_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
@@ -297,6 +303,8 @@ fn bridge_directory() -> Result<PathBuf, String> {
         .map_err(|error| format!("cannot stage embedded USB creator: {error}"))?;
     fs::write(directory.join("device_scanner.py"), DEVICE_SCANNER_SOURCE)
         .map_err(|error| format!("cannot stage embedded device scanner: {error}"))?;
+    fs::write(directory.join("windows_system_tools.py"), WINDOWS_SYSTEM_TOOLS_SOURCE)
+        .map_err(|error| format!("cannot stage Windows system tool resolver: {error}"))?;
     fs::write(
         directory.join("capture_windows_drive_evidence.py"),
         DRIVE_EVIDENCE_SOURCE,
@@ -343,6 +351,8 @@ fn bridge_directory() -> Result<PathBuf, String> {
         .map_err(|error| format!("cannot stage Windows installer preparation helper: {error}"))?;
     fs::write(directory.join("plan_windows_install_target.py"), WINDOWS_INSTALL_TARGET_PLANNER_SOURCE)
         .map_err(|error| format!("cannot stage Windows installer target planner: {error}"))?;
+    fs::write(directory.join("prepare_windows_workspace.py"), WINDOWS_OFFLINE_WORKSPACE_SOURCE)
+        .map_err(|error| format!("cannot stage Windows offline workspace helper: {error}"))?;
     fs::write(
         directory.join("inspect_windows_image_metadata.py"),
         WINDOWS_IMAGE_METADATA_SOURCE,
@@ -992,6 +1002,93 @@ fn plan_fat32_windows_media(source_root: String) -> Result<Value, String> {
     })();
     let _ = fs::remove_dir_all(&directory);
     result
+}
+
+#[tauri::command]
+fn cancel_windows_offline_workspace(operation_id: String) -> Result<Value, String> {
+    cancel_windows_install_preparation(operation_id)
+}
+
+#[tauri::command]
+async fn prepare_windows_offline_workspace(
+    operation_id: String,
+    source_file: String,
+    expected_source_sha256: String,
+    selected_index: u32,
+) -> Result<Value, String> {
+    if STORE_SAFE_DISTRIBUTION || !cfg!(target_os = "windows") {
+        return Err("Offline Windows image preparation requires the native Windows distribution".to_string());
+    }
+    if operation_id.len() < 8 || operation_id.len() > 64
+        || !operation_id.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_') {
+        return Err("invalid offline preparation operation ID".to_string());
+    }
+    if selected_index == 0 || expected_source_sha256.len() != 64
+        || !expected_source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("explicit positive image index and source SHA-256 are required".to_string());
+    }
+    let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| format!("cannot identify offline preparation attempt: {error}"))?.as_nanos();
+    let controls = std::env::temp_dir().join(format!("arcwyre-offline-control-{}-{nonce}", std::process::id()));
+    fs::create_dir(&controls)
+        .map_err(|error| format!("cannot create offline operation controls: {error}"))?;
+    let signal = controls.join("cancel.signal");
+    {
+        let mut active = windows_preparation_operations().lock()
+            .map_err(|_| "preparation operation registry is unavailable".to_string())?;
+        if active.contains_key(&operation_id) { return Err("operation ID is already active".to_string()); }
+        active.insert(operation_id.clone(), signal.clone());
+    }
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let directory = bridge_directory()?;
+        let index_text = selected_index.to_string();
+        let signal_text = signal.to_string_lossy().to_string();
+        let args = [source_file.as_str(), "--sha256", expected_source_sha256.as_str(),
+                    "--index", index_text.as_str(), "--cancel-file", signal_text.as_str()];
+        for candidate in python_candidates() {
+            let mut command = Command::new(candidate);
+            if *candidate == "py" { command.arg("-3"); }
+            command.arg(directory.join("prepare_windows_workspace.py")).args(args);
+            match command.output() {
+                Ok(output) => {
+                    // No retries once any interpreter started: partial output is retained.
+                    let value: Value = serde_json::from_slice(&output.stdout)
+                        .map_err(|error| format!("offline preparation returned invalid JSON; controls {} retained: {error}", controls.display()))?;
+                    let schema = value.get("schema").and_then(Value::as_str);
+                    if output.status.success() && schema == Some("arcwyre.windows_offline_image_application.v1") {
+                        return Ok(value);
+                    }
+                    if schema == Some("arcwyre.windows_offline_image_application_failure.v1") {
+                        return Ok(value);
+                    }
+                    return Err("offline preparation failed with unknown output contract".to_string());
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(format!("cannot start offline preparation: {error}")),
+            }
+        }
+        Err("no configured Python interpreter is available".to_string())
+    }).await.map_err(|error| format!("offline preparation worker failed: {error}"));
+    let mut receipt = match worker { Ok(receipt) => receipt, Err(error) => Err(error) };
+    {
+        let mut active = windows_preparation_operations().lock()
+            .map_err(|_| "preparation operation registry is unavailable".to_string())?;
+        let cancelled = active.get(&operation_id).map(|path| path.exists()).unwrap_or(false);
+        active.remove(&operation_id);
+        if cancelled {
+            if let Ok(value) = receipt.as_mut() {
+                if value.get("schema").and_then(Value::as_str) == Some("arcwyre.windows_offline_image_application.v1") {
+                    let partial = value.get("workspace_directory").cloned().unwrap_or(Value::Null);
+                    *value = json!({"schema": "arcwyre.windows_offline_image_application_failure.v1",
+                        "status": "cancelled", "message": "Cancellation accepted before native completion",
+                        "partial_directory": partial, "partial_output_unresolved": true,
+                        "cleanup_performed": false, "raw_disk_operations_performed": false,
+                        "boot_verified": false, "windows_to_go_ready": false});
+                }
+            }
+        }
+    }
+    receipt
 }
 
 #[tauri::command]
@@ -2154,6 +2251,8 @@ fn main() {
         acquire_google_drive_picker_recovery,
         plan_fat32_windows_media,
         prepare_windows_install_media,
+        prepare_windows_offline_workspace,
+        cancel_windows_offline_workspace,
         plan_windows_install_target,
         cancel_windows_install_preparation,
         stage_cloud_recovery_payload,
