@@ -900,6 +900,11 @@ mod tests {
         target_data_backup_receipt_sha256,
         EXPLICIT_DISCARD_ACKNOWLEDGEMENT,
     };
+    use crate::data_preservation_proof::{
+        backup_destination_identity_verification_sha256,
+        target_data_backup_coverage_proof_sha256,
+        BackupDestinationIdentityVerification, TargetDataBackupCoverageProof,
+    };
     use crate::restore_preflight::assess_restore_hardware_preflight;
     use crate::restore_rollback_contract::build_restore_target_rollback_contract;
     use crate::source_identity::{identity_bound_plan_sha256, source_identity_verification_sha256};
@@ -1217,33 +1222,95 @@ mod tests {
         evidence["data_preservation_receipt"] =
             serde_json::to_value(preservation).unwrap();
 
-        let bundle = build_recovery_evidence_bundle_v2(&evidence);
-        assert!(!bundle.data_preservation_resolved);
+        let blocked_without_proofs = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(!blocked_without_proofs.data_preservation_resolved);
         assert_eq!(
-            bundle.data_preservation_mode.as_deref(),
+            blocked_without_proofs.data_preservation_mode.as_deref(),
             Some("preserve_existing_data")
         );
         assert_eq!(
-            bundle.data_preservation_backup_receipt_sha256.as_deref(),
+            blocked_without_proofs.data_preservation_backup_receipt_sha256.as_deref(),
             backup.get("receipt_sha256").and_then(Value::as_str)
         );
-        assert!(bundle.components["target_data_backup_receipt"].trusted);
-        assert!(!bundle.components["data_preservation_receipt"].trusted);
-        assert!(evidence["data_preservation_receipt"]["required_next_evidence"]
-            .as_array()
-            .is_some_and(|items| items.contains(&json!("target_data_backup_coverage_proof"))));
-        assert!(evidence["data_preservation_receipt"]["required_next_evidence"]
-            .as_array()
-            .is_some_and(|items| items.contains(&json!("backup_destination_identity_verification"))));
+        assert!(blocked_without_proofs.components["target_data_backup_receipt"].trusted);
+        assert!(blocked_without_proofs.components["data_preservation_receipt"].trusted);
+        assert!(blocked_without_proofs
+            .outstanding_requirements
+            .contains(&"target_data_backup_coverage_proof".to_string()));
+        assert!(blocked_without_proofs
+            .outstanding_requirements
+            .contains(&"backup_destination_identity_verification".to_string()));
+
+        let target = evidence["target_safety"]["target_stable_identity_sha256"]
+            .as_str().unwrap().to_string();
+        let contract = evidence["rollback_contract"]["contract_sha256"]
+            .as_str().unwrap().to_string();
+        let backup_sha = backup["receipt_sha256"].as_str().unwrap().to_string();
+        let manifest_sha = backup["backup_manifest_sha256"].as_str().unwrap().to_string();
+        let inventory_sha = "e".repeat(64);
+
+        let mut coverage = TargetDataBackupCoverageProof {
+            schema: "phoenix_key.target_data_backup_coverage_proof.v1".to_string(),
+            target_stable_identity_sha256: target.clone(),
+            rollback_contract_sha256: contract,
+            backup_receipt_sha256: backup_sha,
+            backup_manifest_sha256: manifest_sha,
+            source_inventory_sha256: inventory_sha.clone(),
+            manifest_inventory_sha256: inventory_sha,
+            source_entry_count: 1,
+            manifest_entry_count: 1,
+            source_bytes_total: 22,
+            manifest_bytes_total: 22,
+            complete_coverage: true,
+            omitted_entry_count: 0,
+            comparison_performed: true,
+            inventory_capture_mode: "fresh_pre_backup_source_inventory".to_string(),
+            target_write_attempted: false,
+            system_mutations_performed: false,
+            receipt_sha256: String::new(),
+        };
+        coverage.receipt_sha256 = target_data_backup_coverage_proof_sha256(&coverage);
+
+        let mut destination = BackupDestinationIdentityVerification {
+            schema: "phoenix_key.backup_destination_identity_verification.v1".to_string(),
+            target_stable_identity_sha256: target,
+            expected_destination_stable_identity_sha256: "d".repeat(64),
+            observed_destination_stable_identity_sha256: "d".repeat(64),
+            identity_source: "fresh_hardware_scan".to_string(),
+            unique_match: true,
+            ambiguous: false,
+            matches_expected_destination: true,
+            separate_from_target: true,
+            system_mutations_performed: false,
+            receipt_sha256: String::new(),
+        };
+        destination.receipt_sha256 =
+            backup_destination_identity_verification_sha256(&destination);
+
+        evidence["target_data_backup_coverage_proof"] =
+            serde_json::to_value(coverage).unwrap();
+        evidence["backup_destination_identity_verification"] =
+            serde_json::to_value(destination).unwrap();
+
+        let resolved = build_recovery_evidence_bundle_v2(&evidence);
+        assert!(resolved.data_preservation_resolved);
+        assert!(resolved.components["target_data_backup_coverage_proof"].trusted);
+        assert!(resolved.components["backup_destination_identity_verification"].trusted);
+        assert!(!resolved
+            .outstanding_requirements
+            .contains(&"target_data_backup_coverage_proof".to_string()));
+        assert!(!resolved
+            .outstanding_requirements
+            .contains(&"backup_destination_identity_verification".to_string()));
 
         let mut tampered = evidence.clone();
-        tampered["target_data_backup_receipt"]["files_verified"] = json!(false);
+        tampered["target_data_backup_coverage_proof"]["omitted_entry_count"] = json!(1);
         let blocked = build_recovery_evidence_bundle_v2(&tampered);
         assert!(!blocked.data_preservation_resolved);
-        assert!(!blocked.components["target_data_backup_receipt"].trusted);
+        assert!(!blocked.components["target_data_backup_coverage_proof"].trusted);
         assert!(blocked
             .outstanding_requirements
-            .contains(&"target_data_backup_receipt".to_string()));
+            .contains(&"target_data_backup_coverage_proof".to_string()));
         let _ = fs::remove_dir_all(root);
     }
 
