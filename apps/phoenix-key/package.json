@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:release-parity": "python3 ../../scripts/audit_arcwyre_drive_release.py",
     "test:artifact-receipt": "node scripts/emit-artifact-receipt.test.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build"

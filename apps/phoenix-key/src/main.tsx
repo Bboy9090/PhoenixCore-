@@ -114,7 +114,7 @@ function App() {
       return;
     }
     if (!isDesktopRuntime()) {
-      setMessage("Live USB scanning is unavailable in a browser. Open Phoenix Key Desktop.");
+      setMessage("Live USB scanning is unavailable in a browser. Open ARCWYRE Drive Desktop.");
       return;
     }
     setBusy(true);
@@ -141,7 +141,7 @@ function App() {
       return;
     }
     if (!isDesktopRuntime()) {
-      setMessage("Live media scanning is unavailable in a browser. Open Phoenix Key Desktop.");
+      setMessage("Live media scanning is unavailable in a browser. Open ARCWYRE Drive Desktop.");
       return;
     }
     setBusy(true);
@@ -247,7 +247,7 @@ function App() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand-mark" aria-hidden="true">P</div>
-        <div className="brand-copy"><span>Phoenix Key</span><small>PhoenixCore · powered by BootForge</small></div>
+        <div className="brand-copy"><span>ARCWYRE Drive</span><small>PhoenixCore · powered by libbootforge</small></div>
         <nav aria-label="Primary">
           <button className={`nav-item ${view === "devices" ? "active" : ""}`} onClick={() => setView("devices")} disabled={distributionProfile?.hardware_scan === false}><span>⌁</span> Device Forge</button>
           <button className={`nav-item ${view === "media" ? "active" : ""}`} onClick={() => setView("media")} disabled={distributionProfile?.media_planning === false}><span>◇</span> Media Builder</button>
@@ -262,7 +262,7 @@ function App() {
               : "Only live-verified external USB, SD, or MMC targets can write. Boot, system, internal, ambiguous, or changed devices remain blocked."}
           </p>
         </div>
-        <footer>Reignite · Rebuild · Reboot</footer>
+        <footer>Inspect · Forge · Recover</footer>
       </aside>
 
       <section className="workspace">
@@ -280,7 +280,7 @@ function App() {
 
         {view !== "recovery" && (
           <div className="hero-panel">
-            <div><span className="status-label">SYSTEM STATUS</span><h2>{busy ? "Reading the signal…" : "Phoenix Key is standing by."}</h2><p>{message}</p></div>
+            <div><span className="status-label">SYSTEM STATUS</span><h2>{busy ? "Reading the signal…" : "ARCWYRE Drive is standing by."}</h2><p>{message}</p></div>
             <button className="scan-button" onClick={view === "devices" ? scanDevices : scanMedia} disabled={busy}>{busy ? "Scanning…" : view === "devices" ? "Scan Connected Devices" : "Scan Media Targets"}</button>
           </div>
         )}
@@ -302,7 +302,7 @@ function App() {
               <Inventory title="Media targets" count={media.length} empty="Connect a removable USB drive, then scan media targets.">
                 {media.map((item, index) => <button className={`item-row ${selectedMedia === index ? "selected" : ""}`} key={item.drive_path} onClick={() => { setSelectedMedia(index); setPlan(null); setWritePreparation(null); setAuthorization(""); setDestructiveAcknowledgement(false); setWriteReceipt(null); }}><span className="device-orb">M</span><span><strong>{item.display_name}</strong><small>{item.drive_path} · {item.size_human}</small></span><b className={item.is_eligible ? "good" : "blocked"}>{item.is_eligible ? "Eligible" : "Blocked"}</b></button>)}
               </Inventory>
-              <section className="details panel"><PanelHeading eyebrow="BUILD CONTRACT" title="Verified media writer" />{activeMedia ? <div className="detail-body"><dl><Detail label="Target" value={activeMedia.drive_path} /><Detail label="Capacity" value={activeMedia.size_human} /><Detail label="Confidence" value={activeMedia.confidence} /><Detail label="Protocol" value={activeMedia.bus_protocol || "Unknown"} /></dl>{activeMedia.block_reasons.length > 0 && <div className="warning-box"><strong>Target blocked</strong>{activeMedia.block_reasons.map(reason => <p key={reason}>{reason}</p>)}</div>}<label className="path-field"><span>Image path</span><input value={imagePath} onChange={(event) => { setImagePath(event.target.value); setPlan(null); setWritePreparation(null); setAuthorization(""); setDestructiveAcknowledgement(false); setWriteReceipt(null); }} placeholder="C:\\images\\phoenix.iso" /></label><button className="plan-button" onClick={buildPlan} disabled={busy || !activeMedia.is_eligible || !imagePath.trim()}>Generate Dry-Run Plan</button>{plan && <><pre className="plan-output">{JSON.stringify(plan, null, 2)}</pre><button className="prepare-button" onClick={prepareWrite} disabled={busy}>Prepare Safe-Device Write</button></>}{writePreparation && <div className="write-gate"><strong>Permanent erasure warning</strong><p>Phoenix Key will overwrite {writePreparation.target}. Identity: {writePreparation.target_identity_sha256}</p><code>{writePreparation.authorization_phrase}</code><label className="path-field"><span>Type the exact authorization phrase</span><input value={authorization} onChange={(event) => setAuthorization(event.target.value)} /></label><label className="acknowledgement"><input type="checkbox" checked={destructiveAcknowledgement} onChange={(event) => setDestructiveAcknowledgement(event.target.checked)} /><span>I confirm this is the selected removable test device and understand all existing data will be destroyed.</span></label><button className="write-button" onClick={executeWrite} disabled={busy || authorization !== writePreparation.authorization_phrase || !destructiveAcknowledgement}>Erase, Write and Verify</button></div>}{writeReceipt && <pre className="receipt-output">{JSON.stringify(writeReceipt, null, 2)}</pre>}</div> : <Empty text="Select a scanned removable target to prepare a verified media write." />}</section>
+              <section className="details panel"><PanelHeading eyebrow="BUILD CONTRACT" title="Verified media writer" />{activeMedia ? <div className="detail-body"><dl><Detail label="Target" value={activeMedia.drive_path} /><Detail label="Capacity" value={activeMedia.size_human} /><Detail label="Confidence" value={activeMedia.confidence} /><Detail label="Protocol" value={activeMedia.bus_protocol || "Unknown"} /></dl>{activeMedia.block_reasons.length > 0 && <div className="warning-box"><strong>Target blocked</strong>{activeMedia.block_reasons.map(reason => <p key={reason}>{reason}</p>)}</div>}<label className="path-field"><span>Image path</span><input value={imagePath} onChange={(event) => { setImagePath(event.target.value); setPlan(null); setWritePreparation(null); setAuthorization(""); setDestructiveAcknowledgement(false); setWriteReceipt(null); }} placeholder="C:\\images\\phoenix.iso" /></label><button className="plan-button" onClick={buildPlan} disabled={busy || !activeMedia.is_eligible || !imagePath.trim()}>Generate Dry-Run Plan</button>{plan && <><pre className="plan-output">{JSON.stringify(plan, null, 2)}</pre><button className="prepare-button" onClick={prepareWrite} disabled={busy}>Prepare Safe-Device Write</button></>}{writePreparation && <div className="write-gate"><strong>Permanent erasure warning</strong><p>ARCWYRE Drive will overwrite {writePreparation.target}. Identity: {writePreparation.target_identity_sha256}</p><code>{writePreparation.authorization_phrase}</code><label className="path-field"><span>Type the exact authorization phrase</span><input value={authorization} onChange={(event) => setAuthorization(event.target.value)} /></label><label className="acknowledgement"><input type="checkbox" checked={destructiveAcknowledgement} onChange={(event) => setDestructiveAcknowledgement(event.target.checked)} /><span>I confirm this is the selected removable test device and understand all existing data will be destroyed.</span></label><button className="write-button" onClick={executeWrite} disabled={busy || authorization !== writePreparation.authorization_phrase || !destructiveAcknowledgement}>Erase, Write and Verify</button></div>}{writeReceipt && <pre className="receipt-output">{JSON.stringify(writeReceipt, null, 2)}</pre>}</div> : <Empty text="Select a scanned removable target to prepare a verified media write." />}</section>
             </div>
           </>
         ) : (

@@ -2,7 +2,7 @@
 name = "phoenix-key"
 version = "3.2.0"
 edition = "2021"
-description = "Phoenix Key guarded recovery-media writer and device interface"
+description = "ARCWYRE Drive guarded recovery-media writer, device interface, and recovery analyzer"
 license = "MIT OR Apache-2.0"
 default-run = "phoenix-key"
 

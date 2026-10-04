@@ -7,8 +7,31 @@ const rust = normalizeNewlines(readFileSync(new URL("../src-tauri/src/main.rs", 
 const evidence = normalizeNewlines(readFileSync(new URL("../../../scripts/hardware/capture_windows_drive_evidence.py", import.meta.url), "utf8"));
 const writer = normalizeNewlines(readFileSync(new URL("../../../scripts/hardware/write_windows_sacrificial_drive.py", import.meta.url), "utf8"));
 const tauri = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
+const convergence = normalizeNewlines(readFileSync(new URL("../../../docs/architecture/ARCWYRE_DRIVE_CAPABILITY_CONVERGENCE.md", import.meta.url), "utf8"));
 
 const failures = [];
+if (tauri.package.productName !== "ARCWYRE Drive") failures.push("public product name is not ARCWYRE Drive");
+if (tauri.tauri.bundle.identifier !== "com.bobbysworld.arcwyredrive") failures.push("ARCWYRE Drive bundle identifier is not canonical");
+for (const capability of [
+  "Connected devices",
+  "Raw image creation",
+  "Cross-platform host support",
+  "Windows To Go",
+  "Backup-to-drive recovery",
+  "Clone and image",
+  "Multiboot",
+  "macOS installers",
+  "OpenCore/OCLP",
+  "Boot Camp",
+  "Linux media",
+  "Boot repair",
+  "Drivers and patches",
+  "Image library",
+  "Diagnostics",
+  "Recipes and plugins",
+]) {
+  if (!convergence.includes(`| ${capability} |`)) failures.push(`ARCWYRE Drive capability contract is missing ${capability}`);
+}
 if (ui.includes("demoDevices") || ui.includes("DEMO-DEVICE")) failures.push("production UI contains demo hardware");
 if (!rust.includes("scan_connected_devices")) failures.push("BootForge peripheral scanner is not wired");
 if (!rust.includes("filter(is_actionable_device)")) failures.push("raw USB endpoints are not filtered from Device Forge");
@@ -77,4 +100,4 @@ if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log("Phoenix Key repository boundaries verified.");
+console.log("ARCWYRE Drive repository boundaries verified.");
