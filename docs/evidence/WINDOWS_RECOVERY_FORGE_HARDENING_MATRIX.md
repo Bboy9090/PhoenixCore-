@@ -181,7 +181,11 @@ Status: **implemented and CI-gated**.
 
 `preserve_existing_data`:
 
-- cannot resolve without a real target-data backup receipt.
+- cannot resolve from a backup receipt alone
+- requires a trusted target-data backup receipt
+- requires `target_data_backup_coverage_proof`
+- requires `backup_destination_identity_verification`
+- remains blocked if either independent proof is absent or untrusted.
 
 `explicit_discard`:
 
@@ -193,16 +197,29 @@ Status: **implemented and CI-gated**.
 
 ## Target data preservation proof
 
-Status: **implemented and CI-gated in this lane**.
+Status: **independent proof contracts implemented; CI verification in progress on PR #179**.
 
-Preserve mode may resolve only from a checksum-valid
-`phoenix_key.target_data_backup_receipt.v1` whose referenced backup manifest
-and every listed artifact are independently re-read and hash/size verified.
+A checksum-valid `phoenix_key.target_data_backup_receipt.v1` proves only that
+the listed backup artifacts exist and match their manifest. It is deliberately
+insufficient to prove that the manifest covers all target data.
 
-The receipt must be bound to the exact target stable identity and rollback
-contract, use a different physical backup-destination identity, and prove zero
-target writes / zero system mutations. Recovery Evidence Bundle v2 binds the
-resolved preservation decision to the exact backup-receipt SHA-256.
+Preserve mode additionally requires:
+
+- `phoenix_key.target_data_backup_coverage_proof.v1`
+  - bound to the exact target, rollback contract, backup receipt, and manifest
+  - compares a fresh pre-backup source inventory to the manifest inventory
+  - requires identical inventory digests, entry counts, and byte totals
+  - requires zero omitted entries
+  - rejects any target-write or system-mutation claim
+- `phoenix_key.backup_destination_identity_verification.v1`
+  - bound to the exact target and backup-destination identity
+  - requires a fresh hardware-scan identity source
+  - requires one unique, non-ambiguous destination match
+  - requires the observed destination to differ from the restore target
+
+Recovery Evidence Bundle v2 keeps preserve mode unresolved until both proof
+components are trusted. Final Recovery Preflight independently re-checks that
+both proof components are present and trusted before architecture review.
 
 Explicit discard remains a separate path and requires no backup component.
 Neither path authorizes restore execution.
