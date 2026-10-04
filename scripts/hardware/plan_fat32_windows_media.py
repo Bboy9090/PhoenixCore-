@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -16,10 +17,56 @@ FAT32_MAX_FILE_BYTES = (4 * 1024 * 1024 * 1024) - 1
 DEFAULT_SPLIT_SIZE_MB = 3800
 WIM_HEADER_SIZE = 0xD0
 SWM_NAME_RE = re.compile(r"^install(?:(\d+))?\.swm$", re.IGNORECASE)
+WINDOWS_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 
 
 class MediaPlanError(RuntimeError):
     """Raised when the source cannot be safely assessed as Windows install media."""
+
+
+def capture_media_manifest(root: Path) -> dict[str, Any]:
+    """Bind an extracted source to actual bytes; this does not certify provenance."""
+    root = root.absolute()
+    for ancestor in (root, *root.parents):
+        _checked_lstat(ancestor)
+    if not stat.S_ISDIR(_checked_lstat(root).st_mode):
+        raise MediaPlanError("Manifest source must be a directory.")
+    entries = []
+    seen = set()
+    for path, info in sorted(_walk_regular_files_nofollow(root), key=lambda item: str(item[0])):
+        relative = path.relative_to(root).as_posix()
+        if relative.casefold() in seen:
+            raise MediaPlanError("Case-colliding media paths are not supported.")
+        seen.add(relative.casefold())
+        if any(
+            part.endswith((".", " "))
+            or any(char in part for char in '<>:"\\|?*')
+            or any(ord(char) < 32 for char in part)
+            or part.split(".")[0].upper() in WINDOWS_RESERVED_NAMES
+            for part in Path(relative).parts
+        ):
+            raise MediaPlanError("Source contains a path unsafe for Windows media.")
+        digest = hashlib.sha256()
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        with os.fdopen(os.open(path, flags), "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode) or (before.st_dev, before.st_ino) != (info.st_dev, info.st_ino):
+                raise MediaPlanError("Source file identity changed during inspection.")
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+            after = os.fstat(stream.fileno())
+        current = _checked_lstat(path)
+        identity = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+        if identity(before) != identity(after) or identity(after) != identity(current):
+            raise MediaPlanError("Source file changed during hashing.")
+        entries.append({"path": relative, "size_bytes": after.st_size, "sha256": digest.hexdigest()})
+    if not entries:
+        raise MediaPlanError("Source is empty.")
+    encoded = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {"schema": "arcwyre.windows_media_manifest.v1", "files": entries,
+            "total_bytes": sum(item["size_bytes"] for item in entries),
+            "manifest_sha256": hashlib.sha256(encoded).hexdigest(),
+            "provenance_verified": False, "target_disk_modified": False}
 
 
 REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -242,6 +289,10 @@ def plan_media(
     large_files = oversized_files(root)
 
     block_reasons: list[str] = []
+    # Never silently choose between competing installation images. A preparation
+    # executor must bind one unambiguous source before copying or splitting it.
+    if sum((install_wim is not None, install_esd is not None, bool(segments))) > 1:
+        block_reasons.append("multiple_windows_install_image_families")
     if setup is None:
         block_reasons.append("setup_exe_missing")
     if boot_wim is None:
@@ -348,9 +399,19 @@ def plan_media(
     }
 
 
+def verify_media_manifest(root: Path, expected: dict[str, Any]) -> dict[str, Any]:
+    """Re-read the complete tree; never accept a caller's hash as proof alone."""
+    actual = capture_media_manifest(root)
+    if expected != actual:
+        raise MediaPlanError("Source manifest mismatch: recapture and review the source.")
+    return actual
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, required=True)
+    parser.add_argument("--capture-manifest", action="store_true")
+    parser.add_argument("--verify-manifest", type=Path)
     parser.add_argument(
         "--split-size-mb",
         type=int,
@@ -361,7 +422,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    print(json.dumps(plan_media(args.source_root, args.split_size_mb), sort_keys=True))
+    result = plan_media(args.source_root, args.split_size_mb)
+    if args.verify_manifest:
+        expected = json.loads(args.verify_manifest.read_text(encoding="utf-8"))
+        result["source_manifest"] = verify_media_manifest(args.source_root, expected)
+        result["source_bytes_match_manifest"] = True
+    elif args.capture_manifest:
+        result["source_manifest"] = capture_media_manifest(args.source_root)
+    print(json.dumps(result, sort_keys=True))
     return 0
 
 
