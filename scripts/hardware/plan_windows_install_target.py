@@ -53,8 +53,8 @@ def plan_install_target(source_root: Path, manifest: dict[str, Any], target: str
     if not isinstance(partitions, list):
         reasons.append("target_partition_inventory_unknown")
     else:
-        # Existing collector suppresses Get-Partition errors. Empty output cannot
-        # distinguish a genuinely blank RAW disk from a failed enumeration.
+        # Collector now fails on Get-Partition errors. Empty inventory still
+        # lacks independent blank-RAW-disk proof required by this workflow.
         if not partitions:
             reasons.append("target_empty_partition_inventory_not_independently_proven")
         for partition in partitions:
