@@ -17,6 +17,21 @@ SPEC.loader.exec_module(windows_drive_evidence)
 
 
 class WindowsDriveEvidenceTests(unittest.TestCase):
+    def test_missing_or_malformed_safety_facts_block_candidate(self):
+        for field in ("IsBoot", "IsSystem", "IsOffline", "IsReadOnly"):
+            for value in (None, "false", 0):
+                with self.subTest(field=field, value=value):
+                    fixture = dict(self.fixture, **{field: value})
+                    record = windows_drive_evidence.normalize_disk_record(fixture, self.target)
+                    self.assertFalse(record["write_candidate"])
+
+    def test_offline_and_partition_boot_system_flags_block_candidate(self):
+        for field in ("IsBoot", "IsSystem"):
+            fixture = dict(self.fixture, Partitions=[dict(self.fixture["Partitions"][0], **{field: True})])
+            self.assertFalse(windows_drive_evidence.normalize_disk_record(fixture, self.target)["write_candidate"])
+        fixture = dict(self.fixture, IsOffline=True)
+        self.assertFalse(windows_drive_evidence.normalize_disk_record(fixture, self.target)["write_candidate"])
+
     def setUp(self):
         fixture_path = Path(__file__).parent / "fixtures" / "windows_disk_usb.json"
         self.fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

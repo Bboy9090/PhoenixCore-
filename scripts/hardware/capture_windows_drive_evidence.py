@@ -158,6 +158,21 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
     )
 
     block_reasons = []
+    # Native PowerShell emits JSON booleans. Missing or malformed safety facts
+    # must not become false through permissive normalization.
+    for field in ("IsBoot", "IsSystem", "IsOffline", "IsReadOnly"):
+        if type(raw.get(field)) is not bool:
+            block_reasons.append(f"target-safety-fact-unknown-{field.lower()}")
+    if record["is_offline"]:
+        block_reasons.append("target-is-offline")
+    if "Partitions" not in raw or not isinstance(raw["Partitions"], (list, dict)):
+        block_reasons.append("target-partition-inventory-unknown")
+    for partition in partitions:
+        for field in ("IsBoot", "IsSystem"):
+            if type(partition.get(field)) is not bool:
+                block_reasons.append(f"partition-safety-fact-unknown-{field.lower()}")
+            elif partition[field]:
+                block_reasons.append(f"target-contains-{field[2:].lower()}-partition")
     if record["is_boot"]:
         block_reasons.append("target-is-boot-disk")
     if record["is_system"]:
@@ -187,7 +202,7 @@ def query_windows_disk(disk_number: int) -> dict[str, Any]:
 $ErrorActionPreference = 'Stop'
 $disk = Get-Disk -Number {disk_number}
 $partitions = @(
-  Get-Partition -DiskNumber {disk_number} -ErrorAction SilentlyContinue |
+  Get-Partition -DiskNumber {disk_number} -ErrorAction Stop |
     Select-Object PartitionNumber, DriveLetter, Offset, Size, Type, GptType, MbrType, IsBoot, IsSystem
 )
 [pscustomobject]@{{

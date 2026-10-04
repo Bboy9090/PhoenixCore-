@@ -37,6 +37,60 @@ def make_tree(root: Path) -> Path:
 
 
 class Fat32WindowsMediaPlanTests(unittest.TestCase):
+    def test_manifest_rejects_windows_unsafe_names(self):
+        for name in ("payload:stream", "CON.txt", "LPT1", "bad?name", "bad\\name"):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmpdir:
+                root = Path(tmpdir)
+                (root / name).write_bytes(b"data")
+                with self.assertRaises(media.MediaPlanError):
+                    media.capture_media_manifest(root)
+
+    def test_manifest_verification_rejects_added_missing_and_changed_files(self):
+        for mutation in ("added", "missing", "changed"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as tmpdir:
+                root = Path(tmpdir)
+                (root / "payload").write_bytes(b"original")
+                expected = media.capture_media_manifest(root)
+                self.assertEqual(expected, media.verify_media_manifest(root, expected))
+                if mutation == "added":
+                    (root / "extra").write_bytes(b"extra")
+                elif mutation == "missing":
+                    (root / "payload").unlink()
+                else:
+                    (root / "payload").write_bytes(b"modified")
+                with self.assertRaises(media.MediaPlanError):
+                    media.verify_media_manifest(root, expected)
+
+    def test_manifest_binds_actual_source_bytes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sources = make_tree(root)
+            write_wim(sources / "install.wim")
+            first = media.capture_media_manifest(root)
+            self.assertEqual(first, media.capture_media_manifest(root))
+            (root / "setup.exe").write_bytes(b"changed")
+            self.assertNotEqual(first["manifest_sha256"], media.capture_media_manifest(root)["manifest_sha256"])
+            self.assertFalse(first["provenance_verified"])
+
+    def test_manifest_rejects_case_collisions(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "Setup.exe").write_bytes(b"one")
+            (root / "setup.exe").write_bytes(b"two")
+            with self.assertRaises(media.MediaPlanError):
+                media.capture_media_manifest(root)
+
+    def test_competing_image_families_are_blocked(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sources = make_tree(root)
+            write_wim(sources / "install.wim")
+            write_wim(sources / "install.esd")
+            result = media.plan_media(root)
+            self.assertIn("multiple_windows_install_image_families", result["block_reasons"])
+            self.assertFalse(result["ready_for_fat32_copy_now"])
+            self.assertFalse(result["ready_for_fat32_copy_after_split"])
+
     def setUp(self):
         self.real_fat32_max = media.FAT32_MAX_FILE_BYTES
         media.FAT32_MAX_FILE_BYTES = 1023

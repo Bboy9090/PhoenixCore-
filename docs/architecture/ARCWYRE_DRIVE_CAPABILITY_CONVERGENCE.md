@@ -45,4 +45,20 @@ The historical BootForge implementation is evidence of intended capability, not 
 
 ## Release gate
 
+### Lane 1 implementation checkpoint
+
+The Windows installer preparation path now captures a complete source file manifest,
+rechecks it before copying, creates an exclusive local workspace, verifies copied
+bytes by readback, and invokes native DISM to split oversized WIM files. The desktop
+UI exposes preparation, retained failure paths, and cooperative cancellation.
+Live target planning binds fresh source and destination identities and remains
+read-only. Unknown safety facts and unproven empty partition inventories block it.
+
+Offline WIM application uses a new disposable workspace, a verified source snapshot,
+native DISM image-index inspection and application, cancellation, and output hashes.
+It is not a completed Windows To Go builder. Physical partitioning, volume binding,
+boot configuration, portable-workspace policy, native Windows execution, and boot
+validation remain required. Mocked tool tests establish contracts, not native tool
+or hardware proof. These additions do not promote any capability row to `Wired`.
+
 ARCWYRE Drive cannot be called feature-complete until every required row is either `Wired` with retained tests/evidence or explicitly excluded from the product contract by an approved decision. Store submission must use a capability-accurate description for the exact signed artifact; it must not advertise the still-locked writers, restore executors, or repair executors.
