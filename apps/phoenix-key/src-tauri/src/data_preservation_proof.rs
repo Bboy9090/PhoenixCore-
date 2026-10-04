@@ -200,6 +200,59 @@ pub fn verify_backup_destination_identity_verification(
         && !proof.system_mutations_performed
 }
 
+
+#[tauri::command]
+pub fn load_target_data_backup_coverage_proof(
+    proof_path: String,
+    target_stable_identity_sha256: String,
+    rollback_contract_sha256: String,
+    backup_receipt_sha256: String,
+    backup_manifest_sha256: String,
+) -> Result<TargetDataBackupCoverageProof, String> {
+    let text = std::fs::read_to_string(&proof_path)
+        .map_err(|error| format!("cannot read backup coverage proof: {error}"))?;
+    let value: Value = serde_json::from_str(&text)
+        .map_err(|error| format!("invalid backup coverage proof JSON: {error}"))?;
+    if !verify_target_data_backup_coverage_proof(
+        &value,
+        Some(&target_stable_identity_sha256),
+        Some(&rollback_contract_sha256),
+        Some(&backup_receipt_sha256),
+        Some(&backup_manifest_sha256),
+    ) {
+        return Err(
+            "backup coverage proof is invalid, incomplete, tampered, or bound to different evidence"
+                .to_string(),
+        );
+    }
+    serde_json::from_value(value)
+        .map_err(|error| format!("cannot decode verified backup coverage proof: {error}"))
+}
+
+#[tauri::command]
+pub fn load_backup_destination_identity_verification(
+    proof_path: String,
+    target_stable_identity_sha256: String,
+    destination_stable_identity_sha256: String,
+) -> Result<BackupDestinationIdentityVerification, String> {
+    let text = std::fs::read_to_string(&proof_path)
+        .map_err(|error| format!("cannot read backup destination identity verification: {error}"))?;
+    let value: Value = serde_json::from_str(&text)
+        .map_err(|error| format!("invalid backup destination identity verification JSON: {error}"))?;
+    if !verify_backup_destination_identity_verification(
+        &value,
+        Some(&target_stable_identity_sha256),
+        Some(&destination_stable_identity_sha256),
+    ) {
+        return Err(
+            "backup destination identity verification is invalid, ambiguous, tampered, or bound to different hardware"
+                .to_string(),
+        );
+    }
+    serde_json::from_value(value)
+        .map_err(|error| format!("cannot decode verified destination identity proof: {error}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
