@@ -39,7 +39,12 @@ class WorkspacePreparationTests(unittest.TestCase):
 
     def test_symlink_source_rejected(self):
         link = Path(self.temp.name) / "linked.wim"
-        link.symlink_to(self.source)
+        try:
+            link.symlink_to(self.source)
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 1314:
+                self.skipTest("Windows account lacks symbolic-link creation privilege")
+            raise
         with self.assertRaises(RuntimeError):
             module.prepare_workspace(link, self.sha, 1)
 
@@ -137,7 +142,7 @@ class WorkspacePreparationTests(unittest.TestCase):
     def test_metadata_uses_cancellable_logged_native_runner(self):
         logs = Path(self.temp.name)
         def run(command, transcript, cancelled):
-            self.assertEqual("/native/tool", command[0])
+            self.assertEqual(str(Path("/native/tool")), command[0])
             self.assertIn("/English", command)
             self.assertFalse(cancelled())
             transcript.write_text("Index : 1\n")
