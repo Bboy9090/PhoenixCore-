@@ -4,10 +4,16 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
 from typing import Any
+
+_spec = importlib.util.spec_from_file_location(
+    "_rehearsal_media", Path(__file__).with_name("plan_fat32_windows_media.py"))
+_media = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_media)
 
 
 def assess_restore_rehearsal(
@@ -40,16 +46,14 @@ def assess_restore_rehearsal(
             after = os.fstat(stream.fileno())
         actual_sha = digest.hexdigest()
         current = source.stat()
-        def identity(stat):
-            return (
-                stat.st_dev,
-                stat.st_ino,
-                stat.st_size,
-                stat.st_mtime_ns,
-                stat.st_ctime_ns,
-            )
-        if identity(before) != identity(after) or identity(after) != identity(current):
-            blockers.append("source-changed-during-inspection")
+        try:
+            identity = _media.file_stat_identity
+            if (identity(before) != identity(after)
+                    or before.st_ctime_ns != after.st_ctime_ns
+                    or identity(after) != identity(current)):
+                blockers.append("source-changed-during-inspection")
+        except _media.MediaPlanError:
+            blockers.append("source-identity-unavailable")
         if actual_sha != expected_sha256.lower():
             blockers.append("source-integrity-mismatch")
 
