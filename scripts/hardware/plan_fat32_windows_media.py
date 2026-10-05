@@ -75,6 +75,15 @@ def capture_media_manifest(root: Path, cancelled=lambda: False) -> dict[str, Any
     if cancelled():
         raise MediaPlanError("Cancelled before manifest inspection.")
     root = root.absolute()
+    # Extended paths avoid MAX_PATH without changing machine-wide registry policy.
+    # Relative manifest entries and all no-follow/identity checks remain unchanged.
+    if os.name == "nt":
+        value = str(root)
+        if value.startswith("\\\\.\\"):
+            raise MediaPlanError("Device paths are not media directories.")
+        if not value.startswith("\\\\?\\"):
+            root = Path("\\\\?\\UNC\\" + value[2:] if value.startswith("\\\\")
+                        else "\\\\?\\" + value)
     for ancestor in (root, *root.parents):
         _checked_lstat(ancestor)
     if not stat.S_ISDIR(_checked_lstat(root).st_mode):
