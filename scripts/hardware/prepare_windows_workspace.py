@@ -62,9 +62,10 @@ def _hash(path, cancelled=lambda: False):
                 raise preparation.staging.StagingError("Cancelled while hashing")
             digest.update(chunk)
         after = os.fstat(stream.fileno())
-        def identity(info):
-            return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
-        if identity(before) != identity(after) or identity(after) != identity(path.stat()):
+        identity = preparation.media.file_stat_identity
+        if (identity(before) != identity(after)
+                or before.st_ctime_ns != after.st_ctime_ns
+                or identity(after) != identity(path.stat())):
             raise preparation.staging.StagingError("File changed while hashing")
         return digest.hexdigest()
 
