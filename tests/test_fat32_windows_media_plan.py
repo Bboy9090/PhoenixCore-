@@ -1,6 +1,8 @@
 import importlib.util
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 
 MODULE_PATH = (
@@ -13,6 +15,28 @@ SPEC = importlib.util.spec_from_file_location("fat32_media", MODULE_PATH)
 assert SPEC and SPEC.loader
 media = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(media)
+
+
+class WindowsStatIdentityTests(unittest.TestCase):
+    def test_cross_acquisition_creation_time_preserves_file_identity(self):
+        common = dict(st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78, st_birthtime_ns=90)
+        path = SimpleNamespace(**common, st_ctime_ns=90)
+        descriptor = SimpleNamespace(**common, st_ctime_ns=100)
+        with patch.object(media.os, "name", "nt"):
+            self.assertEqual(media.file_stat_identity(path), media.file_stat_identity(descriptor))
+            replaced = SimpleNamespace(**{**common, "st_ino": 35}, st_ctime_ns=100)
+            self.assertNotEqual(media.file_stat_identity(path), media.file_stat_identity(replaced))
+
+    def test_missing_windows_creation_time_fails_closed(self):
+        info = SimpleNamespace(st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78, st_ctime_ns=90)
+        with patch.object(media.os, "name", "nt"), self.assertRaises(media.MediaPlanError):
+            media.file_stat_identity(info)
+
+    def test_posix_change_time_remains_part_of_identity(self):
+        common = dict(st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78)
+        with patch.object(media.os, "name", "posix"):
+            self.assertNotEqual(media.file_stat_identity(SimpleNamespace(**common, st_ctime_ns=90)),
+                                media.file_stat_identity(SimpleNamespace(**common, st_ctime_ns=100)))
 
 
 def write_wim(path: Path, size: int = media.WIM_HEADER_SIZE) -> None:
@@ -41,7 +65,23 @@ class Fat32WindowsMediaPlanTests(unittest.TestCase):
         for name in ("payload:stream", "CON.txt", "LPT1", "bad?name", "bad\\name"):
             with self.subTest(name=name), tempfile.TemporaryDirectory() as tmpdir:
                 root = Path(tmpdir)
-                (root / name).write_bytes(b"data")
+                if media.os.name == "nt" and "\\" in name:
+                    continue  # Backslash is a separator, not a representable filename.
+                with patch.object(media, "_walk_regular_files_nofollow", return_value=[(root / name, root.stat())]), self.assertRaises(media.MediaPlanError):
+                    media.capture_media_manifest(root)
+
+    @unittest.skipUnless(media.os.name == "nt", "Named data streams require Windows")
+    def test_actual_named_file_and_directory_streams_block_manifest(self):
+        for target in ("file", "directory"):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as tmpdir:
+                root = Path(tmpdir)
+                payload = root / "payload"
+                payload.write_bytes(b"data")
+                stream_path = payload if target == "file" else root
+                try:
+                    Path(str(stream_path) + ":arcwyre-test").write_bytes(b"hidden data")
+                except OSError as exc:
+                    self.skipTest(f"Filesystem cannot create named streams: {exc}")
                 with self.assertRaises(media.MediaPlanError):
                     media.capture_media_manifest(root)
 
@@ -77,6 +117,8 @@ class Fat32WindowsMediaPlanTests(unittest.TestCase):
             root = Path(tmpdir)
             (root / "Setup.exe").write_bytes(b"one")
             (root / "setup.exe").write_bytes(b"two")
+            if (root / "Setup.exe").samefile(root / "setup.exe"):
+                self.skipTest("Filesystem cannot represent distinct case-colliding files")
             with self.assertRaises(media.MediaPlanError):
                 media.capture_media_manifest(root)
 

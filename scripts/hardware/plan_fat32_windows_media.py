@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import hashlib
 import json
 import os
@@ -22,6 +23,51 @@ WINDOWS_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range
 
 class MediaPlanError(RuntimeError):
     """Raised when the source cannot be safely assessed as Windows install media."""
+
+
+def file_stat_identity(info):
+    # On Windows fstat's ctime is change time, while path stat's ctime is
+    # creation time. Compare their explicit creation times across acquisition
+    # methods and retain descriptor change-time checks separately.
+    timestamp = info.st_ctime_ns
+    if os.name == "nt":
+        timestamp = getattr(info, "st_birthtime_ns", None)
+        if timestamp is None:
+            raise MediaPlanError("Windows file identity requires explicit creation timestamps (Python 3.12+).")
+    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, timestamp)
+
+
+def reject_named_data_streams(path: Path):
+    if os.name != "nt":
+        return
+    class StreamData(ctypes.Structure):
+        _fields_ = [("size", ctypes.c_longlong), ("name", ctypes.c_wchar * 296)]
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    first, next_stream, close = api.FindFirstStreamW, api.FindNextStreamW, api.FindClose
+    first.argtypes = [ctypes.c_wchar_p, ctypes.c_int, ctypes.POINTER(StreamData), ctypes.c_uint]
+    first.restype = ctypes.c_void_p
+    next_stream.argtypes = [ctypes.c_void_p, ctypes.POINTER(StreamData)]
+    next_stream.restype = ctypes.c_int
+    close.argtypes = [ctypes.c_void_p]
+    close.restype = ctypes.c_int
+    data = StreamData()
+    handle = first(str(path), 0, ctypes.byref(data), 0)
+    if handle == ctypes.c_void_p(-1).value:
+        error = ctypes.get_last_error()
+        if error in (38, 87):  # No streams, or filesystem has no stream support.
+            return
+        raise MediaPlanError(f"Cannot inspect source data streams: WinError {error}")
+    try:
+        while True:
+            if data.name != "::$DATA":
+                raise MediaPlanError(f"Named data streams are outside the media manifest: {path}")
+            if not next_stream(handle, ctypes.byref(data)):
+                error = ctypes.get_last_error()
+                if error != 38:
+                    raise MediaPlanError(f"Incomplete source stream inventory: WinError {error}")
+                break
+    finally:
+        close(handle)
 
 
 def capture_media_manifest(root: Path) -> dict[str, Any]:
@@ -47,6 +93,7 @@ def capture_media_manifest(root: Path) -> dict[str, Any]:
         ):
             raise MediaPlanError("Source contains a path unsafe for Windows media.")
         digest = hashlib.sha256()
+        reject_named_data_streams(path)
         flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
         with os.fdopen(os.open(path, flags), "rb") as stream:
             before = os.fstat(stream.fileno())
@@ -56,8 +103,11 @@ def capture_media_manifest(root: Path) -> dict[str, Any]:
                 digest.update(chunk)
             after = os.fstat(stream.fileno())
         current = _checked_lstat(path)
-        identity = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
-        if identity(before) != identity(after) or identity(after) != identity(current):
+        reject_named_data_streams(path)
+        if (file_stat_identity(before) != file_stat_identity(after)
+                or before.st_ctime_ns != after.st_ctime_ns
+                or file_stat_identity(after) != file_stat_identity(current)
+                or file_stat_identity(info) != file_stat_identity(current)):
             raise MediaPlanError("Source file changed during hashing.")
         entries.append({"path": relative, "size_bytes": after.st_size, "sha256": digest.hexdigest()})
     if not entries:
@@ -123,12 +173,13 @@ def _walk_regular_files_nofollow(root: Path):
     stack = [root]
     while stack:
         directory = stack.pop()
+        reject_named_data_streams(directory)
         try:
             with os.scandir(directory) as entries:
                 for entry in entries:
                     path = Path(entry.path)
                     try:
-                        info = entry.stat(follow_symlinks=False)
+                        info = path.lstat()  # DirEntry.stat has zero dev/inode on Windows.
                     except OSError as exc:
                         raise MediaPlanError(
                             f"Cannot inspect media path {path}: {exc}"
@@ -213,7 +264,7 @@ def split_wim_segments(sources: Path) -> list[Path]:
             for entry in entries:
                 path = Path(entry.path)
                 try:
-                    info = entry.stat(follow_symlinks=False)
+                    info = path.lstat()
                 except OSError as exc:
                     raise MediaPlanError(
                         f"Cannot inspect media path {path}: {exc}"

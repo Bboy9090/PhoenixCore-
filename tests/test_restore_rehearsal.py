@@ -57,7 +57,12 @@ class RestoreRehearsalTests(unittest.TestCase):
         self.assertIn("destination-not-disposable-image", result["block_reasons"])
 
     def test_symlink_destination_blocks(self):
-        self.args["destination"].symlink_to(self.args["source"])
+        try:
+            self.args["destination"].symlink_to(self.args["source"])
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 1314:
+                self.skipTest("Windows symlink creation privilege unavailable")
+            raise
         self.assertFalse(module.assess_restore_rehearsal(**self.args)["prerequisites_ready"])
 
     def test_missing_executor_and_architecture_mismatch_block(self):

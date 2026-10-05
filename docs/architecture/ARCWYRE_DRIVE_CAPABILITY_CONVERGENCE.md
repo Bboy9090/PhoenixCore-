@@ -47,6 +47,22 @@ The historical BootForge implementation is evidence of intended capability, not 
 
 ### Lane 1 implementation checkpoint
 
+On 2026-10-05, the focused suite ran on Windows: 173 tests, no failures or
+errors, 9 platform/privilege skips. The Linux run passed with one Windows-only
+skip. Native Windows storage smoke created an app-owned 128 MB VHD, formatted
+FAT32, detached/remounted read-only, verified 1 MB by SHA-256, and verified final
+detach/deletion. This proves storage primitives only. It does not prove the
+complete installer builder, OS image application, Windows To Go, or boot.
+The retained evidence states that the storage run preceded final manifest
+hardening and is not an exact final-commit native attestation.
+
+Windows execution exposed zero file IDs in cached directory entries and
+inconsistent ctime semantics between file handles and path stat. The manifest
+now uses fresh path identities and explicit Windows creation timestamps while
+retaining descriptor change-time checks. Named file/directory data streams are
+rejected because they are outside the copy manifest. Windows identity checks
+require Python 3.12 or newer.
+
 The Windows installer preparation path now captures a complete source file manifest,
 rechecks it before copying, creates an exclusive local workspace, verifies copied
 bytes by readback, and invokes native DISM to split oversized WIM files. The desktop
