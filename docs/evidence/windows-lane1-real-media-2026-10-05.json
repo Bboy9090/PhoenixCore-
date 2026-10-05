@@ -44,14 +44,30 @@
     "vhd_deleted": false,
     "retained_bytes": 701841408
   },
+  "vhd_second_attempt": {
+    "validation_passed": false,
+    "copied_files": 978,
+    "copied_bytes": 8418723752,
+    "verified_bytes_before_failure": 8274031637,
+    "failure": "Get-Disk CIM provider Invalid property HRESULT 0x80041031 during read-only binding query",
+    "detach_verified": true,
+    "vhd_deleted": false,
+    "physical_target_write_attempted": false,
+    "boot_proven": false,
+    "retained_vhd_path": "F:\\ARCWYRE-Lane1-30de2ae\\vhd-validation\\arcwyre-vhd-validation-_1g5xyuf\\installer-test.vhd",
+    "disk_unique_id": "60022480fd90e28cb07ba27e98b87811",
+    "helper_sha256": "0921ca0e9230480581e7961b69006f3b1f71bc3a9a015b1c56af1467799648a0"
+  },
   "follow_up": {
     "real_source_manifest_cancellation_seconds": 1.0,
-    "focused_windows_tests": 130,
+    "focused_windows_tests": 133,
     "test_failures": 0,
     "test_errors": 0,
     "platform_skips": 9,
     "hard_exit_journal_regression_passed": true,
-    "vhd_retry_result": "pending"
+    "vhd_retry_result": "failed_provider_metadata_query",
+    "retained_vhd_read_only_reverification": "running",
+    "bounded_read_only_provider_retry_contract_tests_passed": true
   },
   "limitations": [
     "Preparation ran the earlier helper snapshot identified above, before the cancellation update.",
