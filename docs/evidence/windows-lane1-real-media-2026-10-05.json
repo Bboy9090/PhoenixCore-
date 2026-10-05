@@ -1,0 +1,62 @@
+{
+  "schema": "arcwyre.native_split_wim_evidence.v1",
+  "executor": "DESKTOP-A1PTO5R",
+  "date": "2026-10-05",
+  "iso_path": "F:\\Win11_25H2_English_x64_v2.iso",
+  "iso_sha256": "768984706b909479417b2368438909440f2967ff05c6a9195ed2667254e465e3",
+  "iso_mounted_read_only": true,
+  "setup_authenticode_status": "Valid",
+  "source_manifest_files": 976,
+  "source_manifest_bytes": 8465957864,
+  "source_manifest_sha256": "2db4ee996cf41c0f0340aae5e919ccec2a123aa5663ee638b9c10a149ad54e14",
+  "dism_image_editions_enumerated": 11,
+  "preparation": {
+    "complete": true,
+    "split_performed": true,
+    "verified_bytes": 8418723752,
+    "manifest_sha256": "678db6212a59614532ada70eea1c3d59c304ae21d1a06aeb7e0d1b9c21651eb3",
+    "helper_sha256": "5a12d133f2aaee4261356488651af458b789f18c66ce1446b0241d0cf3bfcf9f",
+    "dism_exit_code": 0,
+    "dism_check_integrity_requested": true,
+    "split_structural_checks_passed": true,
+    "independent_image_integrity_verified": false,
+    "original_source_modified": false,
+    "boot_verified": false,
+    "receipt_path": "F:\\ARCWYRE-Lane1-d778148\\real-media-preparation-result.json",
+    "receipt_sha256": "5db27373653ae204664bf5acabb1cf827139a4bea35ed6d9538bb932ed4bc33a"
+  },
+  "segments": [
+    {"path": "sources/install.swm", "size_bytes": 3464976179, "sha256": "a9cf210ad029a0ead5863a43bffc0f7a7dd41f3a4c01e363f2f339fd5cae4a52"},
+    {"path": "sources/install2.swm", "size_bytes": 3983015629, "sha256": "fb3c9ccd9caf7209c9ab9d5e1ae806c934262a2addbeaf158b70bb5f671925b8"},
+    {"path": "sources/install3.swm", "size_bytes": 82849248, "sha256": "6d5a4fe687499f832528d262aca5a7fcb4fe4a1c132c56d5b3405b95df0a2432"}
+  ],
+  "vhd_first_attempt": {
+    "validation_passed": false,
+    "worker_terminated_before_receipt": true,
+    "termination_cause": "unestablished",
+    "physical_target_write_attempted": false,
+    "retained_vhd_path": "F:\\ARCWYRE-Lane1-30de2ae\\vhd-validation\\arcwyre-vhd-validation-5_xbww4l\\installer-test.vhd",
+    "file_backed_virtual_verified": true,
+    "is_boot": false,
+    "is_system": false,
+    "disk_unique_id": "600224801d7ef25d1c74e933f5745951",
+    "detach_verified": true,
+    "vhd_deleted": false,
+    "retained_bytes": 701841408
+  },
+  "follow_up": {
+    "real_source_manifest_cancellation_seconds": 1.0,
+    "focused_windows_tests": 130,
+    "test_failures": 0,
+    "test_errors": 0,
+    "platform_skips": 9,
+    "hard_exit_journal_regression_passed": true,
+    "vhd_retry_result": "pending"
+  },
+  "limitations": [
+    "Preparation ran the earlier helper snapshot identified above, before the cancellation update.",
+    "A valid setup signature does not establish provenance of every ISO file.",
+    "VHD mutation and journaling code remain local-only pending complete native validation.",
+    "No installer boot, physical removable target, Windows To Go, or release readiness is proven."
+  ]
+}
