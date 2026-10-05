@@ -1,4 +1,5 @@
 import importlib.util
+import os
 import tempfile
 import unittest
 from types import SimpleNamespace
@@ -18,6 +19,26 @@ SPEC.loader.exec_module(media)
 
 
 class ManifestCancellationTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Native long-path regression requires Windows")
+    def test_long_applied_tree_path_is_fully_hashed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            extended = Path("\\\\?\\" + str(root.absolute()))
+            nested = extended / ("a" * 90) / ("b" * 90) / ("c" * 90)
+            nested.mkdir(parents=True)
+            payload = nested / "payload.dll"
+            payload.write_bytes(b"long Windows path bytes")
+            manifest = media.capture_media_manifest(root)
+            self.assertEqual(len(manifest["files"]), 1)
+            self.assertEqual(manifest["files"][0]["size_bytes"], 23)
+            self.assertNotIn("\\\\?\\", manifest["files"][0]["path"])
+            media.verify_media_manifest(root, manifest)
+            payload.unlink()
+            while nested != extended:
+                parent = nested.parent
+                nested.rmdir()
+                nested = parent
+
     def test_cancel_before_discovery_never_opens_source(self):
         with patch.object(media, "_walk_regular_files_nofollow") as walk:
             with self.assertRaisesRegex(media.MediaPlanError, "Cancelled"):
@@ -95,7 +116,7 @@ class Fat32WindowsMediaPlanTests(unittest.TestCase):
                 root = Path(tmpdir)
                 if media.os.name == "nt" and "\\" in name:
                     continue  # Backslash is a separator, not a representable filename.
-                with patch.object(media, "_walk_regular_files_nofollow", return_value=[(root / name, root.stat())]), self.assertRaises(media.MediaPlanError):
+                with patch.object(media, "_walk_regular_files_nofollow", side_effect=lambda actual: [(actual / name, root.stat())]), self.assertRaises(media.MediaPlanError):
                     media.capture_media_manifest(root)
 
     @unittest.skipUnless(media.os.name == "nt", "Named data streams require Windows")
