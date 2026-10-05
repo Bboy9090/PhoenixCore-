@@ -70,6 +70,26 @@
     "boot_proven": false,
     "helper_sha256": "a7b208952a7785df568cf5ad31336eb8289b3ae75fddf1236df1d9bca1d4d9af"
   },
+  "later_interruption_recovery": {
+    "vhd_worker_final_receipt": "missing",
+    "journal_phase": "copying",
+    "journal_copied_files": 15,
+    "journal_copied_bytes": 15918332,
+    "disk_unique_id": "600224806fec33b16f0a1d1dbb4b9259",
+    "is_boot": false,
+    "is_system": false,
+    "detach_verified": true,
+    "retained_vhd_path": "F:\\ARCWYRE-Lane1-30de2ae\\vhd-validation\\arcwyre-vhd-validation-y44ej63a\\installer-test.vhd",
+    "offline_worker_final_receipt": "missing",
+    "offline_apply_transcript_reported_success": true,
+    "offline_image_index": 6,
+    "offline_image_name": "Windows 11 Pro",
+    "offline_image_version": "10.0.26200",
+    "offline_image_files_reported_by_dism": 143888,
+    "retained_offline_workspace": "F:\\ARCWYRE-Lane1-30de2ae\\offline-workspaces\\arcwyre-offline-image-ji_o_6me",
+    "termination_cause": "unestablished",
+    "applied_tree_verification": "running_in_background_runner"
+  },
   "follow_up": {
     "real_source_manifest_cancellation_seconds": 1.0,
     "focused_windows_tests": 133,
