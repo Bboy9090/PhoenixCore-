@@ -55,12 +55,19 @@ class StagingTests(unittest.TestCase):
         self.assertEqual(caught.exception.partial_directory, self.root / "out")
         self.assertTrue((self.root / "out").exists())
 
-    def test_source_overlap_and_symlink_parent_rejected(self):
+    def test_source_overlap_rejected(self):
         with self.assertRaises(staging.StagingError):
             staging.stage_media(self.source, self.source / ".." / "source", "out", self.manifest)
         with self.assertRaises(staging.StagingError):
             staging.stage_media(self.source, self.source, "out", self.manifest)
-        (self.root / "link").symlink_to(self.root, target_is_directory=True)
+
+    def test_symlink_parent_rejected(self):
+        try:
+            (self.root / "link").symlink_to(self.root, target_is_directory=True)
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 1314:
+                self.skipTest("Windows account lacks symbolic-link creation privilege")
+            raise
         with self.assertRaises(staging.StagingError):
             staging.stage_media(self.source, self.root / "link", "out", self.manifest)
 
