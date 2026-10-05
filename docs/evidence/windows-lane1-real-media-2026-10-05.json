@@ -58,6 +58,18 @@
     "disk_unique_id": "60022480fd90e28cb07ba27e98b87811",
     "helper_sha256": "0921ca0e9230480581e7961b69006f3b1f71bc3a9a015b1c56af1467799648a0"
   },
+  "retained_vhd_readback": {
+    "scope": "planned_files_on_retained_disposable_vhd",
+    "readback_passed": true,
+    "verified_bytes": 8418723752,
+    "verified_files": 978,
+    "source_manifest_sha256": "678db6212a59614532ada70eea1c3d59c304ae21d1a06aeb7e0d1b9c21651eb3",
+    "detach_verified": true,
+    "vhd_deleted": false,
+    "physical_target_write_attempted": false,
+    "boot_proven": false,
+    "helper_sha256": "a7b208952a7785df568cf5ad31336eb8289b3ae75fddf1236df1d9bca1d4d9af"
+  },
   "follow_up": {
     "real_source_manifest_cancellation_seconds": 1.0,
     "focused_windows_tests": 133,
@@ -66,13 +78,16 @@
     "platform_skips": 9,
     "hard_exit_journal_regression_passed": true,
     "vhd_retry_result": "failed_provider_metadata_query",
-    "retained_vhd_read_only_reverification": "running",
+    "retained_vhd_read_only_reverification": "passed",
+    "fresh_complete_vhd_lifecycle_run": "running",
+    "native_offline_wim_apply_test": "running",
     "bounded_read_only_provider_retry_contract_tests_passed": true
   },
   "limitations": [
     "Preparation ran the earlier helper snapshot identified above, before the cancellation update.",
     "A valid setup signature does not establish provenance of every ISO file.",
     "VHD mutation and journaling code remain local-only pending complete native validation.",
+    "Readback passed independently on the retained VHD; the earlier complete lifecycle receipt remains failed.",
     "No installer boot, physical removable target, Windows To Go, or release readiness is proven."
   ]
 }
