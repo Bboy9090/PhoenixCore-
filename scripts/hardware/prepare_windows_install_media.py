@@ -68,8 +68,8 @@ def prepare_media(source: Path, staging_parent: Path, name: str, expected_manife
         receipt = staging.stage_media(source, staging_parent, name, expected_manifest, cancelled, progress)
         workspace = Path(receipt["staging_directory"])
         try:
-            prepared = media.verify_media_manifest(workspace, expected_manifest)
-            media.verify_media_manifest(source, expected_manifest)
+            prepared = media.verify_media_manifest(workspace, expected_manifest, cancelled)
+            media.verify_media_manifest(source, expected_manifest, cancelled)
             if cancelled():
                 raise staging.StagingError("Cancelled before preparation receipt", workspace)
             return {**receipt, "schema": "arcwyre.windows_install_preparation.v1",
@@ -112,19 +112,19 @@ def prepare_media(source: Path, staging_parent: Path, name: str, expected_manife
                     or media._regular_file_info_nofollow(segment).st_size > media.FAT32_MAX_FILE_BYTES):
                 raise staging.StagingError("DISM segment structure or FAT32 size is invalid")
         # Verify original copied files before the one intended replacement.
-        captured = media.capture_media_manifest(workspace)
+        captured = media.capture_media_manifest(workspace, cancelled)
         if captured != expected_manifest:
             raise staging.StagingError("Staged original files changed during split")
-        split_manifest = media.capture_media_manifest(split)
+        split_manifest = media.capture_media_manifest(split, cancelled)
         split_hashes = {f["path"]: f for f in split_manifest["files"] if f["path"].endswith(".swm")}
-        media.verify_media_manifest(source, expected_manifest)
+        media.verify_media_manifest(source, expected_manifest, cancelled)
         for segment in segments:
             segment.rename(sources / segment.name)
         wim.unlink()  # Only the disposable verified copy, after valid split output.
         prepared_plan = media.plan_media(workspace)
         if not prepared_plan["ready_for_fat32_copy_now"]:
             raise staging.StagingError("Prepared media remains blocked")
-        prepared = media.capture_media_manifest(workspace)
+        prepared = media.capture_media_manifest(workspace, cancelled)
         prepared_files = {f["path"]: f for f in prepared["files"]}
         for segment in segments:
             relative = (sources / segment.name).relative_to(workspace).as_posix()
@@ -133,7 +133,7 @@ def prepare_media(source: Path, staging_parent: Path, name: str, expected_manife
         originals = {f["path"]: f for f in expected_manifest["files"] if f["path"] != wim.relative_to(workspace).as_posix()}
         if any(prepared_files.get(path) != record for path, record in originals.items()):
             raise staging.StagingError("Unchanged media files changed during preparation")
-        media.verify_media_manifest(source, expected_manifest)
+        media.verify_media_manifest(source, expected_manifest, cancelled)
         if cancelled():
             raise staging.StagingError("Cancelled before preparation receipt", workspace)
         return {**receipt, "schema": "arcwyre.windows_install_preparation.v1",

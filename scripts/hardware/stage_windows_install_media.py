@@ -54,7 +54,7 @@ def stage_media(source: Path, staging_parent: Path, name: str,
         proposed = staging_parent / name
         if proposed == source or proposed in source.parents or source in proposed.parents:
             raise StagingError("Staging destination overlaps source")
-        manifest = media.verify_media_manifest(source, expected_manifest)
+        manifest = media.verify_media_manifest(source, expected_manifest, cancelled)
         plan = media.plan_media(source)
         split_staging = (_allow_split_required_wim_staging
                          and plan["ready_for_fat32_copy_after_split"]
@@ -107,8 +107,10 @@ def stage_media(source: Path, staging_parent: Path, name: str,
             progress(verified, total)
         if cancelled():
             raise StagingError("Cancelled before final verification", destination)
-        media.verify_media_manifest(source, manifest)
-        media.verify_media_manifest(destination, manifest)
+        media.verify_media_manifest(source, manifest, cancelled)
+        media.verify_media_manifest(destination, manifest, cancelled)
+        if cancelled():
+            raise StagingError("Cancelled before staging receipt", destination)
         return {"schema": "arcwyre.windows_install_staging.v1", "staging_directory": str(destination),
                 "manifest_sha256": manifest["manifest_sha256"], "verified_bytes": verified,
                 "staging_verified": True, "boot_verified": False,

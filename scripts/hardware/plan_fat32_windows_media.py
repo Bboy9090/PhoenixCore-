@@ -70,8 +70,10 @@ def reject_named_data_streams(path: Path):
         close(handle)
 
 
-def capture_media_manifest(root: Path) -> dict[str, Any]:
+def capture_media_manifest(root: Path, cancelled=lambda: False) -> dict[str, Any]:
     """Bind an extracted source to actual bytes; this does not certify provenance."""
+    if cancelled():
+        raise MediaPlanError("Cancelled before manifest inspection.")
     root = root.absolute()
     for ancestor in (root, *root.parents):
         _checked_lstat(ancestor)
@@ -79,7 +81,14 @@ def capture_media_manifest(root: Path) -> dict[str, Any]:
         raise MediaPlanError("Manifest source must be a directory.")
     entries = []
     seen = set()
-    for path, info in sorted(_walk_regular_files_nofollow(root), key=lambda item: str(item[0])):
+    discovered = []
+    for item in _walk_regular_files_nofollow(root):
+        if cancelled():
+            raise MediaPlanError("Cancelled during manifest discovery.")
+        discovered.append(item)
+    for path, info in sorted(discovered, key=lambda item: str(item[0])):
+        if cancelled():
+            raise MediaPlanError("Cancelled during manifest inspection.")
         relative = path.relative_to(root).as_posix()
         if relative.casefold() in seen:
             raise MediaPlanError("Case-colliding media paths are not supported.")
@@ -100,6 +109,8 @@ def capture_media_manifest(root: Path) -> dict[str, Any]:
             if not stat.S_ISREG(before.st_mode) or (before.st_dev, before.st_ino) != (info.st_dev, info.st_ino):
                 raise MediaPlanError("Source file identity changed during inspection.")
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                if cancelled():
+                    raise MediaPlanError("Cancelled during manifest hashing.")
                 digest.update(chunk)
             after = os.fstat(stream.fileno())
         current = _checked_lstat(path)
@@ -112,6 +123,8 @@ def capture_media_manifest(root: Path) -> dict[str, Any]:
         entries.append({"path": relative, "size_bytes": after.st_size, "sha256": digest.hexdigest()})
     if not entries:
         raise MediaPlanError("Source is empty.")
+    if cancelled():
+        raise MediaPlanError("Cancelled before manifest completion.")
     encoded = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return {"schema": "arcwyre.windows_media_manifest.v1", "files": entries,
             "total_bytes": sum(item["size_bytes"] for item in entries),
@@ -450,9 +463,9 @@ def plan_media(
     }
 
 
-def verify_media_manifest(root: Path, expected: dict[str, Any]) -> dict[str, Any]:
+def verify_media_manifest(root: Path, expected: dict[str, Any], cancelled=lambda: False) -> dict[str, Any]:
     """Re-read the complete tree; never accept a caller's hash as proof alone."""
-    actual = capture_media_manifest(root)
+    actual = capture_media_manifest(root, cancelled)
     if expected != actual:
         raise MediaPlanError("Source manifest mismatch: recapture and review the source.")
     return actual

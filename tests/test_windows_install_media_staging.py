@@ -44,16 +44,25 @@ class StagingTests(unittest.TestCase):
             staging.stage_media(self.source, self.root, "out", self.manifest)
 
     def test_cancellation_retains_explicit_unresolved_directory(self):
-        calls = 0
+        requested = False
         def cancel():
-            nonlocal calls
-            calls += 1
-            return calls >= 3
+            return requested
+        def progress(done, total):
+            nonlocal requested
+            requested = True
         with self.assertRaises(staging.StagingError) as caught:
-            staging.stage_media(self.source, self.root, "out", self.manifest, cancelled=cancel)
+            staging.stage_media(self.source, self.root, "out", self.manifest,
+                                cancelled=cancel, progress=progress)
         self.assertTrue(caught.exception.unresolved)
         self.assertEqual(caught.exception.partial_directory, self.root / "out")
         self.assertTrue((self.root / "out").exists())
+
+    def test_initial_manifest_cancellation_does_not_create_destination(self):
+        with self.assertRaisesRegex(staging.StagingError, "Cancelled") as caught:
+            staging.stage_media(self.source, self.root, "out", self.manifest,
+                                cancelled=lambda: True)
+        self.assertFalse(caught.exception.unresolved)
+        self.assertFalse((self.root / "out").exists())
 
     def test_source_overlap_rejected(self):
         with self.assertRaises(staging.StagingError):

@@ -17,6 +17,34 @@ media = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(media)
 
 
+class ManifestCancellationTests(unittest.TestCase):
+    def test_cancel_before_discovery_never_opens_source(self):
+        with patch.object(media, "_walk_regular_files_nofollow") as walk:
+            with self.assertRaisesRegex(media.MediaPlanError, "Cancelled"):
+                media.capture_media_manifest(Path("unused"), lambda: True)
+            walk.assert_not_called()
+
+    def test_cancel_during_large_file_hash_returns_no_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "payload").write_bytes(b"x" * (3 * 1024 * 1024))
+            chunks = 0
+            actual_sha256 = media.hashlib.sha256
+            class Digest:
+                def __init__(self):
+                    self.inner = actual_sha256()
+                def update(self, chunk):
+                    nonlocal chunks
+                    chunks += 1
+                    self.inner.update(chunk)
+                def hexdigest(self):
+                    return self.inner.hexdigest()
+            with patch.object(media.hashlib, "sha256", side_effect=Digest):
+                with self.assertRaisesRegex(media.MediaPlanError, "Cancelled during manifest hashing"):
+                    media.capture_media_manifest(root, lambda: chunks == 1)
+            self.assertEqual(chunks, 1)
+
+
 class WindowsStatIdentityTests(unittest.TestCase):
     def test_cross_acquisition_creation_time_preserves_file_identity(self):
         common = dict(st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78, st_birthtime_ns=90)
