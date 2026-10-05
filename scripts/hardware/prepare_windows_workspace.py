@@ -130,8 +130,8 @@ def prepare_workspace(source: Path, expected_sha256: str, selected_index: int,
             preparation.staging._ancestors(candidate)
             if preparation.media._regular_file_info_nofollow(candidate).st_size == 0:
                 raise error("Applied Windows tree is incomplete")
-        manifest = preparation.media.capture_media_manifest(applied)
-        preparation.media.verify_media_manifest(applied, manifest)
+        manifest = preparation.media.capture_media_manifest(applied, cancelled)
+        preparation.media.verify_media_manifest(applied, manifest, cancelled)
         if _hash(snapshot, cancelled) != expected_sha256.lower() or _hash(source, cancelled) != expected_sha256.lower():
             raise error("Source image changed during application")
         return {
