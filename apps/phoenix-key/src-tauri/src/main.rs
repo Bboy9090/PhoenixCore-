@@ -107,6 +107,9 @@ const WINDOWS_INSTALL_TARGET_PLANNER_SOURCE: &str =
 const WINDOWS_OFFLINE_WORKSPACE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/prepare_windows_workspace.py");
 #[cfg(not(feature = "store-safe"))]
+const WINDOWS_WORKSPACE_BOOT_PLANNER_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/plan_windows_workspace_boot.py");
+#[cfg(not(feature = "store-safe"))]
 const WINDOWS_IMAGE_METADATA_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
 #[cfg(not(feature = "store-safe"))]
@@ -353,6 +356,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         .map_err(|error| format!("cannot stage Windows installer target planner: {error}"))?;
     fs::write(directory.join("prepare_windows_workspace.py"), WINDOWS_OFFLINE_WORKSPACE_SOURCE)
         .map_err(|error| format!("cannot stage Windows offline workspace helper: {error}"))?;
+    fs::write(
+        directory.join("plan_windows_workspace_boot.py"),
+        WINDOWS_WORKSPACE_BOOT_PLANNER_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage Windows workspace boot planner: {error}"))?;
     fs::write(
         directory.join("inspect_windows_image_metadata.py"),
         WINDOWS_IMAGE_METADATA_SOURCE,
@@ -1089,6 +1097,51 @@ async fn prepare_windows_offline_workspace(
         }
     }
     receipt
+}
+
+#[tauri::command]
+async fn plan_windows_workspace_boot(
+    application_receipt_json: String,
+    vhd_path: String,
+    volume_facts_json: String,
+) -> Result<Value, String> {
+    if STORE_SAFE_DISTRIBUTION || !cfg!(target_os = "windows") {
+        return Err("Windows workspace boot planning requires the native Windows distribution".to_string());
+    }
+    let receipt: Value = serde_json::from_str(&application_receipt_json)
+        .map_err(|error| format!("invalid offline application receipt: {error}"))?;
+    let facts: Value = serde_json::from_str(&volume_facts_json)
+        .map_err(|error| format!("invalid workspace volume facts: {error}"))?;
+    if !receipt.is_object() || !facts.is_object() {
+        return Err("workspace boot planning inputs must be JSON objects".to_string());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = bridge_directory()?;
+        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| format!("cannot identify boot planning attempt: {error}"))?.as_nanos();
+        let receipt_path = directory.join(format!("workspace-application-{nonce}.json"));
+        let facts_path = directory.join(format!("workspace-volume-facts-{nonce}.json"));
+        fs::write(&receipt_path, application_receipt_json.as_bytes())
+            .map_err(|error| format!("cannot stage application receipt: {error}"))?;
+        fs::write(&facts_path, volume_facts_json.as_bytes())
+            .map_err(|error| format!("cannot stage workspace volume facts: {error}"))?;
+        let receipt_text = receipt_path.to_string_lossy().to_string();
+        let facts_text = facts_path.to_string_lossy().to_string();
+        let result = run_python_json(
+            &directory.join("plan_windows_workspace_boot.py"),
+            &["--receipt-json", receipt_text.as_str(), "--vhd-path", vhd_path.as_str(),
+              "--volume-facts-json", facts_text.as_str()],
+            &[],
+        );
+        let _ = fs::remove_dir_all(&directory);
+        let plan = result?;
+        if plan.get("execution_authorized").and_then(Value::as_bool) != Some(false)
+            || plan.get("physical_writes_authorized").and_then(Value::as_bool) != Some(false)
+            || plan.get("boot_proven").and_then(Value::as_bool) != Some(false) {
+            return Err("workspace boot planner violated its read-only contract".to_string());
+        }
+        Ok(plan)
+    }).await.map_err(|error| format!("workspace boot planning worker failed: {error}"))?
 }
 
 #[tauri::command]
@@ -2253,6 +2306,7 @@ fn main() {
         prepare_windows_install_media,
         prepare_windows_offline_workspace,
         cancel_windows_offline_workspace,
+        plan_windows_workspace_boot,
         plan_windows_install_target,
         cancel_windows_install_preparation,
         stage_cloud_recovery_payload,

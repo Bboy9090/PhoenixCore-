@@ -1,4 +1,7 @@
+import contextlib
 import importlib.util
+import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -54,6 +57,32 @@ class WorkspaceBootPlanTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertFalse(first["execution_authorized"])
         self.assertFalse(first["windows_to_go_ready"])
+
+    def test_cli_emits_same_read_only_plan(self):
+        receipt_path = self.root / "application.json"
+        facts_path = self.root / "facts.json"
+        receipt_path.write_text(json.dumps(self.receipt), encoding="utf-8")
+        facts_path.write_text(json.dumps(self.facts), encoding="utf-8")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = module.main(
+                [
+                    "--receipt-json",
+                    str(receipt_path),
+                    "--vhd-path",
+                    str(self.vhd),
+                    "--volume-facts-json",
+                    str(facts_path),
+                ]
+            )
+        plan = json.loads(output.getvalue())
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            plan, module.plan_workspace_boot(self.receipt, self.vhd, self.facts)
+        )
+        self.assertFalse(plan["execution_authorized"])
+        self.assertFalse(plan["physical_writes_authorized"])
+        self.assertFalse(plan["boot_proven"])
 
     def test_caller_drive_letters_rejected(self):
         self.facts["drive_letter"] = "C"

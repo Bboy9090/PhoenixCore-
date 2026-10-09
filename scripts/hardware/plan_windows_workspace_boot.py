@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -137,3 +138,22 @@ def plan_workspace_boot(
         ],
         "support_note": "Microsoft Windows To Go was removed starting with Windows 10 version 2004; image application does not establish portable workspace support.",
     }
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--receipt-json", type=Path, required=True)
+    parser.add_argument("--vhd-path", type=Path, required=True)
+    parser.add_argument("--volume-facts-json", type=Path, required=True)
+    args = parser.parse_args(argv)
+    with args.receipt_json.open("r", encoding="utf-8") as stream:
+        receipt = json.load(stream)
+    with args.volume_facts_json.open("r", encoding="utf-8") as stream:
+        facts = json.load(stream)
+    plan = plan_workspace_boot(receipt, args.vhd_path, facts)
+    print(json.dumps(plan, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
