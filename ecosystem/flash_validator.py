@@ -13,11 +13,23 @@ class BareMetalFlashValidator:
 
     def verify_sector_integrity(self, expected_sha256: str) -> bool:
         if not os.path.exists(self.usb_block_device):
-            # Simulated block device verification for test harness
-            return True
-        return True
+            return False
+        if len(expected_sha256) != 64:
+            return False
+        try:
+            int(expected_sha256, 16)
+        except ValueError:
+            return False
+
+        digest = hashlib.sha256()
+        try:
+            with open(self.usb_block_device, "rb", buffering=0) as stream:
+                for chunk in iter(lambda: stream.read(4 * 1024 * 1024), b""):
+                    digest.update(chunk)
+        except (OSError, PermissionError):
+            return False
+        return digest.hexdigest() == expected_sha256.lower()
 
 
 if __name__ == "__main__":
-    validator = BareMetalFlashValidator("/dev/sdb")
-    print("USB Sector Verification: PASSED")
+    raise SystemExit("Invoke with an explicit target and expected SHA-256.")

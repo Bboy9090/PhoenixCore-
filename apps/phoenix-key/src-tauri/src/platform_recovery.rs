@@ -25,7 +25,7 @@ fn base_answer(platform: &str, scenario: &str) -> RecoveryAnswer {
         platform: platform.to_string(),
         scenario: scenario.to_string(),
         severity: "diagnostic",
-        user_summary: "Phoenix Key identified a recovery scenario and is keeping the workflow non-destructive until the supported path is confirmed.".to_string(),
+        user_summary: "ARCWYRE Drive identified a recovery scenario and is keeping the workflow non-destructive until the supported path is confirmed.".to_string(),
         supported_actions: Vec::new(),
         blocked_actions: Vec::new(),
         evidence_to_collect: Vec::new(),
@@ -63,7 +63,7 @@ pub fn answer_recovery_question(
         answer.references.push("HP Notebook PCs - Recovering the BIOS (Basic Input Output System)".to_string());
 
         if scenario_key.contains("password") || scenario_key.contains("lock") || scenario_key.contains("admin") {
-            answer.user_summary = "This looks like a firmware access-control problem, not BIOS corruption. Phoenix Key will not attempt to defeat the firmware password or ownership control.".to_string();
+            answer.user_summary = "This looks like a firmware access-control problem, not BIOS corruption. ARCWYRE Drive will not attempt to defeat the firmware password or ownership control.".to_string();
             answer.supported_actions = vec![
                 "Confirm ownership and exact HP model/serial information".to_string(),
                 "Use HP-authorized password/service recovery or the organization IT administrator for managed hardware".to_string(),
@@ -91,7 +91,7 @@ pub fn answer_recovery_question(
                 ];
             }
             _ => {
-                answer.user_summary = "This matches an HP BIOS-corruption recovery case. Phoenix Key should verify the exact model and then route to HP-supported automatic/manual or USB BIOS recovery rather than guessing a firmware image.".to_string();
+                answer.user_summary = "This matches an HP BIOS-corruption recovery case. ARCWYRE Drive should verify the exact model and then route to HP-supported automatic/manual or USB BIOS recovery rather than guessing a firmware image.".to_string();
                 answer.supported_actions = vec![
                     "Match the exact HP model/System Board ID to an official HP BIOS package".to_string(),
                     "Use HP automatic BIOS recovery when available".to_string(),
@@ -114,7 +114,7 @@ pub fn answer_recovery_question(
         && (scenario_key.contains("bios") || scenario_key.contains("firmware"))
     {
         answer.severity = "firmware-recovery";
-        answer.user_summary = "This is an OEM firmware-recovery case. Phoenix Key should match the exact machine and board to the vendor recovery package and keep password/ownership controls separate from corruption recovery.".to_string();
+        answer.user_summary = "This is an OEM firmware-recovery case. ARCWYRE Drive should match the exact machine and board to the vendor recovery package and keep password/ownership controls separate from corruption recovery.".to_string();
         answer.supported_actions = vec![
             "Collect exact model, service tag/serial, board identifier, firmware version, and failure symptoms".to_string(),
             "Match only an official vendor firmware package intended for that exact machine or supported board family".to_string(),
@@ -153,7 +153,7 @@ pub fn answer_recovery_question(
             || scenario_key.contains("enterprise")
         {
             answer.severity = "ownership-policy";
-            answer.user_summary = "This Chromebook is managed or enrollment-controlled. Recovery can reinstall ChromeOS, but Phoenix Key will not remove enterprise enrollment or administrator ownership policy.".to_string();
+            answer.user_summary = "This Chromebook is managed or enrollment-controlled. Recovery can reinstall ChromeOS, but ARCWYRE Drive will not remove enterprise enrollment or administrator ownership policy.".to_string();
             answer.supported_actions = vec![
                 "Use official ChromeOS recovery to repair the operating system".to_string(),
                 "Contact the organization administrator to change enrollment or ownership policy".to_string(),
@@ -194,7 +194,7 @@ pub fn answer_recovery_question(
             || scenario_key.contains("developer")
         {
             answer.severity = "verified-boot";
-            answer.user_summary = "This is a Verified Boot/developer-path question. Phoenix Key can explain and validate supported owner/developer modes, but it will not supply shims or patched firmware intended to bypass Verified Boot or device-management controls.".to_string();
+            answer.user_summary = "This is a Verified Boot/developer-path question. ARCWYRE Drive can explain and validate supported owner/developer modes, but it will not supply shims or patched firmware intended to bypass Verified Boot or device-management controls.".to_string();
             answer.supported_actions = vec![
                 "Use documented Developer Mode/debugging features only on a device you own and control".to_string(),
                 "Use recovery to restore normal Verified Boot when returning the device to a trusted state".to_string(),
@@ -210,7 +210,7 @@ pub fn answer_recovery_question(
 
     if platform_key.contains("windows") && scenario_key.contains("bitlocker") {
         answer.severity = "encrypted-volume-recovery";
-        answer.user_summary = "This is a BitLocker recovery case. Phoenix Key can identify the protected volume, recovery-key ID, WinRE state, and supported unlock/recovery sources, but it cannot bypass BitLocker encryption.".to_string();
+        answer.user_summary = "This is a BitLocker recovery case. ARCWYRE Drive can identify the protected volume, recovery-key ID, WinRE state, and supported unlock/recovery sources, but it cannot bypass BitLocker encryption.".to_string();
         answer.supported_actions = vec![
             "Collect the BitLocker recovery-key ID and exact protected volume identity".to_string(),
             "Use an authorized recovery key from the user's Microsoft account, organization directory, printed/USB backup, or other legitimate escrow source".to_string(),
@@ -245,7 +245,7 @@ pub fn answer_recovery_question(
             || scenario_key.contains("account lock")
         {
             answer.severity = "ownership-policy";
-            answer.user_summary = "This is an Android Factory Reset Protection or account-ownership case. Phoenix Key will not bypass FRP; it will route to account recovery, OEM support, or organization administration.".to_string();
+            answer.user_summary = "This is an Android Factory Reset Protection or account-ownership case. ARCWYRE Drive will not bypass FRP; it will route to account recovery, OEM support, or organization administration.".to_string();
             answer.supported_actions = vec![
                 "Use the previously authorized Google/OEM account recovery path".to_string(),
                 "Use OEM or carrier support with ownership evidence when account recovery is unavailable".to_string(),
@@ -258,7 +258,7 @@ pub fn answer_recovery_question(
             return Ok(answer);
         }
         answer.severity = "device-recovery";
-        answer.user_summary = "This is an Android recovery/bootloader case. Phoenix Key can diagnose ADB/Fastboot/Recovery state and stage only OEM-signed, model-matched recovery or factory images.".to_string();
+        answer.user_summary = "This is an Android recovery/bootloader case. ARCWYRE Drive can diagnose ADB/Fastboot/Recovery state and stage only OEM-signed, model-matched recovery or factory images.".to_string();
         answer.supported_actions = vec![
             "Identify the exact device and current ADB/Fastboot/Recovery state".to_string(),
             "Verify an OEM-signed, model-matched image and expected partition map".to_string(),
@@ -269,7 +269,7 @@ pub fn answer_recovery_question(
             "Bootloader/authentication exploit intended to defeat ownership controls".to_string(),
             "Cross-flash another device's partitions".to_string(),
         ];
-        answer.destructive_warning = Some("Many factory-image or bootloader-unlock workflows erase user data; Phoenix Key must identify that consequence before execution.".to_string());
+        answer.destructive_warning = Some("Many factory-image or bootloader-unlock workflows erase user data; ARCWYRE Drive must identify that consequence before execution.".to_string());
         return Ok(answer);
     }
 
@@ -283,7 +283,7 @@ pub fn answer_recovery_question(
             || scenario_key.contains("owner lock")
         {
             answer.severity = "ownership-policy";
-            answer.user_summary = "This is an Apple ownership/Activation Lock case. Recovery can restore software, but Phoenix Key will not bypass Activation Lock or Apple ID ownership controls.".to_string();
+            answer.user_summary = "This is an Apple ownership/Activation Lock case. Recovery can restore software, but ARCWYRE Drive will not bypass Activation Lock or Apple ID ownership controls.".to_string();
             answer.supported_actions = vec![
                 "Use Apple account recovery or remove the device from the legitimate owner's account".to_string(),
                 "Use Apple support with proof of purchase when the supported account route is unavailable".to_string(),
@@ -301,7 +301,7 @@ pub fn answer_recovery_question(
             || scenario_key.contains("recovery mode")
         {
             answer.severity = "device-recovery";
-            answer.user_summary = "This is an Apple Recovery/DFU/revive/restore scenario. Phoenix Key can detect the device state and route to Apple's supported revive/restore workflow while keeping Activation Lock separate.".to_string();
+            answer.user_summary = "This is an Apple Recovery/DFU/revive/restore scenario. ARCWYRE Drive can detect the device state and route to Apple's supported revive/restore workflow while keeping Activation Lock separate.".to_string();
             answer.supported_actions = vec![
                 "Identify exact device model and current Recovery/DFU state".to_string(),
                 "Use Apple's supported Finder/Apple Devices/Configurator revive or restore path appropriate to the hardware".to_string(),
@@ -324,7 +324,7 @@ pub fn answer_recovery_question(
         || scenario_key.contains("signature")
     {
         answer.severity = "boot-trust";
-        answer.user_summary = "This looks like a UEFI Secure Boot or signed-shim/bootloader trust failure. Phoenix Key should diagnose the signature/key chain and repair it with trusted signed components instead of bypassing verification.".to_string();
+        answer.user_summary = "This looks like a UEFI Secure Boot or signed-shim/bootloader trust failure. ARCWYRE Drive should diagnose the signature/key chain and repair it with trusted signed components instead of bypassing verification.".to_string();
         answer.supported_actions = vec![
             "Inspect firmware boot mode, Secure Boot state, enrolled keys, boot entries, and the failing boot component".to_string(),
             "Restore a vendor- or distribution-signed shim/bootloader appropriate for the installed OS".to_string(),
@@ -346,7 +346,7 @@ pub fn answer_recovery_question(
         return Ok(answer);
     }
 
-    answer.user_summary = "Phoenix Key does not yet have a platform-specific rule for this scenario, so it will stay in diagnostic mode and avoid destructive or security-bypass actions.".to_string();
+    answer.user_summary = "ARCWYRE Drive does not yet have a platform-specific rule for this scenario, so it will stay in diagnostic mode and avoid destructive or security-bypass actions.".to_string();
     answer.supported_actions = vec![
         "Collect exact manufacturer/model, firmware version, boot error, and recovery-state evidence".to_string(),
         "Identify the official vendor recovery procedure and verify every recovery image before use".to_string(),

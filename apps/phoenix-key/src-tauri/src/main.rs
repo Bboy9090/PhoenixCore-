@@ -68,6 +68,9 @@ const USB_CREATOR_SOURCE: &str = include_str!("../../../../usb_creator.py");
 #[cfg(not(feature = "store-safe"))]
 const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py");
 #[cfg(not(feature = "store-safe"))]
+const WINDOWS_SYSTEM_TOOLS_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/windows_system_tools.py");
+#[cfg(not(feature = "store-safe"))]
 const DRIVE_EVIDENCE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_drive_evidence.py");
 #[cfg(not(feature = "store-safe"))]
@@ -91,6 +94,21 @@ const GOOGLE_DRIVE_PICKER_SOURCE: &str =
 #[cfg(not(feature = "store-safe"))]
 const FAT32_WINDOWS_MEDIA_PLANNER_SOURCE: &str =
     include_str!("../../../../scripts/hardware/plan_fat32_windows_media.py");
+#[cfg(not(feature = "store-safe"))]
+const WINDOWS_INSTALL_STAGING_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/stage_windows_install_media.py");
+#[cfg(not(feature = "store-safe"))]
+const WINDOWS_INSTALL_PREPARATION_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/prepare_windows_install_media.py");
+#[cfg(not(feature = "store-safe"))]
+const WINDOWS_INSTALL_TARGET_PLANNER_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/plan_windows_install_target.py");
+#[cfg(not(feature = "store-safe"))]
+const WINDOWS_OFFLINE_WORKSPACE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/prepare_windows_workspace.py");
+#[cfg(not(feature = "store-safe"))]
+const WINDOWS_WORKSPACE_BOOT_PLANNER_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/plan_windows_workspace_boot.py");
 #[cfg(not(feature = "store-safe"))]
 const WINDOWS_IMAGE_METADATA_SOURCE: &str =
     include_str!("../../../../scripts/hardware/inspect_windows_image_metadata.py");
@@ -193,7 +211,7 @@ fn installed_smoke_receipt(process_id: u32) -> InstalledSmokeReceipt {
     InstalledSmokeReceipt {
         schema_version: "bws.phoenix-key-installed-smoke/v1",
         app_id: "phoenix-usb-creator",
-        product_name: "Phoenix Key",
+        product_name: "ARCWYRE Drive",
         version: env!("CARGO_PKG_VERSION"),
         source_commit: option_env!("PHOENIX_KEY_SOURCE_COMMIT").unwrap_or("unrecorded"),
         target_os: std::env::consts::OS,
@@ -288,6 +306,8 @@ fn bridge_directory() -> Result<PathBuf, String> {
         .map_err(|error| format!("cannot stage embedded USB creator: {error}"))?;
     fs::write(directory.join("device_scanner.py"), DEVICE_SCANNER_SOURCE)
         .map_err(|error| format!("cannot stage embedded device scanner: {error}"))?;
+    fs::write(directory.join("windows_system_tools.py"), WINDOWS_SYSTEM_TOOLS_SOURCE)
+        .map_err(|error| format!("cannot stage Windows system tool resolver: {error}"))?;
     fs::write(
         directory.join("capture_windows_drive_evidence.py"),
         DRIVE_EVIDENCE_SOURCE,
@@ -328,6 +348,19 @@ fn bridge_directory() -> Result<PathBuf, String> {
         FAT32_WINDOWS_MEDIA_PLANNER_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded FAT32 media planner: {error}"))?;
+    fs::write(directory.join("stage_windows_install_media.py"), WINDOWS_INSTALL_STAGING_SOURCE)
+        .map_err(|error| format!("cannot stage Windows installer staging helper: {error}"))?;
+    fs::write(directory.join("prepare_windows_install_media.py"), WINDOWS_INSTALL_PREPARATION_SOURCE)
+        .map_err(|error| format!("cannot stage Windows installer preparation helper: {error}"))?;
+    fs::write(directory.join("plan_windows_install_target.py"), WINDOWS_INSTALL_TARGET_PLANNER_SOURCE)
+        .map_err(|error| format!("cannot stage Windows installer target planner: {error}"))?;
+    fs::write(directory.join("prepare_windows_workspace.py"), WINDOWS_OFFLINE_WORKSPACE_SOURCE)
+        .map_err(|error| format!("cannot stage Windows offline workspace helper: {error}"))?;
+    fs::write(
+        directory.join("plan_windows_workspace_boot.py"),
+        WINDOWS_WORKSPACE_BOOT_PLANNER_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage Windows workspace boot planner: {error}"))?;
     fs::write(
         directory.join("inspect_windows_image_metadata.py"),
         WINDOWS_IMAGE_METADATA_SOURCE,
@@ -390,7 +423,7 @@ fn run_python_json(
             Ok(output) if output.status.success() => {
                 return serde_json::from_slice::<Value>(&output.stdout).map_err(|error| {
                     format!(
-                        "Phoenix Key helper returned invalid JSON: {error}; stdout={}",
+                        "ARCWYRE Drive helper returned invalid JSON: {error}; stdout={}",
                         String::from_utf8_lossy(&output.stdout)
                     )
                 });
@@ -403,7 +436,7 @@ fn run_python_json(
         }
     }
     Err(format!(
-        "Phoenix Key Python helper unavailable: {}",
+        "ARCWYRE Drive Python helper unavailable: {}",
         failures.join(" | ")
     ))
 }
@@ -425,7 +458,7 @@ fn source_commit() -> Result<&'static str, String> {
     {
         Ok(commit)
     } else {
-        Err("this Phoenix Key build lacks a valid 40-character source commit".to_string())
+        Err("this ARCWYRE Drive build lacks a valid 40-character source commit".to_string())
     }
 }
 
@@ -501,7 +534,7 @@ fn receipt_directory() -> Result<PathBuf, String> {
         .unwrap_or_else(std::env::temp_dir);
     let directory = base.join("PhoenixKey").join("receipts");
     fs::create_dir_all(&directory)
-        .map_err(|error| format!("cannot create Phoenix Key receipt directory: {error}"))?;
+        .map_err(|error| format!("cannot create ARCWYRE Drive receipt directory: {error}"))?;
     Ok(directory)
 }
 
@@ -882,7 +915,7 @@ async fn acquire_google_drive_picker_recovery(
         return Err("Google Drive staging destination is required".to_string());
     }
     let client_id = google_drive_client_id().ok_or_else(|| {
-        "Phoenix Key build is missing its Google Drive desktop OAuth client ID".to_string()
+        "ARCWYRE Drive build is missing its Google Drive desktop OAuth client ID".to_string()
     })?;
     let (progress_file, cancel_file) = drive_operation_paths(&operation_id)?;
     let _ = fs::remove_file(&progress_file);
@@ -971,12 +1004,331 @@ fn plan_fat32_windows_media(source_root: String) -> Result<Value, String> {
         let source_text = source.to_string_lossy().to_string();
         run_python_json(
             &script,
-            &["--source-root", &source_text, "--split-size-mb", "3800"],
+            &["--source-root", &source_text, "--split-size-mb", "3800", "--capture-manifest"],
             &[],
         )
     })();
     let _ = fs::remove_dir_all(&directory);
     result
+}
+
+#[tauri::command]
+fn cancel_windows_offline_workspace(operation_id: String) -> Result<Value, String> {
+    cancel_windows_install_preparation(operation_id)
+}
+
+#[tauri::command]
+async fn prepare_windows_offline_workspace(
+    operation_id: String,
+    source_file: String,
+    expected_source_sha256: String,
+    selected_index: u32,
+) -> Result<Value, String> {
+    if STORE_SAFE_DISTRIBUTION || !cfg!(target_os = "windows") {
+        return Err("Offline Windows image preparation requires the native Windows distribution".to_string());
+    }
+    if operation_id.len() < 8 || operation_id.len() > 64
+        || !operation_id.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_') {
+        return Err("invalid offline preparation operation ID".to_string());
+    }
+    if selected_index == 0 || expected_source_sha256.len() != 64
+        || !expected_source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("explicit positive image index and source SHA-256 are required".to_string());
+    }
+    let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| format!("cannot identify offline preparation attempt: {error}"))?.as_nanos();
+    let controls = std::env::temp_dir().join(format!("arcwyre-offline-control-{}-{nonce}", std::process::id()));
+    fs::create_dir(&controls)
+        .map_err(|error| format!("cannot create offline operation controls: {error}"))?;
+    let signal = controls.join("cancel.signal");
+    {
+        let mut active = windows_preparation_operations().lock()
+            .map_err(|_| "preparation operation registry is unavailable".to_string())?;
+        if active.contains_key(&operation_id) { return Err("operation ID is already active".to_string()); }
+        active.insert(operation_id.clone(), signal.clone());
+    }
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let directory = bridge_directory()?;
+        let index_text = selected_index.to_string();
+        let signal_text = signal.to_string_lossy().to_string();
+        let args = [source_file.as_str(), "--sha256", expected_source_sha256.as_str(),
+                    "--index", index_text.as_str(), "--cancel-file", signal_text.as_str()];
+        for candidate in python_candidates() {
+            let mut command = Command::new(candidate);
+            if *candidate == "py" { command.arg("-3"); }
+            command.arg(directory.join("prepare_windows_workspace.py")).args(args);
+            match command.output() {
+                Ok(output) => {
+                    // No retries once any interpreter started: partial output is retained.
+                    let value: Value = serde_json::from_slice(&output.stdout)
+                        .map_err(|error| format!("offline preparation returned invalid JSON; controls {} retained: {error}", controls.display()))?;
+                    let schema = value.get("schema").and_then(Value::as_str);
+                    if output.status.success() && schema == Some("arcwyre.windows_offline_image_application.v1") {
+                        return Ok(value);
+                    }
+                    if schema == Some("arcwyre.windows_offline_image_application_failure.v1") {
+                        return Ok(value);
+                    }
+                    return Err("offline preparation failed with unknown output contract".to_string());
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(format!("cannot start offline preparation: {error}")),
+            }
+        }
+        Err("no configured Python interpreter is available".to_string())
+    }).await.map_err(|error| format!("offline preparation worker failed: {error}"));
+    let mut receipt = match worker { Ok(receipt) => receipt, Err(error) => Err(error) };
+    {
+        let mut active = windows_preparation_operations().lock()
+            .map_err(|_| "preparation operation registry is unavailable".to_string())?;
+        let cancelled = active.get(&operation_id).map(|path| path.exists()).unwrap_or(false);
+        active.remove(&operation_id);
+        if cancelled {
+            if let Ok(value) = receipt.as_mut() {
+                if value.get("schema").and_then(Value::as_str) == Some("arcwyre.windows_offline_image_application.v1") {
+                    let partial = value.get("workspace_directory").cloned().unwrap_or(Value::Null);
+                    *value = json!({"schema": "arcwyre.windows_offline_image_application_failure.v1",
+                        "status": "cancelled", "message": "Cancellation accepted before native completion",
+                        "partial_directory": partial, "partial_output_unresolved": true,
+                        "cleanup_performed": false, "raw_disk_operations_performed": false,
+                        "boot_verified": false, "windows_to_go_ready": false});
+                }
+            }
+        }
+    }
+    receipt
+}
+
+#[tauri::command]
+async fn plan_windows_workspace_boot(
+    application_receipt_json: String,
+    vhd_path: String,
+    volume_facts_json: String,
+) -> Result<Value, String> {
+    if STORE_SAFE_DISTRIBUTION || !cfg!(target_os = "windows") {
+        return Err("Windows workspace boot planning requires the native Windows distribution".to_string());
+    }
+    let receipt: Value = serde_json::from_str(&application_receipt_json)
+        .map_err(|error| format!("invalid offline application receipt: {error}"))?;
+    let facts: Value = serde_json::from_str(&volume_facts_json)
+        .map_err(|error| format!("invalid workspace volume facts: {error}"))?;
+    if !receipt.is_object() || !facts.is_object() {
+        return Err("workspace boot planning inputs must be JSON objects".to_string());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = bridge_directory()?;
+        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| format!("cannot identify boot planning attempt: {error}"))?.as_nanos();
+        let receipt_path = directory.join(format!("workspace-application-{nonce}.json"));
+        let facts_path = directory.join(format!("workspace-volume-facts-{nonce}.json"));
+        fs::write(&receipt_path, application_receipt_json.as_bytes())
+            .map_err(|error| format!("cannot stage application receipt: {error}"))?;
+        fs::write(&facts_path, volume_facts_json.as_bytes())
+            .map_err(|error| format!("cannot stage workspace volume facts: {error}"))?;
+        let receipt_text = receipt_path.to_string_lossy().to_string();
+        let facts_text = facts_path.to_string_lossy().to_string();
+        let result = run_python_json(
+            &directory.join("plan_windows_workspace_boot.py"),
+            &["--receipt-json", receipt_text.as_str(), "--vhd-path", vhd_path.as_str(),
+              "--volume-facts-json", facts_text.as_str()],
+            &[],
+        );
+        let _ = fs::remove_dir_all(&directory);
+        let plan = result?;
+        if plan.get("execution_authorized").and_then(Value::as_bool) != Some(false)
+            || plan.get("physical_writes_authorized").and_then(Value::as_bool) != Some(false)
+            || plan.get("boot_proven").and_then(Value::as_bool) != Some(false) {
+            return Err("workspace boot planner violated its read-only contract".to_string());
+        }
+        Ok(plan)
+    }).await.map_err(|error| format!("workspace boot planning worker failed: {error}"))?
+}
+
+#[tauri::command]
+async fn plan_windows_install_target(
+    source_root: String,
+    expected_source_manifest: String,
+    target: String,
+    expected_snapshot_sha256: String,
+    expected_stable_sha256: String,
+) -> Result<Value, String> {
+    if STORE_SAFE_DISTRIBUTION || !cfg!(target_os = "windows") {
+        return Err("Live installer target planning requires the native Windows distribution".to_string());
+    }
+    let manifest: Value = serde_json::from_str(&expected_source_manifest)
+        .map_err(|error| format!("invalid expected source manifest: {error}"))?;
+    if !manifest.is_object() {
+        return Err("expected source manifest must be an object".to_string());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = bridge_directory()?;
+        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| format!("cannot identify target planning attempt: {error}"))?.as_nanos();
+        let manifest_path = directory.join(format!("target-plan-manifest-{nonce}.json"));
+        fs::write(&manifest_path, expected_source_manifest.as_bytes())
+            .map_err(|error| format!("cannot materialize expected source manifest: {error}"))?;
+        let manifest_text = manifest_path.to_string_lossy().to_string();
+        let args = ["--source-root", source_root.as_str(), "--manifest", manifest_text.as_str(),
+                    "--target", target.as_str(), "--expected-snapshot-sha256", expected_snapshot_sha256.as_str(),
+                    "--expected-stable-sha256", expected_stable_sha256.as_str()];
+        for candidate in python_candidates() {
+            let mut command = Command::new(candidate);
+            if *candidate == "py" { command.arg("-3"); }
+            command.arg(directory.join("plan_windows_install_target.py")).args(args);
+            match command.output() {
+                Ok(output) => {
+                    let value: Value = serde_json::from_slice(&output.stdout)
+                        .map_err(|error| format!("target planner returned invalid JSON: {error}"))?;
+                    if value.get("schema").and_then(Value::as_str) != Some("arcwyre.windows_install_target_plan.v1") {
+                        return Err("target planner returned an unknown schema".to_string());
+                    }
+                    // Known blocked plans use exit 2, and remain usable read-only results.
+                    if output.status.success() || output.status.code() == Some(2) { return Ok(value); }
+                    return Err("target planner process failed".to_string());
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(format!("cannot start target planner: {error}")),
+            }
+        }
+        Err("no configured Python interpreter is available".to_string())
+    }).await.map_err(|error| format!("target planning worker failed: {error}"))?
+}
+
+#[tauri::command]
+fn cancel_windows_install_preparation(operation_id: String) -> Result<Value, String> {
+    if STORE_SAFE_DISTRIBUTION || !cfg!(target_os = "windows") {
+        return Err("Windows preparation cancellation is unavailable in this distribution".to_string());
+    }
+    let active = windows_preparation_operations().lock()
+        .map_err(|_| "preparation operation registry is unavailable".to_string())?;
+    let signal = active.get(&operation_id)
+        .ok_or_else(|| "preparation operation is not active".to_string())?;
+    // The path comes only from the native registry, never from an IPC argument.
+    fs::write(signal, b"cancel requested\n")
+        .map_err(|error| format!("cannot signal preparation cancellation: {error}"))?;
+    Ok(json!({"operation_id": operation_id, "cancellation_requested": true,
+              "operation_stopped": false}))
+}
+
+fn windows_preparation_operations() -> &'static std::sync::Mutex<std::collections::HashMap<String, PathBuf>> {
+    static OPERATIONS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, PathBuf>>> = std::sync::OnceLock::new();
+    OPERATIONS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+#[tauri::command]
+async fn prepare_windows_install_media(
+    operation_id: String,
+    source_root: String,
+    expected_source_manifest: String,
+    staging_name: String,
+) -> Result<Value, String> {
+    if STORE_SAFE_DISTRIBUTION {
+        return Err("Windows media preparation is disabled in the store-safe distribution".to_string());
+    }
+    if !cfg!(target_os = "windows") {
+        return Err("Windows installer preparation requires a native Windows host".to_string());
+    }
+    let manifest: Value = serde_json::from_str(&expected_source_manifest)
+        .map_err(|error| format!("invalid expected source manifest: {error}"))?;
+    if !manifest.is_object() {
+        return Err("expected source manifest must be an object".to_string());
+    }
+    if operation_id.len() < 8 || operation_id.len() > 64
+        || !operation_id.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_') {
+        return Err("preparation operation ID must contain 8 to 64 letters, digits, hyphens or underscores".to_string());
+    }
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| format!("cannot establish staging attempt identity: {error}"))?
+        .as_nanos();
+    let parent = std::env::temp_dir().join(format!(
+        "arcwyre-install-preparation-{}-{nonce}", std::process::id()));
+    fs::create_dir(&parent)
+        .map_err(|error| format!("cannot create exclusive preparation workspace: {error}"))?;
+    let cancel_file = parent.join("cancel.signal");
+    {
+        let mut active = windows_preparation_operations().lock()
+            .map_err(|_| "preparation operation registry is unavailable".to_string())?;
+        if active.contains_key(&operation_id) {
+            return Err("preparation operation ID is already active".to_string());
+        }
+        active.insert(operation_id.clone(), cancel_file.clone());
+    }
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        // The caller supplies no staging parent or raw target path. Every attempt
+        // gets a new native temporary workspace retained for review on failure.
+        let directory = bridge_directory()?;
+        let manifest_path = directory.join(format!("expected-media-{nonce}.json"));
+        fs::write(&manifest_path, expected_source_manifest.as_bytes())
+            .map_err(|error| format!("cannot materialize expected source manifest: {error}"))?;
+        let source_text = source_root;
+        let parent_text = parent.to_string_lossy().to_string();
+        let manifest_text = manifest_path.to_string_lossy().to_string();
+        let cancel_text = cancel_file.to_string_lossy().to_string();
+        let args = ["--source-root", source_text.as_str(), "--staging-parent", parent_text.as_str(),
+                    "--name", staging_name.as_str(), "--expected-manifest-json", manifest_text.as_str(),
+                    "--cancel-file", cancel_text.as_str()];
+        for candidate in python_candidates() {
+            let mut command = Command::new(candidate);
+            if *candidate == "py" {
+                command.arg("-3");
+            }
+            command.arg(directory.join("prepare_windows_install_media.py")).args(args);
+            match command.output() {
+                Ok(output) => {
+                    // Once a helper started, never retry another interpreter:
+                    // it may already have written a retained staging directory.
+                    let mut result: Value = serde_json::from_slice(&output.stdout)
+                        .map_err(|error| format!("preparation output invalid; workspace {} retained: {error}", parent.display()))?;
+                    if output.status.success() && result.get("complete").and_then(Value::as_bool) == Some(true) {
+                        if cancel_file.exists() {
+                            result["schema"] = json!("arcwyre.windows_install_preparation_failure.v1");
+                            result["complete"] = json!(false);
+                            result["cancelled"] = json!(true);
+                            result["cancellation_requested"] = json!(true);
+                            result["unresolved"] = json!(true);
+                            result["error"] = json!("Cancellation requested before native completion");
+                        }
+                        return Ok(result);
+                    }
+                    if result.get("schema").and_then(Value::as_str) == Some("arcwyre.windows_install_preparation_failure.v1") {
+                        return Ok(result);
+                    }
+                    return Err(format!("preparation failed; workspace {} retained", parent.display()));
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(format!("cannot start preparation helper: {error}")),
+            }
+        }
+        Err("no configured Python interpreter is available".to_string())
+    })
+    .await
+    .map_err(|error| format!("Windows media preparation worker failed: {error}"));
+    let mut receipt = match result {
+        Ok(receipt) => receipt,
+        Err(error) => Err(error),
+    };
+    {
+        // Completion and cancellation use the same lock, so a cancellation
+        // accepted while active cannot race into a success receipt.
+        let mut active = windows_preparation_operations().lock()
+            .map_err(|_| "preparation operation registry is unavailable".to_string())?;
+        let cancelled = active.get(&operation_id).map(|path| path.exists()).unwrap_or(false);
+        active.remove(&operation_id);
+        if cancelled {
+            if let Ok(value) = receipt.as_mut() {
+                if value.get("complete").and_then(Value::as_bool) == Some(true) {
+                    value["schema"] = json!("arcwyre.windows_install_preparation_failure.v1");
+                    value["complete"] = json!(false);
+                    value["cancelled"] = json!(true);
+                    value["cancellation_requested"] = json!(true);
+                    value["unresolved"] = json!(true);
+                    value["error"] = json!("Cancellation accepted before native completion");
+                }
+            }
+        }
+    }
+    receipt
 }
 
 #[tauri::command]
@@ -1951,6 +2303,12 @@ fn main() {
         cancel_google_drive_acquisition,
         acquire_google_drive_picker_recovery,
         plan_fat32_windows_media,
+        prepare_windows_install_media,
+        prepare_windows_offline_workspace,
+        cancel_windows_offline_workspace,
+        plan_windows_workspace_boot,
+        plan_windows_install_target,
+        cancel_windows_install_preparation,
         stage_cloud_recovery_payload,
         capture_windows_recovery_baseline,
         persist_windows_recovery_rollback_bundle
@@ -1958,7 +2316,7 @@ fn main() {
 
     builder
         .run(tauri::generate_context!())
-        .expect("failed to run Phoenix Key desktop application");
+        .expect("failed to run ARCWYRE Drive desktop application");
 }
 
 #[cfg(test)]

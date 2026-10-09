@@ -116,6 +116,7 @@ type GoogleDriveReceipt = {
 };
 
 type Fat32MediaPlan = {
+  source_manifest?: Record<string, unknown>;
   filesystem: string;
   uefi_boot_files: string[];
   uefi_boot_evidence_present: boolean;
@@ -138,6 +139,27 @@ type Fat32MediaPlan = {
   source_modified: boolean;
   target_disk_modified: boolean;
   execution_performed: boolean;
+};
+
+type WindowsMediaPreparation = {
+  complete: boolean;
+  staging_directory?: string;
+  partial_directory?: string | null;
+  verified_bytes?: number;
+  manifest_sha256?: string;
+  prepared_manifest?: Record<string, unknown>;
+  error?: string;
+  cancelled?: boolean;
+};
+
+type OfflineWorkspaceResult = {
+  status: string;
+  workspace_directory?: string;
+  applied_directory?: string;
+  partial_directory?: string | null;
+  applied_file_readback_bytes?: number;
+  message?: string;
+  unresolved_reasons?: string[];
 };
 
 type RecoveryTargetSafety = {
@@ -564,7 +586,7 @@ export default function RecoveryCenter({
   const [sourceVerification, setSourceVerification] = useState<SourceIdentityVerification | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(
-    "Choose the Windows backup or recovery source you want Phoenix Key to inspect. Analysis does not change disks.",
+    "Choose the Windows backup or recovery source you want ARCWYRE Drive to inspect. Analysis does not change disks.",
   );
   const [showTechnical, setShowTechnical] = useState(false);
   const [expectedSha256, setExpectedSha256] = useState("");
@@ -600,7 +622,22 @@ export default function RecoveryCenter({
   const [driveOperationId, setDriveOperationId] = useState<string | null>(null);
   const [driveProgress, setDriveProgress] = useState<GoogleDriveProgress | null>(null);
   const [fat32MediaPlan, setFat32MediaPlan] = useState<Fat32MediaPlan | null>(null);
+  const [mediaPreparation, setMediaPreparation] = useState<WindowsMediaPreparation | null>(null);
+  const [mediaOperationId, setMediaOperationId] = useState<string | null>(null);
+  const [mediaTargetPlan, setMediaTargetPlan] = useState<{
+    eligible_for_preparation: boolean; block_reasons?: string[]; error?: string; plan_sha256?: string;
+  } | null>(null);
+  const [offlineWorkspace, setOfflineWorkspace] = useState<OfflineWorkspaceResult | null>(null);
+  const [offlineOperationId, setOfflineOperationId] = useState<string | null>(null);
   const storeSafe = distributionProfile?.store_safe === true;
+
+  useEffect(() => {
+    setMediaTargetPlan(null);
+  }, [targetDrive, targetSafety, mediaPreparation, sourcePath]);
+
+  useEffect(() => {
+    setOfflineWorkspace(null);
+  }, [sourcePath, imagePath, selectedImageIndex]);
 
   useEffect(() => {
     if (!isDesktopRuntime() || storeSafe) return;
@@ -690,6 +727,8 @@ export default function RecoveryCenter({
     setDriveReceipt(null);
     setDriveProgress(null);
     setFat32MediaPlan(null);
+    setMediaPreparation(null);
+    setMediaTargetPlan(null);
     setMessage("Source changed. Analyze it again before planning anything.");
   }
 
@@ -729,7 +768,7 @@ export default function RecoveryCenter({
       setDriveOperationId(operationId);
       setDriveProgress(null);
       setMessage(
-        "Opening Google Picker in your system browser. Select one recovery file; Phoenix Key will download and identity-lock it locally…",
+        "Opening Google Picker in your system browser. Select one recovery file; ARCWYRE Drive will download and identity-lock it locally…",
       );
       const poll = window.setInterval(() => {
         invoke<GoogleDriveProgress>("google_drive_acquisition_status", {
@@ -776,7 +815,7 @@ export default function RecoveryCenter({
         operationId: driveOperationId,
       });
       setMessage(
-        "Cancellation requested. Phoenix Key will stop at the next safe chunk boundary and keep resumable partial bytes.",
+        "Cancellation requested. ARCWYRE Drive will stop at the next safe chunk boundary and keep resumable partial bytes.",
       );
     } catch (error) {
       setMessage(`Cancellation request failed. ${String(error)}`);
@@ -796,7 +835,7 @@ export default function RecoveryCenter({
       setImagePath(metadataImagePathForAnalysis(sourcePath.trim(), result));
       setMessage(
         result.restore_candidate
-          ? "Analysis complete. Review what Phoenix Key found before building a plan."
+          ? "Analysis complete. Review what ARCWYRE Drive found before building a plan."
           : "Analysis complete, but this source is not safe to plan for restore yet.",
       );
     } catch (error) {
@@ -982,6 +1021,7 @@ export default function RecoveryCenter({
     if (!analysis || analysis.kind !== "extracted_windows_media" || busy) return;
     setBusy(true);
     setFat32MediaPlan(null);
+    setMediaPreparation(null);
     setMessage(
       "Checking the extracted Windows media for FAT32 file limits, split-WIM requirements, and UEFI boot evidence…",
     );
@@ -992,9 +1032,9 @@ export default function RecoveryCenter({
       setFat32MediaPlan(result);
       setMessage(
         result.ready_for_fat32_copy_now
-          ? "FAT32/UEFI media readiness verified. No files or disks were changed."
+          ? "The media file layout meets FAT32 limits. File hashes were captured; booting has not been tested."
           : result.ready_for_fat32_copy_after_split
-            ? "Media is UEFI-capable, but install.wim must be split before a FAT32 copy. The DISM command is a preview only."
+            ? "UEFI loader files were found. install.wim must be split before a FAT32 copy; boot compatibility remains untested."
             : "FAT32/UEFI readiness is blocked. Review the evidence before preparing media.",
       );
     } catch (error) {
@@ -1004,6 +1044,105 @@ export default function RecoveryCenter({
       );
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function prepareWindowsMedia() {
+    if (storeSafe || busy || !fat32MediaPlan?.source_manifest ||
+        !(fat32MediaPlan.ready_for_fat32_copy_now || fat32MediaPlan.ready_for_fat32_copy_after_split)) return;
+    const operationId = crypto.randomUUID();
+    setMediaOperationId(operationId);
+    setMediaPreparation(null);
+    setMediaTargetPlan(null);
+    setBusy(true);
+    setMessage("Preparing a new local media workspace and verifying copied files. Large WIM files require DISM splitting.");
+    try {
+      const result = await invoke<WindowsMediaPreparation>("prepare_windows_install_media", {
+        sourceRoot: sourcePath.trim(),
+        expectedSourceManifest: JSON.stringify(fat32MediaPlan.source_manifest),
+        stagingName: "windows-install-media",
+        operationId,
+      });
+      setMediaPreparation(result);
+      setMessage(result.complete
+        ? "Local media preparation completed with readback hashes. Physical drive creation and boot testing are still required."
+        : `Media preparation ${result.cancelled ? "cancelled" : "failed"}. Retained files require review. ${result.error ?? ""}`);
+    } catch (error) {
+      setMessage(`Media preparation could not complete. Any created workspace is retained for review. ${String(error)}`);
+    } finally {
+      setMediaOperationId(null);
+      setBusy(false);
+    }
+  }
+
+  async function cancelWindowsMediaPreparation() {
+    if (!mediaOperationId) return;
+    try {
+      await invoke("cancel_windows_install_preparation", { operationId: mediaOperationId });
+      setMessage("Cancellation requested. Waiting for the active operation to stop and report retained files.");
+    } catch (error) {
+      setMessage(`Could not request cancellation: ${String(error)}`);
+    }
+  }
+
+  async function checkPreparedMediaTarget() {
+    if (busy || storeSafe || !mediaPreparation?.complete || !mediaPreparation.staging_directory ||
+        !mediaPreparation.prepared_manifest || !targetSafety?.target_identity_sha256 ||
+        !targetSafety.target_stable_identity_sha256 || !targetDrive.trim()) return;
+    setBusy(true);
+    setMediaTargetPlan(null);
+    try {
+      const result = await invoke<NonNullable<typeof mediaTargetPlan>>("plan_windows_install_target", {
+        sourceRoot: mediaPreparation.staging_directory,
+        expectedSourceManifest: JSON.stringify(mediaPreparation.prepared_manifest),
+        target: targetDrive.trim(),
+        expectedSnapshotSha256: targetSafety.target_identity_sha256,
+        expectedStableSha256: targetSafety.target_stable_identity_sha256,
+      });
+      setMediaTargetPlan(result);
+      setMessage(result.eligible_for_preparation
+        ? "Fresh target planning passed. Drive creation remains locked pending provisioning validation."
+        : "Target planning is blocked. Review the reported safety facts.");
+    } catch (error) {
+      setMessage(`Target planning could not complete: ${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function prepareOfflineWindowsWorkspace() {
+    if (busy || storeSafe || analysis?.kind !== "wim" || !sourceVerification?.matches ||
+        !plan?.source_identity?.sha256 || !imageMetadata?.selected_image?.metadata_complete) return;
+    const operationId = crypto.randomUUID();
+    setOfflineOperationId(operationId);
+    setOfflineWorkspace(null);
+    setBusy(true);
+    setMessage("Applying the selected WIM image to a new local workspace. DISM inspection and file verification may take time.");
+    try {
+      const result = await invoke<OfflineWorkspaceResult>("prepare_windows_offline_workspace", {
+        operationId, sourceFile: sourcePath.trim(),
+        expectedSourceSha256: plan.source_identity.sha256,
+        selectedIndex: imageMetadata.selected_image.index,
+      });
+      setOfflineWorkspace(result);
+      setMessage(result.status === "applied_files_verified_boot_unresolved"
+        ? "Offline Windows files were applied and verified. Boot provisioning and Windows To Go remain incomplete."
+        : `Offline application ${result.status}. ${result.message ?? "Review retained output."}`);
+    } catch (error) {
+      setMessage(`Offline application could not complete. Any partial workspace is retained for review. ${String(error)}`);
+    } finally {
+      setOfflineOperationId(null);
+      setBusy(false);
+    }
+  }
+
+  async function cancelOfflineWindowsWorkspace() {
+    if (!offlineOperationId) return;
+    try {
+      await invoke("cancel_windows_offline_workspace", { operationId: offlineOperationId });
+      setMessage("Cancellation requested. Waiting for DISM or file verification to stop.");
+    } catch (error) {
+      setMessage(`Could not request cancellation: ${String(error)}`);
     }
   }
 
@@ -1280,7 +1419,7 @@ export default function RecoveryCenter({
     setBusy(true);
     setBootMetadataReceipt(null);
     setMessage(
-      "Capturing boot metadata only from target partitions Windows already exposes. Phoenix Key will not mount, assign, or write any target partition…",
+      "Capturing boot metadata only from target partitions Windows already exposes. ARCWYRE Drive will not mount, assign, or write any target partition…",
     );
     try {
       const result = await invoke<RestoreTargetBootMetadataReceipt>(
@@ -1294,7 +1433,7 @@ export default function RecoveryCenter({
       setMessage(
         result.resolved
           ? "Accessible target boot metadata was backed up to the separate rollback folder. Restore execution remains locked."
-          : "Boot-metadata capture is incomplete because one or more boot/recovery partitions are not already accessible. Phoenix Key did not mount them.",
+          : "Boot-metadata capture is incomplete because one or more boot/recovery partitions are not already accessible. ARCWYRE Drive did not mount them.",
       );
     } catch (error) {
       setBootMetadataReceipt(null);
@@ -1780,7 +1919,7 @@ export default function RecoveryCenter({
           <span className="read-only-pill">READ ONLY</span>
         </div>
         <p className="recovery-lead">
-          Phoenix Key inspects the source first, explains what it is, and tells you what this computer can safely do with it. Restore execution is intentionally separate.
+          ARCWYRE Drive inspects the source first, explains what it is, and tells you what this computer can safely do with it. Restore execution is intentionally separate.
         </p>
         {storeSafe && (
           <div className="warning-box">
@@ -1791,7 +1930,7 @@ export default function RecoveryCenter({
         {!isDesktopRuntime() && (
           <div className="warning-box">
             <strong>Desktop app required</strong>
-            <p>Local backup inspection is not available in the browser shell. Open Phoenix Key Desktop.</p>
+            <p>Local backup inspection is not available in the browser shell. Open ARCWYRE Drive Desktop.</p>
           </div>
         )}
         <div className="source-actions" aria-label="Choose recovery source">
@@ -1910,7 +2049,7 @@ export default function RecoveryCenter({
             <div className="recovery-list">
               <strong>FAT32 / UEFI installation-media readiness</strong>
               <p className="field-help">
-                Phoenix Key checks the entire extracted media tree for FAT32's file-size limit and verifies whether a Microsoft split-WIM layout is required. This check does not copy, format, split, or write anything.
+                ARCWYRE Drive checks the entire extracted media tree for FAT32's file-size limit and verifies whether a Microsoft split-WIM layout is required. This check does not copy, format, split, or write anything.
               </p>
               <button
                 className="plan-button"
@@ -1949,8 +2088,40 @@ export default function RecoveryCenter({
                     <p key={reason}>— {readableToken(reason)}</p>
                   ))}
                   <p>Source modified: no · target disk modified: no</p>
+                  <button type="button" className="plan-button" onClick={prepareWindowsMedia}
+                    disabled={busy || storeSafe || !fat32MediaPlan.source_manifest ||
+                      !(fat32MediaPlan.ready_for_fat32_copy_now || fat32MediaPlan.ready_for_fat32_copy_after_split)}>
+                    Prepare Verified Local Media
+                  </button>
+                  <p className="field-help">Creates a new temporary workspace on Windows, copies and hashes the files, and splits oversized install.wim files. You need free space for the source copy and split output.</p>
                 </div>
               )}
+              {mediaOperationId && <button type="button" onClick={cancelWindowsMediaPreparation}>Cancel Media Preparation</button>}
+              {mediaPreparation && <div className={mediaPreparation.complete ? "good-list" : "warning-box"}>
+                <strong>{mediaPreparation.complete ? "Local media files verified" : "Preparation incomplete"}</strong>
+                <p>Workspace: {mediaPreparation.staging_directory ?? mediaPreparation.partial_directory ?? "See operation error"}</p>
+                {mediaPreparation.complete && <>
+                  <p>Readback verified: {mediaPreparation.verified_bytes ?? 0} bytes</p>
+                  <p>File manifest SHA-256: {mediaPreparation.manifest_sha256}</p>
+                </>}
+                {mediaPreparation.error && <p>{mediaPreparation.error}</p>}
+                <p>Physical drive creation: pending · Boot test: pending</p>
+                {mediaPreparation.complete && <>
+                  <button type="button" onClick={checkPreparedMediaTarget}
+                    disabled={busy || !mediaPreparation.prepared_manifest || !targetSafety?.target_identity_sha256 ||
+                      !targetSafety.target_stable_identity_sha256 || !targetDrive.trim()}>
+                    Check Prepared Media Against Selected Drive
+                  </button>
+                  <p className="field-help">Select and inspect a target drive below first. This check reads current disk facts and verifies the prepared files.</p>
+                </>}
+              </div>}
+              {mediaTargetPlan && <div className="warning-box">
+                <strong>{mediaTargetPlan.eligible_for_preparation ? "Planning passed; creation remains locked" : "Target planning blocked"}</strong>
+                {mediaTargetPlan.error && <p>{mediaTargetPlan.error}</p>}
+                {mediaTargetPlan.block_reasons?.map(reason => <p key={reason}>{readableToken(reason)}</p>)}
+                {mediaTargetPlan.plan_sha256 && <p>Plan SHA-256: {mediaTargetPlan.plan_sha256}</p>}
+                <p>Run this check again after changing the selected drive or prepared files.</p>
+              </div>}
             </div>
           )}
 
@@ -2010,7 +2181,7 @@ export default function RecoveryCenter({
                   aria-describedby="recovery-hash-help"
                 />
               </label>
-              <p id="recovery-hash-help" className="field-help">Use the SHA-256 published with the trusted recovery source. Phoenix Key compares it locally and does not modify the package.</p>
+              <p id="recovery-hash-help" className="field-help">Use the SHA-256 published with the trusted recovery source. ARCWYRE Drive compares it locally and does not modify the package.</p>
               <button
                 className="plan-button"
                 type="button"
@@ -2121,6 +2292,24 @@ export default function RecoveryCenter({
                   {imageMetadata.block_reasons.map((reason) => <p key={reason}>— {readableToken(reason)}</p>)}
                 </div>
               )}
+              {analysis?.kind === "wim" && <>
+                <button type="button" onClick={prepareOfflineWindowsWorkspace}
+                  disabled={busy || storeSafe || !sourceVerification?.matches ||
+                    !plan.source_identity?.sha256 || !imageMetadata?.selected_image?.metadata_complete}>
+                  Apply WIM to New Local Workspace
+                </button>
+                <p className="field-help">Requires Windows and free space for a WIM snapshot plus the expanded image. Uses a new temporary folder; boot provisioning is still pending.</p>
+              </>}
+              {offlineOperationId && <button type="button" onClick={cancelOfflineWindowsWorkspace}>Cancel Offline Application</button>}
+              {offlineWorkspace && <div className="warning-box">
+                <strong>{readableToken(offlineWorkspace.status)}</strong>
+                <p>Workspace: {offlineWorkspace.workspace_directory ?? offlineWorkspace.partial_directory ?? "See operation error"}</p>
+                {offlineWorkspace.applied_directory && <p>Applied files: {offlineWorkspace.applied_directory}</p>}
+                {offlineWorkspace.applied_file_readback_bytes !== undefined && <p>Readback verified: {offlineWorkspace.applied_file_readback_bytes} bytes</p>}
+                {offlineWorkspace.message && <p>{offlineWorkspace.message}</p>}
+                {offlineWorkspace.unresolved_reasons?.map(reason => <p key={reason}>Pending: {readableToken(reason)}</p>)}
+                <p>Windows To Go readiness: incomplete · Boot test: pending</p>
+              </div>}
             </div>
           </div>
 
@@ -2128,7 +2317,7 @@ export default function RecoveryCenter({
             <div className="recovery-list">
               <strong>Windows physical target</strong>
               <p className="field-help">
-                This is a read-only identity/capacity check. Use an exact PHYSICALDRIVE number from Windows disk enumeration; Phoenix Key will also prove the source is on a different physical disk.
+                This is a read-only identity/capacity check. Use an exact PHYSICALDRIVE number from Windows disk enumeration; ARCWYRE Drive will also prove the source is on a different physical disk.
               </p>
               <label className="path-field">
                 <span>Target disk</span>
@@ -2185,7 +2374,7 @@ export default function RecoveryCenter({
                     <div className="recovery-list">
                       <strong>Reconnect / re-enumeration proof</strong>
                       <p className="field-help">
-                        After a real unplug/replug, enter the target's current PHYSICALDRIVE path here. Phoenix Key compares it against the frozen baseline without carrying old authorization forward.
+                        After a real unplug/replug, enter the target's current PHYSICALDRIVE path here. ARCWYRE Drive compares it against the frozen baseline without carrying old authorization forward.
                       </p>
                       <button
                         className="plan-button"
@@ -2375,7 +2564,7 @@ export default function RecoveryCenter({
                     <div className="recovery-list">
                       <strong>External target boot-metadata backup</strong>
                       <p className="field-help">
-                        Back up EFI/BCD/WinRE metadata only where the target partitions are already accessible. Phoenix Key will not mount or assign an inaccessible partition just to satisfy this gate.
+                        Back up EFI/BCD/WinRE metadata only where the target partitions are already accessible. ARCWYRE Drive will not mount or assign an inaccessible partition just to satisfy this gate.
                       </p>
                       <button
                         className="plan-button"
