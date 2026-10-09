@@ -33,16 +33,21 @@ class MediaPlanError(RuntimeError):
 
 
 def file_stat_identity(info):
-    # On Windows fstat's ctime is change time, while path stat's ctime is
-    # creation time. Compare their explicit creation times across acquisition
-    # methods and retain descriptor change-time checks separately.
-    timestamp = info.st_ctime_ns
+    # Bind identity to a stable creation/change-time field appropriate to the
+    # host. Windows timestamp semantics differ across Python versions, handled
+    # explicitly below; POSIX retains ctime in the identity tuple.
     if os.name == "nt":
+        # Python 3.12+ exposes the Windows creation timestamp explicitly as
+        # st_birthtime_ns. On Python 3.11 and earlier, Windows st_ctime_ns is
+        # the creation timestamp. Prefer the explicit field when available so
+        # 3.12+'s changed st_ctime semantics cannot weaken identity binding.
         timestamp = getattr(info, "st_birthtime_ns", None)
         if timestamp is None:
-            raise MediaPlanError(
-                "Windows file identity requires explicit creation timestamps (Python 3.12+)."
-            )
+            timestamp = getattr(info, "st_ctime_ns", None)
+        if timestamp is None:
+            raise MediaPlanError("Windows file identity requires a creation timestamp.")
+    else:
+        timestamp = info.st_ctime_ns
     return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, timestamp)
 
 

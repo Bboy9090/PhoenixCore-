@@ -90,10 +90,15 @@ class WindowsStatIdentityTests(unittest.TestCase):
                 media.file_stat_identity(path), media.file_stat_identity(replaced)
             )
 
-    def test_missing_windows_creation_time_fails_closed(self):
+    def test_windows_ctime_fallback_preserves_creation_identity(self):
         info = SimpleNamespace(
             st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78, st_ctime_ns=90
         )
+        with patch.object(media.os, "name", "nt"):
+            self.assertEqual(media.file_stat_identity(info)[-1], 90)
+
+    def test_missing_windows_creation_time_fails_closed(self):
+        info = SimpleNamespace(st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78)
         with patch.object(media.os, "name", "nt"), self.assertRaises(
             media.MediaPlanError
         ):
