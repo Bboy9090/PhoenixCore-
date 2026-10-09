@@ -4,7 +4,8 @@ from pathlib import Path
 
 SPEC = importlib.util.spec_from_file_location(
     "windows_media_result_report",
-    Path(__file__).resolve().parent.parent / "scripts/hardware/windows_media_result_report.py",
+    Path(__file__).resolve().parent.parent
+    / "scripts/hardware/windows_media_result_report.py",
 )
 assert SPEC and SPEC.loader
 module = importlib.util.module_from_spec(SPEC)
@@ -31,13 +32,19 @@ class ResultReportTests(unittest.TestCase):
 
     def test_bad_shapes_fail_safely(self):
         for bad in (False, [], "success", {"schema": "wrong"}):
-            self.assertTrue(module.build_result_report(staging=bad)["unresolved_reasons"])
+            self.assertTrue(
+                module.build_result_report(staging=bad)["unresolved_reasons"]
+            )
 
     def test_boolean_and_negative_bytes_rejected(self):
         for bad in (True, -1, "42"):
             staging = self.staging()
             staging["verified_bytes"] = bad
-            self.assertIsNone(module.build_result_report(staging=staging)["reported_staging_verified_bytes"])
+            self.assertIsNone(
+                module.build_result_report(staging=staging)[
+                    "reported_staging_verified_bytes"
+                ]
+            )
 
     def test_forged_boot_claim_rejected(self):
         staging = self.staging()
@@ -47,17 +54,30 @@ class ResultReportTests(unittest.TestCase):
         self.assertIsNone(result["reported_staging_verified_bytes"])
 
     def test_failure_retains_partial_path_and_next_step(self):
-        result = module.build_result_report(failure={"message": "cancelled", "partial_directory": "partial/output"})
+        result = module.build_result_report(
+            failure={"message": "cancelled", "partial_directory": "partial/output"}
+        )
         self.assertEqual("partial/output", result["output_path"])
         self.assertTrue(result["output_requires_review"])
         self.assertIn("preserve partial", result["next_step"])
 
     def test_malformed_reasons_rejected(self):
-        result = module.build_result_report(compatibility={"schema": module.SCHEMAS["compatibility"], "block_reasons": "none"})
+        result = module.build_result_report(
+            compatibility={
+                "schema": module.SCHEMAS["compatibility"],
+                "block_reasons": "none",
+            }
+        )
         self.assertTrue(result["unresolved_reasons"])
 
     def test_resume_bytes_never_count_as_staging_verification(self):
-        result = module.build_result_report(resume={"schema": module.SCHEMAS["resume"], "verified_completed_bytes": 10, "source_total_bytes": 5})
+        result = module.build_result_report(
+            resume={
+                "schema": module.SCHEMAS["resume"],
+                "verified_completed_bytes": 10,
+                "source_total_bytes": 5,
+            }
+        )
         self.assertTrue(result["unresolved_reasons"])
         self.assertIsNone(result["reported_staging_verified_bytes"])
 

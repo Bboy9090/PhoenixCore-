@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 _spec = importlib.util.spec_from_file_location(
-    "_rehearsal_media", Path(__file__).with_name("plan_fat32_windows_media.py"))
+    "_rehearsal_media", Path(__file__).with_name("plan_fat32_windows_media.py")
+)
 _media = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_media)
 
@@ -48,9 +49,11 @@ def assess_restore_rehearsal(
         current = source.stat()
         try:
             identity = _media.file_stat_identity
-            if (identity(before) != identity(after)
-                    or before.st_ctime_ns != after.st_ctime_ns
-                    or identity(after) != identity(current)):
+            if (
+                identity(before) != identity(after)
+                or before.st_ctime_ns != after.st_ctime_ns
+                or identity(after) != identity(current)
+            ):
                 blockers.append("source-changed-during-inspection")
         except _media.MediaPlanError:
             blockers.append("source-identity-unavailable")

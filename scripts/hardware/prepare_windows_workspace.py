@@ -3,6 +3,7 @@
 This is offline file preparation, not Windows To Go provisioning. Boot files,
 SAN policy, portability, licensing, and hardware eligibility remain unresolved.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -19,7 +20,9 @@ import tempfile
 
 
 def _load(name, filename):
-    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(filename))
+    spec = importlib.util.spec_from_file_location(
+        name, Path(__file__).with_name(filename)
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -31,11 +34,14 @@ metadata = _load("_workspace_metadata", "inspect_windows_image_metadata.py")
 
 def _inspect_metadata(tool, args, logs, label, cancelled):
     if cancelled():
-        raise preparation.staging.StagingError("Cancelled before image metadata inspection")
+        raise preparation.staging.StagingError(
+            "Cancelled before image metadata inspection"
+        )
     transcript = logs / (label + ".transcript.txt")
     preparation._run_dism(
         [str(tool), "/English", *args, f"/LogPath:{logs / (label + '.log')}"],
-        transcript, cancelled,
+        transcript,
+        cancelled,
     )
     return transcript.read_text(encoding=locale.getpreferredencoding(False))
 
@@ -44,8 +50,12 @@ def _open_regular(path):
     preparation.staging._ancestors(path)
     if preparation.media._regular_file_info_nofollow(path) is None:
         raise preparation.staging.StagingError("Source is not a regular file")
-    flags = (os.O_RDONLY | getattr(os, "O_BINARY", 0)
-             | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_BINARY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     fd = os.open(path, flags)
     if not stat.S_ISREG(os.fstat(fd).st_mode):
         os.close(fd)
@@ -63,22 +73,27 @@ def _hash(path, cancelled=lambda: False):
             digest.update(chunk)
         after = os.fstat(stream.fileno())
         identity = preparation.media.file_stat_identity
-        if (identity(before) != identity(after)
-                or before.st_ctime_ns != after.st_ctime_ns
-                or identity(after) != identity(path.stat())):
+        if (
+            identity(before) != identity(after)
+            or before.st_ctime_ns != after.st_ctime_ns
+            or identity(after) != identity(path.stat())
+        ):
             raise preparation.staging.StagingError("File changed while hashing")
         return digest.hexdigest()
 
 
-def prepare_workspace(source: Path, expected_sha256: str, selected_index: int,
-                      cancelled=lambda: False):
+def prepare_workspace(
+    source: Path, expected_sha256: str, selected_index: int, cancelled=lambda: False
+):
     """Allocate output ourselves: callers cannot choose a Windows apply target."""
     error = preparation.staging.StagingError
     if source.suffix.lower() != ".wim":
         raise error("This preparation slice accepts WIM only")
     if type(selected_index) is not int or selected_index < 1:
         raise error("An explicit positive image index is required")
-    if not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_sha256):
+    if not isinstance(expected_sha256, str) or not re.fullmatch(
+        r"[0-9a-fA-F]{64}", expected_sha256
+    ):
         raise error("A verified source SHA-256 is required")
     source = source.absolute()
     if _hash(source, cancelled) != expected_sha256.lower():
@@ -91,7 +106,11 @@ def prepare_workspace(source: Path, expected_sha256: str, selected_index: int,
     workspace = Path(tempfile.mkdtemp(prefix="arcwyre-offline-image-"))
     try:
         preparation.staging._ancestors(workspace)
-        if source == workspace or workspace in source.parents or source in workspace.parents:
+        if (
+            source == workspace
+            or workspace in source.parents
+            or source in workspace.parents
+        ):
             raise error("Source and workspace overlap")
         snapshot = workspace / "source.wim"
         with _open_regular(source) as original, snapshot.open("xb") as copy:
@@ -99,18 +118,29 @@ def prepare_workspace(source: Path, expected_sha256: str, selected_index: int,
                 if cancelled():
                     raise error("Cancelled while copying image")
                 copy.write(chunk)
-        if _hash(snapshot, cancelled) != expected_sha256.lower() or _hash(source, cancelled) != expected_sha256.lower():
+        if (
+            _hash(snapshot, cancelled) != expected_sha256.lower()
+            or _hash(source, cancelled) != expected_sha256.lower()
+        ):
             raise error("Source changed during snapshot preparation")
         logs = workspace / "logs"
         logs.mkdir()
+
         def inspect(args, label):
             return _inspect_metadata(tool, args, logs, label, cancelled)
+
         image_arg = f"/ImageFile:{snapshot}"
-        indexes = metadata.parse_index_list(inspect(["/Get-ImageInfo", image_arg], "indexes"))
+        indexes = metadata.parse_index_list(
+            inspect(["/Get-ImageInfo", image_arg], "indexes")
+        )
         if selected_index not in indexes:
             raise error("Selected index is absent from native DISM metadata")
-        selected = metadata.parse_detailed_image(inspect(
-            ["/Get-ImageInfo", image_arg, f"/Index:{selected_index}"], "selected"), selected_index)
+        selected = metadata.parse_detailed_image(
+            inspect(
+                ["/Get-ImageInfo", image_arg, f"/Index:{selected_index}"], "selected"
+            ),
+            selected_index,
+        )
         if not selected["metadata_complete"]:
             raise error("Selected image metadata is incomplete")
         applied = workspace / "applied-files"
@@ -118,32 +148,59 @@ def prepare_workspace(source: Path, expected_sha256: str, selected_index: int,
         preparation.staging._ancestors(applied)
         if any(applied.iterdir()) or cancelled():
             raise error("Apply directory is not empty or operation cancelled")
-        command = [str(tool), "/English", "/Apply-Image", image_arg,
-                   f"/Index:{selected_index}", f"/ApplyDir:{applied}",
-                   "/CheckIntegrity", "/Verify", f"/LogPath:{logs / 'apply.log'}"]
+        command = [
+            str(tool),
+            "/English",
+            "/Apply-Image",
+            image_arg,
+            f"/Index:{selected_index}",
+            f"/ApplyDir:{applied}",
+            "/CheckIntegrity",
+            "/Verify",
+            f"/LogPath:{logs / 'apply.log'}",
+        ]
         preparation._run_dism(command, logs / "apply.transcript.txt", cancelled)
         if cancelled():
             raise error("Cancelled after image application")
-        for relative in ("Windows/System32/ntoskrnl.exe", "Windows/System32/config/SYSTEM",
-                         "Windows/System32/config/SOFTWARE"):
+        for relative in (
+            "Windows/System32/ntoskrnl.exe",
+            "Windows/System32/config/SYSTEM",
+            "Windows/System32/config/SOFTWARE",
+        ):
             candidate = applied / relative
             preparation.staging._ancestors(candidate)
             if preparation.media._regular_file_info_nofollow(candidate).st_size == 0:
                 raise error("Applied Windows tree is incomplete")
         manifest = preparation.media.capture_media_manifest(applied, cancelled)
         preparation.media.verify_media_manifest(applied, manifest, cancelled)
-        if _hash(snapshot, cancelled) != expected_sha256.lower() or _hash(source, cancelled) != expected_sha256.lower():
+        if (
+            _hash(snapshot, cancelled) != expected_sha256.lower()
+            or _hash(source, cancelled) != expected_sha256.lower()
+        ):
             raise error("Source image changed during application")
         return {
             "schema": "arcwyre.windows_offline_image_application.v1",
-            "workspace_directory": str(workspace), "applied_directory": str(applied),
-            "source_sha256": expected_sha256.lower(), "selected_image": selected,
-            "applied_manifest": manifest, "applied_file_readback_bytes": manifest["total_bytes"],
-            "dism_exit_code": 0, "check_integrity_requested": True, "verify_requested": True,
-            "raw_disk_operations_performed": False, "boot_configuration_performed": False,
-            "boot_verified": False, "windows_to_go_ready": False,
-            "unresolved_reasons": ["boot_configuration", "san_policy", "portable_workspace_support",
-                                   "licensing", "hardware_eligibility", "physical_boot_test"],
+            "workspace_directory": str(workspace),
+            "applied_directory": str(applied),
+            "source_sha256": expected_sha256.lower(),
+            "selected_image": selected,
+            "applied_manifest": manifest,
+            "applied_file_readback_bytes": manifest["total_bytes"],
+            "dism_exit_code": 0,
+            "check_integrity_requested": True,
+            "verify_requested": True,
+            "raw_disk_operations_performed": False,
+            "boot_configuration_performed": False,
+            "boot_verified": False,
+            "windows_to_go_ready": False,
+            "unresolved_reasons": [
+                "boot_configuration",
+                "san_policy",
+                "portable_workspace_support",
+                "licensing",
+                "hardware_eligibility",
+                "physical_boot_test",
+            ],
             "log_directory": str(logs),
         }
     except Exception as exc:
@@ -158,19 +215,24 @@ def main(argv=None):
     parser.add_argument("--cancel-file", type=Path)
     args = parser.parse_args(argv)
     cancellation = {"requested": False}
+
     def request_cancel(signum, frame):
         cancellation["requested"] = True
+
     def is_cancelled():
         if args.cancel_file is not None and os.path.lexists(args.cancel_file):
             cancellation["requested"] = True
         return cancellation["requested"]
+
     previous = {}
     try:
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous[signum] = signal.signal(signum, request_cancel)
         try:
             receipt = prepare_workspace(
-                args.source, args.sha256, args.index,
+                args.source,
+                args.sha256,
+                args.index,
                 cancelled=is_cancelled,
             )
             if is_cancelled():
@@ -183,17 +245,24 @@ def main(argv=None):
             return 0
         except Exception as exc:
             partial = getattr(exc, "partial_directory", None)
-            print(json.dumps({
-                "schema": "arcwyre.windows_offline_image_application_failure.v1",
-                "status": "cancelled" if is_cancelled() else "failed",
-                "message": str(exc),
-                "partial_directory": str(partial) if partial is not None else None,
-                "partial_output_unresolved": partial is not None,
-                "raw_disk_operations_performed": False,
-                "boot_verified": False,
-                "windows_to_go_ready": False,
-                "cleanup_performed": False,
-            }, sort_keys=True))
+            print(
+                json.dumps(
+                    {
+                        "schema": "arcwyre.windows_offline_image_application_failure.v1",
+                        "status": "cancelled" if is_cancelled() else "failed",
+                        "message": str(exc),
+                        "partial_directory": (
+                            str(partial) if partial is not None else None
+                        ),
+                        "partial_output_unresolved": partial is not None,
+                        "raw_disk_operations_performed": False,
+                        "boot_verified": False,
+                        "windows_to_go_ready": False,
+                        "cleanup_performed": False,
+                    },
+                    sort_keys=True,
+                )
+            )
             return 130 if cancellation["requested"] else 2
     finally:
         for signum, handler in previous.items():

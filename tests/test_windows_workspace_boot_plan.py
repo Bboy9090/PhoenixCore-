@@ -3,8 +3,11 @@ from pathlib import Path
 import tempfile
 import unittest
 
-SPEC = importlib.util.spec_from_file_location("workspace_boot_plan",
-    Path(__file__).resolve().parent.parent / "scripts/hardware/plan_windows_workspace_boot.py")
+SPEC = importlib.util.spec_from_file_location(
+    "workspace_boot_plan",
+    Path(__file__).resolve().parent.parent
+    / "scripts/hardware/plan_windows_workspace_boot.py",
+)
 module = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(module)
 
@@ -24,16 +27,24 @@ class WorkspaceBootPlanTests(unittest.TestCase):
         self.vhd.write_bytes(b"vhdxfile" + bytes(64))
         self.receipt = {
             "schema": "arcwyre.windows_offline_image_application.v1",
-            "workspace_directory": str(self.root), "applied_directory": str(applied),
+            "workspace_directory": str(self.root),
+            "applied_directory": str(applied),
             "raw_disk_operations_performed": False,
             "source_sha256": module.application._hash(image),
-            "applied_manifest": module.application.preparation.media.capture_media_manifest(applied),
+            "applied_manifest": module.application.preparation.media.capture_media_manifest(
+                applied
+            ),
         }
         self.facts = {
-            "disk_unique_id": "fixture disk", "bus_type": "File Backed Virtual",
-            "is_boot": False, "is_system": False, "partition_style": "GPT",
-            "esp_partition_number": 1, "windows_partition_number": 2,
-            "esp_filesystem": "FAT32", "windows_filesystem": "NTFS",
+            "disk_unique_id": "fixture disk",
+            "bus_type": "File Backed Virtual",
+            "is_boot": False,
+            "is_system": False,
+            "partition_style": "GPT",
+            "esp_partition_number": 1,
+            "windows_partition_number": 2,
+            "esp_filesystem": "FAT32",
+            "windows_filesystem": "NTFS",
             "image_path": str(self.vhd),
         }
 
@@ -56,7 +67,11 @@ class WorkspaceBootPlanTests(unittest.TestCase):
             module.plan_workspace_boot(self.receipt, self.vhd, self.facts)
 
     def test_physical_system_or_equal_partitions_rejected(self):
-        for field, value in (("bus_type", "USB"), ("is_system", True), ("windows_partition_number", 1)):
+        for field, value in (
+            ("bus_type", "USB"),
+            ("is_system", True),
+            ("windows_partition_number", 1),
+        ):
             facts = {**self.facts, field: value}
             with self.assertRaises(RuntimeError):
                 module.plan_workspace_boot(self.receipt, self.vhd, facts)

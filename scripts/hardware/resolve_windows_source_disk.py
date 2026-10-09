@@ -13,7 +13,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_tool_spec = importlib.util.spec_from_file_location("_source_windows_system_tools", Path(__file__).with_name("windows_system_tools.py"))
+_tool_spec = importlib.util.spec_from_file_location(
+    "_source_windows_system_tools", Path(__file__).with_name("windows_system_tools.py")
+)
 _tool_module = importlib.util.module_from_spec(_tool_spec)
 _tool_spec.loader.exec_module(_tool_module)
 system_tool_path = _tool_module.system_tool_path

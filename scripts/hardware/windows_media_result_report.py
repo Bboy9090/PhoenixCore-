@@ -37,10 +37,16 @@ def build_result_report(
         if not isinstance(value, dict) or value.get("schema") != SCHEMAS[name]:
             failures.append(f"{name}: malformed or unsupported result")
             continue
-        if any(value.get(field) is True for field in (
-            "boot_proven", "boot_verified", "write_authorized",
-            "restore_executor_authorized", "physical_writes_authorized",
-        )):
+        if any(
+            value.get(field) is True
+            for field in (
+                "boot_proven",
+                "boot_verified",
+                "write_authorized",
+                "restore_executor_authorized",
+                "physical_writes_authorized",
+            )
+        ):
             failures.append(f"{name}: unsupported authorization or boot claim")
             continue
         valid = True
@@ -63,8 +69,10 @@ def build_result_report(
         count = staged.get("verified_bytes")
         path = staged.get("staging_directory")
         if (
-            type(count) is not int or count < 0
-            or not isinstance(path, str) or not path.strip()
+            type(count) is not int
+            or count < 0
+            or not isinstance(path, str)
+            or not path.strip()
             or staged.get("staging_verified") is not True
             or staged.get("raw_disk_operations_performed") is not False
         ):
@@ -80,8 +88,10 @@ def build_result_report(
         count = prepared.get("verified_bytes")
         path = prepared.get("staging_directory")
         if (
-            type(count) is not int or count < 0
-            or not isinstance(path, str) or not path.strip()
+            type(count) is not int
+            or count < 0
+            or not isinstance(path, str)
+            or not path.strip()
             or prepared.get("staging_verified") is not True
             or prepared.get("raw_disk_operations_performed") is not False
             or prepared.get("original_source_modified") is not False
@@ -90,7 +100,9 @@ def build_result_report(
         else:
             preparation_bytes = count
             output_path = path
-        failures.append("preparation: independent image integrity and boot remain unverified")
+        failures.append(
+            "preparation: independent image integrity and boot remain unverified"
+        )
     if resumed:
         done = resumed.get("verified_completed_bytes")
         total = resumed.get("source_total_bytes")
@@ -110,8 +122,8 @@ def build_result_report(
         failures.append("operation: no valid assessment supplied")
     next_step = (
         "Resolve the reported failures; preserve partial output for inspection."
-        if failures else
-        "Review the media preparation plan; a real boot test is still required."
+        if failures
+        else "Review the media preparation plan; a real boot test is still required."
     )
     lines = ["Windows media operation report"]
     if reported_bytes is not None:
@@ -123,10 +135,12 @@ def build_result_report(
     if preparation_bytes is not None:
         lines.append(f"Reported prepared file readback: {preparation_bytes} bytes.")
     lines.extend(f"Unresolved: {reason}" for reason in failures)
-    lines.extend([
-        "Boot verification: not proven. Data rescue: not verified.",
-        f"Next step: {next_step}",
-    ])
+    lines.extend(
+        [
+            "Boot verification: not proven. Data rescue: not verified.",
+            f"Next step: {next_step}",
+        ]
+    )
     return {
         "schema": "arcwyre.windows_media_result_report.v1",
         "reported_staging_verified_bytes": reported_bytes,

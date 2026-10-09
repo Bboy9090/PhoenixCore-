@@ -1,4 +1,5 @@
 """Verified installer file staging; never formats or opens a physical drive."""
+
 from __future__ import annotations
 
 import hashlib
@@ -9,7 +10,8 @@ from pathlib import Path
 from typing import Callable, Any
 
 _spec = importlib.util.spec_from_file_location(
-    "_staging_media_plan", Path(__file__).with_name("plan_fat32_windows_media.py"))
+    "_staging_media_plan", Path(__file__).with_name("plan_fat32_windows_media.py")
+)
 media = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(media)
 
@@ -22,15 +24,26 @@ class StagingError(RuntimeError):
 
 
 def _ancestors(path: Path) -> None:
-    for ancestor in reversed((path, *path.parents)):
-        media._checked_lstat(ancestor)
+    # The path itself must never be a symlink/reparse point. Windows also
+    # requires the complete native ancestor chain to be reparse-free before
+    # staging. POSIX hosts may expose trusted system aliases such as
+    # /tmp -> /private/tmp outside the staging tree, so do not reject those.
+    media._checked_lstat(path)
+    if os.name == "nt":
+        for ancestor in reversed(path.parents):
+            media._checked_lstat(ancestor)
 
 
-def stage_media(source: Path, staging_parent: Path, name: str,
-                expected_manifest: dict[str, Any],
-                cancelled: Callable[[], bool] = lambda: False,
-                progress: Callable[[int, int], None] = lambda done, total: None,
-                *, _allow_split_required_wim_staging: bool = False) -> dict[str, Any]:
+def stage_media(
+    source: Path,
+    staging_parent: Path,
+    name: str,
+    expected_manifest: dict[str, Any],
+    cancelled: Callable[[], bool] = lambda: False,
+    progress: Callable[[int, int], None] = lambda done, total: None,
+    *,
+    _allow_split_required_wim_staging: bool = False,
+) -> dict[str, Any]:
     """Create an exclusive directory and copy/read back each file before progress.
 
     Caller must supply a disposable staging parent, not a device or target volume.
@@ -41,25 +54,44 @@ def stage_media(source: Path, staging_parent: Path, name: str,
         if ".." in source.parts or ".." in staging_parent.parts:
             raise StagingError("Parent traversal in staging paths is forbidden")
         source, staging_parent = source.absolute(), staging_parent.absolute()
-        reserved = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
-                    *(f"LPT{i}" for i in range(1, 10))}
-        if (not name or name in (".", "..") or name.endswith((".", " "))
-                or name.split(".")[0].upper() in reserved
-                or any(c in name for c in '/\\:<>"|?*') or any(ord(c) < 32 for c in name)):
+        reserved = {
+            "CON",
+            "PRN",
+            "AUX",
+            "NUL",
+            *(f"COM{i}" for i in range(1, 10)),
+            *(f"LPT{i}" for i in range(1, 10)),
+        }
+        if (
+            not name
+            or name in (".", "..")
+            or name.endswith((".", " "))
+            or name.split(".")[0].upper() in reserved
+            or any(c in name for c in '/\\:<>"|?*')
+            or any(ord(c) < 32 for c in name)
+        ):
             raise StagingError("Invalid staging directory name")
         _ancestors(source)
         _ancestors(staging_parent)
         if not staging_parent.is_dir():
             raise StagingError("Staging parent must be an existing directory")
         proposed = staging_parent / name
-        if proposed == source or proposed in source.parents or source in proposed.parents:
+        if (
+            proposed == source
+            or proposed in source.parents
+            or source in proposed.parents
+        ):
             raise StagingError("Staging destination overlaps source")
         manifest = media.verify_media_manifest(source, expected_manifest, cancelled)
         plan = media.plan_media(source)
-        split_staging = (_allow_split_required_wim_staging
-                         and plan["ready_for_fat32_copy_after_split"]
-                         and plan["image_mode"] == "install_wim")
-        if (not plan["ready_for_fat32_copy_now"] and not split_staging) or plan["block_reasons"]:
+        split_staging = (
+            _allow_split_required_wim_staging
+            and plan["ready_for_fat32_copy_after_split"]
+            and plan["image_mode"] == "install_wim"
+        )
+        if (not plan["ready_for_fat32_copy_now"] and not split_staging) or plan[
+            "block_reasons"
+        ]:
             raise StagingError("Source requires preparation or is blocked")
         if cancelled():
             raise StagingError("Cancelled before staging")
@@ -69,22 +101,34 @@ def stage_media(source: Path, staging_parent: Path, name: str,
         total = manifest["total_bytes"]
         for record in manifest["files"]:
             if cancelled():
-                raise StagingError("Cancelled; staging output is unresolved", destination)
+                raise StagingError(
+                    "Cancelled; staging output is unresolved", destination
+                )
             original = source / record["path"]
             target = destination / record["path"]
             _ancestors(original)
             target.parent.mkdir(parents=True, exist_ok=True)
             _ancestors(target.parent)
-            flags = (os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
-                     | getattr(os, "O_NONBLOCK", 0))
+            flags = (
+                os.O_RDONLY
+                | getattr(os, "O_BINARY", 0)
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_NONBLOCK", 0)
+            )
             digest = hashlib.sha256()
             copied = 0
-            with os.fdopen(os.open(original, flags), "rb") as input_stream, target.open("xb") as output:
+            with os.fdopen(os.open(original, flags), "rb") as input_stream, target.open(
+                "xb"
+            ) as output:
                 if not stat.S_ISREG(os.fstat(input_stream.fileno()).st_mode):
-                    raise StagingError("Source is no longer a regular file", destination)
+                    raise StagingError(
+                        "Source is no longer a regular file", destination
+                    )
                 while chunk := input_stream.read(1024 * 1024):
                     if cancelled():
-                        raise StagingError("Cancelled; partial file is unverified", destination)
+                        raise StagingError(
+                            "Cancelled; partial file is unverified", destination
+                        )
                     output.write(chunk)
                     digest.update(chunk)
                     copied += len(chunk)
@@ -96,7 +140,9 @@ def stage_media(source: Path, staging_parent: Path, name: str,
             readback = hashlib.sha256()
             with os.fdopen(os.open(target, flags), "rb") as stream:
                 if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-                    raise StagingError("Readback is no longer a regular file", destination)
+                    raise StagingError(
+                        "Readback is no longer a regular file", destination
+                    )
                 for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                     if cancelled():
                         raise StagingError("Cancelled during readback", destination)
@@ -111,10 +157,16 @@ def stage_media(source: Path, staging_parent: Path, name: str,
         media.verify_media_manifest(destination, manifest, cancelled)
         if cancelled():
             raise StagingError("Cancelled before staging receipt", destination)
-        return {"schema": "arcwyre.windows_install_staging.v1", "staging_directory": str(destination),
-                "manifest_sha256": manifest["manifest_sha256"], "verified_bytes": verified,
-                "staging_verified": True, "boot_verified": False,
-                "raw_disk_operations_performed": False, "staging_files_written": True}
+        return {
+            "schema": "arcwyre.windows_install_staging.v1",
+            "staging_directory": str(destination),
+            "manifest_sha256": manifest["manifest_sha256"],
+            "verified_bytes": verified,
+            "staging_verified": True,
+            "boot_verified": False,
+            "raw_disk_operations_performed": False,
+            "staging_files_written": True,
+        }
     except StagingError:
         raise
     except Exception as exc:

@@ -18,7 +18,14 @@ FAT32_MAX_FILE_BYTES = (4 * 1024 * 1024 * 1024) - 1
 DEFAULT_SPLIT_SIZE_MB = 3800
 WIM_HEADER_SIZE = 0xD0
 SWM_NAME_RE = re.compile(r"^install(?:(\d+))?\.swm$", re.IGNORECASE)
-WINDOWS_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+WINDOWS_RESERVED_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
 
 
 class MediaPlanError(RuntimeError):
@@ -33,18 +40,27 @@ def file_stat_identity(info):
     if os.name == "nt":
         timestamp = getattr(info, "st_birthtime_ns", None)
         if timestamp is None:
-            raise MediaPlanError("Windows file identity requires explicit creation timestamps (Python 3.12+).")
+            raise MediaPlanError(
+                "Windows file identity requires explicit creation timestamps (Python 3.12+)."
+            )
     return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, timestamp)
 
 
 def reject_named_data_streams(path: Path):
     if os.name != "nt":
         return
+
     class StreamData(ctypes.Structure):
         _fields_ = [("size", ctypes.c_longlong), ("name", ctypes.c_wchar * 296)]
+
     api = ctypes.WinDLL("kernel32", use_last_error=True)
     first, next_stream, close = api.FindFirstStreamW, api.FindNextStreamW, api.FindClose
-    first.argtypes = [ctypes.c_wchar_p, ctypes.c_int, ctypes.POINTER(StreamData), ctypes.c_uint]
+    first.argtypes = [
+        ctypes.c_wchar_p,
+        ctypes.c_int,
+        ctypes.POINTER(StreamData),
+        ctypes.c_uint,
+    ]
     first.restype = ctypes.c_void_p
     next_stream.argtypes = [ctypes.c_void_p, ctypes.POINTER(StreamData)]
     next_stream.restype = ctypes.c_int
@@ -60,11 +76,15 @@ def reject_named_data_streams(path: Path):
     try:
         while True:
             if data.name != "::$DATA":
-                raise MediaPlanError(f"Named data streams are outside the media manifest: {path}")
+                raise MediaPlanError(
+                    f"Named data streams are outside the media manifest: {path}"
+                )
             if not next_stream(handle, ctypes.byref(data)):
                 error = ctypes.get_last_error()
                 if error != 38:
-                    raise MediaPlanError(f"Incomplete source stream inventory: WinError {error}")
+                    raise MediaPlanError(
+                        f"Incomplete source stream inventory: WinError {error}"
+                    )
                 break
     finally:
         close(handle)
@@ -82,10 +102,20 @@ def capture_media_manifest(root: Path, cancelled=lambda: False) -> dict[str, Any
         if value.startswith("\\\\.\\"):
             raise MediaPlanError("Device paths are not media directories.")
         if not value.startswith("\\\\?\\"):
-            root = Path("\\\\?\\UNC\\" + value[2:] if value.startswith("\\\\")
-                        else "\\\\?\\" + value)
-    for ancestor in (root, *root.parents):
-        _checked_lstat(ancestor)
+            root = Path(
+                "\\\\?\\UNC\\" + value[2:]
+                if value.startswith("\\\\")
+                else "\\\\?\\" + value
+            )
+    # Always reject a linked/reparse media root. On Windows, also reject
+    # reparse points anywhere in the absolute ancestor chain because native
+    # media operations run against that chain. POSIX hosts commonly expose
+    # system aliases such as /tmp -> /private/tmp; those are outside the media
+    # tree and must not make read-only planning fail.
+    _checked_lstat(root)
+    if os.name == "nt":
+        for ancestor in root.parents:
+            _checked_lstat(ancestor)
     if not stat.S_ISDIR(_checked_lstat(root).st_mode):
         raise MediaPlanError("Manifest source must be a directory.")
     entries = []
@@ -115,7 +145,10 @@ def capture_media_manifest(root: Path, cancelled=lambda: False) -> dict[str, Any
         flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
         with os.fdopen(os.open(path, flags), "rb") as stream:
             before = os.fstat(stream.fileno())
-            if not stat.S_ISREG(before.st_mode) or (before.st_dev, before.st_ino) != (info.st_dev, info.st_ino):
+            if not stat.S_ISREG(before.st_mode) or (before.st_dev, before.st_ino) != (
+                info.st_dev,
+                info.st_ino,
+            ):
                 raise MediaPlanError("Source file identity changed during inspection.")
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 if cancelled():
@@ -124,21 +157,33 @@ def capture_media_manifest(root: Path, cancelled=lambda: False) -> dict[str, Any
             after = os.fstat(stream.fileno())
         current = _checked_lstat(path)
         reject_named_data_streams(path)
-        if (file_stat_identity(before) != file_stat_identity(after)
-                or before.st_ctime_ns != after.st_ctime_ns
-                or file_stat_identity(after) != file_stat_identity(current)
-                or file_stat_identity(info) != file_stat_identity(current)):
+        if (
+            file_stat_identity(before) != file_stat_identity(after)
+            or before.st_ctime_ns != after.st_ctime_ns
+            or file_stat_identity(after) != file_stat_identity(current)
+            or file_stat_identity(info) != file_stat_identity(current)
+        ):
             raise MediaPlanError("Source file changed during hashing.")
-        entries.append({"path": relative, "size_bytes": after.st_size, "sha256": digest.hexdigest()})
+        entries.append(
+            {
+                "path": relative,
+                "size_bytes": after.st_size,
+                "sha256": digest.hexdigest(),
+            }
+        )
     if not entries:
         raise MediaPlanError("Source is empty.")
     if cancelled():
         raise MediaPlanError("Cancelled before manifest completion.")
     encoded = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return {"schema": "arcwyre.windows_media_manifest.v1", "files": entries,
-            "total_bytes": sum(item["size_bytes"] for item in entries),
-            "manifest_sha256": hashlib.sha256(encoded).hexdigest(),
-            "provenance_verified": False, "target_disk_modified": False}
+    return {
+        "schema": "arcwyre.windows_media_manifest.v1",
+        "files": entries,
+        "total_bytes": sum(item["size_bytes"] for item in entries),
+        "manifest_sha256": hashlib.sha256(encoded).hexdigest(),
+        "provenance_verified": False,
+        "target_disk_modified": False,
+    }
 
 
 REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -201,7 +246,9 @@ def _walk_regular_files_nofollow(root: Path):
                 for entry in entries:
                     path = Path(entry.path)
                     try:
-                        info = path.lstat()  # DirEntry.stat has zero dev/inode on Windows.
+                        info = (
+                            path.lstat()
+                        )  # DirEntry.stat has zero dev/inode on Windows.
                     except OSError as exc:
                         raise MediaPlanError(
                             f"Cannot inspect media path {path}: {exc}"
@@ -472,11 +519,15 @@ def plan_media(
     }
 
 
-def verify_media_manifest(root: Path, expected: dict[str, Any], cancelled=lambda: False) -> dict[str, Any]:
+def verify_media_manifest(
+    root: Path, expected: dict[str, Any], cancelled=lambda: False
+) -> dict[str, Any]:
     """Re-read the complete tree; never accept a caller's hash as proof alone."""
     actual = capture_media_manifest(root, cancelled)
     if expected != actual:
-        raise MediaPlanError("Source manifest mismatch: recapture and review the source.")
+        raise MediaPlanError(
+            "Source manifest mismatch: recapture and review the source."
+        )
     return actual
 
 

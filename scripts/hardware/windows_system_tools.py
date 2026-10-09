@@ -1,4 +1,5 @@
 """Resolve Windows system tools using the native API, not PATH or environment."""
+
 from __future__ import annotations
 
 import ctypes
@@ -6,8 +7,10 @@ from pathlib import Path
 
 
 def system_tool_path(name: str) -> str:
-    allowed = {"powershell": ("WindowsPowerShell", "v1.0", "powershell.exe"),
-               "diskpart": ("diskpart.exe",)}
+    allowed = {
+        "powershell": ("WindowsPowerShell", "v1.0", "powershell.exe"),
+        "diskpart": ("diskpart.exe",),
+    }
     if name not in allowed:
         raise ValueError("Unsupported Windows system tool")
     try:
