@@ -1,6 +1,9 @@
 import importlib.util
+import os
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 
 MODULE_PATH = (
@@ -13,6 +16,101 @@ SPEC = importlib.util.spec_from_file_location("fat32_media", MODULE_PATH)
 assert SPEC and SPEC.loader
 media = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(media)
+
+
+class ManifestCancellationTests(unittest.TestCase):
+    @unittest.skipUnless(
+        os.name == "nt", "Native long-path regression requires Windows"
+    )
+    def test_long_applied_tree_path_is_fully_hashed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            extended = Path("\\\\?\\" + str(root.absolute()))
+            nested = extended / ("a" * 90) / ("b" * 90) / ("c" * 90)
+            nested.mkdir(parents=True)
+            payload = nested / "payload.dll"
+            payload.write_bytes(b"long Windows path bytes")
+            manifest = media.capture_media_manifest(root)
+            self.assertEqual(len(manifest["files"]), 1)
+            self.assertEqual(manifest["files"][0]["size_bytes"], 23)
+            self.assertNotIn("\\\\?\\", manifest["files"][0]["path"])
+            media.verify_media_manifest(root, manifest)
+            payload.unlink()
+            while nested != extended:
+                parent = nested.parent
+                nested.rmdir()
+                nested = parent
+
+    def test_cancel_before_discovery_never_opens_source(self):
+        with patch.object(media, "_walk_regular_files_nofollow") as walk:
+            with self.assertRaisesRegex(media.MediaPlanError, "Cancelled"):
+                media.capture_media_manifest(Path("unused"), lambda: True)
+            walk.assert_not_called()
+
+    def test_cancel_during_large_file_hash_returns_no_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "payload").write_bytes(b"x" * (3 * 1024 * 1024))
+            chunks = 0
+            actual_sha256 = media.hashlib.sha256
+
+            class Digest:
+                def __init__(self):
+                    self.inner = actual_sha256()
+
+                def update(self, chunk):
+                    nonlocal chunks
+                    chunks += 1
+                    self.inner.update(chunk)
+
+                def hexdigest(self):
+                    return self.inner.hexdigest()
+
+            with patch.object(media.hashlib, "sha256", side_effect=Digest):
+                with self.assertRaisesRegex(
+                    media.MediaPlanError, "Cancelled during manifest hashing"
+                ):
+                    media.capture_media_manifest(root, lambda: chunks == 1)
+            self.assertEqual(chunks, 1)
+
+
+class WindowsStatIdentityTests(unittest.TestCase):
+    def test_cross_acquisition_creation_time_preserves_file_identity(self):
+        common = dict(
+            st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78, st_birthtime_ns=90
+        )
+        path = SimpleNamespace(**common, st_ctime_ns=90)
+        descriptor = SimpleNamespace(**common, st_ctime_ns=100)
+        with patch.object(media.os, "name", "nt"):
+            self.assertEqual(
+                media.file_stat_identity(path), media.file_stat_identity(descriptor)
+            )
+            replaced = SimpleNamespace(**{**common, "st_ino": 35}, st_ctime_ns=100)
+            self.assertNotEqual(
+                media.file_stat_identity(path), media.file_stat_identity(replaced)
+            )
+
+    def test_windows_ctime_fallback_preserves_creation_identity(self):
+        info = SimpleNamespace(
+            st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78, st_ctime_ns=90
+        )
+        with patch.object(media.os, "name", "nt"):
+            self.assertEqual(media.file_stat_identity(info)[-1], 90)
+
+    def test_missing_windows_creation_time_fails_closed(self):
+        info = SimpleNamespace(st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78)
+        with patch.object(media.os, "name", "nt"), self.assertRaises(
+            media.MediaPlanError
+        ):
+            media.file_stat_identity(info)
+
+    def test_posix_change_time_remains_part_of_identity(self):
+        common = dict(st_dev=12, st_ino=34, st_size=56, st_mtime_ns=78)
+        with patch.object(media.os, "name", "posix"):
+            self.assertNotEqual(
+                media.file_stat_identity(SimpleNamespace(**common, st_ctime_ns=90)),
+                media.file_stat_identity(SimpleNamespace(**common, st_ctime_ns=100)),
+            )
 
 
 def write_wim(path: Path, size: int = media.WIM_HEADER_SIZE) -> None:
@@ -37,6 +135,91 @@ def make_tree(root: Path) -> Path:
 
 
 class Fat32WindowsMediaPlanTests(unittest.TestCase):
+    def test_manifest_rejects_windows_unsafe_names(self):
+        for name in ("payload:stream", "CON.txt", "LPT1", "bad?name", "bad\\name"):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmpdir:
+                root = Path(tmpdir)
+                if media.os.name == "nt" and "\\" in name:
+                    continue  # Backslash is a separator, not a representable filename.
+                with patch.object(
+                    media,
+                    "_walk_regular_files_nofollow",
+                    side_effect=lambda actual: [(actual / name, root.stat())],
+                ), self.assertRaises(media.MediaPlanError):
+                    media.capture_media_manifest(root)
+
+    @unittest.skipUnless(media.os.name == "nt", "Named data streams require Windows")
+    def test_actual_named_file_and_directory_streams_block_manifest(self):
+        for target in ("file", "directory"):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as tmpdir:
+                root = Path(tmpdir)
+                payload = root / "payload"
+                payload.write_bytes(b"data")
+                stream_path = payload if target == "file" else root
+                try:
+                    Path(str(stream_path) + ":arcwyre-test").write_bytes(b"hidden data")
+                except OSError as exc:
+                    self.skipTest(f"Filesystem cannot create named streams: {exc}")
+                with self.assertRaises(media.MediaPlanError):
+                    media.capture_media_manifest(root)
+
+    def test_manifest_verification_rejects_added_missing_and_changed_files(self):
+        for mutation in ("added", "missing", "changed"):
+            with self.subTest(
+                mutation=mutation
+            ), tempfile.TemporaryDirectory() as tmpdir:
+                root = Path(tmpdir)
+                (root / "payload").write_bytes(b"original")
+                expected = media.capture_media_manifest(root)
+                self.assertEqual(expected, media.verify_media_manifest(root, expected))
+                if mutation == "added":
+                    (root / "extra").write_bytes(b"extra")
+                elif mutation == "missing":
+                    (root / "payload").unlink()
+                else:
+                    (root / "payload").write_bytes(b"modified")
+                with self.assertRaises(media.MediaPlanError):
+                    media.verify_media_manifest(root, expected)
+
+    def test_manifest_binds_actual_source_bytes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sources = make_tree(root)
+            write_wim(sources / "install.wim")
+            first = media.capture_media_manifest(root)
+            self.assertEqual(first, media.capture_media_manifest(root))
+            (root / "setup.exe").write_bytes(b"changed")
+            self.assertNotEqual(
+                first["manifest_sha256"],
+                media.capture_media_manifest(root)["manifest_sha256"],
+            )
+            self.assertFalse(first["provenance_verified"])
+
+    def test_manifest_rejects_case_collisions(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "Setup.exe").write_bytes(b"one")
+            (root / "setup.exe").write_bytes(b"two")
+            if (root / "Setup.exe").samefile(root / "setup.exe"):
+                self.skipTest(
+                    "Filesystem cannot represent distinct case-colliding files"
+                )
+            with self.assertRaises(media.MediaPlanError):
+                media.capture_media_manifest(root)
+
+    def test_competing_image_families_are_blocked(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sources = make_tree(root)
+            write_wim(sources / "install.wim")
+            write_wim(sources / "install.esd")
+            result = media.plan_media(root)
+            self.assertIn(
+                "multiple_windows_install_image_families", result["block_reasons"]
+            )
+            self.assertFalse(result["ready_for_fat32_copy_now"])
+            self.assertFalse(result["ready_for_fat32_copy_after_split"])
+
     def setUp(self):
         self.real_fat32_max = media.FAT32_MAX_FILE_BYTES
         media.FAT32_MAX_FILE_BYTES = 1023

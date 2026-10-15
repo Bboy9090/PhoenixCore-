@@ -25,7 +25,7 @@ pub fn analyze_windows_recovery_source(
         .map(|analysis| harden_analysis(&source_path, analysis))
         .map_err(|error| {
             format!(
-                "Phoenix Key could not analyze that recovery source. Nothing was changed. {error}"
+                "ARCWYRE Drive could not analyze that recovery source. Nothing was changed. {error}"
             )
         })
 }
@@ -35,7 +35,7 @@ pub fn plan_windows_recovery_source(source_path: String) -> Result<Value, String
     let source_path = require_source_path(source_path)?;
     build_identity_bound_recovery_plan(source_path).map_err(|error| {
         format!(
-            "Phoenix Key could not build an identity-bound recovery plan. Nothing was changed. {error}"
+            "ARCWYRE Drive could not build an identity-bound recovery plan. Nothing was changed. {error}"
         )
     })
 }
@@ -56,7 +56,7 @@ pub fn verify_windows_recovery_source_identity(
     }
     verify_source_identity(source_path, expected_sha256).map_err(|error| {
         format!(
-            "Phoenix Key could not freshly verify the recovery source identity. Nothing was changed. {error}"
+            "ARCWYRE Drive could not freshly verify the recovery source identity. Nothing was changed. {error}"
         )
     })
 }

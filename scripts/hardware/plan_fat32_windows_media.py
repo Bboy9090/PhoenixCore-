@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
+import hashlib
 import json
 import os
 import re
@@ -16,10 +18,177 @@ FAT32_MAX_FILE_BYTES = (4 * 1024 * 1024 * 1024) - 1
 DEFAULT_SPLIT_SIZE_MB = 3800
 WIM_HEADER_SIZE = 0xD0
 SWM_NAME_RE = re.compile(r"^install(?:(\d+))?\.swm$", re.IGNORECASE)
+WINDOWS_RESERVED_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
 
 
 class MediaPlanError(RuntimeError):
     """Raised when the source cannot be safely assessed as Windows install media."""
+
+
+def file_stat_identity(info):
+    # Bind identity to a stable creation/change-time field appropriate to the
+    # host. Windows timestamp semantics differ across Python versions, handled
+    # explicitly below; POSIX retains ctime in the identity tuple.
+    if os.name == "nt":
+        # Python 3.12+ exposes the Windows creation timestamp explicitly as
+        # st_birthtime_ns. On Python 3.11 and earlier, Windows st_ctime_ns is
+        # the creation timestamp. Prefer the explicit field when available so
+        # 3.12+'s changed st_ctime semantics cannot weaken identity binding.
+        timestamp = getattr(info, "st_birthtime_ns", None)
+        if timestamp is None:
+            timestamp = getattr(info, "st_ctime_ns", None)
+        if timestamp is None:
+            raise MediaPlanError("Windows file identity requires a creation timestamp.")
+    else:
+        timestamp = info.st_ctime_ns
+    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, timestamp)
+
+
+def reject_named_data_streams(path: Path):
+    if os.name != "nt":
+        return
+
+    class StreamData(ctypes.Structure):
+        _fields_ = [("size", ctypes.c_longlong), ("name", ctypes.c_wchar * 296)]
+
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    first, next_stream, close = api.FindFirstStreamW, api.FindNextStreamW, api.FindClose
+    first.argtypes = [
+        ctypes.c_wchar_p,
+        ctypes.c_int,
+        ctypes.POINTER(StreamData),
+        ctypes.c_uint,
+    ]
+    first.restype = ctypes.c_void_p
+    next_stream.argtypes = [ctypes.c_void_p, ctypes.POINTER(StreamData)]
+    next_stream.restype = ctypes.c_int
+    close.argtypes = [ctypes.c_void_p]
+    close.restype = ctypes.c_int
+    data = StreamData()
+    handle = first(str(path), 0, ctypes.byref(data), 0)
+    if handle == ctypes.c_void_p(-1).value:
+        error = ctypes.get_last_error()
+        if error in (38, 87):  # No streams, or filesystem has no stream support.
+            return
+        raise MediaPlanError(f"Cannot inspect source data streams: WinError {error}")
+    try:
+        while True:
+            if data.name != "::$DATA":
+                raise MediaPlanError(
+                    f"Named data streams are outside the media manifest: {path}"
+                )
+            if not next_stream(handle, ctypes.byref(data)):
+                error = ctypes.get_last_error()
+                if error != 38:
+                    raise MediaPlanError(
+                        f"Incomplete source stream inventory: WinError {error}"
+                    )
+                break
+    finally:
+        close(handle)
+
+
+def capture_media_manifest(root: Path, cancelled=lambda: False) -> dict[str, Any]:
+    """Bind an extracted source to actual bytes; this does not certify provenance."""
+    if cancelled():
+        raise MediaPlanError("Cancelled before manifest inspection.")
+    root = root.absolute()
+    # Extended paths avoid MAX_PATH without changing machine-wide registry policy.
+    # Relative manifest entries and all no-follow/identity checks remain unchanged.
+    if os.name == "nt":
+        value = str(root)
+        if value.startswith("\\\\.\\"):
+            raise MediaPlanError("Device paths are not media directories.")
+        if not value.startswith("\\\\?\\"):
+            root = Path(
+                "\\\\?\\UNC\\" + value[2:]
+                if value.startswith("\\\\")
+                else "\\\\?\\" + value
+            )
+    # Always reject a linked/reparse media root. On Windows, also reject
+    # reparse points anywhere in the absolute ancestor chain because native
+    # media operations run against that chain. POSIX hosts commonly expose
+    # system aliases such as /tmp -> /private/tmp; those are outside the media
+    # tree and must not make read-only planning fail.
+    _checked_lstat(root)
+    if os.name == "nt":
+        for ancestor in root.parents:
+            _checked_lstat(ancestor)
+    if not stat.S_ISDIR(_checked_lstat(root).st_mode):
+        raise MediaPlanError("Manifest source must be a directory.")
+    entries = []
+    seen = set()
+    discovered = []
+    for item in _walk_regular_files_nofollow(root):
+        if cancelled():
+            raise MediaPlanError("Cancelled during manifest discovery.")
+        discovered.append(item)
+    for path, info in sorted(discovered, key=lambda item: str(item[0])):
+        if cancelled():
+            raise MediaPlanError("Cancelled during manifest inspection.")
+        relative = path.relative_to(root).as_posix()
+        if relative.casefold() in seen:
+            raise MediaPlanError("Case-colliding media paths are not supported.")
+        seen.add(relative.casefold())
+        if any(
+            part.endswith((".", " "))
+            or any(char in part for char in '<>:"\\|?*')
+            or any(ord(char) < 32 for char in part)
+            or part.split(".")[0].upper() in WINDOWS_RESERVED_NAMES
+            for part in Path(relative).parts
+        ):
+            raise MediaPlanError("Source contains a path unsafe for Windows media.")
+        digest = hashlib.sha256()
+        reject_named_data_streams(path)
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        with os.fdopen(os.open(path, flags), "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode) or (before.st_dev, before.st_ino) != (
+                info.st_dev,
+                info.st_ino,
+            ):
+                raise MediaPlanError("Source file identity changed during inspection.")
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                if cancelled():
+                    raise MediaPlanError("Cancelled during manifest hashing.")
+                digest.update(chunk)
+            after = os.fstat(stream.fileno())
+        current = _checked_lstat(path)
+        reject_named_data_streams(path)
+        if (
+            file_stat_identity(before) != file_stat_identity(after)
+            or before.st_ctime_ns != after.st_ctime_ns
+            or file_stat_identity(after) != file_stat_identity(current)
+            or file_stat_identity(info) != file_stat_identity(current)
+        ):
+            raise MediaPlanError("Source file changed during hashing.")
+        entries.append(
+            {
+                "path": relative,
+                "size_bytes": after.st_size,
+                "sha256": digest.hexdigest(),
+            }
+        )
+    if not entries:
+        raise MediaPlanError("Source is empty.")
+    if cancelled():
+        raise MediaPlanError("Cancelled before manifest completion.")
+    encoded = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {
+        "schema": "arcwyre.windows_media_manifest.v1",
+        "files": entries,
+        "total_bytes": sum(item["size_bytes"] for item in entries),
+        "manifest_sha256": hashlib.sha256(encoded).hexdigest(),
+        "provenance_verified": False,
+        "target_disk_modified": False,
+    }
 
 
 REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -76,12 +245,15 @@ def _walk_regular_files_nofollow(root: Path):
     stack = [root]
     while stack:
         directory = stack.pop()
+        reject_named_data_streams(directory)
         try:
             with os.scandir(directory) as entries:
                 for entry in entries:
                     path = Path(entry.path)
                     try:
-                        info = entry.stat(follow_symlinks=False)
+                        info = (
+                            path.lstat()
+                        )  # DirEntry.stat has zero dev/inode on Windows.
                     except OSError as exc:
                         raise MediaPlanError(
                             f"Cannot inspect media path {path}: {exc}"
@@ -166,7 +338,7 @@ def split_wim_segments(sources: Path) -> list[Path]:
             for entry in entries:
                 path = Path(entry.path)
                 try:
-                    info = entry.stat(follow_symlinks=False)
+                    info = path.lstat()
                 except OSError as exc:
                     raise MediaPlanError(
                         f"Cannot inspect media path {path}: {exc}"
@@ -242,6 +414,10 @@ def plan_media(
     large_files = oversized_files(root)
 
     block_reasons: list[str] = []
+    # Never silently choose between competing installation images. A preparation
+    # executor must bind one unambiguous source before copying or splitting it.
+    if sum((install_wim is not None, install_esd is not None, bool(segments))) > 1:
+        block_reasons.append("multiple_windows_install_image_families")
     if setup is None:
         block_reasons.append("setup_exe_missing")
     if boot_wim is None:
@@ -348,9 +524,23 @@ def plan_media(
     }
 
 
+def verify_media_manifest(
+    root: Path, expected: dict[str, Any], cancelled=lambda: False
+) -> dict[str, Any]:
+    """Re-read the complete tree; never accept a caller's hash as proof alone."""
+    actual = capture_media_manifest(root, cancelled)
+    if expected != actual:
+        raise MediaPlanError(
+            "Source manifest mismatch: recapture and review the source."
+        )
+    return actual
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, required=True)
+    parser.add_argument("--capture-manifest", action="store_true")
+    parser.add_argument("--verify-manifest", type=Path)
     parser.add_argument(
         "--split-size-mb",
         type=int,
@@ -361,7 +551,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    print(json.dumps(plan_media(args.source_root, args.split_size_mb), sort_keys=True))
+    result = plan_media(args.source_root, args.split_size_mb)
+    if args.verify_manifest:
+        expected = json.loads(args.verify_manifest.read_text(encoding="utf-8"))
+        result["source_manifest"] = verify_media_manifest(args.source_root, expected)
+        result["source_bytes_match_manifest"] = True
+    elif args.capture_manifest:
+        result["source_manifest"] = capture_media_manifest(args.source_root)
+    print(json.dumps(result, sort_keys=True))
     return 0
 
 

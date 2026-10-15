@@ -97,7 +97,7 @@ pub fn assess_mac_bootcamp_compatibility(
                 "rollback bundle".to_string(),
             ],
             blocked_operations,
-            user_summary: "This is an Intel Mac and may use the traditional Boot Camp recovery route, but Phoenix Key will not partition, restore, or inject drivers until the exact model and Apple support-software package are verified.".to_string(),
+            user_summary: "This is an Intel Mac and may use the traditional Boot Camp recovery route, but ARCWYRE Drive will not partition, restore, or inject drivers until the exact model and Apple support-software package are verified.".to_string(),
         };
     }
 

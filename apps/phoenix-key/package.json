@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:release-parity": "python3 ../../scripts/audit_arcwyre_drive_release.py",
     "test:artifact-receipt": "node scripts/emit-artifact-receipt.test.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build"
@@ -19,8 +20,8 @@
     "@tauri-apps/cli": "^1.5.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "@vitejs/plugin-react": "^4.3.0",
+    "@vitejs/plugin-react": "^5.1.4",
     "typescript": "^5.0.0",
-    "vite": "^4.4.0"
+    "vite": "^7.3.7"
   }
 }

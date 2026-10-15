@@ -1,0 +1,90 @@
+{
+  "native_storage": {
+    "boot_proven": false,
+    "cleanup": {
+      "detach_verified": true,
+      "vhd_deleted": true
+    },
+    "native_storage_verified": true,
+    "physical_target_write_attempted": false,
+    "readback_bytes": 1048576,
+    "readback_sha256": "fbbab289f7f94b25736c58be46a994c441fd02552cc6022352e3d86d2fab7c83",
+    "receipt_path": "F:\\ARCWYRE-Lane1-d778148\\arcwyre-native-storage-y468_nvl\\receipt.json",
+    "schema": "arcwyre.native_vhd_storage_smoke.v1",
+    "scope": "app_owned_disposable_vhd_storage_only",
+    "volume_binding": {
+      "disk_number": 2,
+      "disk_unique_id": "60022480654D7ACCF3864F3CF8FB704A",
+      "drive_letter": "D",
+      "filesystem": "FAT32",
+      "partition_number": 1
+    },
+    "windows_installer_verified": false,
+    "windows_to_go_ready": false,
+    "workspace": "F:\\ARCWYRE-Lane1-d778148\\arcwyre-native-storage-y468_nvl"
+  },
+  "windows_tests": {
+    "errors": 0,
+    "failures": 0,
+    "implementation_file_sha256": {
+      "scripts/hardware/plan_fat32_windows_media.py": "8915b3fca847b2aabf831b89d1ddc0edceb3fa4b20c1d46b6301c956c5f7fdba",
+      "scripts/hardware/prepare_windows_workspace.py": "3808edb283dfaccc98343be8b2a397e7a39411013ac4e650318f1aa13544aa54",
+      "scripts/hardware/run_windows_vhd_storage_smoke.py": "8318c649c145dff65b8a1e972d39a952ad03e88925d13ebef1bf7d4f85a2e10b",
+      "scripts/hardware/validate_windows_installer_vhd.py": "6cdaa677049cb23ff1cfe0e127d250b7dbc068d31ae4a7e160bbb5f13e58081b"
+    },
+    "log_sha256": "a573c0a5933e94d0746d2bd3d8e9fb4727c289185aa0ca7100a8013112621360",
+    "passed": true,
+    "platform": "win32",
+    "python_version": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "schema": "arcwyre.windows_contract_test_run.v1",
+    "scope": "contracts_and_file_bytes; native_tools_mocked_in_unit_tests; boot_unverified",
+    "skipped": [
+      [
+        "test_manifest_rejects_case_collisions (tests.test_fat32_windows_media_plan.Fat32WindowsMediaPlanTests.test_manifest_rejects_case_collisions)",
+        "Filesystem cannot represent distinct case-colliding files"
+      ],
+      [
+        "test_nested_symlink_directory_is_rejected_before_traversal (tests.test_fat32_windows_media_plan.Fat32WindowsMediaPlanTests.test_nested_symlink_directory_is_rejected_before_traversal)",
+        "symlink creation unavailable: [WinError 1314] A required privilege is not held by the client: 'F:\\\\UserTemp\\\\tmpa2hvzspz\\\\outside' -> 'F:\\\\UserTemp\\\\tmpa2hvzspz\\\\media\\\\linked-outside'"
+      ],
+      [
+        "test_special_files_are_rejected_in_media_tree (tests.test_fat32_windows_media_plan.Fat32WindowsMediaPlanTests.test_special_files_are_rejected_in_media_tree)",
+        "FIFO creation unavailable on this platform"
+      ],
+      [
+        "test_symlinked_media_root_is_rejected (tests.test_fat32_windows_media_plan.Fat32WindowsMediaPlanTests.test_symlinked_media_root_is_rejected)",
+        "symlink creation unavailable: [WinError 1314] A required privilege is not held by the client: 'F:\\\\UserTemp\\\\tmpphku1a7i\\\\actual' -> 'F:\\\\UserTemp\\\\tmpphku1a7i\\\\media-link'"
+      ],
+      [
+        "test_symlink_destination_blocks (tests.test_restore_rehearsal.RestoreRehearsalTests.test_symlink_destination_blocks)",
+        "Windows symlink creation privilege unavailable"
+      ],
+      [
+        "test_symlink_parent_rejected (tests.test_windows_install_media_staging.StagingTests.test_symlink_parent_rejected)",
+        "Windows account lacks symbolic-link creation privilege"
+      ],
+      [
+        "test_fifo_rejected_without_blocking (tests.test_windows_workspace_preparation.WorkspacePreparationTests.test_fifo_rejected_without_blocking)",
+        "FIFO requires Unix"
+      ],
+      [
+        "test_symlink_source_rejected (tests.test_windows_workspace_preparation.WorkspacePreparationTests.test_symlink_source_rejected)",
+        "Windows account lacks symbolic-link creation privilege"
+      ],
+      [
+        "test_fifo_source_is_rejected_without_blocking (tests.test_windows_installer_vhd_validation.DisposableVhdContractTests.test_fifo_source_is_rejected_without_blocking)",
+        "FIFO regression requires Unix"
+      ]
+    ],
+    "source_file_manifest_sha256": "ff07b2ffbff22fdd5f5e84d011943c4ad78ed7b690c8c30890825b5841a3a004",
+    "tests_run": 173
+  },
+  "device": "DESKTOP-A1PTO5R",
+  "validation_date": "2026-10-05",
+  "limitations": [
+    "Native storage smoke validates disposable VHD storage primitives only, not full installer creation or Windows To Go.",
+    "Storage smoke ran before the final named-stream manifest hardening; it is not an exact final-commit native execution attestation.",
+    "Windows contract tests use mocked DISM/storage native commands except explicit real file-byte, signal and named-stream tests.",
+    "Rust compilation, real OS image application and boot behavior remain unverified."
+  ]
+}

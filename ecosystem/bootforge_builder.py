@@ -6,7 +6,6 @@ Presented by Blue Phoenix Studios | Originally created in Bobby's Workshop 2026
 Beautifully built with zero errors and strict safety boundary checks.
 """
 
-import os
 import sys
 import hashlib
 import json
@@ -69,20 +68,19 @@ class BootForgeBuilder:
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest_data, f, indent=2)
 
-        print(f"\nWritten integrity manifest: {manifest_path.name}")
-        print(f"Successfully simulated hybrid ISO packaging of {self.os_name}!")
-        return True
+        print(f"\nWritten build-input manifest: {manifest_path.name}")
+
+        # A manifest is not a bootable ISO. This compatibility entry point does
+        # not invoke a real ISO toolchain and therefore must always fail closed.
+        print(
+            "Blocked: this compatibility entry point creates only an input manifest. "
+            "The governed ISO pipeline must produce and validate the ISO.",
+            file=sys.stderr,
+        )
+        return False
 
 
 if __name__ == "__main__":
-    # Example execution paths
-    builder = BootForgeBuilder(Path("c:/Users/Bobby"))
-    builder.assemble_hybrid_iso(
-        kernel_path=Path(
-            "c:/Users/Bobby/bluephoenix-native-r18/recovery/flagship-foundation/arcwyre-qemu-kernel/src/r18/types.rs"
-        ),
-        apps_dir=Path(
-            "c:/Users/Bobby/bluephoenix-native-r18/editions/arcwyre-eternum/apps"
-        ),
-        output_iso=Path("c:/Users/Bobby/PhoenixCore/dist/arcwyre-eternum.iso"),
+    raise SystemExit(
+        "Use the governed release pipeline with explicit kernel, app, and ISO paths."
     )

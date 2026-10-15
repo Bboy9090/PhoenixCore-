@@ -19,7 +19,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$ProductName = "Phoenix Key"
+$ProductName = "ARCWYRE Drive"
 $AppId = "phoenix-usb-creator"
 $Version = "3.2.0"
 $InstallerPath = (Resolve-Path -LiteralPath $InstallerPath).Path
@@ -61,7 +61,7 @@ function Invoke-CheckedProcess {
     return $Process.ExitCode
 }
 
-function Get-PhoenixKeyUninstallEntries {
+function Get-ArcwyreDriveUninstallEntries {
     $RegistryPaths = @(
         "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
         "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
@@ -99,7 +99,7 @@ function Add-CandidatePath {
     }
 }
 
-function Find-PhoenixKeyExecutable {
+function Find-ArcwyreDriveExecutable {
     param(
         [Parameter(Mandatory = $true)]
         [object[]]$UninstallEntries
@@ -110,7 +110,7 @@ function Find-PhoenixKeyExecutable {
         if ($Entry.PSObject.Properties.Name -contains "InstallLocation") {
             $InstallLocation = ([string]$Entry.InstallLocation).Trim().Trim('"')
             if (-not [string]::IsNullOrWhiteSpace($InstallLocation)) {
-                Add-CandidatePath -Candidates $Candidates -Path (Join-Path $InstallLocation "Phoenix Key.exe")
+                Add-CandidatePath -Candidates $Candidates -Path (Join-Path $InstallLocation "ARCWYRE Drive.exe")
             }
         }
         if ($Entry.PSObject.Properties.Name -contains "DisplayIcon") {
@@ -119,13 +119,13 @@ function Find-PhoenixKeyExecutable {
     }
 
     if ($env:ProgramFiles) {
-        Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:ProgramFiles "Phoenix Key\Phoenix Key.exe")
+        Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:ProgramFiles "ARCWYRE Drive\ARCWYRE Drive.exe")
     }
     if (${env:ProgramFiles(x86)}) {
-        Add-CandidatePath -Candidates $Candidates -Path (Join-Path ${env:ProgramFiles(x86)} "Phoenix Key\Phoenix Key.exe")
+        Add-CandidatePath -Candidates $Candidates -Path (Join-Path ${env:ProgramFiles(x86)} "ARCWYRE Drive\ARCWYRE Drive.exe")
     }
     if ($env:LOCALAPPDATA) {
-        Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:LOCALAPPDATA "Phoenix Key\Phoenix Key.exe")
+        Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:LOCALAPPDATA "ARCWYRE Drive\ARCWYRE Drive.exe")
     }
 
     foreach ($Candidate in $Candidates) {
@@ -134,7 +134,7 @@ function Find-PhoenixKeyExecutable {
         }
     }
 
-    throw "Installed Phoenix Key executable was not found. Candidates: $($Candidates -join '; ')"
+    throw "Installed ARCWYRE Drive executable was not found. Candidates: $($Candidates -join '; ')"
 }
 
 function Find-NsisUninstaller {
@@ -175,7 +175,7 @@ $InstalledExecutable = $null
 $InstalledEntries = @()
 
 try {
-    $PreInstallEntries = @(Get-PhoenixKeyUninstallEntries)
+    $PreInstallEntries = @(Get-ArcwyreDriveUninstallEntries)
     if ($PreInstallEntries.Count -ne 0) {
         throw "Runner is not clean: Phoenix Key is already registered before installation."
     }
@@ -197,12 +197,12 @@ try {
     $Installed = $true
 
     Start-Sleep -Seconds 3
-    $InstalledEntries = @(Get-PhoenixKeyUninstallEntries)
+    $InstalledEntries = @(Get-ArcwyreDriveUninstallEntries)
     if ($InstalledEntries.Count -lt 1) {
         throw "Phoenix Key did not create an uninstall registration after $InstallerKind installation."
     }
 
-    $InstalledExecutable = Find-PhoenixKeyExecutable -UninstallEntries $InstalledEntries
+    $InstalledExecutable = Find-ArcwyreDriveExecutable -UninstallEntries $InstalledEntries
     $InstalledExecutableHash = (Get-FileHash -LiteralPath $InstalledExecutable -Algorithm SHA256).Hash.ToLowerInvariant()
     $InstalledExecutableSize = (Get-Item -LiteralPath $InstalledExecutable).Length
 
@@ -261,7 +261,7 @@ try {
     $Installed = $false
 
     Start-Sleep -Seconds 4
-    $RemainingEntries = @(Get-PhoenixKeyUninstallEntries)
+    $RemainingEntries = @(Get-ArcwyreDriveUninstallEntries)
     $ExecutableRemains = Test-Path -LiteralPath $InstalledExecutable -PathType Leaf
     if ($RemainingEntries.Count -ne 0) {
         throw "Phoenix Key uninstall registration remains after uninstall."
@@ -351,7 +351,7 @@ finally {
                 Start-Process -FilePath "msiexec.exe" -ArgumentList "/x `"$InstallerPath`" /qn /norestart" -Wait | Out-Null
             }
             else {
-                $CleanupEntries = @(Get-PhoenixKeyUninstallEntries)
+                $CleanupEntries = @(Get-ArcwyreDriveUninstallEntries)
                 $CleanupUninstaller = Find-NsisUninstaller -ExecutablePath $InstalledExecutable -UninstallEntries $CleanupEntries
                 Start-Process -FilePath $CleanupUninstaller -ArgumentList "/S" -Wait | Out-Null
             }

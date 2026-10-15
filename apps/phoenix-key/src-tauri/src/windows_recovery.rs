@@ -591,7 +591,7 @@ fn detect_file(path: &Path) -> Result<WindowsBackupAnalysis, String> {
             vec!["filename extension only".to_string()],
             false,
             "low",
-            "The file is named like an FFU image, but Phoenix Key has not verified its internal format.",
+            "The file is named like an FFU image, but ARCWYRE Drive has not verified its internal format.",
             "Do not restore it yet; add or use FFU signature validation first.",
         )
     } else if extension == "swm" {
@@ -676,7 +676,7 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
     let (host_route, host_explanation) = if apple_silicon {
         (
             "apple_silicon_windows_arm",
-            "Apple Silicon does not support traditional Boot Camp. Phoenix Key must route this Mac to Windows ARM recovery media, VHDX inspection, or a virtual-machine workflow.",
+            "Apple Silicon does not support traditional Boot Camp. ARCWYRE Drive must route this Mac to Windows ARM recovery media, VHDX inspection, or a virtual-machine workflow.",
         )
     } else if traditional_bootcamp_supported {
         (
@@ -686,7 +686,7 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
     } else if host_os == "windows" {
         (
             "windows_native_recovery",
-            "Phoenix Key is running on Windows and can analyze recovery sources natively; destructive restore operations remain separately gated.",
+            "ARCWYRE Drive is running on Windows and can analyze recovery sources natively; destructive restore operations remain separately gated.",
         )
     } else {
         (
@@ -742,7 +742,7 @@ pub fn build_recovery_plan(path: impl AsRef<Path>) -> Result<WindowsRecoveryPlan
     let mut remediation_required = Vec::new();
     if source.has_install_esd {
         remediation_required.push(
-            "ESD sources must remain intact; Phoenix Key will not invent an unsupported ESD-to-WIM conversion."
+            "ESD sources must remain intact; ARCWYRE Drive will not invent an unsupported ESD-to-WIM conversion."
                 .to_string(),
         );
     }
