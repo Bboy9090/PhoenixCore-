@@ -17,6 +17,7 @@ The shared DISM runner checks cancellation before launch and after exit, reaps a
 - Simulated atomic-replace failure preserved the previous checkpoint and retained pending evidence.
 - Frontend TypeScript/Vite build, repository boundary check, and artifact-receipt test passed.
 - Locked frontend npm audit reported zero vulnerabilities.
+- Twelve JSON/Markdown evidence exporters now use exclusive creation. A competing-create regression exercises every exporter and preserves the competing sentinel file. Existing overwrite and same-target rejection checks passed; the fail-closed registry suite also passed.
 
 ## Explicitly unresolved
 

@@ -740,7 +740,7 @@ def export_writer_contract_json(contract_payload: dict, output_path: str) -> dic
             output_path, "json", contract_payload.get("target_drive")
         )
 
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             json.dump(contract_payload, f, indent=2)
 
         return {
@@ -772,7 +772,7 @@ def export_writer_contract_markdown(contract_payload: dict, output_path: str) ->
         )
 
         md_content = generate_writer_contract_markdown(contract_payload)
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             f.write(md_content)
 
         return {
