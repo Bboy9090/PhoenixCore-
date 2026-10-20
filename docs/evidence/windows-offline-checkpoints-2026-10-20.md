@@ -24,3 +24,9 @@ The shared DISM runner checks cancellation before launch and after exit, reaps a
 All registered remote computers were offline at inspection. This run did not execute native DISM, Rust/Tauri compilation, physical disk provisioning, Windows To Go, USB readback, or a hardware/VM boot. The product parity audit still reports 17 blocked feature families. Full legacy unittest discovery remains red (seven failures and fourteen errors before this change), including foreign Windows-path fixtures on Linux, Windows-only ctypes mocks, and tests expecting the invalid tool registry to verify. Registry rejection remains intact.
 
 No physical disk was opened or changed. This evidence does not establish release readiness.
+
+## Installer file-readback follow-up
+
+`verify_windows_installer_readback.py` now exposes a read-only CLI for comparing a prepared source manifest with an independently mounted readback directory. It rejects source/destination overlap, changed/missing/extra files, unprepared source layouts, cancellation, and source changes during inspection. The selected fallback EFI file must have matching x64/ARM64/x86 PE headers, an EFI-application subsystem, a bounded section table, and an entry point backed by executable file bytes. Headers are inspected without executing the binary.
+
+Nine new portable regression tests passed; the Windows-related suite now passes 221 tests locally. These use synthetic PE/WIM fixtures, not a Microsoft image or firmware execution. This component is available as a CLI, not yet wired into a physical writer or the desktop UI. Its receipt explicitly leaves native disk identity, partition layout, BCD, signature/Secure Boot trust, and actual boot unverified. No Windows-native or physical-media gate is promoted.
