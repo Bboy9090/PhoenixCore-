@@ -60,7 +60,10 @@ class TargetReadbackTests(unittest.TestCase):
             "HealthStatus": "Healthy",
             "Size": 500 * 1024**2,
         }
-        self.source = {"stable_identity_sha256": "a" * 64}
+        self.source = {
+            "stable_identity_sha256": "a" * 64,
+            "physical_target": r"\\.\PHYSICALDRIVE0",
+        }
         self.enterContext(patch.object(module.sys, "platform", "win32"))
         self.disk_query = self.enterContext(
             patch.object(
@@ -221,6 +224,19 @@ class TargetReadbackTests(unittest.TestCase):
                 module.verify_target(
                     Path("source"), "G:\\", {}, "x64", self.target, self.sha, 1
                 )
+
+    def test_source_physical_target_required_and_cannot_collide_with_different_hash(
+        self,
+    ):
+        for target in (None, self.target, "invalid"):
+            with self.subTest(target=target):
+                self.source["physical_target"] = target
+                with patch.object(module.readback, "verify_installer_readback") as read:
+                    with self.assertRaisesRegex(ValueError, "collides"):
+                        module.verify_target(
+                            Path("source"), "G:\\", {}, "x64", self.target, self.sha, 1
+                        )
+                    read.assert_not_called()
 
 
 if __name__ == "__main__":

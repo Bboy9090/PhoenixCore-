@@ -173,10 +173,16 @@ def verify_target(
     before = bind_target(root, target, stable_sha256, partition_number)
     source_disk = sources.query_source_disk(str(source))
     source_stable = source_disk.get("stable_identity_sha256")
+    source_target = source_disk.get("physical_target")
     if (
         not isinstance(source_stable, str)
         or not re.fullmatch("[0-9a-f]{64}", source_stable)
         or source_stable == stable_sha256.lower()
+        or not isinstance(source_target, str)
+        or not drives.RAW_DEVICE_PATTERN.fullmatch(source_target)
+        or source_target.upper()
+        != rf"\\.\PHYSICALDRIVE{drives.parse_raw_target(source_target)}"
+        or source_target.upper() == before["target"]
     ):
         raise ValueError("Source disk identity is unknown or collides with target")
     result = readback.verify_installer_readback(

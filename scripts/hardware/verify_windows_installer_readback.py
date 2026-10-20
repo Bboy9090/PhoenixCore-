@@ -63,26 +63,42 @@ def inspect_efi_application(path: Path, architecture: str) -> dict:
         subsystem = struct.unpack_from("<H", optional, 68)[0]
         entrypoint = struct.unpack_from("<I", optional, 16)[0]
         image_size = struct.unpack_from("<I", optional, 56)[0]
+        headers_size = struct.unpack_from("<I", optional, 60)[0]
+        table_end = offset + 24 + optional_size + sections * 40
         if (
             magic != expected_magic
             or subsystem != 10
             or not 0 < entrypoint < image_size
+            or not table_end <= headers_size <= min(before.st_size, image_size)
         ):
             raise ValueError("EFI optional header is not a matching EFI application")
         # Ensure every section's raw bytes exist and the entry point maps to
         # executable file-backed bytes. This is structural proof, not trust.
         entry_mapped = False
+        virtual_ranges, raw_ranges = [], []
         for _ in range(sections):
             section = stream.read(40)
             virtual_size, address, raw_size, raw_offset = struct.unpack_from(
                 "<IIII", section, 8
             )
             flags = struct.unpack_from("<I", section, 36)[0]
-            if raw_size and (raw_offset == 0 or raw_offset + raw_size > before.st_size):
+            extent = max(virtual_size, raw_size)
+            if not extent or address < headers_size or address + extent > image_size:
+                raise ValueError("EFI section virtual extent is outside the image")
+            virtual_ranges.append((address, address + extent))
+            if raw_size and (
+                raw_offset < headers_size or raw_offset + raw_size > before.st_size
+            ):
                 raise ValueError("EFI section points outside the loader file")
+            if raw_size:
+                raw_ranges.append((raw_offset, raw_offset + raw_size))
             delta = entrypoint - address
             if 0 <= delta < min(virtual_size, raw_size) and flags & 0x20000000:
                 entry_mapped = True
+        for ranges in (virtual_ranges, raw_ranges):
+            ranges.sort()
+            if any(a[1] > b[0] for a, b in zip(ranges, ranges[1:])):
+                raise ValueError("EFI section ranges overlap")
         if not entry_mapped:
             raise ValueError("EFI entry point is not backed by executable file bytes")
         after = os.fstat(stream.fileno())

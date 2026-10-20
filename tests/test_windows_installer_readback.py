@@ -31,6 +31,7 @@ def efi_image(architecture="x64"):
     struct.pack_into("<H", data, 152, magic)
     struct.pack_into("<I", data, 168, 0x1000)
     struct.pack_into("<I", data, 208, 0x2000)
+    struct.pack_into("<I", data, 212, 512)
     struct.pack_into("<H", data, 220, 10)
     struct.pack_into("<IIII", data, 400, 512, 0x1000, 512, 512)
     struct.pack_into("<I", data, 428, 0x20000000)
@@ -162,6 +163,10 @@ class InstallerReadbackTests(unittest.TestCase):
     def test_malformed_pe_and_wrong_architecture_rejected(self):
         path = Path(self.temp.name) / "bad.efi"
         corruptions = [
+            (400, "<I", 0xFFFFFFFF),
+            (412, "<I", 128),
+            (412, "<I", 1),
+            (212, "<I", 0),
             (60, "<I", 0xFFFFFFFF),
             (132, "<H", 0xAA64),
             (134, "<H", 0),
@@ -179,6 +184,20 @@ class InstallerReadbackTests(unittest.TestCase):
                 struct.pack_into(fmt, data, offset, value)
                 path.write_bytes(data)
                 with self.assertRaises(ValueError):
+                    module.inspect_efi_application(path, "x64")
+
+    def test_overlapping_raw_or_virtual_sections_rejected(self):
+        for raw_offset, address in ((512, 0x2000), (1024, 0x1000)):
+            with self.subTest(raw_offset=raw_offset, address=address):
+                data = efi_image() + bytes(512)
+                struct.pack_into("<H", data, 134, 2)
+                struct.pack_into("<I", data, 208, 0x3000)
+                data[432:472] = data[392:432]
+                struct.pack_into("<I", data, 444, address)
+                struct.pack_into("<I", data, 452, raw_offset)
+                path = Path(self.temp.name) / "overlap.efi"
+                path.write_bytes(data)
+                with self.assertRaisesRegex(ValueError, "overlap"):
                     module.inspect_efi_application(path, "x64")
 
 
