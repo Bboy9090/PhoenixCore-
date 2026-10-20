@@ -92,6 +92,10 @@ class WorkspacePreparationTests(unittest.TestCase):
         self.assertFalse(result["windows_to_go_ready"])
         self.assertFalse(result["boot_verified"])
         self.assertEqual(21, result["applied_file_readback_bytes"])
+        checkpoint = json.loads(Path(result["checkpoint_path"]).read_text())
+        self.assertEqual("completed_boot_unresolved", checkpoint["record"]["status"])
+        self.assertEqual(result["operation_id"], checkpoint["record"]["operation_id"])
+        self.assertFalse(checkpoint["record"]["resume_authorized"])
 
     def test_missing_native_index_blocks_application_retains_workspace(self):
         work = Path(self.temp.name) / "missing-index-workspace"
@@ -109,6 +113,69 @@ class WorkspacePreparationTests(unittest.TestCase):
                 module.prepare_workspace(self.source, self.sha, 1)
             apply.assert_not_called()
         self.assertEqual(work, failure.exception.partial_directory)
+        checkpoint = json.loads((work / "operation-state.json").read_text())
+        self.assertEqual("failed", checkpoint["record"]["status"])
+        self.assertEqual("image_metadata", checkpoint["record"]["phase"])
+
+    def test_checkpoint_survives_abrupt_process_exit(self):
+        import subprocess
+        import sys
+
+        work = Path(self.temp.name) / "abrupt-exit"
+        work.mkdir()
+        script = """
+import importlib.util, os, sys
+from pathlib import Path
+from unittest.mock import patch
+spec = importlib.util.spec_from_file_location('interrupted', sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+def inspect(tool, args, logs, label, cancelled):
+    return 'Index : 1\\n' if label == 'indexes' else 'Name : Windows\\nArchitecture : x64\\nEdition : Professional\\n'
+with patch.object(module.preparation, '_system_dism', return_value=Path('/fixture/tool')), patch.object(module.tempfile, 'mkdtemp', return_value=sys.argv[2]), patch.object(module, '_inspect_metadata', side_effect=inspect), patch.object(module.preparation, '_run_dism', side_effect=lambda *args: os._exit(23)):
+    module.prepare_workspace(Path(sys.argv[3]), sys.argv[4], 1)
+"""
+        child = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                script,
+                str(SPEC.origin),
+                str(work),
+                str(self.source),
+                self.sha,
+            ],
+            timeout=10,
+            check=False,
+            capture_output=True,
+        )
+        self.assertEqual(23, child.returncode, child.stderr)
+        envelope = json.loads((work / "operation-state.json").read_text())
+        record = envelope["record"]
+        payload = json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), envelope["record_sha256"])
+        self.assertEqual("image_application", record["phase"])
+        self.assertEqual("in_progress", record["status"])
+        self.assertFalse(record["resume_authorized"])
+        self.assertFalse(record["boot_verified"])
+        self.assertEqual(self.sha, record["source_sha256"])
+        self.assertEqual(self.image, (work / "source.wim").read_bytes())
+
+    def test_failed_checkpoint_replace_preserves_previous_evidence(self):
+        work = Path(self.temp.name) / "replace-failure"
+        work.mkdir()
+        state = {"operation_id": "fixture"}
+        module._checkpoint(work, state, "source_snapshot")
+        previous = (work / "operation-state.json").read_bytes()
+        with patch.object(
+            module.os, "replace", side_effect=OSError("fixture disk failure")
+        ):
+            with self.assertRaises(OSError):
+                module._checkpoint(work, state, "image_application")
+        self.assertEqual(previous, (work / "operation-state.json").read_bytes())
+        self.assertTrue((work / "operation-state.pending").exists())
+        with self.assertRaises(FileExistsError):
+            module._checkpoint(work, state, "image_application")
 
     def test_cancel_before_allocation(self):
         with patch.object(
