@@ -32,6 +32,7 @@ system_tool_path = _tool_module.system_tool_path
 SCHEMA_VERSION = "bws.physical-drive-evidence/v1"
 RAW_DEVICE_PATTERN = re.compile(r"^\\\\\.\\PHYSICALDRIVE([0-9]+)$", re.IGNORECASE)
 EXTERNAL_BUS_TYPES = {"USB", "SD", "MMC"}
+NATIVE_QUERY_TIMEOUT_SECONDS = 30
 
 APPLE_PARTITION_TYPE_GUIDS = {
     "7C3457EF-0000-11AA-AA11-00306543ECAC",  # APFS
@@ -248,18 +249,24 @@ foreach ($partition in $partitions) {{
         powershell = system_tool_path("powershell")
     except RuntimeError as exc:
         raise EvidenceError(str(exc)) from exc
-    completed = subprocess.run(
-        [
-            powershell,
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            script,
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        completed = subprocess.run(
+            [
+                powershell,
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                script,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=NATIVE_QUERY_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise EvidenceError(
+            f"Get-Disk evidence collection exceeded {NATIVE_QUERY_TIMEOUT_SECONDS} seconds."
+        ) from exc
     if completed.returncode != 0:
         message = completed.stderr.strip() or completed.stdout.strip()
         raise EvidenceError(f"Get-Disk evidence collection failed: {message}")

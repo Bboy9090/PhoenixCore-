@@ -21,6 +21,7 @@ _tool_spec.loader.exec_module(_tool_module)
 system_tool_path = _tool_module.system_tool_path
 
 DRIVE_RE = re.compile(r"^([A-Za-z]):[\\/]")
+NATIVE_QUERY_TIMEOUT_SECONDS = 30
 
 
 class SourceDiskResolutionError(RuntimeError):
@@ -143,18 +144,24 @@ $disk = Get-Disk -Number $partition.DiskNumber
         powershell = system_tool_path("powershell")
     except RuntimeError as exc:
         raise SourceDiskResolutionError(str(exc)) from exc
-    completed = subprocess.run(
-        [
-            powershell,
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            script,
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        completed = subprocess.run(
+            [
+                powershell,
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                script,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=NATIVE_QUERY_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise SourceDiskResolutionError(
+            f"Source disk resolution exceeded {NATIVE_QUERY_TIMEOUT_SECONDS} seconds."
+        ) from exc
     if completed.returncode != 0:
         message = completed.stderr.strip() or completed.stdout.strip()
         raise SourceDiskResolutionError(f"Source disk resolution failed: {message}")
