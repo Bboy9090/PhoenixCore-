@@ -4,6 +4,68 @@ from __future__ import annotations
 
 import ctypes
 from pathlib import Path
+import subprocess
+import time
+
+
+class SystemToolCancelled(RuntimeError):
+    """Raised after a cancelled native child has been terminated and reaped."""
+
+
+class SystemToolTimeout(RuntimeError):
+    """Raised after a timed-out native child has been killed and reaped."""
+
+
+def run_cancellable(
+    command: list[str],
+    *,
+    timeout_seconds: float,
+    cancelled=lambda: False,
+) -> subprocess.CompletedProcess[str]:
+    """Capture a native command while enforcing cancellation and a deadline."""
+    if not command or timeout_seconds <= 0:
+        raise ValueError("A command and positive timeout are required")
+    if cancelled():
+        raise SystemToolCancelled("Native system-tool query cancelled before launch")
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    deadline = time.monotonic() + timeout_seconds
+    try:
+        while True:
+            if cancelled():
+                process.terminate()
+                try:
+                    process.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.communicate()
+                raise SystemToolCancelled("Native system-tool query cancelled")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                process.kill()
+                process.communicate()
+                raise SystemToolTimeout(
+                    f"Native system-tool query exceeded {timeout_seconds:g} seconds"
+                )
+            try:
+                stdout, stderr = process.communicate(timeout=min(0.1, remaining))
+            except subprocess.TimeoutExpired:
+                continue
+            if cancelled():
+                raise SystemToolCancelled(
+                    "Native system-tool query cancelled before result acceptance"
+                )
+            return subprocess.CompletedProcess(
+                command, process.returncode, stdout, stderr
+            )
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate()
 
 
 def system_tool_path(name: str) -> str:

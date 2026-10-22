@@ -38,6 +38,8 @@ def _system_dism() -> Path:
 
 
 def _run_dism(command, transcript, cancelled):
+    if cancelled():
+        raise staging.StagingError("Cancelled before DISM launch")
     with transcript.open("xb") as output:
         process = subprocess.Popen(
             command,
@@ -55,19 +57,23 @@ def _run_dism(command, transcript, cancelled):
                     except subprocess.TimeoutExpired:
                         process.kill()
                         process.wait()
-                    raise staging.StagingError("Cancelled during DISM split")
+                    raise staging.StagingError("Cancelled during DISM operation")
                 try:
                     process.wait(timeout=0.1)
                 except subprocess.TimeoutExpired:
                     pass
+            if cancelled():
+                raise staging.StagingError("Cancelled after DISM operation")
             if process.returncode != 0:
                 raise staging.StagingError(
-                    f"DISM split failed with exit code {process.returncode}"
+                    f"DISM operation failed with exit code {process.returncode}; transcript: {transcript}"
                 )
         finally:
             if process.poll() is None:
                 process.kill()
                 process.wait()
+            output.flush()
+            os.fsync(output.fileno())
 
 
 def prepare_media(
