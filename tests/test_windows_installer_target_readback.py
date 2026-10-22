@@ -69,21 +69,23 @@ class TargetReadbackTests(unittest.TestCase):
             patch.object(
                 module.drives,
                 "query_windows_disk",
-                side_effect=lambda n: copy.deepcopy(self.raw),
+                side_effect=lambda n, *_: copy.deepcopy(self.raw),
             )
         )
         self.enterContext(
             patch.object(
                 module.sources,
                 "query_source_disk",
-                side_effect=lambda p: copy.deepcopy(
+                side_effect=lambda p, *_: copy.deepcopy(
                     self.mount if p == "G:\\" else self.source
                 ),
             )
         )
         self.enterContext(
             patch.object(
-                module, "_volume", side_effect=lambda letter: copy.deepcopy(self.volume)
+                module,
+                "_volume",
+                side_effect=lambda letter, *_: copy.deepcopy(self.volume),
             )
         )
 
@@ -92,7 +94,8 @@ class TargetReadbackTests(unittest.TestCase):
 
     def test_fresh_binding_matches_expected_disk_and_esp(self):
         self.assertEqual(self.sha, self.bind()["stable_identity_sha256"])
-        self.disk_query.assert_called_once_with(2)
+        self.assertEqual(2, self.disk_query.call_args.args[0])
+        self.assertTrue(callable(self.disk_query.call_args.args[1]))
 
     def test_unsafe_or_unknown_disk_facts_rejected(self):
         for field, value in (

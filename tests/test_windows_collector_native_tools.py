@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,7 +20,7 @@ class NativeCollectorContractTests(unittest.TestCase):
             drives,
             "system_tool_path",
             return_value="C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
-        ), patch.object(drives.subprocess, "run", return_value=result) as run:
+        ), patch.object(drives, "run_cancellable", return_value=result) as run:
             self.assertEqual(drives.query_windows_disk(7), {"Number": 7})
         command = run.call_args.args[0]
         self.assertEqual(
@@ -33,12 +34,13 @@ class NativeCollectorContractTests(unittest.TestCase):
         self.assertIn("Missing or non-boolean partition safety fact", script)
         self.assertIn("Get-Partition -DiskNumber 7 -ErrorAction Stop", script)
         self.assertEqual(
-            drives.NATIVE_QUERY_TIMEOUT_SECONDS, run.call_args.kwargs["timeout"]
+            drives.NATIVE_QUERY_TIMEOUT_SECONDS,
+            run.call_args.kwargs["timeout_seconds"],
         )
 
     def test_invalid_disk_number_never_reaches_native_command(self):
         with patch.object(drives.sys, "platform", "win32"), patch.object(
-            drives.subprocess, "run"
+            drives, "run_cancellable"
         ) as run:
             for number in (True, -1, "1;Remove-Item"):
                 with self.assertRaises(drives.EvidenceError):
@@ -62,7 +64,7 @@ class NativeCollectorContractTests(unittest.TestCase):
                 "system_tool_path",
                 return_value="C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
             ), patch.object(
-                sources.subprocess, "run", return_value=result
+                sources, "run_cancellable", return_value=result
             ) as run:
                 record = sources.query_source_disk(directory)
             self.assertEqual(record["disk_number"], 1)
@@ -71,16 +73,17 @@ class NativeCollectorContractTests(unittest.TestCase):
                 "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
             )
             self.assertEqual(
-                sources.NATIVE_QUERY_TIMEOUT_SECONDS, run.call_args.kwargs["timeout"]
+                sources.NATIVE_QUERY_TIMEOUT_SECONDS,
+                run.call_args.kwargs["timeout_seconds"],
             )
 
     def test_hung_native_collectors_fail_closed(self):
         with patch.object(drives.sys, "platform", "win32"), patch.object(
             drives, "system_tool_path", return_value="powershell.exe"
         ), patch.object(
-            drives.subprocess,
-            "run",
-            side_effect=subprocess.TimeoutExpired("powershell.exe", 30),
+            drives,
+            "run_cancellable",
+            side_effect=drives.SystemToolTimeout("fixture"),
         ):
             with self.assertRaisesRegex(drives.EvidenceError, "exceeded 30 seconds"):
                 drives.query_windows_disk(7)
@@ -92,14 +95,45 @@ class NativeCollectorContractTests(unittest.TestCase):
         ), patch.object(
             sources, "system_tool_path", return_value="powershell.exe"
         ), patch.object(
-            sources.subprocess,
-            "run",
-            side_effect=subprocess.TimeoutExpired("powershell.exe", 30),
+            sources,
+            "run_cancellable",
+            side_effect=sources.SystemToolTimeout("fixture"),
         ):
             with self.assertRaisesRegex(
                 sources.SourceDiskResolutionError, "exceeded 30 seconds"
             ):
                 sources.query_source_disk(directory)
+
+    def test_cancellable_runner_reaps_real_child(self):
+        checks = 0
+
+        def cancelled():
+            nonlocal checks
+            checks += 1
+            return checks > 1
+
+        with self.assertRaises(tools.SystemToolCancelled):
+            tools.run_cancellable(
+                [sys.executable, "-c", "import time; time.sleep(60)"],
+                timeout_seconds=5,
+                cancelled=cancelled,
+            )
+
+        with self.assertRaises(tools.SystemToolTimeout):
+            tools.run_cancellable(
+                [sys.executable, "-c", "import time; time.sleep(60)"],
+                timeout_seconds=0.05,
+            )
+
+    def test_prelaunch_cancellation_never_spawns_child(self):
+        with patch.object(tools.subprocess, "Popen") as popen:
+            with self.assertRaises(tools.SystemToolCancelled):
+                tools.run_cancellable(
+                    [sys.executable, "-c", "pass"],
+                    timeout_seconds=5,
+                    cancelled=lambda: True,
+                )
+            popen.assert_not_called()
 
     def test_missing_partition_flags_block_candidate(self):
         raw = json.loads(

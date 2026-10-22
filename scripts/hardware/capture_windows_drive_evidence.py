@@ -15,7 +15,6 @@ import importlib.util
 import json
 import os
 import re
-import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -28,6 +27,9 @@ _tool_spec = importlib.util.spec_from_file_location(
 _tool_module = importlib.util.module_from_spec(_tool_spec)
 _tool_spec.loader.exec_module(_tool_module)
 system_tool_path = _tool_module.system_tool_path
+run_cancellable = _tool_module.run_cancellable
+SystemToolCancelled = _tool_module.SystemToolCancelled
+SystemToolTimeout = _tool_module.SystemToolTimeout
 
 SCHEMA_VERSION = "bws.physical-drive-evidence/v1"
 RAW_DEVICE_PATTERN = re.compile(r"^\\\\\.\\PHYSICALDRIVE([0-9]+)$", re.IGNORECASE)
@@ -203,7 +205,7 @@ def normalize_disk_record(raw: dict[str, Any], target: str) -> dict[str, Any]:
     return record
 
 
-def query_windows_disk(disk_number: int) -> dict[str, Any]:
+def query_windows_disk(disk_number: int, cancelled=lambda: False) -> dict[str, Any]:
     if sys.platform != "win32":
         raise EvidenceError("Live physical-drive collection requires Windows.")
     if type(disk_number) is not int or disk_number < 0:
@@ -250,7 +252,7 @@ foreach ($partition in $partitions) {{
     except RuntimeError as exc:
         raise EvidenceError(str(exc)) from exc
     try:
-        completed = subprocess.run(
+        completed = run_cancellable(
             [
                 powershell,
                 "-NoProfile",
@@ -258,12 +260,12 @@ foreach ($partition in $partitions) {{
                 "-Command",
                 script,
             ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=NATIVE_QUERY_TIMEOUT_SECONDS,
+            timeout_seconds=NATIVE_QUERY_TIMEOUT_SECONDS,
+            cancelled=cancelled,
         )
-    except subprocess.TimeoutExpired as exc:
+    except SystemToolCancelled as exc:
+        raise EvidenceError("Get-Disk evidence collection cancelled.") from exc
+    except SystemToolTimeout as exc:
         raise EvidenceError(
             f"Get-Disk evidence collection exceeded {NATIVE_QUERY_TIMEOUT_SECONDS} seconds."
         ) from exc

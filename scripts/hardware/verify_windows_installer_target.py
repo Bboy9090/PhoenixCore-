@@ -11,7 +11,6 @@ import json
 import os
 from pathlib import Path, PureWindowsPath
 import re
-import subprocess
 import sys
 
 
@@ -31,7 +30,7 @@ ESP = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
 MSR = "E3C9E316-0B5C-4DB8-817D-F92DF00215AE"
 
 
-def _volume(letter):
+def _volume(letter, cancelled=lambda: False):
     if not re.fullmatch("[A-Z]", letter):
         raise ValueError("Invalid volume letter")
     script = f"""
@@ -41,19 +40,22 @@ if (@($v).Count -ne 1) {{ throw 'Ambiguous volume' }}
 [pscustomobject]@{{ FileSystem = [string]$v.FileSystem; UniqueId = [string]$v.UniqueId;
 HealthStatus = [string]$v.HealthStatus; Size = [uint64]$v.Size }} | ConvertTo-Json -Compress
 """
-    result = subprocess.run(
-        [
-            sources.system_tool_path("powershell"),
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            script,
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=30,
-    )
+    try:
+        result = sources.run_cancellable(
+            [
+                sources.system_tool_path("powershell"),
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                script,
+            ],
+            timeout_seconds=30,
+            cancelled=cancelled,
+        )
+    except sources.SystemToolCancelled as exc:
+        raise ValueError("Volume evidence query cancelled") from exc
+    except sources.SystemToolTimeout as exc:
+        raise RuntimeError("Volume evidence query exceeded 30 seconds") from exc
     if result.returncode:
         raise RuntimeError(
             "Volume evidence query failed: " + (result.stderr or result.stdout).strip()
@@ -61,7 +63,9 @@ HealthStatus = [string]$v.HealthStatus; Size = [uint64]$v.Size }} | ConvertTo-Js
     return json.loads(result.stdout)
 
 
-def bind_target(root, target, stable_sha256, partition_number):
+def bind_target(
+    root, target, stable_sha256, partition_number, cancelled=lambda: False
+):
     """Fresh native queries only; supplied facts cannot substitute for queries."""
     if sys.platform != "win32":
         raise RuntimeError("Native target binding requires Windows")
@@ -75,14 +79,14 @@ def bind_target(root, target, stable_sha256, partition_number):
     canonical = rf"\\.\PHYSICALDRIVE{number}"
     if target.upper() != canonical:
         raise ValueError("Canonical physical target required")
-    mount = sources.query_source_disk(str(root))
+    mount = sources.query_source_disk(str(root), cancelled)
     if (
         mount.get("physical_target", "").upper() != canonical
         or mount.get("partition_number") != partition_number
         or mount.get("stable_identity_sha256") != stable_sha256.lower()
     ):
         raise ValueError("Readback volume is not bound to the reviewed target")
-    raw = drives.query_windows_disk(number)
+    raw = drives.query_windows_disk(number, cancelled)
     disk = drives.normalize_disk_record(raw, canonical)
     if (
         disk["write_block_reasons"]
@@ -138,7 +142,7 @@ def bind_target(root, target, stable_sha256, partition_number):
         or selected.get("DriveLetter") != letter
     ):
         raise ValueError("Mounted partition is not the selected ESP")
-    volume = _volume(letter)
+    volume = _volume(letter, cancelled)
     if (
         volume.get("FileSystem") != "FAT32"
         or volume.get("HealthStatus") != "Healthy"
@@ -170,8 +174,8 @@ def verify_target(
 ):
     if cancelled():
         raise ValueError("Cancelled before target binding")
-    before = bind_target(root, target, stable_sha256, partition_number)
-    source_disk = sources.query_source_disk(str(source))
+    before = bind_target(root, target, stable_sha256, partition_number, cancelled)
+    source_disk = sources.query_source_disk(str(source), cancelled)
     source_stable = source_disk.get("stable_identity_sha256")
     source_target = source_disk.get("physical_target")
     if (
@@ -188,8 +192,11 @@ def verify_target(
     result = readback.verify_installer_readback(
         Path(source), Path(root), manifest, architecture, cancelled
     )
-    after = bind_target(root, target, stable_sha256, partition_number)
-    if before != after or sources.query_source_disk(str(source)) != source_disk:
+    after = bind_target(root, target, stable_sha256, partition_number, cancelled)
+    if (
+        before != after
+        or sources.query_source_disk(str(source), cancelled) != source_disk
+    ):
         raise ValueError("Disk, partition or source binding changed during readback")
     if cancelled():
         raise ValueError("Cancelled before bound readback receipt")
@@ -238,7 +245,7 @@ def main(argv=None):
         )
         print(json.dumps(result, sort_keys=True))
         return 0
-    except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as exc:
+    except (OSError, ValueError, RuntimeError) as exc:
         print(
             json.dumps(
                 {

@@ -8,7 +8,6 @@ import hashlib
 import importlib.util
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -19,6 +18,9 @@ _tool_spec = importlib.util.spec_from_file_location(
 _tool_module = importlib.util.module_from_spec(_tool_spec)
 _tool_spec.loader.exec_module(_tool_module)
 system_tool_path = _tool_module.system_tool_path
+run_cancellable = _tool_module.run_cancellable
+SystemToolCancelled = _tool_module.SystemToolCancelled
+SystemToolTimeout = _tool_module.SystemToolTimeout
 
 DRIVE_RE = re.compile(r"^([A-Za-z]):[\\/]")
 NATIVE_QUERY_TIMEOUT_SECONDS = 30
@@ -117,7 +119,7 @@ def normalize_source_disk_record(
     }
 
 
-def query_source_disk(source_path: str) -> dict[str, Any]:
+def query_source_disk(source_path: str, cancelled=lambda: False) -> dict[str, Any]:
     if sys.platform != "win32":
         raise SourceDiskResolutionError("Live source-disk resolution requires Windows.")
 
@@ -145,7 +147,7 @@ $disk = Get-Disk -Number $partition.DiskNumber
     except RuntimeError as exc:
         raise SourceDiskResolutionError(str(exc)) from exc
     try:
-        completed = subprocess.run(
+        completed = run_cancellable(
             [
                 powershell,
                 "-NoProfile",
@@ -153,12 +155,12 @@ $disk = Get-Disk -Number $partition.DiskNumber
                 "-Command",
                 script,
             ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=NATIVE_QUERY_TIMEOUT_SECONDS,
+            timeout_seconds=NATIVE_QUERY_TIMEOUT_SECONDS,
+            cancelled=cancelled,
         )
-    except subprocess.TimeoutExpired as exc:
+    except SystemToolCancelled as exc:
+        raise SourceDiskResolutionError("Source disk resolution cancelled.") from exc
+    except SystemToolTimeout as exc:
         raise SourceDiskResolutionError(
             f"Source disk resolution exceeded {NATIVE_QUERY_TIMEOUT_SECONDS} seconds."
         ) from exc
