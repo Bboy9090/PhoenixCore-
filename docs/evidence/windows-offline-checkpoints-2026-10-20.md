@@ -62,3 +62,9 @@ Six portable mock regressions cover canonical targeting, lock/unlock order, dism
 The existing whole-image sacrificial-drive writer now accepts a cancel file and checks it before raw-target opening, before and after every target-write chunk, before readback, before and after every readback chunk, and before accepting success. A cancellation after any written chunk flushes and fsyncs the committed prefix before returning a non-resumable failure. Receipts distinguish cancellation before the first byte (`hardware-write-blocked-before-first-byte`, `physical_write_attempted: false`) from an interrupted destructive write with exact written/readback byte counts.
 
 Three focused regressions cover cancellation before writing, after the first write chunk, and after the first readback chunk. The exact-head portable Windows-related suite passes 245 tests. These tests use memory-backed streams and do not qualify raw-device opening, Windows cache behavior, unplug recovery, physical media, or boot.
+
+## Off-target receipt binding follow-up
+
+Before any raw-target open, the sacrificial writer now requires the receipt output to be absent and its parent to be an existing non-symlink directory. It resolves that directory to a physical disk, rejects a receipt located on the destructive target (including stable-identity collision after drive renumbering), and repeats the physical/stable identity query immediately before raw-target opening. Both observations are included in success and failure receipts.
+
+Two focused regressions cover existing-output refusal, a valid distinct destination, same-target rejection, and destination substitution between observations. The exact-head portable Windows-related suite passes 247 tests. A hostile process could still race the final filename after the second observation; durable pre-write receipt reservation remains unresolved and no physical-write gate is promoted.

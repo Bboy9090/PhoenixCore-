@@ -341,6 +341,49 @@ def revalidate_source_before_raw_open(
     }
 
 
+def validate_receipt_destination(
+    *,
+    plan: dict[str, Any],
+    output_path: Path,
+    expected_binding: dict[str, Any] | None = None,
+    resolve_source_disk: Callable[[str], dict[str, Any]] = query_source_disk,
+) -> dict[str, Any]:
+    """Prove the receipt is stored off-target before any destructive open."""
+    output = output_path.absolute()
+    parent = output.parent
+    if os.path.lexists(output):
+        raise WriteGateError("Receipt output already exists; overwrite is blocked.")
+    if not parent.is_dir() or parent.is_symlink() or parent.resolve() != parent:
+        raise WriteGateError(
+            "Receipt output parent must be an existing non-symlink directory."
+        )
+    record = resolve_source_disk(str(parent))
+    physical_target = str(record.get("physical_target") or "")
+    stable_identity = str(record.get("stable_identity_sha256") or "")
+    collision = compare_source_and_target(
+        record,
+        str(plan["target"]),
+        str(plan["target_stable_identity_sha256"]),
+    )
+    if collision.get("source_target_distinct") is not True:
+        raise WriteGateError(
+            "Receipt destination resolves to the destructive target device."
+        )
+    if not physical_target or not re.fullmatch(r"[0-9a-f]{64}", stable_identity):
+        raise WriteGateError("Receipt destination physical identity is not proven.")
+    binding = {
+        "output_path": str(output),
+        "physical_target": physical_target,
+        "stable_identity_sha256": stable_identity,
+        "target_distinct": True,
+    }
+    if expected_binding is not None and binding != expected_binding:
+        raise WriteGateError(
+            "Receipt destination physical identity changed before raw-target open."
+        )
+    return binding
+
+
 def open_windows_raw_device(target: str) -> BinaryIO:
     if sys.platform != "win32":
         raise WriteGateError("Physical writing is implemented only for Windows.")
@@ -613,6 +656,8 @@ def build_failure_result(
         "source_target_distinct": plan.get("source_target_distinct"),
         "prewrite_source_recheck": plan.get("prewrite_source_recheck"),
         "prewrite_target_recheck": plan.get("prewrite_target_recheck"),
+        "receipt_destination_binding": plan.get("receipt_destination_binding"),
+        "receipt_destination_recheck": plan.get("receipt_destination_recheck"),
         "image_path": plan["image_path"],
         "image_size_bytes": plan["image_size_bytes"],
         "image_sha256": plan["image_sha256"],
@@ -659,6 +704,8 @@ def build_result(
         "source_target_distinct": plan.get("source_target_distinct"),
         "prewrite_source_recheck": plan.get("prewrite_source_recheck"),
         "prewrite_target_recheck": plan.get("prewrite_target_recheck"),
+        "receipt_destination_binding": plan.get("receipt_destination_binding"),
+        "receipt_destination_recheck": plan.get("receipt_destination_recheck"),
         "image_path": plan["image_path"],
         "image_size_bytes": plan["image_size_bytes"],
         "image_sha256": plan["image_sha256"],
@@ -721,11 +768,21 @@ def main() -> int:
         execute=args.execute,
     )
 
+    plan["receipt_destination_binding"] = validate_receipt_destination(
+        plan=plan,
+        output_path=args.output,
+    )
+
     plan["prewrite_source_recheck"] = revalidate_source_before_raw_open(
         plan=plan,
         image_path=args.image,
     )
     plan["prewrite_target_recheck"] = verify_live_identity(evidence=evidence)
+    plan["receipt_destination_recheck"] = validate_receipt_destination(
+        plan=plan,
+        output_path=args.output,
+        expected_binding=plan["receipt_destination_binding"],
+    )
 
     started_at = utc_now_iso()
     try:

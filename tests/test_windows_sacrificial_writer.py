@@ -400,6 +400,84 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     resolve_source_disk=substituted_source,
                 )
 
+    def test_receipt_destination_must_be_existing_distinct_and_stable(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir) / "receipt.json"
+            plan = {
+                "target": self.target,
+                "target_stable_identity_sha256": self.evidence["disk"][
+                    "stable_identity_sha256"
+                ],
+            }
+            binding = writer.validate_receipt_destination(
+                plan=plan,
+                output_path=output,
+                resolve_source_disk=self._resolve_source_disk,
+            )
+            self.assertTrue(binding["target_distinct"])
+            self.assertEqual(r"\\.\PHYSICALDRIVE2", binding["physical_target"])
+            self.assertEqual(
+                binding,
+                writer.validate_receipt_destination(
+                    plan=plan,
+                    output_path=output,
+                    expected_binding=binding,
+                    resolve_source_disk=self._resolve_source_disk,
+                ),
+            )
+
+            output.write_text("occupied", encoding="utf-8")
+            with self.assertRaisesRegex(writer.WriteGateError, "already exists"):
+                writer.validate_receipt_destination(
+                    plan=plan,
+                    output_path=output,
+                    resolve_source_disk=self._resolve_source_disk,
+                )
+
+    def test_receipt_destination_on_target_or_changed_device_is_blocked(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir) / "receipt.json"
+            plan = {
+                "target": self.target,
+                "target_stable_identity_sha256": self.evidence["disk"][
+                    "stable_identity_sha256"
+                ],
+            }
+
+            def target_record(path):
+                record = self._resolve_source_disk(path)
+                record["physical_target"] = self.target
+                record["stable_identity_sha256"] = plan[
+                    "target_stable_identity_sha256"
+                ]
+                return record
+
+            with self.assertRaisesRegex(writer.WriteGateError, "destructive target"):
+                writer.validate_receipt_destination(
+                    plan=plan,
+                    output_path=output,
+                    resolve_source_disk=target_record,
+                )
+
+            binding = writer.validate_receipt_destination(
+                plan=plan,
+                output_path=output,
+                resolve_source_disk=self._resolve_source_disk,
+            )
+
+            def changed_record(path):
+                record = self._resolve_source_disk(path)
+                record["physical_target"] = r"\\.\PHYSICALDRIVE3"
+                return record
+
+            with self.assertRaisesRegex(writer.WriteGateError, "identity changed"):
+                writer.validate_receipt_destination(
+                    plan=plan,
+                    output_path=output,
+                    expected_binding=binding,
+                    resolve_source_disk=changed_record,
+                )
+
     def test_file_backed_write_and_full_readback_pass(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             image = Path(tmpdir) / "image.bin"
