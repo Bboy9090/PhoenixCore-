@@ -466,10 +466,20 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
             output = Path(tmpdir) / "receipt.json"
             pending = {"classification": "pending"}
             with writer.ReceiptReservation(output, pending) as reservation:
-                output.unlink()
-                output.write_text("replacement", encoding="utf-8")
-                with self.assertRaisesRegex(writer.WriteGateError, "identity changed"):
-                    reservation.commit({"classification": "final"})
+                if os.name == "nt":
+                    # Windows denies replacement while the reservation handle is
+                    # retained.  That is stronger than detecting substitution
+                    # after it occurs and is the native behavior we rely on.
+                    with self.assertRaises(PermissionError):
+                        output.unlink()
+                    self.assertEqual(pending, json.loads(output.read_text()))
+                else:
+                    output.unlink()
+                    output.write_text("replacement", encoding="utf-8")
+                    with self.assertRaisesRegex(
+                        writer.WriteGateError, "identity changed"
+                    ):
+                        reservation.commit({"classification": "final"})
 
             output.unlink()
             with writer.ReceiptReservation(output, pending) as reservation, patch.object(
