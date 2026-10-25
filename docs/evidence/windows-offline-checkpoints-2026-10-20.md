@@ -67,4 +67,10 @@ Three focused regressions cover cancellation before writing, after the first wri
 
 Before any raw-target open, the sacrificial writer now requires the receipt output to be absent and its parent to be an existing non-symlink directory. It resolves that directory to a physical disk, rejects a receipt located on the destructive target (including stable-identity collision after drive renumbering), and repeats the physical/stable identity query immediately before raw-target opening. Both observations are included in success and failure receipts.
 
-Two focused regressions cover existing-output refusal, a valid distinct destination, same-target rejection, and destination substitution between observations. The exact-head portable Windows-related suite passes 247 tests. A hostile process could still race the final filename after the second observation; durable pre-write receipt reservation remains unresolved and no physical-write gate is promoted.
+Two focused regressions cover existing-output refusal, a valid distinct destination, same-target rejection, and destination substitution between observations. The exact-head portable Windows-related suite passed 247 tests at this checkpoint. No physical-write gate was promoted.
+
+## Durable receipt reservation follow-up
+
+After the off-target binding passes, the writer now creates the final receipt pathname exclusively and fsyncs a `hardware-write-reserved-not-started` record before source/target revalidation or raw-device opening. The reservation records that no write, readback, validation, or resume authorization has occurred. Final success or failure JSON is written to a fully flushed sibling temporary file and atomically replaces only the still-matching reserved inode; POSIX directory metadata is then fsynced. A missing or substituted reservation blocks raw opening, and a failed final replacement leaves the pending record in place.
+
+Two focused regressions cover pending-to-final publication, reservation substitution, replacement failure, and pending-record retention. The exact-head portable Windows-related suite passes 249 tests. Power-loss behavior and Windows replacement semantics still require native qualification; no hardware or release gate is promoted.

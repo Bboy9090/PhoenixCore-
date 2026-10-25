@@ -16,6 +16,7 @@ import io
 import json
 import os
 import re
+import stat
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -351,8 +352,11 @@ def validate_receipt_destination(
     """Prove the receipt is stored off-target before any destructive open."""
     output = output_path.absolute()
     parent = output.parent
-    if os.path.lexists(output):
+    exists = os.path.lexists(output)
+    if exists and expected_binding is None:
         raise WriteGateError("Receipt output already exists; overwrite is blocked.")
+    if not exists and expected_binding is not None:
+        raise WriteGateError("Reserved receipt output disappeared before raw open.")
     if not parent.is_dir() or parent.is_symlink() or parent.resolve() != parent:
         raise WriteGateError(
             "Receipt output parent must be an existing non-symlink directory."
@@ -723,6 +727,99 @@ def build_result(
     return receipt
 
 
+def build_pending_result(
+    *, plan: dict[str, Any], started_at: str
+) -> dict[str, Any]:
+    receipt = {
+        "schema_version": SCHEMA_VERSION,
+        "started_at": started_at,
+        "source_commit": plan["source_commit"],
+        "target": plan["target"],
+        "target_identity_sha256": plan["identity_sha256"],
+        "target_size_bytes": plan["target_size_bytes"],
+        "image_path": plan["image_path"],
+        "image_size_bytes": plan["image_size_bytes"],
+        "image_sha256": plan["image_sha256"],
+        "byte_cap": plan["byte_cap"],
+        "receipt_destination_binding": plan.get("receipt_destination_binding"),
+        "physical_write_attempted": False,
+        "physical_write_completed": False,
+        "readback_completed": False,
+        "verification_passed": False,
+        "hardware_validated": False,
+        "classification": "hardware-write-reserved-not-started",
+        "resume_allowed": False,
+        "next_required_action": "inspect-operation-and-revalidate-before-restart",
+    }
+    receipt["receipt_sha256"] = sha256_payload(receipt)
+    return receipt
+
+
+class ReceiptReservation:
+    """Reserve a receipt name and retain a durable pending record before writes."""
+
+    def __init__(self, destination: Path, pending: dict[str, Any]):
+        self.destination = destination.absolute()
+        self.stream = self.destination.open("x+", encoding="utf-8")
+        self.committed = False
+        try:
+            json.dump(pending, self.stream, indent=2, sort_keys=True)
+            self.stream.write("\n")
+            self.stream.flush()
+            os.fsync(self.stream.fileno())
+            opened = os.fstat(self.stream.fileno())
+            self.identity = (opened.st_dev, opened.st_ino)
+        except Exception:
+            self.stream.close()
+            raise
+
+    def commit(self, payload: dict[str, Any]) -> None:
+        if self.committed or self.stream.closed:
+            raise WriteGateError("Receipt reservation is no longer active.")
+        current = os.stat(self.destination, follow_symlinks=False)
+        if not stat.S_ISREG(current.st_mode) or (
+            current.st_dev,
+            current.st_ino,
+        ) != self.identity:
+            raise WriteGateError("Receipt reservation identity changed.")
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=self.destination.parent,
+            delete=False,
+        ) as temporary:
+            json.dump(payload, temporary, indent=2, sort_keys=True)
+            temporary.write("\n")
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary_path = Path(temporary.name)
+        try:
+            self.stream.close()
+            os.replace(temporary_path, self.destination)
+            if os.name != "nt":
+                directory = os.open(
+                    self.destination.parent,
+                    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+                )
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)
+            self.committed = True
+        except Exception:
+            if os.path.lexists(temporary_path):
+                temporary_path.unlink()
+            raise
+
+    def __enter__(self) -> "ReceiptReservation":
+        return self
+
+    def __exit__(self, _type, _error, _traceback) -> bool:
+        if not self.stream.closed:
+            self.stream.close()
+        return False
+
+
 def write_json_atomic(payload: dict[str, Any], destination: Path) -> None:
     destination = destination.resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -773,49 +870,50 @@ def main() -> int:
         output_path=args.output,
     )
 
-    plan["prewrite_source_recheck"] = revalidate_source_before_raw_open(
-        plan=plan,
-        image_path=args.image,
-    )
-    plan["prewrite_target_recheck"] = verify_live_identity(evidence=evidence)
-    plan["receipt_destination_recheck"] = validate_receipt_destination(
-        plan=plan,
-        output_path=args.output,
-        expected_binding=plan["receipt_destination_binding"],
-    )
-
     started_at = utc_now_iso()
-    try:
-        if cancelled():
-            raise WriteInterruptedError(
-                "Cancelled before opening raw target.",
-                stage="cancelled-before-raw-open",
-            )
-        with open_windows_raw_device(plan["target"]) as target_stream:
-            write_result = write_and_verify(
+    pending = build_pending_result(plan=plan, started_at=started_at)
+    with ReceiptReservation(args.output, pending) as reservation:
+        try:
+            plan["prewrite_source_recheck"] = revalidate_source_before_raw_open(
+                plan=plan,
                 image_path=args.image,
-                target_stream=target_stream,
-                byte_cap=plan["byte_cap"],
-                cancelled=cancelled,
             )
-    except (WriteInterruptedError, OSError) as exc:
-        failure = build_failure_result(
-            plan=plan,
-            error=exc,
-            started_at=started_at,
-            failed_at=utc_now_iso(),
-        )
-        write_json_atomic(failure, args.output)
-        raise
-    completed_at = utc_now_iso()
+            plan["prewrite_target_recheck"] = verify_live_identity(evidence=evidence)
+            plan["receipt_destination_recheck"] = validate_receipt_destination(
+                plan=plan,
+                output_path=args.output,
+                expected_binding=plan["receipt_destination_binding"],
+            )
+            if cancelled():
+                raise WriteInterruptedError(
+                    "Cancelled before opening raw target.",
+                    stage="cancelled-before-raw-open",
+                )
+            with open_windows_raw_device(plan["target"]) as target_stream:
+                write_result = write_and_verify(
+                    image_path=args.image,
+                    target_stream=target_stream,
+                    byte_cap=plan["byte_cap"],
+                    cancelled=cancelled,
+                )
+        except (WriteInterruptedError, WriteGateError, OSError) as exc:
+            failure = build_failure_result(
+                plan=plan,
+                error=exc,
+                started_at=started_at,
+                failed_at=utc_now_iso(),
+            )
+            reservation.commit(failure)
+            raise
+        completed_at = utc_now_iso()
 
-    receipt = build_result(
-        plan=plan,
-        write_result=write_result,
-        started_at=started_at,
-        completed_at=completed_at,
-    )
-    write_json_atomic(receipt, args.output)
+        receipt = build_result(
+            plan=plan,
+            write_result=write_result,
+            started_at=started_at,
+            completed_at=completed_at,
+        )
+        reservation.commit(receipt)
     print(json.dumps(receipt, sort_keys=True))
     return 0
 

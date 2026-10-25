@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.hardware import capture_windows_drive_evidence as drive_evidence
 from scripts.hardware import write_windows_sacrificial_drive as writer
@@ -416,6 +417,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
             )
             self.assertTrue(binding["target_distinct"])
             self.assertEqual(r"\\.\PHYSICALDRIVE2", binding["physical_target"])
+            output.write_text("reserved", encoding="utf-8")
             self.assertEqual(
                 binding,
                 writer.validate_receipt_destination(
@@ -426,13 +428,56 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 ),
             )
 
-            output.write_text("occupied", encoding="utf-8")
             with self.assertRaisesRegex(writer.WriteGateError, "already exists"):
                 writer.validate_receipt_destination(
                     plan=plan,
                     output_path=output,
                     resolve_source_disk=self._resolve_source_disk,
                 )
+
+    def test_receipt_reservation_persists_pending_then_commits_final(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir) / "receipt.json"
+            plan = {
+                "source_commit": "a" * 40,
+                "target": self.target,
+                "identity_sha256": self.evidence["disk"]["identity_sha256"],
+                "target_size_bytes": self.evidence["disk"]["size_bytes"],
+                "image_path": "C:\\fixture.img",
+                "image_size_bytes": 10,
+                "image_sha256": "b" * 64,
+                "byte_cap": 10,
+                "receipt_destination_binding": {"target_distinct": True},
+            }
+            pending = writer.build_pending_result(
+                plan=plan, started_at="2026-10-25T12:00:00Z"
+            )
+            final = {"status": "failed", "receipt_sha256": "c" * 64}
+            with writer.ReceiptReservation(output, pending) as reservation:
+                self.assertEqual(
+                    "hardware-write-reserved-not-started",
+                    json.loads(output.read_text())["classification"],
+                )
+                reservation.commit(final)
+            self.assertEqual(final, json.loads(output.read_text()))
+
+    def test_receipt_reservation_refuses_substitution_and_retains_pending(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir) / "receipt.json"
+            pending = {"classification": "pending"}
+            with writer.ReceiptReservation(output, pending) as reservation:
+                output.unlink()
+                output.write_text("replacement", encoding="utf-8")
+                with self.assertRaisesRegex(writer.WriteGateError, "identity changed"):
+                    reservation.commit({"classification": "final"})
+
+            output.unlink()
+            with writer.ReceiptReservation(output, pending) as reservation, patch.object(
+                writer.os, "replace", side_effect=OSError("fixture replace failure")
+            ):
+                with self.assertRaisesRegex(OSError, "replace failure"):
+                    reservation.commit({"classification": "final"})
+            self.assertEqual(pending, json.loads(output.read_text()))
 
     def test_receipt_destination_on_target_or_changed_device_is_blocked(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -464,6 +509,7 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                 output_path=output,
                 resolve_source_disk=self._resolve_source_disk,
             )
+            output.write_text("reserved", encoding="utf-8")
 
             def changed_record(path):
                 record = self._resolve_source_disk(path)
