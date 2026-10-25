@@ -394,14 +394,42 @@ def write_and_verify(
     target_stream: BinaryIO,
     byte_cap: int,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
+    cancelled: Callable[[], bool] = lambda: False,
 ) -> dict[str, Any]:
     if byte_cap != image_path.stat().st_size or byte_cap <= 0:
         raise WriteGateError("Byte cap must exactly equal the positive image size.")
     if chunk_size <= 0:
         raise WriteGateError("Chunk size must be positive.")
 
+    if cancelled():
+        raise WriteInterruptedError(
+            "Cancelled before target write.",
+            stage="cancelled-before-write",
+        )
+
     source_digest = hashlib.sha256()
     bytes_written = 0
+
+    def flush_target() -> None:
+        try:
+            target_stream.flush()
+        except OSError as exc:
+            raise WriteInterruptedError(
+                f"Target flush failed after {bytes_written} bytes: {exc}",
+                stage="target-flush",
+                bytes_written=bytes_written,
+            ) from exc
+        try:
+            os.fsync(target_stream.fileno())
+        except (AttributeError, io.UnsupportedOperation):
+            pass
+        except OSError as exc:
+            raise WriteInterruptedError(
+                f"Target fsync failed after {bytes_written} bytes: {exc}",
+                stage="target-fsync",
+                bytes_written=bytes_written,
+            ) from exc
+
     try:
         target_stream.seek(0)
     except OSError as exc:
@@ -412,6 +440,14 @@ def write_and_verify(
 
     with image_path.open("rb") as source:
         while bytes_written < byte_cap:
+            if cancelled():
+                if bytes_written:
+                    flush_target()
+                raise WriteInterruptedError(
+                    "Cancelled during target write.",
+                    stage="cancelled-during-write",
+                    bytes_written=bytes_written,
+                )
             try:
                 chunk = source.read(min(chunk_size, byte_cap - bytes_written))
             except OSError as exc:
@@ -444,6 +480,13 @@ def write_and_verify(
                     bytes_written=bytes_written + actual,
                 )
             bytes_written += written
+            if cancelled():
+                flush_target()
+                raise WriteInterruptedError(
+                    "Cancelled during target write.",
+                    stage="cancelled-during-write",
+                    bytes_written=bytes_written,
+                )
 
         try:
             extra = source.read(1)
@@ -460,24 +503,13 @@ def write_and_verify(
                 bytes_written=bytes_written,
             )
 
-    try:
-        target_stream.flush()
-    except OSError as exc:
+    flush_target()
+    if cancelled():
         raise WriteInterruptedError(
-            f"Target flush failed after {bytes_written} bytes: {exc}",
-            stage="target-flush",
+            "Cancelled before target read-back.",
+            stage="cancelled-before-readback",
             bytes_written=bytes_written,
-        ) from exc
-    try:
-        os.fsync(target_stream.fileno())
-    except (AttributeError, io.UnsupportedOperation):
-        pass
-    except OSError as exc:
-        raise WriteInterruptedError(
-            f"Target fsync failed after {bytes_written} bytes: {exc}",
-            stage="target-fsync",
-            bytes_written=bytes_written,
-        ) from exc
+        )
 
     try:
         target_stream.seek(0)
@@ -491,6 +523,13 @@ def write_and_verify(
     readback_digest = hashlib.sha256()
     bytes_read = 0
     while bytes_read < byte_cap:
+        if cancelled():
+            raise WriteInterruptedError(
+                "Cancelled during target read-back.",
+                stage="cancelled-during-readback",
+                bytes_written=bytes_written,
+                bytes_read_back=bytes_read,
+            )
         try:
             chunk = target_stream.read(min(chunk_size, byte_cap - bytes_read))
         except OSError as exc:
@@ -509,6 +548,13 @@ def write_and_verify(
             )
         readback_digest.update(chunk)
         bytes_read += len(chunk)
+        if cancelled():
+            raise WriteInterruptedError(
+                "Cancelled during target read-back.",
+                stage="cancelled-during-readback",
+                bytes_written=bytes_written,
+                bytes_read_back=bytes_read,
+            )
 
     source_hash = source_digest.hexdigest()
     readback_hash = readback_digest.hexdigest()
@@ -523,6 +569,13 @@ def write_and_verify(
         raise WriteInterruptedError(
             "Full read-back SHA-256 does not match the source image.",
             stage="readback-verify",
+            bytes_written=bytes_written,
+            bytes_read_back=bytes_read,
+        )
+    if cancelled():
+        raise WriteInterruptedError(
+            "Cancelled before accepting target read-back.",
+            stage="cancelled-before-result",
             bytes_written=bytes_written,
             bytes_read_back=bytes_read,
         )
@@ -547,6 +600,7 @@ def build_failure_result(
     stage = getattr(error, "stage", "open-or-io-failure")
     bytes_written = int(getattr(error, "bytes_written", 0) or 0)
     bytes_read_back = int(getattr(error, "bytes_read_back", 0) or 0)
+    write_attempted = bytes_written > 0 or stage == "target-write"
     receipt = {
         "schema_version": SCHEMA_VERSION,
         "started_at": started_at,
@@ -567,12 +621,16 @@ def build_failure_result(
         "error": str(error),
         "bytes_written": bytes_written,
         "bytes_read_back": bytes_read_back,
-        "physical_write_attempted": True,
+        "physical_write_attempted": write_attempted,
         "physical_write_completed": False,
         "readback_completed": False,
         "verification_passed": False,
         "hardware_validated": False,
-        "classification": "hardware-write-interrupted",
+        "classification": (
+            "hardware-write-interrupted"
+            if write_attempted
+            else "hardware-write-blocked-before-first-byte"
+        ),
         "resume_allowed": False,
         "restart_requires_fresh_source_identity": True,
         "restart_requires_fresh_target_identity": True,
@@ -643,12 +701,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--authorization", required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cancel-file", type=Path)
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    cancelled = lambda: args.cancel_file is not None and os.path.lexists(
+        args.cancel_file
+    )
     evidence = load_drive_evidence(args.drive_receipt)
     plan = validate_write_request(
         evidence=evidence,
@@ -667,11 +729,17 @@ def main() -> int:
 
     started_at = utc_now_iso()
     try:
+        if cancelled():
+            raise WriteInterruptedError(
+                "Cancelled before opening raw target.",
+                stage="cancelled-before-raw-open",
+            )
         with open_windows_raw_device(plan["target"]) as target_stream:
             write_result = write_and_verify(
                 image_path=args.image,
                 target_stream=target_stream,
                 byte_cap=plan["byte_cap"],
+                cancelled=cancelled,
             )
     except (WriteInterruptedError, OSError) as exc:
         failure = build_failure_result(

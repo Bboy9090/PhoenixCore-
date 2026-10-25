@@ -58,6 +58,36 @@ class EnospcAfterFirstWrite(io.BytesIO):
         return super().write(data)
 
 
+class CancelAfterFirstWrite(io.BytesIO):
+    def __init__(self, initial_bytes: bytes, state: dict[str, bool]):
+        super().__init__(initial_bytes)
+        self.state = state
+
+    def write(self, data):
+        written = super().write(data)
+        self.state["cancelled"] = True
+        return written
+
+
+class CancelDuringReadback(io.BytesIO):
+    def __init__(self, initial_bytes: bytes, state: dict[str, bool]):
+        super().__init__(initial_bytes)
+        self.state = state
+        self.readback_started = False
+
+    def seek(self, offset, whence=0):
+        result = super().seek(offset, whence)
+        if offset == 0 and any(self.getvalue()):
+            self.readback_started = True
+        return result
+
+    def read(self, size=-1):
+        data = super().read(size)
+        if self.readback_started and data:
+            self.state["cancelled"] = True
+        return data
+
+
 class WindowsSacrificialWriterTests(unittest.TestCase):
     def setUp(self):
         fixture_path = Path(__file__).parent / "fixtures" / "windows_disk_usb.json"
@@ -412,6 +442,80 @@ class WindowsSacrificialWriterTests(unittest.TestCase):
                     byte_cap=10,
                     chunk_size=10,
                 )
+
+    def test_cancellation_before_write_preserves_target(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"0123456789")
+            target = io.BytesIO(b"untouched-target")
+            with self.assertRaises(writer.WriteInterruptedError) as caught:
+                writer.write_and_verify(
+                    image_path=image,
+                    target_stream=target,
+                    byte_cap=10,
+                    cancelled=lambda: True,
+                )
+            self.assertEqual("cancelled-before-write", caught.exception.stage)
+            self.assertEqual(0, caught.exception.bytes_written)
+            self.assertEqual(b"untouched-target", target.getvalue())
+
+            plan = {
+                "source_commit": "a" * 40,
+                "target": self.target,
+                "identity_sha256": self.evidence["disk"]["identity_sha256"],
+                "target_size_bytes": self.evidence["disk"]["size_bytes"],
+                "image_path": str(image),
+                "image_size_bytes": 10,
+                "image_sha256": writer.file_sha256(image),
+                "byte_cap": 10,
+            }
+            receipt = writer.build_failure_result(
+                plan=plan,
+                error=caught.exception,
+                started_at="2026-10-25T12:00:00Z",
+                failed_at="2026-10-25T12:00:01Z",
+            )
+            self.assertFalse(receipt["physical_write_attempted"])
+            self.assertEqual(
+                "hardware-write-blocked-before-first-byte",
+                receipt["classification"],
+            )
+
+    def test_cancellation_during_write_reports_exact_progress(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"0123456789")
+            state = {"cancelled": False}
+            target = CancelAfterFirstWrite(b"\x00" * 32, state)
+            with self.assertRaises(writer.WriteInterruptedError) as caught:
+                writer.write_and_verify(
+                    image_path=image,
+                    target_stream=target,
+                    byte_cap=10,
+                    chunk_size=4,
+                    cancelled=lambda: state["cancelled"],
+                )
+            self.assertEqual("cancelled-during-write", caught.exception.stage)
+            self.assertEqual(4, caught.exception.bytes_written)
+            self.assertEqual(0, caught.exception.bytes_read_back)
+
+    def test_cancellation_during_readback_reports_exact_progress(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "image.bin"
+            image.write_bytes(b"0123456789")
+            state = {"cancelled": False}
+            target = CancelDuringReadback(b"\x00" * 32, state)
+            with self.assertRaises(writer.WriteInterruptedError) as caught:
+                writer.write_and_verify(
+                    image_path=image,
+                    target_stream=target,
+                    byte_cap=10,
+                    chunk_size=4,
+                    cancelled=lambda: state["cancelled"],
+                )
+            self.assertEqual("cancelled-during-readback", caught.exception.stage)
+            self.assertEqual(10, caught.exception.bytes_written)
+            self.assertEqual(4, caught.exception.bytes_read_back)
 
     def test_unplug_failure_is_nonresumable_and_receipted(self):
         with tempfile.TemporaryDirectory() as tmpdir:
