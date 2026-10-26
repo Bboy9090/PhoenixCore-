@@ -1,0 +1,43 @@
+version: 0.2
+
+env:
+  shell: bash
+  variables:
+    PYTHONUTF8: "1"
+    ARCWYRE_EVIDENCE_BUCKET: "bluephoenix-codebuild-artifacts"
+    ARCWYRE_EVIDENCE_PREFIX: "arcwyre/phoenixcore/qualification"
+
+phases:
+  install:
+    commands:
+      - python3 --version
+      - node --version
+      - rustc --version
+      - cargo --version
+  pre_build:
+    commands:
+      - export ARCWYRE_SOURCE_COMMIT="$(git rev-parse HEAD)"
+      - test "$ARCWYRE_SOURCE_COMMIT" = "$ARCWYRE_EXPECTED_COMMIT"
+      - test "$(git status --porcelain --untracked-files=no)" = ""
+  build:
+    commands:
+      - python3 -m unittest discover -s tests -p 'test_windows*.py' -q
+      - python3 -m unittest tests.test_arcwyre_release_gate tests.test_external_qualification_infra -v
+      - cd dashboard && npm ci && npm run build && cd ..
+      - cd apps/phoenix-key/src-tauri && cargo test --locked && cd ../../..
+  post_build:
+    commands:
+      - |
+        if [ "$CODEBUILD_BUILD_SUCCEEDING" != "1" ]; then
+          echo "Qualification failed; refusing to emit passed evidence."
+          exit 1
+        fi
+      - mkdir -p evidence
+      - export ARCWYRE_EVIDENCE_KEY="$ARCWYRE_EVIDENCE_PREFIX/$ARCWYRE_SOURCE_COMMIT/aws-portable-build.json"
+      - python3 scripts/release/emit_arcwyre_release_evidence.py --gate aws_portable_build --status passed --source-commit "$ARCWYRE_SOURCE_COMMIT" --executor "aws-codebuild:$CODEBUILD_BUILD_ID" --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --evidence-uri "s3://$ARCWYRE_EVIDENCE_BUCKET/$ARCWYRE_EVIDENCE_KEY" --output evidence/aws-portable-build.json
+      - aws s3 cp evidence/aws-portable-build.json "s3://$ARCWYRE_EVIDENCE_BUCKET/$ARCWYRE_EVIDENCE_KEY" --only-show-errors
+
+artifacts:
+  files:
+    - evidence/aws-portable-build.json
+  discard-paths: false

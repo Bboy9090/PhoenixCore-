@@ -25,6 +25,9 @@ GATES = (
     "physical_boot",
     "cancellation_recovery",
     "partner_center_private_flight",
+    # Supplemental Linux/portable proof. Deliberately excluded from LEVELS:
+    # it cannot replace the native Windows, physical USB, readback, or boot gates.
+    "aws_portable_build",
 )
 
 LEVELS = {

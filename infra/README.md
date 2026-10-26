@@ -4,6 +4,9 @@ These definitions add independent build lanes; they do not authorize disk writes
 
 - `aws/buildspec-windows-release.yml` is the primary native Windows compile and
   test lane. Its artifact is evidence input, not hardware proof.
+- `aws/buildspec-portable-release.yml` is a least-privilege Linux/portable
+  qualification lane. It retains an exact-commit receipt in the dedicated AWS
+  evidence prefix, but is supplemental and cannot satisfy any promotion level.
 - `google/cloudbuild-independent.yaml` independently reruns portable Python,
   dashboard, and locked Rust checks.
 - `scripts/release/evaluate_arcwyre_release_gate.py` rejects promotion until all
