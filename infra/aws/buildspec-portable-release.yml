@@ -9,6 +9,8 @@ env:
 
 phases:
   install:
+    runtime-versions:
+      nodejs: 22
     commands:
       - python3 --version
       - node --version
