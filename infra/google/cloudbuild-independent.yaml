@@ -1,0 +1,48 @@
+steps:
+  - name: python:3.12-slim
+    id: portable-windows-contracts
+    entrypoint: python
+    args: ["-m", "unittest", "discover", "-s", "tests", "-p", "test_windows*.py", "-q"]
+
+  - name: python:3.12-slim
+    id: release-gate-contracts
+    entrypoint: python
+    args: ["-m", "unittest", "tests.test_arcwyre_release_gate", "-v"]
+
+  - name: node:22-bookworm
+    id: dashboard-build
+    dir: dashboard
+    entrypoint: bash
+    args: ["-ceu", "npm ci && npm run build"]
+
+  - name: rust:1.98.1-bookworm
+    id: locked-rust-tests
+    dir: apps/phoenix-key/src-tauri
+    entrypoint: cargo
+    args: ["test", "--locked"]
+
+  - name: python:3.12-slim
+    id: independent-build-receipt
+    entrypoint: bash
+    args:
+      - -ceu
+      - >-
+        mkdir -p evidence &&
+        python scripts/release/emit_arcwyre_release_evidence.py
+        --gate google_independent_build
+        --status passed
+        --source-commit "$COMMIT_SHA"
+        --executor "google-cloud-build:$BUILD_ID"
+        --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        --evidence-uri "google-cloud-build://$PROJECT_ID/$BUILD_ID"
+        --output evidence/google-independent-build.json
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 3600s
+
+artifacts:
+  objects:
+    location: "gs://${_EVIDENCE_BUCKET}/arcwyre/${COMMIT_SHA}/${BUILD_ID}/"
+    paths: ["evidence/google-independent-build.json"]
