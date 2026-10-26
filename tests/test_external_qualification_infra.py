@@ -55,6 +55,8 @@ class ExternalQualificationInfraTests(unittest.TestCase):
         self.assertIn('CODEBUILD_BUILD_SUCCEEDING', self.aws_portable)
         self.assertIn('--default-toolchain 1.98.1', self.aws_portable)
         self.assertIn('nodejs: 22', self.aws_portable)
+        self.assertIn('libwebkit2gtk-4.0-dev', self.aws_portable)
+        self.assertIn('libayatana-appindicator3-dev', self.aws_portable)
         self.assertIn('test_windows*.py', self.aws_portable)
         self.assertIn('cargo test --locked', self.aws_portable)
         self.assertIn('s3://$ARCWYRE_EVIDENCE_BUCKET/$ARCWYRE_EVIDENCE_KEY', self.aws_portable)

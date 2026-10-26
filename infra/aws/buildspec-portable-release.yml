@@ -14,6 +14,8 @@ phases:
     commands:
       - python3 --version
       - node --version
+      - apt-get update -q
+      - DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.0-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.98.1
       - source "$HOME/.cargo/env"
       - rustc --version
