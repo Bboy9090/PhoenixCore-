@@ -16,6 +16,7 @@ import io
 import json
 import os
 import re
+import stat
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -341,6 +342,52 @@ def revalidate_source_before_raw_open(
     }
 
 
+def validate_receipt_destination(
+    *,
+    plan: dict[str, Any],
+    output_path: Path,
+    expected_binding: dict[str, Any] | None = None,
+    resolve_source_disk: Callable[[str], dict[str, Any]] = query_source_disk,
+) -> dict[str, Any]:
+    """Prove the receipt is stored off-target before any destructive open."""
+    output = output_path.absolute()
+    parent = output.parent
+    exists = os.path.lexists(output)
+    if exists and expected_binding is None:
+        raise WriteGateError("Receipt output already exists; overwrite is blocked.")
+    if not exists and expected_binding is not None:
+        raise WriteGateError("Reserved receipt output disappeared before raw open.")
+    if not parent.is_dir() or parent.is_symlink() or parent.resolve() != parent:
+        raise WriteGateError(
+            "Receipt output parent must be an existing non-symlink directory."
+        )
+    record = resolve_source_disk(str(parent))
+    physical_target = str(record.get("physical_target") or "")
+    stable_identity = str(record.get("stable_identity_sha256") or "")
+    collision = compare_source_and_target(
+        record,
+        str(plan["target"]),
+        str(plan["target_stable_identity_sha256"]),
+    )
+    if collision.get("source_target_distinct") is not True:
+        raise WriteGateError(
+            "Receipt destination resolves to the destructive target device."
+        )
+    if not physical_target or not re.fullmatch(r"[0-9a-f]{64}", stable_identity):
+        raise WriteGateError("Receipt destination physical identity is not proven.")
+    binding = {
+        "output_path": str(output),
+        "physical_target": physical_target,
+        "stable_identity_sha256": stable_identity,
+        "target_distinct": True,
+    }
+    if expected_binding is not None and binding != expected_binding:
+        raise WriteGateError(
+            "Receipt destination physical identity changed before raw-target open."
+        )
+    return binding
+
+
 def open_windows_raw_device(target: str) -> BinaryIO:
     if sys.platform != "win32":
         raise WriteGateError("Physical writing is implemented only for Windows.")
@@ -394,14 +441,42 @@ def write_and_verify(
     target_stream: BinaryIO,
     byte_cap: int,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
+    cancelled: Callable[[], bool] = lambda: False,
 ) -> dict[str, Any]:
     if byte_cap != image_path.stat().st_size or byte_cap <= 0:
         raise WriteGateError("Byte cap must exactly equal the positive image size.")
     if chunk_size <= 0:
         raise WriteGateError("Chunk size must be positive.")
 
+    if cancelled():
+        raise WriteInterruptedError(
+            "Cancelled before target write.",
+            stage="cancelled-before-write",
+        )
+
     source_digest = hashlib.sha256()
     bytes_written = 0
+
+    def flush_target() -> None:
+        try:
+            target_stream.flush()
+        except OSError as exc:
+            raise WriteInterruptedError(
+                f"Target flush failed after {bytes_written} bytes: {exc}",
+                stage="target-flush",
+                bytes_written=bytes_written,
+            ) from exc
+        try:
+            os.fsync(target_stream.fileno())
+        except (AttributeError, io.UnsupportedOperation):
+            pass
+        except OSError as exc:
+            raise WriteInterruptedError(
+                f"Target fsync failed after {bytes_written} bytes: {exc}",
+                stage="target-fsync",
+                bytes_written=bytes_written,
+            ) from exc
+
     try:
         target_stream.seek(0)
     except OSError as exc:
@@ -412,6 +487,14 @@ def write_and_verify(
 
     with image_path.open("rb") as source:
         while bytes_written < byte_cap:
+            if cancelled():
+                if bytes_written:
+                    flush_target()
+                raise WriteInterruptedError(
+                    "Cancelled during target write.",
+                    stage="cancelled-during-write",
+                    bytes_written=bytes_written,
+                )
             try:
                 chunk = source.read(min(chunk_size, byte_cap - bytes_written))
             except OSError as exc:
@@ -444,6 +527,13 @@ def write_and_verify(
                     bytes_written=bytes_written + actual,
                 )
             bytes_written += written
+            if cancelled():
+                flush_target()
+                raise WriteInterruptedError(
+                    "Cancelled during target write.",
+                    stage="cancelled-during-write",
+                    bytes_written=bytes_written,
+                )
 
         try:
             extra = source.read(1)
@@ -460,24 +550,13 @@ def write_and_verify(
                 bytes_written=bytes_written,
             )
 
-    try:
-        target_stream.flush()
-    except OSError as exc:
+    flush_target()
+    if cancelled():
         raise WriteInterruptedError(
-            f"Target flush failed after {bytes_written} bytes: {exc}",
-            stage="target-flush",
+            "Cancelled before target read-back.",
+            stage="cancelled-before-readback",
             bytes_written=bytes_written,
-        ) from exc
-    try:
-        os.fsync(target_stream.fileno())
-    except (AttributeError, io.UnsupportedOperation):
-        pass
-    except OSError as exc:
-        raise WriteInterruptedError(
-            f"Target fsync failed after {bytes_written} bytes: {exc}",
-            stage="target-fsync",
-            bytes_written=bytes_written,
-        ) from exc
+        )
 
     try:
         target_stream.seek(0)
@@ -491,6 +570,13 @@ def write_and_verify(
     readback_digest = hashlib.sha256()
     bytes_read = 0
     while bytes_read < byte_cap:
+        if cancelled():
+            raise WriteInterruptedError(
+                "Cancelled during target read-back.",
+                stage="cancelled-during-readback",
+                bytes_written=bytes_written,
+                bytes_read_back=bytes_read,
+            )
         try:
             chunk = target_stream.read(min(chunk_size, byte_cap - bytes_read))
         except OSError as exc:
@@ -509,6 +595,13 @@ def write_and_verify(
             )
         readback_digest.update(chunk)
         bytes_read += len(chunk)
+        if cancelled():
+            raise WriteInterruptedError(
+                "Cancelled during target read-back.",
+                stage="cancelled-during-readback",
+                bytes_written=bytes_written,
+                bytes_read_back=bytes_read,
+            )
 
     source_hash = source_digest.hexdigest()
     readback_hash = readback_digest.hexdigest()
@@ -523,6 +616,13 @@ def write_and_verify(
         raise WriteInterruptedError(
             "Full read-back SHA-256 does not match the source image.",
             stage="readback-verify",
+            bytes_written=bytes_written,
+            bytes_read_back=bytes_read,
+        )
+    if cancelled():
+        raise WriteInterruptedError(
+            "Cancelled before accepting target read-back.",
+            stage="cancelled-before-result",
             bytes_written=bytes_written,
             bytes_read_back=bytes_read,
         )
@@ -547,6 +647,7 @@ def build_failure_result(
     stage = getattr(error, "stage", "open-or-io-failure")
     bytes_written = int(getattr(error, "bytes_written", 0) or 0)
     bytes_read_back = int(getattr(error, "bytes_read_back", 0) or 0)
+    write_attempted = bytes_written > 0 or stage == "target-write"
     receipt = {
         "schema_version": SCHEMA_VERSION,
         "started_at": started_at,
@@ -559,6 +660,8 @@ def build_failure_result(
         "source_target_distinct": plan.get("source_target_distinct"),
         "prewrite_source_recheck": plan.get("prewrite_source_recheck"),
         "prewrite_target_recheck": plan.get("prewrite_target_recheck"),
+        "receipt_destination_binding": plan.get("receipt_destination_binding"),
+        "receipt_destination_recheck": plan.get("receipt_destination_recheck"),
         "image_path": plan["image_path"],
         "image_size_bytes": plan["image_size_bytes"],
         "image_sha256": plan["image_sha256"],
@@ -567,12 +670,16 @@ def build_failure_result(
         "error": str(error),
         "bytes_written": bytes_written,
         "bytes_read_back": bytes_read_back,
-        "physical_write_attempted": True,
+        "physical_write_attempted": write_attempted,
         "physical_write_completed": False,
         "readback_completed": False,
         "verification_passed": False,
         "hardware_validated": False,
-        "classification": "hardware-write-interrupted",
+        "classification": (
+            "hardware-write-interrupted"
+            if write_attempted
+            else "hardware-write-blocked-before-first-byte"
+        ),
         "resume_allowed": False,
         "restart_requires_fresh_source_identity": True,
         "restart_requires_fresh_target_identity": True,
@@ -601,6 +708,8 @@ def build_result(
         "source_target_distinct": plan.get("source_target_distinct"),
         "prewrite_source_recheck": plan.get("prewrite_source_recheck"),
         "prewrite_target_recheck": plan.get("prewrite_target_recheck"),
+        "receipt_destination_binding": plan.get("receipt_destination_binding"),
+        "receipt_destination_recheck": plan.get("receipt_destination_recheck"),
         "image_path": plan["image_path"],
         "image_size_bytes": plan["image_size_bytes"],
         "image_sha256": plan["image_sha256"],
@@ -616,6 +725,99 @@ def build_result(
     }
     receipt["receipt_sha256"] = sha256_payload(receipt)
     return receipt
+
+
+def build_pending_result(
+    *, plan: dict[str, Any], started_at: str
+) -> dict[str, Any]:
+    receipt = {
+        "schema_version": SCHEMA_VERSION,
+        "started_at": started_at,
+        "source_commit": plan["source_commit"],
+        "target": plan["target"],
+        "target_identity_sha256": plan["identity_sha256"],
+        "target_size_bytes": plan["target_size_bytes"],
+        "image_path": plan["image_path"],
+        "image_size_bytes": plan["image_size_bytes"],
+        "image_sha256": plan["image_sha256"],
+        "byte_cap": plan["byte_cap"],
+        "receipt_destination_binding": plan.get("receipt_destination_binding"),
+        "physical_write_attempted": False,
+        "physical_write_completed": False,
+        "readback_completed": False,
+        "verification_passed": False,
+        "hardware_validated": False,
+        "classification": "hardware-write-reserved-not-started",
+        "resume_allowed": False,
+        "next_required_action": "inspect-operation-and-revalidate-before-restart",
+    }
+    receipt["receipt_sha256"] = sha256_payload(receipt)
+    return receipt
+
+
+class ReceiptReservation:
+    """Reserve a receipt name and retain a durable pending record before writes."""
+
+    def __init__(self, destination: Path, pending: dict[str, Any]):
+        self.destination = destination.absolute()
+        self.stream = self.destination.open("x+", encoding="utf-8")
+        self.committed = False
+        try:
+            json.dump(pending, self.stream, indent=2, sort_keys=True)
+            self.stream.write("\n")
+            self.stream.flush()
+            os.fsync(self.stream.fileno())
+            opened = os.fstat(self.stream.fileno())
+            self.identity = (opened.st_dev, opened.st_ino)
+        except Exception:
+            self.stream.close()
+            raise
+
+    def commit(self, payload: dict[str, Any]) -> None:
+        if self.committed or self.stream.closed:
+            raise WriteGateError("Receipt reservation is no longer active.")
+        current = os.stat(self.destination, follow_symlinks=False)
+        if not stat.S_ISREG(current.st_mode) or (
+            current.st_dev,
+            current.st_ino,
+        ) != self.identity:
+            raise WriteGateError("Receipt reservation identity changed.")
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=self.destination.parent,
+            delete=False,
+        ) as temporary:
+            json.dump(payload, temporary, indent=2, sort_keys=True)
+            temporary.write("\n")
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary_path = Path(temporary.name)
+        try:
+            self.stream.close()
+            os.replace(temporary_path, self.destination)
+            if os.name != "nt":
+                directory = os.open(
+                    self.destination.parent,
+                    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+                )
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)
+            self.committed = True
+        except Exception:
+            if os.path.lexists(temporary_path):
+                temporary_path.unlink()
+            raise
+
+    def __enter__(self) -> "ReceiptReservation":
+        return self
+
+    def __exit__(self, _type, _error, _traceback) -> bool:
+        if not self.stream.closed:
+            self.stream.close()
+        return False
 
 
 def write_json_atomic(payload: dict[str, Any], destination: Path) -> None:
@@ -643,12 +845,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--authorization", required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cancel-file", type=Path)
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    cancelled = lambda: args.cancel_file is not None and os.path.lexists(
+        args.cancel_file
+    )
     evidence = load_drive_evidence(args.drive_receipt)
     plan = validate_write_request(
         evidence=evidence,
@@ -659,38 +865,55 @@ def main() -> int:
         execute=args.execute,
     )
 
-    plan["prewrite_source_recheck"] = revalidate_source_before_raw_open(
+    plan["receipt_destination_binding"] = validate_receipt_destination(
         plan=plan,
-        image_path=args.image,
+        output_path=args.output,
     )
-    plan["prewrite_target_recheck"] = verify_live_identity(evidence=evidence)
 
     started_at = utc_now_iso()
-    try:
-        with open_windows_raw_device(plan["target"]) as target_stream:
-            write_result = write_and_verify(
+    pending = build_pending_result(plan=plan, started_at=started_at)
+    with ReceiptReservation(args.output, pending) as reservation:
+        try:
+            plan["prewrite_source_recheck"] = revalidate_source_before_raw_open(
+                plan=plan,
                 image_path=args.image,
-                target_stream=target_stream,
-                byte_cap=plan["byte_cap"],
             )
-    except (WriteInterruptedError, OSError) as exc:
-        failure = build_failure_result(
-            plan=plan,
-            error=exc,
-            started_at=started_at,
-            failed_at=utc_now_iso(),
-        )
-        write_json_atomic(failure, args.output)
-        raise
-    completed_at = utc_now_iso()
+            plan["prewrite_target_recheck"] = verify_live_identity(evidence=evidence)
+            plan["receipt_destination_recheck"] = validate_receipt_destination(
+                plan=plan,
+                output_path=args.output,
+                expected_binding=plan["receipt_destination_binding"],
+            )
+            if cancelled():
+                raise WriteInterruptedError(
+                    "Cancelled before opening raw target.",
+                    stage="cancelled-before-raw-open",
+                )
+            with open_windows_raw_device(plan["target"]) as target_stream:
+                write_result = write_and_verify(
+                    image_path=args.image,
+                    target_stream=target_stream,
+                    byte_cap=plan["byte_cap"],
+                    cancelled=cancelled,
+                )
+        except (WriteInterruptedError, WriteGateError, OSError) as exc:
+            failure = build_failure_result(
+                plan=plan,
+                error=exc,
+                started_at=started_at,
+                failed_at=utc_now_iso(),
+            )
+            reservation.commit(failure)
+            raise
+        completed_at = utc_now_iso()
 
-    receipt = build_result(
-        plan=plan,
-        write_result=write_result,
-        started_at=started_at,
-        completed_at=completed_at,
-    )
-    write_json_atomic(receipt, args.output)
+        receipt = build_result(
+            plan=plan,
+            write_result=write_result,
+            started_at=started_at,
+            completed_at=completed_at,
+        )
+        reservation.commit(receipt)
     print(json.dumps(receipt, sort_keys=True))
     return 0
 

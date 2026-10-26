@@ -870,7 +870,7 @@ def export_hardware_preflight_json(preflight_payload: dict, output_path: str) ->
         validate_hardware_preflight_export_path(
             output_path, "json", preflight_payload.get("target_drive")
         )
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             json.dump(preflight_payload, f, indent=2)
         return {"status": "success", "export_path": output_path, "error": None}
     except Exception as e:
@@ -888,7 +888,7 @@ def export_hardware_preflight_markdown(
             output_path, "markdown", preflight_payload.get("target_drive")
         )
         md = generate_hardware_preflight_markdown(preflight_payload)
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             f.write(md)
         return {"status": "success", "export_path": output_path, "error": None}
     except Exception as e:
@@ -1344,7 +1344,7 @@ def export_physical_writer_dryrun_json(dryrun_payload: dict, output_path: str) -
         validate_physical_writer_dryrun_export_path(
             output_path, "json", dryrun_payload.get("target_drive")
         )
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             json.dump(dryrun_payload, f, indent=2)
         return {"status": "success", "export_path": output_path, "error": None}
     except Exception as e:
@@ -1362,7 +1362,7 @@ def export_physical_writer_dryrun_markdown(
             output_path, "markdown", dryrun_payload.get("target_drive")
         )
         md = generate_physical_writer_dryrun_markdown(dryrun_payload)
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             f.write(md)
         return {"status": "success", "export_path": output_path, "error": None}
     except Exception as e:
@@ -1779,7 +1779,7 @@ def export_physical_usb_write_lab_json(result_payload: dict, output_path: str) -
         validate_physical_usb_write_lab_export_path(
             output_path, "json", result_payload.get("target_drive")
         )
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             json.dump(result_payload, f, indent=2)
         return {"status": "success", "export_path": output_path, "error": None}
     except Exception as e:
@@ -1853,7 +1853,7 @@ def export_physical_usb_write_lab_markdown(
             output_path, "markdown", result_payload.get("target_drive")
         )
         md = generate_physical_usb_write_lab_markdown(result_payload)
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             f.write(md)
         return {"status": "success", "export_path": output_path, "error": None}
     except Exception as e:
@@ -2262,7 +2262,7 @@ def export_hardware_evidence_json(bundle: dict, output_path: str) -> dict:
         validate_hardware_evidence_export_path(
             output_path, "json", bundle.get("target_selector")
         )
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             json.dump(bundle, f, indent=2)
         return {"status": "success", "export_path": output_path, "error": None}
     except Exception as e:
@@ -2275,7 +2275,7 @@ def export_hardware_evidence_markdown(bundle: dict, output_path: str) -> dict:
             output_path, "markdown", bundle.get("target_selector")
         )
         md = generate_hardware_evidence_markdown(bundle)
-        with open(output_path, "w", encoding="utf-8") as f:
+        with open(output_path, "x", encoding="utf-8") as f:
             f.write(md)
         return {"status": "success", "export_path": output_path, "error": None}
     except Exception as e:

@@ -17,6 +17,7 @@ import re
 import signal
 import stat
 import tempfile
+import uuid
 
 
 def _load(name, filename):
@@ -30,6 +31,38 @@ def _load(name, filename):
 
 preparation = _load("_workspace_preparation", "prepare_windows_install_media.py")
 metadata = _load("_workspace_metadata", "inspect_windows_image_metadata.py")
+
+
+def _checkpoint(workspace, state, phase, status="in_progress"):
+    """Retain atomic, hashed evidence; a checkpoint never authorizes resume."""
+    preparation.staging._ancestors(workspace)
+    record = {
+        **state,
+        "phase": phase,
+        "status": status,
+        "resume_authorized": False,
+        "boot_verified": False,
+        "windows_to_go_ready": False,
+        "raw_disk_operations_performed": False,
+    }
+    payload = json.dumps(record, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    envelope = {"record": record, "record_sha256": hashlib.sha256(payload).hexdigest()}
+    pending = workspace / "operation-state.pending"
+    destination = workspace / "operation-state.json"
+    if os.path.lexists(destination):
+        preparation.staging._ancestors(destination)
+    with pending.open("xb") as stream:
+        stream.write(json.dumps(envelope, sort_keys=True).encode("utf-8"))
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(pending, destination)
+    if os.name != "nt":
+        directory = os.open(workspace, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    state.update(record)
 
 
 def _inspect_metadata(tool, args, logs, label, cancelled):
@@ -104,6 +137,14 @@ def prepare_workspace(
     if cancelled():
         raise error("Cancelled before workspace allocation")
     workspace = Path(tempfile.mkdtemp(prefix="arcwyre-offline-image-"))
+    state = {
+        "schema": "arcwyre.windows_offline_application_checkpoint.v1",
+        "operation_id": str(uuid.uuid4()),
+        "source_path": str(source),
+        "source_sha256": expected_sha256.lower(),
+        "selected_index": selected_index,
+        "workspace_directory": str(workspace),
+    }
     try:
         preparation.staging._ancestors(workspace)
         if (
@@ -113,17 +154,21 @@ def prepare_workspace(
         ):
             raise error("Source and workspace overlap")
         snapshot = workspace / "source.wim"
+        _checkpoint(workspace, state, "source_snapshot")
         with _open_regular(source) as original, snapshot.open("xb") as copy:
             while chunk := original.read(1024 * 1024):
                 if cancelled():
                     raise error("Cancelled while copying image")
                 copy.write(chunk)
+            copy.flush()
+            os.fsync(copy.fileno())
         if (
             _hash(snapshot, cancelled) != expected_sha256.lower()
             or _hash(source, cancelled) != expected_sha256.lower()
         ):
             raise error("Source changed during snapshot preparation")
         logs = workspace / "logs"
+        _checkpoint(workspace, state, "image_metadata")
         logs.mkdir()
 
         def inspect(args, label):
@@ -159,6 +204,7 @@ def prepare_workspace(
             "/Verify",
             f"/LogPath:{logs / 'apply.log'}",
         ]
+        _checkpoint(workspace, state, "image_application")
         preparation._run_dism(command, logs / "apply.transcript.txt", cancelled)
         if cancelled():
             raise error("Cancelled after image application")
@@ -171,6 +217,7 @@ def prepare_workspace(
             preparation.staging._ancestors(candidate)
             if preparation.media._regular_file_info_nofollow(candidate).st_size == 0:
                 raise error("Applied Windows tree is incomplete")
+        _checkpoint(workspace, state, "file_readback")
         manifest = preparation.media.capture_media_manifest(applied, cancelled)
         preparation.media.verify_media_manifest(applied, manifest, cancelled)
         if (
@@ -178,6 +225,10 @@ def prepare_workspace(
             or _hash(source, cancelled) != expected_sha256.lower()
         ):
             raise error("Source image changed during application")
+        if cancelled():
+            raise error("Cancelled before completed application checkpoint")
+        state["applied_manifest_sha256"] = manifest["manifest_sha256"]
+        _checkpoint(workspace, state, "files_verified", "completed_boot_unresolved")
         return {
             "schema": "arcwyre.windows_offline_image_application.v1",
             "workspace_directory": str(workspace),
@@ -202,8 +253,23 @@ def prepare_workspace(
                 "physical_boot_test",
             ],
             "log_directory": str(logs),
+            "operation_id": state["operation_id"],
+            "checkpoint_path": str(workspace / "operation-state.json"),
         }
     except Exception as exc:
+        if "phase" in state:
+            state["error"] = str(exc)
+            try:
+                _checkpoint(
+                    workspace,
+                    state,
+                    state["phase"],
+                    "cancelled" if cancelled() else "failed",
+                )
+            except Exception as checkpoint_error:
+                raise error(
+                    f"{exc}; checkpoint update failed: {checkpoint_error}", workspace
+                ) from exc
         raise error(str(exc), workspace) from exc
 
 

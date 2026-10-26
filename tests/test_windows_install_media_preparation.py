@@ -250,17 +250,69 @@ class PreparationTests(unittest.TestCase):
 
     def test_dism_cancellation_terminates_and_waits(self):
         process = MagicMock()
+        cancelled = iter([False, True])
         process.poll.side_effect = [None, 0]
         process.wait.return_value = -1
         with patch.object(
             prepare.subprocess, "Popen", return_value=process
         ) as popen, self.assertRaises(prepare.staging.StagingError):
             prepare._run_dism(
-                ["dism.exe", "/Split-Image"], self.root / "transcript", lambda: True
+                ["dism.exe", "/Split-Image"],
+                self.root / "transcript",
+                lambda: next(cancelled),
             )
         process.terminate.assert_called_once()
         process.wait.assert_called_once_with(timeout=10)
         self.assertFalse(popen.call_args.kwargs["shell"])
+
+    def test_preexisting_cancel_prevents_launch(self):
+        with patch.object(prepare.subprocess, "Popen") as launch:
+            with self.assertRaisesRegex(RuntimeError, "before DISM launch"):
+                prepare._run_dism(["dism.exe"], self.root / "not-created", lambda: True)
+        launch.assert_not_called()
+        self.assertFalse((self.root / "not-created").exists())
+
+    def test_cancelled_fast_exit_cannot_succeed(self):
+        process = MagicMock(returncode=0)
+        process.poll.return_value = 0
+        cancelled = iter([False, True])
+        with patch.object(prepare.subprocess, "Popen", return_value=process):
+            with self.assertRaisesRegex(RuntimeError, "after DISM operation"):
+                prepare._run_dism(
+                    ["dism.exe"], self.root / "fast", lambda: next(cancelled)
+                )
+
+    def test_real_child_failure_retains_transcript_and_exit(self):
+        import sys
+
+        transcript = self.root / "failure-transcript"
+        with self.assertRaisesRegex(RuntimeError, "exit code 7"):
+            prepare._run_dism(
+                [sys.executable, "-c", "print('diagnostic'); raise SystemExit(7)"],
+                transcript,
+                lambda: False,
+            )
+        self.assertIn(b"diagnostic", transcript.read_bytes())
+
+    def test_real_cancelled_child_is_reaped(self):
+        import sys
+
+        children = []
+        original = prepare.subprocess.Popen
+
+        def launch(*args, **kwargs):
+            child = original(*args, **kwargs)
+            children.append(child)
+            return child
+
+        with patch.object(prepare.subprocess, "Popen", side_effect=launch):
+            with self.assertRaisesRegex(RuntimeError, "during DISM operation"):
+                prepare._run_dism(
+                    [sys.executable, "-c", "import time; time.sleep(30)"],
+                    self.root / "cancel-transcript",
+                    lambda: bool(children),
+                )
+        self.assertIsNotNone(children[0].returncode)
 
     def test_cli_late_cancel_cannot_publish_success(self):
         manifest_path = self.root / "manifest.json"

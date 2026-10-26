@@ -1489,7 +1489,7 @@ def export_audit_json(audit_payload, export_path, target_drive=None):
     Safely exports the audit payload as JSON to the user-selected path.
     """
     validate_export_safety(export_path, target_drive, "json")
-    with open(export_path, "w", encoding="utf-8") as f:
+    with open(export_path, "x", encoding="utf-8") as f:
         json.dump(audit_payload, f, indent=2)
     return True
 
@@ -1500,7 +1500,7 @@ def export_audit_markdown(audit_payload, export_path, target_drive=None):
     """
     validate_export_safety(export_path, target_drive, "markdown")
     md_content = generate_audit_markdown(audit_payload)
-    with open(export_path, "w", encoding="utf-8") as f:
+    with open(export_path, "x", encoding="utf-8") as f:
         f.write(md_content)
     return True
 
