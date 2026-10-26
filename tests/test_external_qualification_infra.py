@@ -53,6 +53,7 @@ class ExternalQualificationInfraTests(unittest.TestCase):
         self.assertIn('ARCWYRE_EXPECTED_COMMIT', self.aws_portable)
         self.assertIn('--gate aws_portable_build', self.aws_portable)
         self.assertIn('CODEBUILD_BUILD_SUCCEEDING', self.aws_portable)
+        self.assertIn('--default-toolchain 1.98.1', self.aws_portable)
         self.assertIn('test_windows*.py', self.aws_portable)
         self.assertIn('cargo test --locked', self.aws_portable)
         self.assertIn('s3://$ARCWYRE_EVIDENCE_BUCKET/$ARCWYRE_EVIDENCE_KEY', self.aws_portable)

@@ -12,6 +12,8 @@ phases:
     commands:
       - python3 --version
       - node --version
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.98.1
+      - source "$HOME/.cargo/env"
       - rustc --version
       - cargo --version
   pre_build:
