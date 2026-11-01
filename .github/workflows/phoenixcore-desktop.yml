@@ -61,7 +61,7 @@ jobs:
             schema_version = "bws.phoenixcore-desktop-artifact/v1"
             app_id = "phoenixcore-desktop"
             source_commit = $source
-            version = "0.1.0"
+            version = "0.1.1"
             target = "windows-x86_64"
             msi = [ordered]@{ filename = $msi[0].Name; size_bytes = $msi[0].Length; sha256 = (Get-FileHash $msi[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
             nsis = [ordered]@{ filename = $nsis[0].Name; size_bytes = $nsis[0].Length; sha256 = (Get-FileHash $nsis[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
