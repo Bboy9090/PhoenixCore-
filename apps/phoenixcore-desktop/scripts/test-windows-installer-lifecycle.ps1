@@ -21,7 +21,7 @@ $ProgressPreference = "SilentlyContinue"
 
 $ProductName = "PhoenixCore Desktop"
 $AppId = "phoenixcore-desktop"
-$Version = "0.1.0"
+$Version = "0.1.1"
 $InstallerPath = (Resolve-Path -LiteralPath $InstallerPath).Path
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
