@@ -465,9 +465,12 @@ mod tests {
             .blocked_gates
             .contains(&"critical_components_trusted".to_string()));
 
-        bundle["components"]["target_data_backup_receipt"] = trusted_component(
-            "phoenix_key.target_data_backup_receipt.v1",
-        );
+        bundle["components"]["target_data_backup_receipt"] =
+            trusted_component("phoenix_key.target_data_backup_receipt.v1");
+        bundle["components"]["target_data_backup_coverage_proof"] =
+            trusted_component("phoenix_key.target_data_backup_coverage_proof.v1");
+        bundle["components"]["backup_destination_identity_verification"] =
+            trusted_component("phoenix_key.backup_destination_identity_verification.v1");
         resign(&mut bundle);
         let ready = assess_final_recovery_preflight(&bundle);
         assert!(ready.ready_for_restore_executor_architecture_review);
