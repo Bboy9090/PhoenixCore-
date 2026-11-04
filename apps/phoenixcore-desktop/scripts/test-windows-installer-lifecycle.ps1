@@ -89,6 +89,7 @@ function Find-DesktopExecutable {
         if ($Entry.PSObject.Properties.Name -contains "InstallLocation") {
             $InstallLocation = ([string]$Entry.InstallLocation).Trim().Trim('"')
             if (-not [string]::IsNullOrWhiteSpace($InstallLocation)) {
+                Add-CandidatePath -Candidates $Candidates -Path (Join-Path $InstallLocation "Boot It Back.exe")
                 Add-CandidatePath -Candidates $Candidates -Path (Join-Path $InstallLocation "PhoenixCore Desktop.exe")
                 Add-CandidatePath -Candidates $Candidates -Path (Join-Path $InstallLocation "phoenixcore-desktop.exe")
             }
@@ -98,12 +99,15 @@ function Find-DesktopExecutable {
         }
     }
     if ($env:ProgramFiles) {
+        Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:ProgramFiles "Boot It Back\Boot It Back.exe")
         Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:ProgramFiles "PhoenixCore Desktop\PhoenixCore Desktop.exe")
     }
     if (${env:ProgramFiles(x86)}) {
+        Add-CandidatePath -Candidates $Candidates -Path (Join-Path ${env:ProgramFiles(x86)} "Boot It Back\Boot It Back.exe")
         Add-CandidatePath -Candidates $Candidates -Path (Join-Path ${env:ProgramFiles(x86)} "PhoenixCore Desktop\PhoenixCore Desktop.exe")
     }
     if ($env:LOCALAPPDATA) {
+        Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:LOCALAPPDATA "Boot It Back\Boot It Back.exe")
         Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:LOCALAPPDATA "PhoenixCore Desktop\PhoenixCore Desktop.exe")
     }
     foreach ($Candidate in $Candidates) {
