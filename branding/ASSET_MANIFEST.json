@@ -22,7 +22,7 @@
     },
     {
       "id": "phoenixcore-desktop",
-      "name": "PhoenixCore Desktop",
+      "name": "Boot It Back",
       "role": "hardware operations and media preparation command center",
       "accent": "Systems Cyan and Steel Silver",
       "icon_master": "branding/v2/icons/phoenixcore-desktop.svg"
