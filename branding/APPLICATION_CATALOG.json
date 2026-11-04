@@ -38,8 +38,8 @@
       },
       {
         "id": "phoenixcore-desktop",
-        "name": "PhoenixCore Desktop",
-        "role": "Desktop Hardware Operations & Media Station",
+        "name": "Boot It Back",
+        "role": "Computer Recovery, OS Repair & Boot Operations",
         "icon": "branding/icons/phoenixcore-desktop.svg"
       },
       {
