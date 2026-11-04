@@ -39,6 +39,30 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Emit preflight release-state receipt
+        shell: pwsh
+        run: |
+          $state = [ordered]@{
+            schema = "phoenix-key.release-state.v1"
+            channel = "microsoft-store"
+            source_commit = "${{ github.event.pull_request.head.sha || github.sha }}"
+            event = "${{ github.event_name }}"
+            preflight_passed = $true
+            release_job_requested = ("${{ github.event_name }}" -eq "workflow_dispatch")
+            signed_or_store_artifact_produced = $false
+            release_published = $false
+            status = $(if ("${{ github.event_name }}" -eq "workflow_dispatch") { "preflight-pass-release-job-pending" } else { "preflight-only-no-release-artifact" })
+          }
+          $state | ConvertTo-Json -Depth 6 | Set-Content "$env:RUNNER_TEMP/phoenix-key-microsoft-store-release-state.json" -Encoding utf8
+          Get-Content "$env:RUNNER_TEMP/phoenix-key-microsoft-store-release-state.json"
+      - name: Upload preflight release-state receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-key-microsoft-store-preflight-state
+          path: ${{ runner.temp }}/phoenix-key-microsoft-store-release-state.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Build Microsoft Store offline installer candidate
         shell: pwsh
         run: |
