@@ -29,7 +29,7 @@
     },
     {
       "id": "phoenix-usb-creator",
-      "name": "Phoenix USB Creator",
+      "name": "Phoenix Key",
       "role": "single, dual, multi-boot, recovery, installer, and technician media creation",
       "accent": "Phoenix Orange",
       "icon_master": "branding/v2/icons/phoenix-usb-creator.svg"
