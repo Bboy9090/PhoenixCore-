@@ -16,6 +16,7 @@ on:
         required: true
         default: phoenix-key-v3.2.0
 
+# PR preflight receipts prove configuration readiness without claiming signed artifacts.
 permissions:
   contents: read
 
