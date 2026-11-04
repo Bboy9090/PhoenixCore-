@@ -42,6 +42,35 @@ jobs:
       - run: npm run test:artifact-receipt
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
+      - name: Emit preflight release-state receipt
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const manual = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
+          const state = {
+            schema: 'phoenix-key.release-state.v1',
+            channel: 'macos-signed',
+            source_commit: process.env.GITHUB_HEAD_SHA || process.env.GITHUB_SHA,
+            event: process.env.GITHUB_EVENT_NAME,
+            preflight_passed: true,
+            release_job_requested: manual,
+            signed_or_store_artifact_produced: false,
+            release_published: false,
+            status: manual ? 'preflight-pass-release-job-pending' : 'preflight-only-no-release-artifact'
+          };
+          const path = process.env.RUNNER_TEMP + '/phoenix-key-macos-signed-release-state.json';
+          fs.writeFileSync(path, JSON.stringify(state, null, 2) + '\n');
+          console.log(JSON.stringify(state));
+          NODE
+      - name: Upload preflight release-state receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-key-macos-signed-preflight-state
+          path: ${{ runner.temp }}/phoenix-key-macos-signed-release-state.json
+          if-no-files-found: error
+          retention-days: 30
+
   build-sign-notarize:
     if: github.event_name == 'workflow_dispatch'
     needs: preflight
