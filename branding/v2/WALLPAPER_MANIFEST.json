@@ -4,7 +4,7 @@
   "wallpapers": [
     {"product": "PhoenixCore Mobile", "path": "branding/v2/wallpapers/phoenixcore-mobile-hero.svg"},
     {"product": "PhoenixCore Desktop", "path": "branding/v2/wallpapers/phoenixcore-desktop-hero.svg"},
-    {"product": "Phoenix USB Creator", "path": "branding/v2/wallpapers/phoenix-usb-creator-hero.svg"},
+    {"product": "Phoenix Key", "path": "branding/v2/wallpapers/phoenix-usb-creator-hero.svg"},
     {"product": "Device Diagnosis Engine", "path": "branding/v2/wallpapers/device-diagnosis-engine-hero.svg"},
     {"product": "Repair Planning Engine", "path": "branding/v2/wallpapers/repair-planning-engine-hero.svg"},
     {"product": "OS Compatibility Engine", "path": "branding/v2/wallpapers/os-compatibility-engine-hero.svg"},
