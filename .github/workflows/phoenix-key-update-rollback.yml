@@ -1,0 +1,118 @@
+name: Phoenix Key Update Rollback
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "apps/phoenix-key/scripts/test-windows-update-rollback.ps1"
+      - ".github/workflows/phoenix-key-update-rollback.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-version-pair:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout candidate exact head
+        uses: actions/checkout@v4
+        with:
+          path: candidate
+      - name: Checkout immutable 3.1.0 baseline
+        uses: actions/checkout@v4
+        with:
+          ref: f68c2cb917ec1d800956232de7ea99e60cdb94f7
+          path: baseline
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build baseline 3.1.0 installers
+        shell: pwsh
+        run: |
+          Push-Location baseline/apps/phoenix-key
+          npm ci
+          $env:PHOENIX_KEY_SOURCE_COMMIT = "f68c2cb917ec1d800956232de7ea99e60cdb94f7"
+          npm run desktop:build
+          Pop-Location
+      - name: Build candidate 3.2.0 installers
+        shell: pwsh
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          Push-Location candidate/apps/phoenix-key
+          npm ci
+          $env:PHOENIX_KEY_SOURCE_COMMIT = $env:CANDIDATE_SHA
+          npm run desktop:build
+          Pop-Location
+      - name: Collect exact installer pair
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pair/baseline/msi,pair/baseline/nsis,pair/candidate/msi,pair/candidate/nsis | Out-Null
+          $bMsi = @(Get-ChildItem baseline/apps/phoenix-key/src-tauri/target/release/bundle/msi/*.msi)
+          $bNsis = @(Get-ChildItem baseline/apps/phoenix-key/src-tauri/target/release/bundle/nsis/*.exe)
+          $cMsi = @(Get-ChildItem candidate/apps/phoenix-key/src-tauri/target/release/bundle/msi/*.msi)
+          $cNsis = @(Get-ChildItem candidate/apps/phoenix-key/src-tauri/target/release/bundle/nsis/*.exe)
+          if ($bMsi.Count -ne 1 -or $bNsis.Count -ne 1 -or $cMsi.Count -ne 1 -or $cNsis.Count -ne 1) {
+            throw "Expected exactly one MSI and one NSIS installer for both baseline and candidate."
+          }
+          Copy-Item $bMsi[0].FullName pair/baseline/msi/
+          Copy-Item $bNsis[0].FullName pair/baseline/nsis/
+          Copy-Item $cMsi[0].FullName pair/candidate/msi/
+          Copy-Item $cNsis[0].FullName pair/candidate/nsis/
+          Get-FileHash pair/*/*/* -Algorithm SHA256 | Format-Table -AutoSize
+      - name: Upload version pair
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-key-update-rollback-version-pair
+          path: pair/
+          if-no-files-found: error
+          retention-days: 30
+
+  update-rollback:
+    needs: build-version-pair
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        installer_kind: [msi, nsis]
+    steps:
+      - name: Checkout candidate exact head
+        uses: actions/checkout@v4
+      - name: Download version pair
+        uses: actions/download-artifact@v4
+        with:
+          name: phoenix-key-update-rollback-version-pair
+          path: pair
+      - name: Resolve installer pair and execute proof
+        shell: pwsh
+        env:
+          KIND: ${{ matrix.installer_kind }}
+          BASELINE_SHA: f68c2cb917ec1d800956232de7ea99e60cdb94f7
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          $kind = $env:KIND
+          if ($kind -eq "msi") {
+            $baseline = @(Get-ChildItem pair/baseline/msi/*.msi)
+            $candidate = @(Get-ChildItem pair/candidate/msi/*.msi)
+          } else {
+            $baseline = @(Get-ChildItem pair/baseline/nsis/*.exe)
+            $candidate = @(Get-ChildItem pair/candidate/nsis/*.exe)
+          }
+          if ($baseline.Count -ne 1 -or $candidate.Count -ne 1) { throw "Installer pair resolution failed for $kind" }
+          & "apps/phoenix-key/scripts/test-windows-update-rollback.ps1" `
+            -InstallerKind $kind `
+            -BaselineInstaller $baseline[0].FullName `
+            -CandidateInstaller $candidate[0].FullName `
+            -OutputDirectory "update-rollback-evidence/$kind" `
+            -BaselineCommit $env:BASELINE_SHA `
+            -CandidateCommit $env:CANDIDATE_SHA
+      - name: Upload update/rollback evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-key-${{ matrix.installer_kind }}-update-rollback-evidence
+          path: update-rollback-evidence/${{ matrix.installer_kind }}/
+          if-no-files-found: error
+          retention-days: 30
