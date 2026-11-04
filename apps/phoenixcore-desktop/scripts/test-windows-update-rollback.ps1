@@ -12,7 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$ProductName = "PhoenixCore Desktop"
+$ProductName = "Boot It Back"
 $BaselineVersion = "0.1.0"
 $CandidateVersion = "0.1.1"
 $BaselineInstaller = (Resolve-Path -LiteralPath $BaselineInstaller).Path
