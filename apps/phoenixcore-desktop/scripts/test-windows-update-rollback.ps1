@@ -12,7 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$ProductName = "PhoenixCore Desktop"
+$ProductName = "Boot It Back"
 $BaselineVersion = "0.1.0"
 $CandidateVersion = "0.1.1"
 $BaselineInstaller = (Resolve-Path -LiteralPath $BaselineInstaller).Path
@@ -49,6 +49,7 @@ function Find-Executable {
     foreach ($entry in $entries) {
         if ($entry.PSObject.Properties.Name -contains "InstallLocation" -and -not [string]::IsNullOrWhiteSpace([string]$entry.InstallLocation)) {
             $base = ([string]$entry.InstallLocation).Trim().Trim('"')
+            $candidates += Join-Path $base "Boot It Back.exe"
             $candidates += Join-Path $base "PhoenixCore Desktop.exe"
             $candidates += Join-Path $base "phoenixcore-desktop.exe"
         }
@@ -56,8 +57,15 @@ function Find-Executable {
             $candidates += ([string]$entry.DisplayIcon).Trim().Trim('"').Split(',')[0]
         }
     }
-    if ($env:ProgramFiles) { $candidates += Join-Path $env:ProgramFiles "PhoenixCore Desktop\PhoenixCore Desktop.exe" }
-    if ($env:LOCALAPPDATA) { $candidates += Join-Path $env:LOCALAPPDATA "PhoenixCore Desktop\PhoenixCore Desktop.exe" }
+    if ($env:ProgramFiles) {
+        $candidates += Join-Path $env:ProgramFiles "Boot It Back\Boot It Back.exe"
+        $candidates += Join-Path $env:ProgramFiles "PhoenixCore Desktop\PhoenixCore Desktop.exe"
+    }
+    if (${env:ProgramFiles(x86)}) { $candidates += Join-Path ${env:ProgramFiles(x86)} "Boot It Back\Boot It Back.exe" }
+    if ($env:LOCALAPPDATA) {
+        $candidates += Join-Path $env:LOCALAPPDATA "Boot It Back\Boot It Back.exe"
+        $candidates += Join-Path $env:LOCALAPPDATA "PhoenixCore Desktop\PhoenixCore Desktop.exe"
+    }
     foreach ($candidate in $candidates | Select-Object -Unique) {
         if (Test-Path -LiteralPath $candidate -PathType Leaf) { return (Resolve-Path -LiteralPath $candidate).Path }
     }

@@ -175,7 +175,7 @@ export default function App() {
   const [status, setStatus] = useState('idle'); // idle, working, success, error
   const [progress, setProgress] = useState(0);
   const [terminalLogs, setTerminalLogs] = useState([
-    { type: 'info', text: 'PhoenixCore & BootForge Engine v2.5.0 Initialized.' },
+    { type: 'info', text: 'Boot It Back initialized · PhoenixCore/BootForge engines ready.' },
     { type: 'warning', text: 'Foundation Lock active: real USB scanning and image inspection only. Write, format, partition, and burn actions are disabled.' },
     { type: 'info', text: 'Click Scan USBs or inspect an ISO/IMG path through the read-only Python bridge.' }
   ]);
@@ -465,7 +465,7 @@ export default function App() {
 - **Calculated SHA256**: ${image.sha256 || 'N/A'}`
       : 'N/A';
       
-    return `# PhoenixCore / BootForge Audit Evidence Report
+    return `# Boot It Back Audit Evidence Report
 
 ## General Info
 - **Plan ID**: ${data.plan_id}

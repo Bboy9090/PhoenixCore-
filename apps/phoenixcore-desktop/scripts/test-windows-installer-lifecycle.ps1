@@ -19,7 +19,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$ProductName = "PhoenixCore Desktop"
+$ProductName = "Boot It Back"
 $AppId = "phoenixcore-desktop"
 $Version = "0.1.1"
 $InstallerPath = (Resolve-Path -LiteralPath $InstallerPath).Path
@@ -89,6 +89,7 @@ function Find-DesktopExecutable {
         if ($Entry.PSObject.Properties.Name -contains "InstallLocation") {
             $InstallLocation = ([string]$Entry.InstallLocation).Trim().Trim('"')
             if (-not [string]::IsNullOrWhiteSpace($InstallLocation)) {
+                Add-CandidatePath -Candidates $Candidates -Path (Join-Path $InstallLocation "Boot It Back.exe")
                 Add-CandidatePath -Candidates $Candidates -Path (Join-Path $InstallLocation "PhoenixCore Desktop.exe")
                 Add-CandidatePath -Candidates $Candidates -Path (Join-Path $InstallLocation "phoenixcore-desktop.exe")
             }
@@ -98,12 +99,15 @@ function Find-DesktopExecutable {
         }
     }
     if ($env:ProgramFiles) {
+        Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:ProgramFiles "Boot It Back\Boot It Back.exe")
         Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:ProgramFiles "PhoenixCore Desktop\PhoenixCore Desktop.exe")
     }
     if (${env:ProgramFiles(x86)}) {
+        Add-CandidatePath -Candidates $Candidates -Path (Join-Path ${env:ProgramFiles(x86)} "Boot It Back\Boot It Back.exe")
         Add-CandidatePath -Candidates $Candidates -Path (Join-Path ${env:ProgramFiles(x86)} "PhoenixCore Desktop\PhoenixCore Desktop.exe")
     }
     if ($env:LOCALAPPDATA) {
+        Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:LOCALAPPDATA "Boot It Back\Boot It Back.exe")
         Add-CandidatePath -Candidates $Candidates -Path (Join-Path $env:LOCALAPPDATA "PhoenixCore Desktop\PhoenixCore Desktop.exe")
     }
     foreach ($Candidate in $Candidates) {
@@ -201,8 +205,8 @@ try {
         installer = [ordered]@{ kind = $InstallerKind; filename = $InstallerInfo.Name; size_bytes = $InstallerInfo.Length; sha256 = $InstallerHash }
         install = [ordered]@{ status = "pass"; exit_code = $InstallExitCode; uninstall_registration_count = $InstalledEntries.Count; log = [System.IO.Path]::GetFileName($InstallLog) }
         launch = [ordered]@{ status = "pass"; executable_path = $InstalledExecutable; executable_size_bytes = $InstalledExecutableSize; executable_sha256 = $InstalledExecutableHash; process_exit_code = $LaunchProcess.ExitCode; smoke_receipt = [System.IO.Path]::GetFileName($SmokeReceiptPath) }
-        update = [ordered]@{ status = "not-run"; reason = "first PhoenixCore Desktop package version" }
-        rollback = [ordered]@{ status = "not-run"; reason = "no prior PhoenixCore Desktop package version exists" }
+        update = [ordered]@{ status = "not-run"; reason = "first Boot It Back package version" }
+        rollback = [ordered]@{ status = "not-run"; reason = "no prior Boot It Back package version exists" }
         uninstall = [ordered]@{ status = "pass"; exit_code = $UninstallExitCode; registration_remaining = $false; executable_remaining = $false; log = [System.IO.Path]::GetFileName($UninstallLog) }
         packaged_vite_api_bridge = "not-verified"
         signing = "not-run"

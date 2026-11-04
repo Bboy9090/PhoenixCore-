@@ -38,14 +38,14 @@
       },
       {
         "id": "phoenixcore-desktop",
-        "name": "PhoenixCore Desktop",
-        "role": "Desktop Hardware Operations & Media Station",
+        "name": "Boot It Back",
+        "role": "Computer Recovery, OS Repair & Boot Operations",
         "icon": "branding/icons/phoenixcore-desktop.svg"
       },
       {
         "id": "phoenix-usb-creator",
-        "name": "Phoenix USB Creator",
-        "role": "Multi-boot & Installer Deployment Engine",
+        "name": "Phoenix Key",
+        "role": "Guarded Recovery & Multi-Boot Media Creator",
         "icon": "branding/icons/phoenix-usb-creator.svg"
       },
       {
