@@ -116,12 +116,52 @@ requireContains(
   "permissions:\n  contents: read",
   "Microsoft Store workflow must default to read-only repository permissions",
 );
+requireContains(
+  microsoftStore,
+  "phoenix-key.microsoft-store-submission.v1",
+  "Microsoft Store workflow must retain a post-submit truth receipt",
+);
+requireContains(
+  microsoftStore,
+  "store_review_approved = $false",
+  "Microsoft Store receipt must not imply review approval",
+);
+requireContains(
+  microsoftStore,
+  "store_published = $false",
+  "Microsoft Store receipt must not imply publication",
+);
+requireContains(
+  microsoftStore,
+  "device_write_authority_granted = $false",
+  "Microsoft Store receipt must not grant device-write authority",
+);
 
 const macAppStore = text(workflows.macAppStore);
 requireContains(
   macAppStore,
   "  package-and-upload:\n    if: github.event_name == 'workflow_dispatch'",
   "Mac App Store upload must require manual dispatch",
+);
+requireContains(
+  macAppStore,
+  "phoenix-key.mac-app-store-submission.v1",
+  "Mac App Store workflow must retain a post-upload truth receipt",
+);
+requireContains(
+  macAppStore,
+  '"app_store_review_approved": false',
+  "Mac App Store receipt must not imply review approval",
+);
+requireContains(
+  macAppStore,
+  '"store_published": false',
+  "Mac App Store receipt must not imply publication",
+);
+requireContains(
+  macAppStore,
+  '"device_write_authority_granted": false',
+  "Mac App Store receipt must not grant device-write authority",
 );
 
 const googlePlay = text(workflows.googlePlay);

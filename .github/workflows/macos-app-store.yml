@@ -221,4 +221,39 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.PHOENIX_KEY_APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
           set -euo pipefail
-          xcrun iTMSTransporter             -m upload             -assetFile "$PKG_PATH"             -u "$APPLE_ID"             -p "$APPLE_PASSWORD"
+          xcrun iTMSTransporter \
+            -m upload \
+            -assetFile "$PKG_PATH" \
+            -u "$APPLE_ID" \
+            -p "$APPLE_PASSWORD" \
+            2>&1 | tee "$RUNNER_TEMP/MAC-APP-STORE-UPLOAD.log"
+          test "${PIPESTATUS[0]}" -eq 0
+
+      - name: Emit App Store Connect submission receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG_SHA="$(shasum -a 256 "$PKG_PATH" | awk '{print $1}')"
+          cat > "$RUNNER_TEMP/MAC-APP-STORE-SUBMISSION-RECEIPT.json" <<EOF
+          {
+            "schema": "phoenix-key.mac-app-store-submission.v1",
+            "source_commit": "${{ github.sha }}",
+            "package_sha256": "$PKG_SHA",
+            "app_store_connect_upload_completed": true,
+            "app_store_review_approved": false,
+            "store_published": false,
+            "device_write_authority_granted": false,
+            "scope": "Transport upload completion only. Review approval and publication remain unproven."
+          }
+          EOF
+          cat "$RUNNER_TEMP/MAC-APP-STORE-SUBMISSION-RECEIPT.json"
+
+      - name: Upload App Store Connect submission evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-key-mac-app-store-submission-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/MAC-APP-STORE-SUBMISSION-RECEIPT.json
+            ${{ runner.temp }}/MAC-APP-STORE-UPLOAD.log
+          if-no-files-found: error
+          retention-days: 30
