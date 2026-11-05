@@ -34,7 +34,9 @@ def utc_now_iso() -> str:
 
 
 def canonical_json(payload: dict[str, Any]) -> bytes:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
 
 
 def sha256_payload(payload: dict[str, Any]) -> str:
@@ -89,8 +91,16 @@ def normalize(node: dict[str, Any], target: str) -> dict[str, Any]:
     if size <= 0:
         raise EvidenceError("Target size is missing or invalid.")
 
-    removable = bool(int(node.get("rm") or 0)) if str(node.get("rm") or "").isdigit() else bool(node.get("rm"))
-    read_only = bool(int(node.get("ro") or 0)) if str(node.get("ro") or "").isdigit() else bool(node.get("ro"))
+    removable = (
+        bool(int(node.get("rm") or 0))
+        if str(node.get("rm") or "").isdigit()
+        else bool(node.get("rm"))
+    )
+    read_only = (
+        bool(int(node.get("ro") or 0))
+        if str(node.get("ro") or "").isdigit()
+        else bool(node.get("ro"))
+    )
     transport = str(node.get("tran") or "").strip().lower() or None
     serial = str(node.get("serial") or "").strip() or None
     wwn = str(node.get("wwn") or "").strip() or None
@@ -147,8 +157,11 @@ def query_lsblk(target: str) -> dict[str, Any]:
         raise EvidenceError("Live Linux physical-drive collection requires Linux.")
     completed = subprocess.run(
         [
-            "lsblk", "-J", "-b",
-            "-o", "NAME,KNAME,PATH,TYPE,SIZE,RM,RO,TRAN,SERIAL,WWN,MODEL,MOUNTPOINT,MOUNTPOINTS",
+            "lsblk",
+            "-J",
+            "-b",
+            "-o",
+            "NAME,KNAME,PATH,TYPE,SIZE,RM,RO,TRAN,SERIAL,WWN,MODEL,MOUNTPOINT,MOUNTPOINTS",
             target,
         ],
         check=False,
@@ -157,7 +170,9 @@ def query_lsblk(target: str) -> dict[str, Any]:
         timeout=10,
     )
     if completed.returncode != 0:
-        raise EvidenceError(completed.stderr.strip() or "lsblk evidence collection failed.")
+        raise EvidenceError(
+            completed.stderr.strip() or "lsblk evidence collection failed."
+        )
     try:
         return json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
@@ -186,7 +201,11 @@ def build_receipt(
         "bytes_written": 0,
         "physical_write_attempted": False,
         "hardware_observed": evidence_source == "live",
-        "classification": "hardware-evidence-captured" if evidence_source == "live" else "fixture-validated",
+        "classification": (
+            "hardware-evidence-captured"
+            if evidence_source == "live"
+            else "fixture-validated"
+        ),
         "next_required_action": (
             "linux-writer-remains-locked-pending-separate-executor-qualification"
             if disk["write_candidate"]
@@ -201,7 +220,9 @@ def write_atomic(receipt: dict[str, Any], output: Path) -> None:
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     data = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output.parent, delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=output.parent, delete=False
+    ) as tmp:
         tmp.write(data)
         tmp.flush()
         os.fsync(tmp.fileno())
@@ -213,7 +234,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--source-commit", default=os.environ.get("GITHUB_SHA", "unknown"))
+    parser.add_argument(
+        "--source-commit", default=os.environ.get("GITHUB_SHA", "unknown")
+    )
     parser.add_argument("--fixture-json", type=Path)
     return parser.parse_args()
 
@@ -241,6 +264,11 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (EvidenceError, OSError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
+    except (
+        EvidenceError,
+        OSError,
+        json.JSONDecodeError,
+        subprocess.SubprocessError,
+    ) as exc:
         print(f"LINUX_DRIVE_EVIDENCE_FAILED: {exc}", file=sys.stderr)
         raise SystemExit(2) from exc
