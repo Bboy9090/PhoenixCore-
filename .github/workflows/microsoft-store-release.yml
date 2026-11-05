@@ -197,8 +197,51 @@ jobs:
           PRODUCT_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_PRODUCT_ID }}
         run: |
           $package = Get-Content -Raw "$env:RUNNER_TEMP/msstore-package.json"
-          msstore submission update "$env:PRODUCT_ID" $package
+          msstore submission update "$env:PRODUCT_ID" $package 2>&1 |
+            Tee-Object -FilePath "$env:RUNNER_TEMP/MSSTORE-UPDATE.log"
           if ($LASTEXITCODE -ne 0) { throw "Microsoft Store package update failed" }
-          msstore submission publish "$env:PRODUCT_ID"
+
+          msstore submission publish "$env:PRODUCT_ID" 2>&1 |
+            Tee-Object -FilePath "$env:RUNNER_TEMP/MSSTORE-PUBLISH.log"
           if ($LASTEXITCODE -ne 0) { throw "Microsoft Store submission publish failed" }
-          msstore submission poll "$env:PRODUCT_ID"
+
+          msstore submission poll "$env:PRODUCT_ID" 2>&1 |
+            Tee-Object -FilePath "$env:RUNNER_TEMP/MSSTORE-POLL.log"
+          if ($LASTEXITCODE -ne 0) { throw "Microsoft Store submission poll failed" }
+
+      - name: Emit Microsoft Store submission receipt
+        shell: pwsh
+        env:
+          PRODUCT_ID: ${{ secrets.PHOENIX_KEY_MS_STORE_PRODUCT_ID }}
+        run: |
+          $exe = @(Get-ChildItem "src-tauri/target/release/bundle/nsis/*setup.exe")
+          if ($exe.Count -ne 1) { throw "Expected exactly one NSIS installer" }
+          $hash = (Get-FileHash -Algorithm SHA256 $exe[0].FullName).Hash.ToLower()
+          $receipt = [ordered]@{
+            schema = "phoenix-key.microsoft-store-submission.v1"
+            source_commit = "${{ github.sha }}"
+            product_id = $env:PRODUCT_ID
+            installer_sha256 = $hash
+            package_update_command_completed = $true
+            submission_publish_command_completed = $true
+            submission_poll_command_completed = $true
+            store_review_approved = $false
+            store_published = $false
+            device_write_authority_granted = $false
+            scope = "Partner Center command completion only. Review approval and publication remain unproven."
+          }
+          $receipt | ConvertTo-Json -Depth 6 |
+            Set-Content "$env:RUNNER_TEMP/MSSTORE-SUBMISSION-RECEIPT.json" -Encoding utf8
+          Get-Content "$env:RUNNER_TEMP/MSSTORE-SUBMISSION-RECEIPT.json"
+
+      - name: Upload Microsoft Store submission evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-key-microsoft-store-submission-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/MSSTORE-SUBMISSION-RECEIPT.json
+            ${{ runner.temp }}/MSSTORE-UPDATE.log
+            ${{ runner.temp }}/MSSTORE-PUBLISH.log
+            ${{ runner.temp }}/MSSTORE-POLL.log
+          if-no-files-found: error
+          retention-days: 30
