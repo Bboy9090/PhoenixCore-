@@ -1,8 +1,8 @@
 use crate::data_preservation::verify_target_data_preservation_receipt_sha256;
 use crate::rollback_destination::verify_rollback_destination_verification_sha256;
 use crate::target_safety::{
-    verify_recovery_target_identity_verification_sha256,
-    verify_recovery_target_safety_sha256,
+    assess_recovery_target,
+    verify_recovery_target_identity,
 };
 use crate::target_reenumeration::{
     verify_recovery_target_reenumeration_receipt_sha256,
@@ -132,6 +132,54 @@ fn verified_reenumeration(value: &Value) -> Option<RecoveryTargetReenumerationRe
     serde_json::from_value::<RecoveryTargetReenumerationReceipt>(value.clone())
         .ok()
         .filter(verify_recovery_target_reenumeration_receipt_sha256)
+}
+
+fn verify_current_target_safety(reconnect_drive: &Value, stored: &Value) -> bool {
+    let Some(source_size_bytes) = stored.get("source_size_bytes").and_then(Value::as_u64) else {
+        return false;
+    };
+    let source_physical_target = stored
+        .get("source_physical_target")
+        .and_then(Value::as_str);
+    let source_physical_identity_sha256 = stored
+        .get("source_physical_identity_sha256")
+        .and_then(Value::as_str);
+
+    let recomputed = assess_recovery_target(
+        reconnect_drive,
+        source_size_bytes,
+        source_physical_target,
+        source_physical_identity_sha256,
+    );
+
+    serde_json::to_value(recomputed)
+        .ok()
+        .is_some_and(|value| value == *stored)
+}
+
+fn verify_current_target_identity(reconnect_drive: &Value, stored: &Value) -> bool {
+    let Some(expected_snapshot_identity_sha256) = stored
+        .get("expected_snapshot_identity_sha256")
+        .and_then(Value::as_str)
+    else {
+        return false;
+    };
+    let Some(expected_stable_identity_sha256) = stored
+        .get("expected_stable_identity_sha256")
+        .and_then(Value::as_str)
+    else {
+        return false;
+    };
+
+    let recomputed = verify_recovery_target_identity(
+        reconnect_drive,
+        expected_snapshot_identity_sha256,
+        expected_stable_identity_sha256,
+    );
+
+    serde_json::to_value(recomputed)
+        .ok()
+        .is_some_and(|value| value == *stored)
 }
 
 fn report_sha256(report: &RecoveryHardwareCampaignReportV1) -> String {
@@ -300,8 +348,8 @@ pub fn build_recovery_hardware_campaign_report(
         });
 
     let post_reanalysis_fresh_identity_proven = reconnect_same_hardware_proven
-        && verify_recovery_target_safety_sha256(post_reanalysis_safety)
-        && verify_recovery_target_identity_verification_sha256(post_reanalysis_verification)
+        && verify_current_target_safety(reconnect_drive, post_reanalysis_safety)
+        && verify_current_target_identity(reconnect_drive, post_reanalysis_verification)
         && post_reanalysis_safety
             .get("safe_to_prepare")
             .and_then(Value::as_bool)
