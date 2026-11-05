@@ -8,6 +8,7 @@ mod mac_bootcamp_compat;
 mod recovery_center;
 mod recovery_diagnostics;
 mod recovery_evidence_bundle;
+mod recovery_hardware_campaign;
 mod final_recovery_preflight;
 mod recovery_session;
 mod restore_preflight;
@@ -48,6 +49,7 @@ use recovery_evidence_bundle::{
     build_windows_recovery_evidence_bundle_v2,
     load_windows_recovery_hardware_campaign_manifest,
 };
+use recovery_hardware_campaign::assess_windows_recovery_hardware_campaign;
 use final_recovery_preflight::assess_final_windows_recovery_preflight;
 use recovery_session::build_windows_recovery_session_state;
 use serde::Serialize;
@@ -1927,6 +1929,7 @@ fn main() {
         verify_windows_recovery_source_identity,
         build_windows_recovery_evidence_bundle_v2,
         load_windows_recovery_hardware_campaign_manifest,
+        assess_windows_recovery_hardware_campaign,
         assess_final_windows_recovery_preflight,
         build_windows_recovery_diagnostics_export,
         persist_windows_recovery_diagnostics_export,
