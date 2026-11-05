@@ -16,6 +16,7 @@ on:
         required: true
         default: phoenix-key-v3.2.0
 
+# PR preflight receipts prove configuration readiness without claiming signed artifacts.
 permissions:
   contents: read
 
@@ -43,6 +44,30 @@ jobs:
       - name: Verify release workflow signing boundaries
         run: node ../../scripts/release/check-release-workflow-boundaries.mjs
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Emit preflight release-state receipt
+        shell: pwsh
+        run: |
+          $state = [ordered]@{
+            schema = "phoenix-key.release-state.v1"
+            channel = "windows-signed"
+            source_commit = "${{ github.event.pull_request.head.sha || github.sha }}"
+            event = "${{ github.event_name }}"
+            preflight_passed = $true
+            release_job_requested = ("${{ github.event_name }}" -eq "workflow_dispatch")
+            signed_or_store_artifact_produced = $false
+            release_published = $false
+            status = $(if ("${{ github.event_name }}" -eq "workflow_dispatch") { "preflight-pass-release-job-pending" } else { "preflight-only-no-release-artifact" })
+          }
+          $state | ConvertTo-Json -Depth 6 | Set-Content "$env:RUNNER_TEMP/phoenix-key-windows-signed-release-state.json" -Encoding utf8
+          Get-Content "$env:RUNNER_TEMP/phoenix-key-windows-signed-release-state.json"
+      - name: Upload preflight release-state receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-key-windows-signed-preflight-state
+          path: ${{ runner.temp }}/phoenix-key-windows-signed-release-state.json
+          if-no-files-found: error
+          retention-days: 30
 
   build-sign-release:
     if: github.event_name == 'workflow_dispatch'
