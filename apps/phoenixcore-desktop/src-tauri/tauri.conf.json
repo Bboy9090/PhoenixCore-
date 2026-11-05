@@ -31,8 +31,8 @@
         "../../phoenix-key/src-tauri/icons/128x128@2x.png",
         "../../phoenix-key/src-tauri/icons/icon.ico"
       ],
-      "longDescription": "PhoenixCore desktop dashboard packaged as a native Tauri application.",
-      "shortDescription": "PhoenixCore Desktop",
+      "longDescription": "Boot It Back desktop recovery workspace packaged as a native Tauri application.",
+      "shortDescription": "Boot It Back",
       "targets": ["msi", "nsis"],
       "windows": {
         "webviewInstallMode": {
@@ -52,7 +52,7 @@
         "minHeight": 720,
         "minWidth": 1040,
         "resizable": true,
-        "title": "PhoenixCore Desktop",
+        "title": "Boot It Back",
         "width": 1440
       }
     ]
