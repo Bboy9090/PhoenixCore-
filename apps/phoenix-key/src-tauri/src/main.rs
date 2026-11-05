@@ -78,6 +78,9 @@ const DEVICE_SCANNER_SOURCE: &str = include_str!("../../../../device_scanner.py"
 const DRIVE_EVIDENCE_SOURCE: &str =
     include_str!("../../../../scripts/hardware/capture_windows_drive_evidence.py");
 #[cfg(not(feature = "store-safe"))]
+const LINUX_DRIVE_EVIDENCE_SOURCE: &str =
+    include_str!("../../../../scripts/hardware/capture_linux_drive_evidence.py");
+#[cfg(not(feature = "store-safe"))]
 const STABLE_TARGET_LOCATOR_SOURCE: &str =
     include_str!("../../../../scripts/hardware/find_windows_drive_by_stable_identity.py");
 #[cfg(not(feature = "store-safe"))]
@@ -160,7 +163,7 @@ fn current_distribution_profile() -> DistributionProfile {
             store_safe: false,
             hardware_scan: true,
             media_planning: true,
-            physical_media_write: true,
+            physical_media_write: cfg!(windows),
             external_helper_execution: true,
             cloud_acquisition: true,
             native_recovery_analysis: true,
@@ -300,6 +303,11 @@ fn bridge_directory() -> Result<PathBuf, String> {
         DRIVE_EVIDENCE_SOURCE,
     )
     .map_err(|error| format!("cannot stage embedded drive evidence collector: {error}"))?;
+    fs::write(
+        directory.join("capture_linux_drive_evidence.py"),
+        LINUX_DRIVE_EVIDENCE_SOURCE,
+    )
+    .map_err(|error| format!("cannot stage embedded Linux drive evidence collector: {error}"))?;
     fs::write(
         directory.join("find_windows_drive_by_stable_identity.py"),
         STABLE_TARGET_LOCATOR_SOURCE,
@@ -1738,6 +1746,38 @@ fn scan_media_targets() -> Result<Value, String> {
 }
 
 #[tauri::command]
+fn inspect_linux_media_target(target_drive: String) -> Result<Value, String> {
+    if !cfg!(target_os = "linux") {
+        return Err("Linux media-target evidence inspection requires Linux.".to_string());
+    }
+    let target = target_drive.trim();
+    if target.is_empty() {
+        return Err("target drive is required".to_string());
+    }
+
+    let directory = bridge_directory()?;
+    let result = (|| {
+        let script = directory.join("capture_linux_drive_evidence.py");
+        let output = directory.join("phoenix-key-linux-drive-evidence.json");
+        let output_text = output.to_string_lossy().to_string();
+        run_python_json(
+            &script,
+            &[
+                "--target",
+                target,
+                "--output",
+                &output_text,
+                "--source-commit",
+                source_commit()?,
+            ],
+            &[],
+        )
+    })();
+    let _ = fs::remove_dir_all(&directory);
+    result
+}
+
+#[tauri::command]
 fn plan_media_build(target_drive: String, image_path: String) -> Result<Value, String> {
     if target_drive.trim().is_empty() || image_path.trim().is_empty() {
         return Err("target drive and image path are required".to_string());
@@ -1921,6 +1961,7 @@ fn main() {
         distribution_profile,
         scan_connected_devices,
         scan_media_targets,
+        inspect_linux_media_target,
         plan_media_build,
         prepare_media_write,
         execute_media_write,
@@ -1996,7 +2037,10 @@ mod tests {
         assert_eq!(profile.schema, "phoenix_key.distribution_profile.v1");
         assert_eq!(profile.store_safe, cfg!(feature = "store-safe"));
         assert_eq!(profile.native_recovery_analysis, true);
-        assert_eq!(profile.physical_media_write, !cfg!(feature = "store-safe"));
+        assert_eq!(
+            profile.physical_media_write,
+            !cfg!(feature = "store-safe") && cfg!(windows)
+        );
         assert_eq!(profile.external_helper_execution, !cfg!(feature = "store-safe"));
     }
 
