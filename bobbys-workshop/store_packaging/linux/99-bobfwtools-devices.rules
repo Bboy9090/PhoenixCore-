@@ -1,0 +1,67 @@
+# 99-bobfwtools-devices.rules
+# BobFWTools Studio (Phoenix Forge) — Universal Linux udev USB & Serial Rules
+# Install to: /etc/udev/rules.d/99-bobfwtools-devices.rules
+# Reload with: sudo udevadm control --reload-rules && sudo udevadm trigger
+
+ACTION!="add", GOTO="bobfwtools_rules_end"
+SUBSYSTEM!="usb|tty|usb_device", GOTO="bobfwtools_rules_end"
+
+# Apple Inc. (iPhone / iPad / iPod touch — Normal, Recovery 1281, DFU 1227, WTF 1222, Diagnostic)
+ATTRS{idVendor}=="05ac", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Samsung Electronics (ADB, Fastboot, Odin / Download Mode 685d, Modem / ACM)
+ATTRS{idVendor}=="04e8", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Google Inc. (Pixel, Nexus, AOSP ADB / Fastboot / Fastbootd)
+ATTRS{idVendor}=="18d1", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Qualcomm (EDL 9008, Sahara/Firehose, Diag 9006/9091)
+ATTRS{idVendor}=="05c6", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# MediaTek Inc. (BROM 0003, Preloader 2000/2001, META, Fastboot)
+ATTRS{idVendor}=="0e8d", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Unisoc / Spreadtrum (SPRD FDL1/FDL2 Diag 4d00)
+ATTRS{idVendor}=="1782", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Motorola Mobility (Fastboot, ADB, Factory Mode)
+ATTRS{idVendor}=="22b8", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Xiaomi / Redmi / POCO (Fastboot, MiAssistant, Sideload)
+ATTRS{idVendor}=="2717", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# OnePlus / OPPO / Realme (Fastboot, ADB, Sahara)
+ATTRS{idVendor}=="22d9", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+ATTRS{idVendor}=="2a70", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Nothing Technology
+ATTRS{idVendor}=="2b4c", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Sony Mobile (Xperia Flash Mode / Fastboot)
+ATTRS{idVendor}=="0fce", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# ASUS (ROG Phone / Zenfone Fastboot & Side Port)
+ATTRS{idVendor}=="0b05", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# LG Electronics (LAF Download Mode / Fastboot)
+ATTRS{idVendor}=="1004", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# HTC Corporation (HBOOT / Fastboot / RUU)
+ATTRS{idVendor}=="0bb4", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Huawei / Honor (Fastboot, Hisuite, USB VCOM)
+ATTRS{idVendor}=="12d1", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# ZTE / Nubia / RedMagic (Fastboot, EDL, DFU)
+ATTRS{idVendor}=="19d2", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Lenovo (Legion / Tab Fastboot & EDL)
+ATTRS{idVendor}=="17ef", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# TCL / Alcatel / T-Mobile REVVL (MTP, ADB, Fastboot, MTK Preloader)
+ATTRS{idVendor}=="1bbb", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+# Fairphone (Fastboot / Fastbootd / ADB)
+ATTRS{idVendor}=="2ae5", MODE="0666", GROUP="plugdev", TAG+="uaccess"
+
+LABEL="bobfwtools_rules_end"

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
+PackageIdentifier: BobbyBlanco.BobFWToolsStudio
+PackageVersion: 5.0.0.0
+PackageLocale: en-US
+Publisher: Bobby Blanco
+PublisherUrl: https://github.com/Bboy9090/PhoenixCore-
+PackageName: BobFWTools Studio
+License: MIT
+ShortDescription: Cross-platform mobile hardware diagnostics, USB telemetry, and firmware workbench for Windows, macOS, and Linux.
+Description: BobFWTools Studio (Phoenix Forge) provides native BootForge USB descriptor enumeration, Apple iPhone/iPad (Normal/Recovery/DFU) and 20+ Android OEM hardware diagnostics, MTP file transfer, and ADB/Fastboot/Heimdall servicing.
+Tags:
+  - usb
+  - diagnostics
+  - firmware
+  - android
+  - ios
+  - fastboot
+  - adb
+ManifestType: singleton
+ManifestVersion: 1.6.0
+Installers:
+  - Architecture: x64
+    InstallerType: msi
+    InstallerUrl: https://github.com/Bboy9090/PhoenixCore-/releases/download/v5.0.0/BobFWTools_5.0.0_x64_en-US.msi
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000

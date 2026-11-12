@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=BobFWTools Studio
+Comment=Hardware, Firmware, USB Diagnostics & Flashing Suite
+Exec=bobfwtools
+Icon=bob-fw-tools
+Terminal=false
+Categories=Utility;System;Development;
+Keywords=firmware;hardware;usb;flash;diagnostics;
+StartupNotify=true
+StartupWMClass=bobfwtools

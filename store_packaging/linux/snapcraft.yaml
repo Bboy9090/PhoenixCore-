@@ -1,0 +1,39 @@
+name: bobfwtools
+base: core22
+version: '5.0.0'
+summary: Phoenix Forge Mobile Hardware, USB Telemetry & Firmware Workbench
+description: |
+  BobFWTools Studio provides native USB descriptor enumeration (BootForge USB),
+  Apple iOS/iPadOS (Normal, Recovery, DFU) and 20+ Android OEM hardware diagnostics,
+  MTP file transfer, ADB/Fastboot/Heimdall servicing, and hardware control.
+
+grade: stable
+confinement: strict
+
+apps:
+  bobfwtools:
+    command: usr/bin/bobfwtools
+    desktop: usr/share/applications/com.bobbyblanco.bobfwtools.desktop
+    common-id: com.bobbyblanco.bobfwtools
+    plugs:
+      - home
+      - network
+      - raw-usb
+      - serial-port
+      - adb-support
+      - removable-media
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+
+parts:
+  bobfwtools:
+    plugin: dump
+    source: ../../dist_linux/BobFWTools.AppDir
+    stage-packages:
+      - libusb-1.0-0
+      - usbmuxd
+      - libimobiledevice-utils
+      - android-tools-adb
+      - android-tools-fastboot
