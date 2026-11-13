@@ -1,35 +1,48 @@
 {
   "expo": {
-    "name": "Phoenix Core",
+    "name": "BobFWTools — Phoenix Core",
     "slug": "phoenix-core",
-    "version": "2.0.0",
+    "version": "5.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0a0a0f"
+      "resizeMode": "cover",
+      "backgroundColor": "#0A0D14"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.phoenixcore.mobile",
+      "bundleIdentifier": "com.bobbyblanco.bobfwtools.mobile",
+      "buildNumber": "500",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Phoenix Core needs local network access to connect to the backend server."
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "BobFWTools Studio connects to your local Phoenix Forge workbench on your LAN to stream live USB hardware diagnostics and servicing telemetry.",
+        "NSBonjourServices": ["_bobfwtools._tcp", "_http._tcp"]
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyCollectedDataTypes": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
       }
     },
     "android": {
+      "versionCode": 500,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0a0a0f"
+        "backgroundColor": "#0A0D14"
       },
-      "package": "com.phoenixcore.mobile",
+      "package": "com.bobbyblanco.bobfwtools.mobile",
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.ACCESS_NETWORK_STATE",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.ACCESS_NETWORK_STATE"
       ]
     },
     "web": {
@@ -40,7 +53,7 @@
       "expo-router",
       "expo-font"
     ],
-    "scheme": "phoenixcore",
+    "scheme": "bobfwtools",
     "extra": {
       "router": {
         "origin": false

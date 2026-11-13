@@ -1,0 +1,41 @@
+{
+  "version": "5.0.0",
+  "buildNumber": "500",
+  "copyright": "© 2026 Bobby Blanco — Phoenix Forge",
+  "primaryCategory": "UTILITIES",
+  "secondaryCategory": "DEVELOPER_TOOLS",
+  "ageRating": "4+",
+  "exportCompliance": {
+    "usesEncryption": false,
+    "isExempt": true
+  },
+  "macOS": {
+    "bundleId": "com.bobbyblanco.bobfwtools",
+    "minimumSystemVersion": "12.0",
+    "architectures": ["arm64", "x86_64"],
+    "sandboxed": true,
+    "entitlements": [
+      "com.apple.security.app-sandbox",
+      "com.apple.security.device.usb",
+      "com.apple.security.device.serial",
+      "com.apple.security.files.user-selected.read-write",
+      "com.apple.security.files.downloads.read-write",
+      "com.apple.security.network.client"
+    ],
+    "artifactZip": "bobbys-workshop/dist/Store-Submission/BobFWTools-Store-Submission-macOS.zip",
+    "artifactPkg": "bobbys-workshop/dist/Store-Submission/BobFWTools-MacAppStore-5.0.0.pkg"
+  },
+  "iOS": {
+    "bundleId": "com.bobbyblanco.bobfwtools.mobile",
+    "supportsTablet": true,
+    "easProfile": "production"
+  },
+  "localizedMetadata": {
+    "en-US": {
+      "name": "BobFWTools Studio",
+      "subtitle": "Hardware, USB Telemetry & Firmware Workbench",
+      "keywords": "usb,diagnostics,firmware,hardware,telemetry,android,mtp,adb,fastboot,serial",
+      "description": "BobFWTools Studio (Phoenix Forge v5.0.0) is a native hardware diagnostics, USB descriptor inspection, and firmware servicing workbench.\n\n• Native BootForge USB descriptor & interface inspection\n• Supports 150+ iOS/iPadOS hardware profiles and 20+ Android OEM families\n• USB Cable Doctor & link quality grading\n• Encrypted local servicing history ledger & technician audit notes\n• Universal 2 native performance on Apple Silicon and Intel Macs (macOS 12.0+)"
+    }
+  }
+}
