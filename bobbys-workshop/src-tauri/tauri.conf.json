@@ -1,0 +1,84 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "BobFWTools",
+  "version": "5.0.0",
+  "identifier": "com.bobbyblanco.bobfwtools",
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "BobFWTools Studio — Bobby's Workshop",
+        "width": 1400,
+        "height": 900,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "label": "main"
+      },
+      {
+        "label": "advanced-device-actions",
+        "title": "BobFWTools — Advanced Device Actions",
+        "url": "index.html?view=advanced-device-actions",
+        "width": 420,
+        "height": 500,
+        "minWidth": 380,
+        "minHeight": 440,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "closable": false,
+        "minimizable": false,
+        "maximizable": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: asset: https://asset.localhost; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "msi",
+      "nsis",
+      "deb",
+      "rpm",
+      "appimage",
+      "app",
+      "dmg"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "copyright": "© 2026 Bobby Blanco — Bobby's Workshop",
+    "category": "Utilities",
+    "shortDescription": "Cross-platform mobile hardware diagnostics, USB telemetry, and firmware utility for macOS, Windows, and Linux.",
+    "longDescription": "BobFWTools Studio (Bobby's Workshop) provides native USB descriptor enumeration, Apple iPhone/iPad (Normal/Recovery/DFU) & 20+ Android OEM hardware diagnostics, MTP file transfer, ADB/Fastboot/Heimdall servicing, and hardware control across macOS (12.0+), Windows (10/11), and Linux.",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "12.0",
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": "entitlements.mac.plist"
+    }
+  },
+  "plugins": {}
+}

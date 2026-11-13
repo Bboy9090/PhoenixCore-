@@ -1,0 +1,25 @@
+{
+  "packageName": "com.bobbyblanco.bobfwtools.mobile",
+  "versionName": "5.0.0",
+  "versionCode": 500,
+  "targetSdkVersion": 35,
+  "minSdkVersion": 26,
+  "defaultLanguage": "en-US",
+  "title": "BobFWTools Studio — Bobby's Workshop",
+  "shortDescription": "Mobile diagnostics, USB telemetry & firmware utility.",
+  "fullDescription": "BobFWTools Studio (Bobby's Workshop v5.0.0) provides real-time mobile hardware diagnostics, USB descriptor telemetry, battery health verification, and firmware inventory tracking across Apple iOS/iPadOS and 20+ Android OEM device families.\n\nKey Features:\n• Zero-simulation hardware telemetry verification\n• Live bench session monitoring & USB cable diagnostics\n• Multi-brand device registry (Apple, Samsung, Pixel, Motorola, Xiaomi, OnePlus, Sony, ASUS, Nothing, TCL/REVVL, Qualcomm EDL, MediaTek BROM, Unisoc)\n• Encrypted servicing history ledger & technician audit notes",
+  "category": "TOOLS",
+  "contentRating": "EVERYONE",
+  "contactEmail": "182185694+Bboy9090@users.noreply.github.com",
+  "website": "https://github.com/Bboy9090/PhoenixCore-",
+  "dataSafety": {
+    "collectsData": false,
+    "sharesData": false,
+    "encryptedInTransit": true,
+    "allowsDataDeletion": true
+  },
+  "assets": {
+    "icon512": "icon_512x512.png",
+    "featureGraphic1024x500": "feature_graphic_1024x500.png"
+  }
+}

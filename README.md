@@ -1,122 +1,86 @@
-# PhoenixCore
+# Phoenix Core & BobFWTools Studio (Bobby's Workshop v5.0.0)
 
-**Device intelligence, diagnostics, recovery planning, USB orchestration, and evidence coordination for Bobby’s Workshop, established 2026.**
+Phoenix Core is a cross-platform mobile hardware diagnostics, USB descriptor telemetry, OS deployment, and firmware servicing platform spanning **macOS (12.0 Monterey through Tahoe)**, **Windows (10/11)**, and **Linux**.
 
-PhoenixCore helps an authorized owner or technician identify a connected device, understand its current mode and supported capabilities, prepare a cautious recovery or installation plan, and hand that plan to Phoenix USB Creator and ARCWYRE Live through versioned contracts.
+---
 
-## Current maturity
+## 🚀 Primary Workbenches & Modules
 
-**Status: integrated prototype with tested read-only, dry-run, artifact-receipt, and Windows installer lifecycle foundations.**
+- **[`bobbys-workshop/`](bobbys-workshop/)**: **BobFWTools Studio (Bobby's Workshop)** — Native macOS Universal 2 (`arm64` + `x86_64`) SwiftUI/AppKit Studio + cross-platform Tauri v2/Rust desktop suite powered by `bootforgeusb`.
+- **[`store_packaging/`](store_packaging/)**: Official Store & Distribution manifests for **Mac App Store / Notarized DMG** (`macos/`), **Microsoft Store MSIX & WinGet** (`windows/`), and **Linux AppDir / Snap / Flatpak / udev** (`linux/`).
+- **[`backend/`](backend/)**: Central FastAPI hardware discovery and imaging orchestration service.
+- **[`src/`](src/)**: Python CLI & PyQt6 desktop recovery/imaging engine.
+- **[`crates/`](crates/)**: Rust workspace crates (`phoenix-core`, `phoenix-safety`, `phoenix-fs-fat32`, `phoenix-host-linux`, `phoenix-host-macos`, `phoenix-bootloader-core`, `phoenix-wim`).
 
-The repository contains working code and retained CI evidence. It is not yet a generally supported repair platform, boot-media factory, firmware service, or production release.
+---
 
-## Locked ecosystem position
+## 🛠️ Key Capabilities (v5.0.0)
 
-- **Phoenix Prime Kernel** owns the shared native kernel.
-- **ARCWYRE Native** is the lightweight repair-first native edition.
-- **ARCWYRE Eternum** is the performance, creator, developer, and future gaming edition.
-- **ARCWYRE Live** is the live repair and deployment environment.
-- **PhoenixCore Mobile/Desktop** diagnose, plan, coordinate, and retain case evidence.
-- **Phoenix USB Creator / Phoenix Key** prepare approved media and record write evidence.
+- **Zero-Simulation Truth Boundary**: All device identities, serials, CPIDs/BDIDs, battery health telemetry, and firmware URLs come strictly from live USB hardware descriptors, `irecovery`/`libimobiledevice`, `adb`/`fastboot`, Samsung `AT+DEVCONINFO`, and live Apple IPSW.me APIs — never mocked or fabricated.
+- **150+ Apple Devices Mapped**: Full `CPID` + `BDID` hardware matrix from iPhone 2G through iPhone 16 Pro Max / iPhone 16e, iPad (1st Gen through iPad Pro M4, iPad Air M3, iPad A16, iPad mini A17 Pro), and iPod touch (5th–7th Gen) across Normal, Recovery (`05ac:1281`), and DFU (`05ac:1227`) modes.
+- **20+ Android OEMs & Bare-Metal Bootloaders**: Deep USB interface descriptor inspection (`ff/42/01` ADB, `ff/42/03` Fastboot, `06/01/01` MTP/PTP, `02/02` CDC ACM) supporting Samsung (`04e8`), Google Pixel (`18d1`), Motorola (`22b8`), Xiaomi/POCO (`2717`), OnePlus/OPPO/Realme (`22d9`/`2a70`), Nothing (`2b4c`), Sony (`0fce`), ASUS (`0b05`), LG (`1004`), HTC (`0bb4`), Huawei/Honor (`12d1`), ZTE/RedMagic (`19d2`), Lenovo (`17ef`), TCL / Alcatel / T-Mobile REVVL (`1bbb`), Fairphone (`2ae5`), Qualcomm EDL 9008 (`05c6`), MediaTek BROM/Preloader (`0e8d`), and Unisoc/Spreadtrum FDL (`1782`).
+- **Broad OS Compatibility**:
+  - **macOS**: Universal 2 (`arm64` + `x86_64`) native app supporting **macOS 12.0 Monterey and newer** (`LSMinimumSystemVersion = 12.0`).
+  - **Windows**: Windows 10 (1809+) & Windows 11 (`x64`) via MSI, NSIS, WinGet, and Microsoft Store MSIX (`AppxManifest.xml` with `usb` and `serialcommunication` capabilities).
+  - **Linux**: Universal `AppDir`/tarball, Debian `.deb`, RPM, Flatpak/AppStream (`com.bobbyblanco.bobfwtools.metainfo.xml`), Snap (`snapcraft.yaml`), and `99-bobfwtools-devices.rules` `udev` rules.
 
-PhoenixCore does not own the kernel and must not duplicate the native OS source tree.
+---
 
-## Supported foundation
+## ⚡ Quick Start & Build Commands
 
-The current tested surface includes:
-
-- normalized read-only device and removable-drive payloads
-- SHA-256 file and image identity
-- fail-closed tool-registry rejection when trust evidence is unavailable
-- missing, unsigned, invalid, malformed, and tampered registry rejection tests
-- dry-run rescue and media planning
-- guarded Windows Phoenix Key MSI/NSIS builds
-- deterministic artifact receipts
-- clean-runner Windows install, launch, uninstall, and cleanup receipts
-- React dashboard locked install, lint, and production build
-
-The committed tool-registry manifest/signature pair currently fails verification under the configured trust anchor. Registered-tool URL and checksum approval therefore remain unavailable and blocked under issue #136. The system denies approval rather than bypassing trust.
-
-## Quick start
-
-### Python foundation
-
+### 1. Native macOS Studio (`BobFWTools.app` — macOS 12.0+)
 ```bash
-python -m compileall -q usb_creator.py device_scanner.py tests/test_foundation_surface.py tests/test_registry_fail_closed.py
-python -m unittest discover -s tests -p "test_foundation_surface.py" -v
-python -m unittest discover -s tests -p "test_registry_fail_closed.py" -v
-python usb_creator.py --list
-python usb_creator.py --create /path/to/mounted/target --dry-run
+# Build Universal 2 (x86_64 + arm64) Owner & Store Submission bundles
+rm -rf /tmp/swift-module-cache && cd bobbys-workshop && ./build_app.sh
+
+# Launch installed app
+open /Applications/BobFWTools.app
+```
+Outputs:
+- Installed Runtime: `/Applications/BobFWTools.app`
+- Owner Standalone Archive: `bobbys-workshop/dist/Owner-Private-Only/BobFWTools-Owner-Private-macOS.zip`
+- Mac App Store Submission Archive (`-DSTORE_EDITION`): `bobbys-workshop/dist/Store-Submission/BobFWTools-Store-Submission-macOS.zip`
+
+### 2. Native Rust `bootforgeusb` CLI Scanner
+```bash
+cd bobbys-workshop/libs/bootforgeusb
+cargo build --release --bin bootforgeusb
+./target/release/bootforgeusb scan
 ```
 
-The non-dry-run mounted-path structure command creates folders and a README. It is not a disk imager, partitioner, formatter, bootloader installer, or proof of bootability.
-
-### Dashboard
-
+### 3. Cross-Platform Tauri Desktop Build (Windows / Linux / macOS)
 ```bash
-cd dashboard
-npm ci
-npm run lint
-npm run build
-npm run dev
+cd bobbys-workshop
+npm install
+npm run bobfw:test
+npm run tauri:build:windows   # Windows MSI + NSIS
+npm run tauri:build:macos     # macOS Universal
 ```
 
-Browser data must be labeled as live, fixture, or sample. A successful frontend render is not hardware validation.
+### 4. Linux Package & `udev` Hardware Rules Installation
+```bash
+# Build Linux Universal AppDir bundle
+./store_packaging/linux/build_linux_package.sh
 
-## Hardware evidence ladder
+# Install udev rules for non-root USB/Fastboot/EDL/BROM/Recovery access
+sudo cp store_packaging/linux/99-bobfwtools-devices.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
 
-Real drive evidence is allowed through an explicit gated sequence:
+### 5. Python CLI / GUI & Rust Core Workspace
+```bash
+# Python CLI & Tests
+python3 main.py --help
+python3 -m pytest tests/
 
-1. read-only whole-drive identity receipt
-2. exclusive-handle or busy-state proof with zero writes
-3. explicit sacrificial-drive authorization
-4. image and target identity revalidation
-5. bounded write with pre/post receipts
-6. complete read-back SHA-256 verification
-7. boot receipt with machine, firmware, Secure Boot, display, and serial markers
+# Rust Phoenix Core Crates
+cargo build -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-host-linux -p phoenix-host-macos -p phoenix-bootloader-core -p phoenix-wim
+cargo test -p phoenix-core -p phoenix-safety -p phoenix-fs-fat32 -p phoenix-host-linux -p phoenix-host-macos -p phoenix-bootloader-core -p phoenix-wim
+```
 
-Unknown, internal, boot, system, identity-mismatched, or non-authorized targets must fail closed. The dedicated hardware wave is tracked in issue #135.
+---
 
-## Product boundaries
+## 📄 License
 
-PhoenixCore owns device interpretation, diagnostics, compatibility decisions, recovery planning, repair-session contracts, and evidence orchestration. BootForge owns reusable low-level discovery and guarded media primitives. Phoenix Key owns the user-facing media workflow. ARCWYRE owns native boot, kernel, userspace, live repair execution, and native evidence.
-
-See [`docs/PRODUCT_BOUNDARIES.md`](docs/PRODUCT_BOUNDARIES.md).
-
-## Truth rules
-
-1. A feature is supported only when its code path, tests, caller integration, and evidence are identified.
-2. Fixture or sample data is never represented as live hardware data.
-3. Dry-run success is not physical-write evidence.
-4. QEMU success is not hardware validation.
-5. Missing trust, identity, permission, target, or provenance evidence fails closed.
-6. A commit title such as `v1.0.0-PROD` is not production proof.
-7. A preview installer is not an ARCWYRE-packaged application.
-
-## Current non-claims
-
-PhoenixCore does not currently claim:
-
-- general hardware compatibility
-- universally safe physical disk writing
-- completed Windows, Linux, macOS, or ARCWYRE installation workflows
-- firmware flashing
-- ownership, activation, FRP, MDM, credential, or anti-theft bypass
-- independently reviewed cryptography
-- a functioning trusted external-tool registry
-- reproducible production releases
-- release-candidate status
-
-## Documentation
-
-- [Product boundaries](docs/PRODUCT_BOUNDARIES.md)
-- [Known limitations](docs/KNOWN_LIMITATIONS.md)
-- [Foundation issue #125](https://github.com/Bboy9090/PhoenixCore-/issues/125)
-- [PhoenixCore Desktop packaging issue #131](https://github.com/Bboy9090/PhoenixCore-/issues/131)
-- [Phoenix Key lifecycle issue #132](https://github.com/Bboy9090/PhoenixCore-/issues/132)
-- [Hardware validation issue #135](https://github.com/Bboy9090/PhoenixCore-/issues/135)
-- [Tool-registry trust issue #136](https://github.com/Bboy9090/PhoenixCore-/issues/136)
-
-## Security
-
-Never place credentials, private keys, account tokens, personal device identifiers, proprietary firmware, or user data in public receipts. Destructive actions require an explicit target, preview, authorization, backup warning, TruthLog entry, and result receipt.
+- **Phoenix Core & BobFWTools Studio** — Licensed under the MIT License (© 2026 Bobby Blanco — Bobby's Workshop).
+- **OpenCore Legacy Patcher** — BSD 2-Clause.

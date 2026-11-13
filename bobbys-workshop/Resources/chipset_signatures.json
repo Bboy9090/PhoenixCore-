@@ -1,0 +1,612 @@
+[
+  {
+    "chipsetId": "QUALCOMM_SM8650",
+    "marketingName": "Snapdragon 8 Gen 3 (SM8650)",
+    "architecture": "ARM64-V9.2A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 85.0,
+    "hvidSignaturePattern": "SM8650"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM8550",
+    "marketingName": "Snapdragon 8 Gen 2 (SM8550)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 83.0,
+    "hvidSignaturePattern": "SM8550"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM8475",
+    "marketingName": "Snapdragon 8+ Gen 1 (SM8475)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 83.0,
+    "hvidSignaturePattern": "SM8475"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM8450",
+    "marketingName": "Snapdragon 8 Gen 1 (SM8450)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 85.0,
+    "hvidSignaturePattern": "SM8450"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM8350",
+    "marketingName": "Snapdragon 888 5G (SM8350)",
+    "architecture": "ARM64-V8.4A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "SM8350"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM8250",
+    "marketingName": "Snapdragon 865 5G (SM8250)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 78.0,
+    "hvidSignaturePattern": "SM8250"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM8150",
+    "marketingName": "Snapdragon 855 (SM8150)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 76.0,
+    "hvidSignaturePattern": "SM8150"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM7475",
+    "marketingName": "Snapdragon 7+ Gen 2 (SM7475)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "SM7475"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM7325",
+    "marketingName": "Snapdragon 778G 5G (SM7325)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 78.0,
+    "hvidSignaturePattern": "SM7325"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM6375",
+    "marketingName": "Snapdragon 695 5G (SM6375)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 75.0,
+    "hvidSignaturePattern": "SM6375"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM6225",
+    "marketingName": "Snapdragon 680 4G (SM6225)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 75.0,
+    "hvidSignaturePattern": "SM6225"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM6125",
+    "marketingName": "Snapdragon 665 (SM6125)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 75.0,
+    "hvidSignaturePattern": "SM6125"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM6115",
+    "marketingName": "Snapdragon 662 (SM6115)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 75.0,
+    "hvidSignaturePattern": "SM6115"
+  },
+  {
+    "chipsetId": "QUALCOMM_SM4375",
+    "marketingName": "Snapdragon 4 Gen 1 (SM4375)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 74.0,
+    "hvidSignaturePattern": "SM4375"
+  },
+  {
+    "chipsetId": "QUALCOMM_SDM845",
+    "marketingName": "Snapdragon 845 (SDM845)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 75.0,
+    "hvidSignaturePattern": "SDM845"
+  },
+  {
+    "chipsetId": "QUALCOMM_SDM660",
+    "marketingName": "Snapdragon 660 (SDM660)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x05C6",
+    "productId": "0x9008",
+    "bitness": 64,
+    "thermalLimitCelsius": 72.0,
+    "hvidSignaturePattern": "SDM660"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6989",
+    "marketingName": "MediaTek Dimensity 9300 (MT6989)",
+    "architecture": "ARM64-V9.2A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 85.0,
+    "hvidSignaturePattern": "MT6989"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6985",
+    "marketingName": "MediaTek Dimensity 9200 (MT6985)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 83.0,
+    "hvidSignaturePattern": "MT6985"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6983",
+    "marketingName": "MediaTek Dimensity 9000 (MT6983)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "MT6983"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6897",
+    "marketingName": "MediaTek Dimensity 8300 (MT6897)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "MT6897"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6896",
+    "marketingName": "MediaTek Dimensity 8200 (MT6896)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "MT6896"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6895",
+    "marketingName": "MediaTek Dimensity 8100 (MT6895)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "MT6895"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6886",
+    "marketingName": "MediaTek Dimensity 7200 (MT6886)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "MT6886"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6877",
+    "marketingName": "MediaTek Dimensity 7050 / 900 (MT6877)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 78.0,
+    "hvidSignaturePattern": "MT6877"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6833",
+    "marketingName": "MediaTek Dimensity 6080 / 700 (MT6833)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 78.0,
+    "hvidSignaturePattern": "MT6833"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6789",
+    "marketingName": "MediaTek Helio G99 (MT6789)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 78.0,
+    "hvidSignaturePattern": "MT6789"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6781",
+    "marketingName": "MediaTek Helio G96 (MT6781)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 78.0,
+    "hvidSignaturePattern": "MT6781"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6769",
+    "marketingName": "MediaTek Helio G88 / G80 (MT6769)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 78.0,
+    "hvidSignaturePattern": "MT6769"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6768",
+    "marketingName": "MediaTek Helio G85 / P65 (MT6768)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 78.0,
+    "hvidSignaturePattern": "MT6768"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6765",
+    "marketingName": "MediaTek Helio G35 / P35 (MT6765)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "MT6765"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT6762",
+    "marketingName": "MediaTek Helio P22 (MT6762)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 76.0,
+    "hvidSignaturePattern": "MT6762"
+  },
+  {
+    "chipsetId": "MEDIATEK_MT8183",
+    "marketingName": "MediaTek Kompanio 500 (MT8183)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x0E8D",
+    "productId": "0x0003",
+    "bitness": 64,
+    "thermalLimitCelsius": 75.0,
+    "hvidSignaturePattern": "MT8183"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS2400",
+    "marketingName": "Exynos 2400 10-Core (S5E9945)",
+    "architecture": "ARM64-V9.2A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 85.0,
+    "hvidSignaturePattern": "S5E9945"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS2200",
+    "marketingName": "Exynos 2200 Xclipse 920 (S5E9925)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 84.0,
+    "hvidSignaturePattern": "S5E9925"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS2100",
+    "marketingName": "Exynos 2100 5G (S5E9840)",
+    "architecture": "ARM64-V8.2A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "S5E9840"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS1480",
+    "marketingName": "Exynos 1480 Xclipse 530 (S5E8845)",
+    "architecture": "ARM64-V8.2A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "S5E8845"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS1380",
+    "marketingName": "Exynos 1380 5G (S5E8835)",
+    "architecture": "ARM64-V8.2A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "S5E8835"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS1280",
+    "marketingName": "Exynos 1280 5G (S5E8825)",
+    "architecture": "ARM64-V8.2A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 79.0,
+    "hvidSignaturePattern": "S5E8825"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS990",
+    "marketingName": "Exynos 990 5G (S5E9830)",
+    "architecture": "ARM64-V8.2A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "S5E9830"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS9820",
+    "marketingName": "Exynos 9820 (S5E9820)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "S5E9820"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS9611",
+    "marketingName": "Exynos 9611 (S5E9611)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 76.0,
+    "hvidSignaturePattern": "S5E9611"
+  },
+  {
+    "chipsetId": "SAMSUNG_EXYNOS850",
+    "marketingName": "Exynos 850 (S5E3830)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x04E8",
+    "productId": "0x6860",
+    "bitness": 64,
+    "thermalLimitCelsius": 74.0,
+    "hvidSignaturePattern": "S5E3830"
+  },
+  {
+    "chipsetId": "APPLE_T8130",
+    "marketingName": "Apple A17 Pro (T8130)",
+    "architecture": "ARM64E",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 75.0,
+    "hvidSignaturePattern": "CPID:8130"
+  },
+  {
+    "chipsetId": "APPLE_T8120",
+    "marketingName": "Apple A16 Bionic (T8120)",
+    "architecture": "ARM64E",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 74.0,
+    "hvidSignaturePattern": "CPID:8120"
+  },
+  {
+    "chipsetId": "APPLE_T8110",
+    "marketingName": "Apple A15 Bionic (T8110)",
+    "architecture": "ARM64E",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 72.5,
+    "hvidSignaturePattern": "CPID:8110"
+  },
+  {
+    "chipsetId": "APPLE_T8101",
+    "marketingName": "Apple A14 Bionic (T8101)",
+    "architecture": "ARM64E",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 72.0,
+    "hvidSignaturePattern": "CPID:8101"
+  },
+  {
+    "chipsetId": "APPLE_T8030",
+    "marketingName": "Apple A13 Bionic (T8030)",
+    "architecture": "ARM64E",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 72.0,
+    "hvidSignaturePattern": "CPID:8030"
+  },
+  {
+    "chipsetId": "APPLE_T8020",
+    "marketingName": "Apple A12 Bionic (T8020)",
+    "architecture": "ARM64E",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 70.0,
+    "hvidSignaturePattern": "CPID:8020"
+  },
+  {
+    "chipsetId": "APPLE_T8015",
+    "marketingName": "Apple A11 Bionic (T8015)",
+    "architecture": "ARM64",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 70.0,
+    "hvidSignaturePattern": "CPID:8015"
+  },
+  {
+    "chipsetId": "APPLE_T8010",
+    "marketingName": "Apple A10 Fusion (T8010)",
+    "architecture": "ARM64",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 68.0,
+    "hvidSignaturePattern": "CPID:8010"
+  },
+  {
+    "chipsetId": "APPLE_T8103",
+    "marketingName": "Apple M1 (T8103)",
+    "architecture": "ARM64E",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 85.0,
+    "hvidSignaturePattern": "CPID:8103"
+  },
+  {
+    "chipsetId": "APPLE_T8112",
+    "marketingName": "Apple M2 (T8112)",
+    "architecture": "ARM64E",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 85.0,
+    "hvidSignaturePattern": "CPID:8112"
+  },
+  {
+    "chipsetId": "APPLE_T8122",
+    "marketingName": "Apple M3 (T8122)",
+    "architecture": "ARM64E",
+    "vendorId": "0x05AC",
+    "productId": "0x1227",
+    "bitness": 64,
+    "thermalLimitCelsius": 85.0,
+    "hvidSignaturePattern": "CPID:8122"
+  },
+  {
+    "chipsetId": "GOOGLE_TENSOR_G4",
+    "marketingName": "Google Tensor G4 (Zuma Pro)",
+    "architecture": "ARM64-V9.2A",
+    "vendorId": "0x18D1",
+    "productId": "0x4EE7",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "ZUMA PRO"
+  },
+  {
+    "chipsetId": "GOOGLE_TENSOR_G3",
+    "marketingName": "Google Tensor G3 (Zuma)",
+    "architecture": "ARM64-V9A",
+    "vendorId": "0x18D1",
+    "productId": "0x4EE7",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "ZUMA"
+  },
+  {
+    "chipsetId": "GOOGLE_TENSOR_G2",
+    "marketingName": "Google Tensor G2 (GS201)",
+    "architecture": "ARM64-V8.2A",
+    "vendorId": "0x18D1",
+    "productId": "0x4EE7",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "GS201"
+  },
+  {
+    "chipsetId": "GOOGLE_TENSOR_G1",
+    "marketingName": "Google Tensor (GS101 Whitechapel)",
+    "architecture": "ARM64-V8.2A",
+    "vendorId": "0x18D1",
+    "productId": "0x4EE7",
+    "bitness": 64,
+    "thermalLimitCelsius": 80.0,
+    "hvidSignaturePattern": "GS101"
+  },
+  {
+    "chipsetId": "UNISOC_UMS9620",
+    "marketingName": "Unisoc Tanggula T820 5G (UMS9620)",
+    "architecture": "ARM64-V8.2A",
+    "vendorId": "0x1782",
+    "productId": "0x4D00",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "UMS9620"
+  },
+  {
+    "chipsetId": "UNISOC_UMS512T",
+    "marketingName": "Unisoc Tiger T618 (UMS512T)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x1782",
+    "productId": "0x4D00",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "UMS512T"
+  },
+  {
+    "chipsetId": "UNISOC_UMS512",
+    "marketingName": "Unisoc Tiger T610 / T612 / T616 (UMS512)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x1782",
+    "productId": "0x4D00",
+    "bitness": 64,
+    "thermalLimitCelsius": 82.0,
+    "hvidSignaturePattern": "UMS512"
+  },
+  {
+    "chipsetId": "UNISOC_SC9863A",
+    "marketingName": "Unisoc SC9863A (Cortex-A55)",
+    "architecture": "ARM64-V8A",
+    "vendorId": "0x1782",
+    "productId": "0x4D00",
+    "bitness": 64,
+    "thermalLimitCelsius": 78.0,
+    "hvidSignaturePattern": "SC9863A"
+  }
+]

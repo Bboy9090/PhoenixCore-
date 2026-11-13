@@ -1,0 +1,10 @@
+{
+  "schema": "com.bobbyblanco.bobfwtools.safe-remote-config.v1",
+  "diagnosticsEnabled": true,
+  "telemetrySampleRate": 0.05,
+  "cloudPublicationEnabled": false,
+  "catalogRefreshEnabled": true,
+  "releaseChannel": "stable",
+  "observationConcurrencyLimit": 2,
+  "adbObservationTtlMs": 600
+}

@@ -1,0 +1,27 @@
+{
+  "schema": "com.bobbyblanco.bobfwtools.device-support-catalog.v1",
+  "catalogVersion": 1,
+  "generatedFrom": "reviewed-in-repository-policy",
+  "entries": [
+    {
+      "vendor": "samsung",
+      "models": ["SM-T500"],
+      "supportLevel": "planning-and-read-only-evidence",
+      "observationTransports": ["adb", "usb-descriptor", "samsung-download-probe"],
+      "allowedOperations": ["adb-identity-receipt", "firmware-compatibility-plan", "service-bundle-qualification", "read-only-download-probe"],
+      "physicalQualificationRequiredForWrites": true,
+      "executionAuthorized": false,
+      "prohibitedOperations": ["identity-spoof", "frp-bypass", "bootloader-rollback", "unsigned-loader", "security-state-bypass"]
+    },
+    {
+      "vendor": "samsung",
+      "models": ["SM-A176U"],
+      "supportLevel": "planning-and-read-only-evidence",
+      "observationTransports": ["adb", "usb-descriptor", "samsung-download-probe"],
+      "allowedOperations": ["adb-identity-receipt", "firmware-compatibility-plan", "read-only-download-probe"],
+      "physicalQualificationRequiredForWrites": true,
+      "executionAuthorized": false,
+      "prohibitedOperations": ["identity-spoof", "frp-bypass", "bootloader-rollback", "unsigned-loader", "security-state-bypass"]
+    }
+  ]
+}

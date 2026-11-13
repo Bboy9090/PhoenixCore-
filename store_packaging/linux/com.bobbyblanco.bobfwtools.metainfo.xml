@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.bobbyblanco.bobfwtools</id>
+  <name>BobFWTools Studio</name>
+  <summary>Bobby's Workshop Mobile Hardware, USB Telemetry, and Firmware Workbench</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="com.bobbyblanco">
+    <name>Bobby Blanco</name>
+  </developer>
+  <description>
+    <p>
+      BobFWTools Studio (Bobby's Workshop) is a local-first mobile hardware diagnostics, USB descriptor enumeration, and firmware servicing workbench for Linux, macOS (12.0+), and Windows (10/11).
+    </p>
+    <p>
+      Supported device families include Apple iPhone, iPad, and iPod touch (Normal, Recovery 05ac:1281, and DFU 05ac:1227 modes) alongside 20+ Android OEMs and bare-metal silicon boot modes (Samsung Odin, Google Pixel, Motorola, Xiaomi, OnePlus/OPPO/Realme, Sony, ASUS, Nothing, LG, HTC, Huawei/Honor, ZTE/RedMagic, Lenovo, TCL/Alcatel/T-Mobile REVVL, Fairphone, Qualcomm EDL 9008, MediaTek BROM/Preloader, and Unisoc FDL).
+    </p>
+  </description>
+  <launchable type="desktop-id">com.bobbyblanco.bobfwtools.desktop</launchable>
+  <url type="homepage">https://github.com/Bboy9090/PhoenixCore-</url>
+  <url type="bugtracker">https://github.com/Bboy9090/PhoenixCore-/issues</url>
+  <provides>
+    <binary>bobfwtools</binary>
+  </provides>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="5.0.0" date="2026-11-12">
+      <description>
+        <p>Bobby's Workshop 5.0.0: Studio Studio UI redesign, macOS 12.0+ Universal 2 binary support, Windows 10/11 MSIX &amp; Win32 store readiness, and Linux udev + AppDir/Snap/Flatpak support across 150+ Apple models and 20+ Android OEMs.</p>
+      </description>
+    </release>
+  </releases>
+</component>

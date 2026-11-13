@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bfw_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#090D16"/>
+      <stop offset="100%" stop-color="#181824"/>
+    </linearGradient>
+    <linearGradient id="bfw_acc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#EF4444"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#bfw_bg)" stroke="url(#bfw_acc)" stroke-width="8"/>
+  <!-- QFP / SPI Flash Hardware Pins -->
+  <g fill="#38BDF8">
+    <rect x="164" y="76" width="20" height="48" rx="6"/><rect x="218" y="76" width="20" height="48" rx="6"/>
+    <rect x="274" y="76" width="20" height="48" rx="6"/><rect x="328" y="76" width="20" height="48" rx="6"/>
+    <rect x="164" y="388" width="20" height="48" rx="6"/><rect x="218" y="388" width="20" height="48" rx="6"/>
+    <rect x="274" y="388" width="20" height="48" rx="6"/><rect x="328" y="388" width="20" height="48" rx="6"/>
+    <rect x="76" y="164" width="48" height="20" rx="6"/><rect x="76" y="218" width="48" height="20" rx="6"/>
+    <rect x="76" y="274" width="48" height="20" rx="6"/><rect x="76" y="328" width="48" height="20" rx="6"/>
+    <rect x="388" y="164" width="48" height="20" rx="6"/><rect x="388" y="218" width="48" height="20" rx="6"/>
+    <rect x="388" y="274" width="48" height="20" rx="6"/><rect x="388" y="328" width="48" height="20" rx="6"/>
+  </g>
+  <!-- IC Package Body -->
+  <rect x="124" y="124" width="264" height="264" rx="28" fill="#131722" stroke="url(#bfw_acc)" stroke-width="14"/>
+  <circle cx="164" cy="164" r="12" fill="#38BDF8"/>
+  <!-- Firmware Flash Bolt -->
+  <path d="M276 164 L208 264 H262 L236 348 L312 244 H256 Z" fill="#FDE047" stroke="#F59E0B" stroke-width="6" stroke-linejoin="round"/>
+</svg>
