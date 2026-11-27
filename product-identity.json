@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "repository": "Bboy9090/PhoenixCore-",
+  "status": "recorded",
+  "public_name": "Phoenix Key",
+  "checks": [
+    {
+      "path": "desktop_suite/app_meta.json",
+      "format": "json",
+      "key": [
+        "title"
+      ],
+      "expected": "Phoenix Key",
+      "role": "public_name"
+    },
+    {
+      "path": "desktop_suite/app_meta.json",
+      "format": "json",
+      "key": [
+        "slug"
+      ],
+      "expected": "phoenix-key",
+      "role": "internal_identifier"
+    },
+    {
+      "path": "desktop_suite/app_meta.json",
+      "format": "json",
+      "key": [
+        "exe_name"
+      ],
+      "expected": "PhoenixKey",
+      "role": "internal_identifier"
+    }
+  ],
+  "evidence": "Recorded portfolio identity and 5cda419a28a0e5f10efbc858aae7fb9a5abfdd0a desktop_suite/app_meta.json",
+  "release_verification": "not_performed"
+}
