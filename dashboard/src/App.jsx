@@ -100,6 +100,7 @@ export default function App() {
   const [drives, setDrives] = useState([]);
   const [selectedDrive, setSelectedDrive] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [scanState, setScanState] = useState('unverified');
   const [selectedOclp, setSelectedOclp] = useState(OCLP_VERSIONS[0]);
   const [targetMacModel, setTargetMacModel] = useState(MACBOOK_MODELS[0]);
   const [imagePath, setImagePath] = useState('');
@@ -197,6 +198,7 @@ export default function App() {
   // Refresh drive list through the safe Vite dev bridge.
   const refreshDrives = async () => {
     setIsRefreshing(true);
+    setScanState('pending');
     setSelectedDrive('');
     addLog('info', 'Scanning removable drives through read-only Python bridge...');
 
@@ -225,6 +227,7 @@ export default function App() {
       const nextDrives = payload.drives;
       setDrives(nextDrives);
       setStatus('success');
+      setScanState('success');
 
       if (nextDrives.length === 0) {
         addLog('warning', `Scan complete on ${payload.platform}. No removable USB drives detected.`);
@@ -234,6 +237,7 @@ export default function App() {
     } catch (error) {
       setDrives([]);
       setStatus('error');
+      setScanState('error');
       addLog('error', `USB scan bridge error: ${error.message}`);
     } finally {
       setIsRefreshing(false);
@@ -1011,8 +1015,8 @@ ${warningsStr}
                       <HardDrive size={22} />
                     </div>
                     <div className="drive-details">
-                      <h3>{status === 'error' ? 'Scan failed — inventory unavailable' : isRefreshing ? 'Scanning…' : status === 'success' ? 'No removable USB drives detected' : 'No verified scan yet'}</h3>
-                      <p>{status === 'error' ? 'Check the service and retry; device absence is not established.' : 'Plug in a USB drive and click Scan USBs.'}</p>
+                      <h3>{scanState === 'error' ? 'Scan failed — inventory unavailable' : scanState === 'pending' ? 'Scanning…' : scanState === 'success' ? 'No removable USB drives detected' : 'No verified scan yet'}</h3>
+                      <p>{scanState === 'error' ? 'Check the service and retry; device absence is not established.' : 'Plug in a USB drive and click Scan USBs.'}</p>
                     </div>
                   </div>
                 </div>
