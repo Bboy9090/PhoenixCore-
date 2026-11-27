@@ -86,7 +86,7 @@ const getUsedPercent = (drive) => {
   const total = toNumericSize(drive.total_size_gb);
   const free = toNumericSize(drive.free_size_gb);
 
-  if (!total || free > total) return 0;
+  if (drive.free_size_gb == null || !total || free > total) return null;
   return Math.max(0, Math.min(100, ((total - free) / total) * 100));
 };
 
@@ -100,6 +100,7 @@ export default function App() {
   const [drives, setDrives] = useState([]);
   const [selectedDrive, setSelectedDrive] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [scanState, setScanState] = useState('unverified');
   const [selectedOclp, setSelectedOclp] = useState(OCLP_VERSIONS[0]);
   const [targetMacModel, setTargetMacModel] = useState(MACBOOK_MODELS[0]);
   const [imagePath, setImagePath] = useState('');
@@ -175,7 +176,7 @@ export default function App() {
   const [status, setStatus] = useState('idle'); // idle, working, success, error
   const [progress, setProgress] = useState(0);
   const [terminalLogs, setTerminalLogs] = useState([
-    { type: 'info', text: 'Boot It Back initialized · PhoenixCore/BootForge engines ready.' },
+    { type: 'info', text: 'Phoenix Key workspace initialized · scan service not yet verified.' },
     { type: 'warning', text: 'Foundation Lock active: real USB scanning and image inspection only. Write, format, partition, and burn actions are disabled.' },
     { type: 'info', text: 'Click Scan USBs or inspect an ISO/IMG path through the read-only Python bridge.' }
   ]);
@@ -197,6 +198,7 @@ export default function App() {
   // Refresh drive list through the safe Vite dev bridge.
   const refreshDrives = async () => {
     setIsRefreshing(true);
+    setScanState('pending');
     setSelectedDrive('');
     addLog('info', 'Scanning removable drives through read-only Python bridge...');
 
@@ -206,6 +208,9 @@ export default function App() {
         headers: { Accept: 'application/json' }
       });
 
+      if (!response.headers.get('content-type')?.includes('application/json')) {
+        throw new Error('Scan service returned a non-JSON response.');
+      }
       const payload = await response.json();
 
       if (!response.ok) {
@@ -216,9 +221,13 @@ export default function App() {
         throw new Error('USB scan bridge failed safety validation. Refusing to trust payload.');
       }
 
-      const nextDrives = Array.isArray(payload.drives) ? payload.drives : [];
+      if (!Array.isArray(payload.drives) || payload.error || payload.scan_warnings?.length) {
+        throw new Error(payload.error || 'Drive scan incomplete or invalid; no reliable inventory available.');
+      }
+      const nextDrives = payload.drives;
       setDrives(nextDrives);
       setStatus('success');
+      setScanState('success');
 
       if (nextDrives.length === 0) {
         addLog('warning', `Scan complete on ${payload.platform}. No removable USB drives detected.`);
@@ -228,6 +237,7 @@ export default function App() {
     } catch (error) {
       setDrives([]);
       setStatus('error');
+      setScanState('error');
       addLog('error', `USB scan bridge error: ${error.message}`);
     } finally {
       setIsRefreshing(false);
@@ -1005,8 +1015,8 @@ ${warningsStr}
                       <HardDrive size={22} />
                     </div>
                     <div className="drive-details">
-                      <h3>No removable USB drives detected</h3>
-                      <p>Plug in a USB drive and click Scan USBs.</p>
+                      <h3>{scanState === 'error' ? 'Scan failed — inventory unavailable' : scanState === 'pending' ? 'Scanning…' : scanState === 'success' ? 'No removable USB drives detected' : 'No verified scan yet'}</h3>
+                      <p>{scanState === 'error' ? 'Check the service and retry; device absence is not established.' : 'Plug in a USB drive and click Scan USBs.'}</p>
                     </div>
                   </div>
                 </div>
@@ -1037,12 +1047,11 @@ ${warningsStr}
                       <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
                         {formatSize(item.free_size_gb)} free of {formatSize(item.total_size_gb)}
                       </span>
-                      <div className="drive-capacity-bar">
-                        <div 
-                          className="drive-capacity-fill" 
-                          style={{ width: `${usedPercent}%` }}
-                        ></div>
-                      </div>
+                      {usedPercent === null ? <small>Usage not measured</small> : (
+                        <div className="drive-capacity-bar">
+                          <div className="drive-capacity-fill" style={{ width: `${usedPercent}%` }}></div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

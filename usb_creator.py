@@ -332,7 +332,7 @@ def get_removable_drives(quiet=False):
                 or dev.get("display_name")
                 or "Removable Disk",
                 "total_size_gb": dev.get("size_gb", 0.0),
-                "free_size_gb": dev.get("size_gb", 0.0),
+                "free_size_gb": None,
                 "type": drive_type,
             }
         )
@@ -360,7 +360,7 @@ def build_drive_scan_payload():
                 or dev.get("display_name")
                 or "Removable Disk",
                 "total_size_gb": dev.get("size_gb", 0.0),
-                "free_size_gb": dev.get("size_gb", 0.0),
+                "free_size_gb": None,
                 "type": drive_type,
             }
         )

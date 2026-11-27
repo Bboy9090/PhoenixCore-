@@ -83,6 +83,9 @@ def build() -> Path:
         f"--workpath={WORK_DIR}",
         f"--specpath={SPEC_DIR}",
         f"--paths={SUITE_DIR}",
+        f"--paths={REPO_DIR}",
+        "--hidden-import=usb_creator",
+        "--hidden-import=device_scanner",
         f"--add-data={SUITE_DIR / 'app_meta.json'};.",
         f"--add-data={ui_dir};ui",
         f"--add-data={win_assets};assets",
@@ -136,10 +139,10 @@ def build() -> Path:
     # 2. REAL GUI WINDOW VERIFICATION (locally when not running in headless CI)
     import os
     if os.environ.get("CI", "").lower() == "true":
-        gui = {"opened": True, "title": "CI-headless-skipped", "hwnd": -1}
+        gui = {"opened": None, "status": "NOT_RUN", "reason": "headless CI", "hwnd": None}
         data["gui_window_verified"] = gui
         test_out.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        print(f"[VERIFIED CI] {exe_file.name} ({exe_file.stat().st_size // (1024*1024)} MB) | self-test PASSED")
+        print(f"[HEADLESS SELF-TEST ONLY; GUI NOT RUN] {exe_file.name} ({exe_file.stat().st_size // (1024*1024)} MB) | self-test PASSED")
     else:
         gui = verify_real_gui_window(exe_file, meta.get("title", ""))
         data["gui_window_verified"] = gui

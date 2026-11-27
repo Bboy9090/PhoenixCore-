@@ -28,7 +28,7 @@ def _resolve_spa_dir(bundle_root: Path) -> Path:
                 return p
     return bundle_root / "ui"
 
-def start_server(port: int, bundle_root: Path, meta: dict):
+def create_app(bundle_root: Path, meta: dict):
     app = Flask(__name__)
     spa_dir = _resolve_spa_dir(bundle_root)
     assets_dir = bundle_root / "assets"
@@ -45,6 +45,23 @@ def start_server(port: int, bundle_root: Path, meta: dict):
     def api_usb():
         return jsonify(platform_exclusive.scan_usb_hardware())
 
+    @app.route("/api/usb/scan")
+    def api_usb_scan():
+        try:
+            from usb_creator import build_drive_scan_payload
+            payload = build_drive_scan_payload()
+            if (payload.get("schema") != "bootforge.drive_scan.v2"
+                    or payload.get("operation") != "read_only_drive_scan"
+                    or payload.get("destructive") is not False
+                    or not isinstance(payload.get("drives"), list)):
+                return jsonify({"error": "Invalid read-only scanner response"}), 502
+            if payload.get("scan_warnings"):
+                return jsonify({**payload, "error": "USB scan incomplete; inspect scan warnings"}), 503
+            return jsonify(payload)
+        except Exception:
+            app.logger.exception("Read-only drive scan failed")
+            return jsonify({"error": "Read-only drive scan failed; inspect local service log"}), 503
+
     @app.route("/api/disks")
     def api_disks():
         return jsonify(platform_exclusive.scan_physical_disks())
@@ -60,10 +77,18 @@ def start_server(port: int, bundle_root: Path, meta: dict):
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
     def serve_spa(path):
+        if path == "api" or path.startswith("api/"):
+            return jsonify({"error": "API endpoint unavailable in this desktop build"}), 404
         if path:
             target = spa_dir / path
             if target.exists() and target.is_file():
                 return send_from_directory(spa_dir, path)
+            if path.startswith("assets/") or Path(path).suffix:
+                return jsonify({"error": "Requested asset not found"}), 404
         return send_from_directory(spa_dir, "index.html")
 
-    app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
+    return app
+
+
+def start_server(port: int, bundle_root: Path, meta: dict):
+    create_app(bundle_root, meta).run(host="127.0.0.1", port=port, debug=False, use_reloader=False)

@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 APP_NAME="$(python3 -c "import json; print(json.load(open('$SCRIPT_DIR/app_meta.json'))['exe_name'])")"
 OS_NAME="$(uname -s)"
+test -s "$REPO_DIR/dashboard/dist/index.html" || { echo "Missing built Phoenix dashboard" >&2; exit 1; }
 
 python3 -m pip install --quiet --upgrade pyinstaller pywebview flask psutil pillow
 
@@ -25,6 +26,10 @@ if [[ "$OS_NAME" == "Darwin" ]]; then
     --distpath "$REPO_DIR/dist_macos" \
     --workpath "$SCRIPT_DIR/.build_macos" \
     --paths "$SCRIPT_DIR" \
+    --paths "$REPO_DIR" \
+    --hidden-import=usb_creator \
+    --hidden-import=device_scanner \
+    --add-data "$REPO_DIR/dashboard/dist:real_app" \
     --add-data "$SCRIPT_DIR/app_meta.json:." \
     --add-data "$SCRIPT_DIR/ui:ui" \
     --add-data "$REPO_DIR/assets/windows:assets" \
@@ -47,6 +52,10 @@ else
     --distpath "$REPO_DIR/dist_linux" \
     --workpath "$SCRIPT_DIR/.build_linux" \
     --paths "$SCRIPT_DIR" \
+    --paths "$REPO_DIR" \
+    --hidden-import=usb_creator \
+    --hidden-import=device_scanner \
+    --add-data "$REPO_DIR/dashboard/dist:real_app" \
     --add-data "$SCRIPT_DIR/app_meta.json:." \
     --add-data "$SCRIPT_DIR/ui:ui" \
     --add-data "$REPO_DIR/assets/windows:assets" \
