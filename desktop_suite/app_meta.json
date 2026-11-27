@@ -1,0 +1,24 @@
+{
+  "title": "Phoenix Key",
+  "slug": "phoenix-key",
+  "exe_name": "PhoenixKey",
+  "version": "1.1.0",
+  "width": 1380,
+  "height": 860,
+  "theme": {
+    "bg": "#0B0F14",
+    "surface": "#151921",
+    "surface2": "#202630",
+    "primary": "#0863FE",
+    "accent": "#FD9E0C",
+    "secondary": "#60A5FA",
+    "text": "#F4F7FC",
+    "muted": "#9CAEC8"
+  },
+  "extra_datas": [
+    {
+      "src": "dashboard/dist",
+      "dst": "real_app"
+    }
+  ]
+}
